@@ -9,6 +9,7 @@ qorumaq üçün açıq kilid (məs. per-chat `asyncio.Lock`) əlavə edilməlidi
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 DEFAULT_QUESTION_TIMEOUT_SECONDS = 45
@@ -164,6 +165,36 @@ async def advance_question(
         )
 
     return updated_session
+
+
+async def check_timeout(
+    chat_id: int,
+    expected_index: int,
+    *,
+    session_store,
+    question_store,
+    attempt_store,
+    message_store,
+    connection_manager,
+    timeout_seconds: float = DEFAULT_QUESTION_TIMEOUT_SECONDS,
+) -> dict | None:
+    """Sual göndəriləndə fon tapşırığı kimi planlaşdırılır. `timeout_seconds`
+    sonra sessiyanın HƏLƏ DƏ `expected_index`-də olduğunu yoxlayır — erkən
+    keçid artıq baş vermişsə (bax `record_answer`) sakitcə heç nə etmir."""
+    await asyncio.sleep(timeout_seconds)
+
+    session = session_store.get(chat_id)
+    if session is None or session["status"] != "active" or session["current_index"] != expected_index:
+        return None
+
+    return await advance_question(
+        chat_id,
+        session_store=session_store,
+        question_store=question_store,
+        attempt_store=attempt_store,
+        message_store=message_store,
+        connection_manager=connection_manager,
+    )
 
 
 async def _post_finish_summary(
