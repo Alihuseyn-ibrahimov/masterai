@@ -4,11 +4,11 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: aktiv inkişafda.** Altı alt-sistem TDD ilə tamamlanıb (249 test,
+**Status: aktiv inkişafda.** Yeddi alt-sistem tamamlanıb (263 test,
 `masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
-63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45). Brainstorming
-skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
-(`docs/superpowers/specs/`).
+63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin
+14) + iki real n8n workflow (bax aşağı). Brainstorming skill-i ilə
+alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -26,7 +26,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
-| n8n/MCP orkestrasiya | Material yükləndikdə tetiklənən pipeline, admin alətləri | Planlaşdırılıb |
+| n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi (aktiv), gündəlik statistika (deploy-u gözləyir) — n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 real workflow) |
 | Deploy | DigitalOcean, systemd, Cloudflare | Planlaşdırılıb |
 
 ## Giriş formatları (pipeline)
@@ -44,6 +44,20 @@ Sistemimiz üç növ materialı dəstəkləyir:
   təsdiqləndi. Deploy-dan əvvəl: ya log-larda maskalama, ya da qısaömürlü
   WS-özəl "ticket" tokeni ilə əvəzlə (bax
   `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`, bölmə 4).
+- **n8n "Gündəlik Statistika" workflow-u deploy-u gözləyir** —
+  `Ghlqz9ZHM3RXiRjS` (n8n.prdostu.com) BİLƏRƏKDƏN aktivləşdirilməyib:
+  `Statistikanı Çək` (HTTP Request) node-unun URL-i placeholder,
+  "MasterAI Admin Key" kredensialının dəyəri yoxdur. Deploy-dan sonra:
+  URL-i real domenə (`https://prdostu.com/admin/stats`) yenilə, admin
+  key kredensialına real `ADMIN_API_KEY` dəyərini yaz, sonra
+  `publish_workflow`.
+- **Sandbox↔n8n şəbəkə əlaqəsi bu mühitdə bloklanıb** — bu sandbox-un
+  egress siyasəti `n8n.prdostu.com`-a çıxışı bloklayır (test zamanı
+  aşkarlandı). Real deploy serverində adi internet çıxışı olacağı üçün
+  `_notify_admin_webhook()` normal işləməlidir — amma deploy-dan sonra
+  bunu real bir uğursuz material yükləməsi ilə YENİDƏN yoxlamaq lazımdır
+  (bu sandbox-da doğrulanmayıb, yalnız n8n-in özündə `test_workflow`
+  ilə təcrid olunmuş halda doğrulanıb).
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 

@@ -1,7 +1,9 @@
 # MasterAI — n8n/MCP Admin Avtomatlaşdırması (Dizayn Sənədi)
 
 **Tarix:** 2026-09-02
-**Status:** Təsdiqlənib (istifadəçi tərəfindən), implementasiya planına keçilir
+**Status:** Tamamlandı — backend hissəsi (263 test) + iki real n8n
+workflow qurulub, Telegram çatdırılması real təsdiqlənib (bax
+`.planning/2026-09-02-masterai-n8n-admin-automation/progress.md`)
 **Əhatə dairəsi:** Material pipeline-ı artıq backend-də birbaşa işləyir
 (`asyncio.to_thread`, real uvicorn-da təsdiqlənib) — bu sənəd pipeline-ı
 n8n-ə **köçürmür**. Əvəzinə: (1) uğursuz material üçün Telegram bildirişi,
@@ -133,14 +135,21 @@ real domenə yenilənəcək.
   (əsas axın POZULMUR, bax `material-upload-design.md` bölmə 6-nın
   eyni prinsipi: heç vaxt səssiz udulma, AMMA bu YAN təsirin
   uğursuzluğu əsas nəticəni poza bilməz)
-- **Bilinən məhdudiyyət:** backend hələ deploy olunmayıb — "Gündəlik
-  Statistika" workflow-u `ADMIN_STATS_URL` üçün real ictimai ünvana
-  ehtiyac duyur. Bu fazada workflow strukturu qurulur, manual test
-  data ilə Telegram-a çatdırma yoxlanılır, amma real `/admin/stats`
-  çağırışı yalnız Deploy fazasından sonra tam doğrulana bilər (əvvəlki
-  presedentlərə uyğun: pipeline real LLM sınağı, material yükləmə real
-  API sınağı — hər ikisi oxşar səbəbdən istifadəçinin öz mühitinə/
-  gələcək fazaya saxlanılıb)
+- **Bilinən məhdudiyyət (1):** backend hələ deploy olunmayıb —
+  "Gündəlik Statistika" workflow-u `ADMIN_STATS_URL` üçün real ictimai
+  ünvana ehtiyac duyur. Workflow strukturu qurulub, real Telegram
+  mesajı simulyasiya edilmiş statistika ilə göndərilib (istifadəçi
+  tərəfindən mənbədən təsdiqlənib) — amma real `/admin/stats`
+  çağırışı yalnız Deploy fazasından sonra tam doğrulana bilər.
+  Ona görə bu workflow BİLƏRƏKDƏN aktivləşdirilməyib (deploy-dan sonra
+  URL+kredensial doldurulub `publish_workflow` ediləcək)
+- **Bilinən məhdudiyyət (2, YENİ TAPINTI):** implementasiya zamanı bu
+  sandbox mühitinin egress siyasətinin `n8n.prdostu.com`-a birbaşa
+  şəbəkə çıxışını blokladığı aşkarlandı (`curl` → `connect_rejected`).
+  Yəni backend BU SANDBOX-da işə düşəndə `_notify_admin_webhook()`
+  real n8n-ə çata bilmir — sandbox-a xas şəbəkə qaydasıdır, kodun
+  problemi deyil. Real production serverində (adi internet çıxışı
+  ilə) bu problem olmayacaq
 
 ## 7. Test strategiyası
 
