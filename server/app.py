@@ -9,16 +9,20 @@ from __future__ import annotations
 
 import os
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .chat_store import ChatStore
+from .connection_manager import ConnectionManager
+from .message_store import MessageStore
 from .models import AuthResponse, ChatInfo, CreateChatRequest, LoginRequest, RegisterRequest, UserInfo
 from .user_store import DuplicateEmail, UserStore
 
 app = FastAPI(title="MasterAI")
 app.state.user_store = UserStore(os.environ.get("USERS_DB_PATH", "users.db"))
 app.state.chat_store = ChatStore(os.environ.get("CHATS_DB_PATH", "chats.db"))
+app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
+app.state.connection_manager = ConnectionManager()
 
 
 def get_user_store() -> UserStore:
@@ -29,6 +33,16 @@ def get_user_store() -> UserStore:
 def get_chat_store() -> ChatStore:
     """Çat store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.chat_store
+
+
+def get_message_store() -> MessageStore:
+    """Mesaj store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.message_store
+
+
+def get_connection_manager() -> ConnectionManager:
+    """WebSocket reyestri (testdə təzə instansla override olunur)."""
+    return app.state.connection_manager
 
 
 def get_token_secret() -> str:
@@ -146,3 +160,63 @@ def join_chat(
         raise HTTPException(status_code=400, detail="Direct çata kənardan qoşulmaq olmaz")
     chats.add_member(chat_id, user["id"])
     return ChatInfo(**chat)
+
+
+@app.websocket("/ws/chat/{chat_id}")
+async def chat_websocket(
+    websocket: WebSocket,
+    chat_id: int,
+    token: str = Query(...),
+    secret: str = Depends(get_token_secret),
+    users: UserStore = Depends(get_user_store),
+    chats: ChatStore = Depends(get_chat_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> None:
+    try:
+        user_id = verify_token(token, secret=secret)
+    except InvalidToken:
+        await websocket.close(code=4401)
+        return
+    user = users.get_by_id(user_id)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    chat = chats.get(chat_id)
+    if chat is None:
+        await websocket.close(code=4404)
+        return
+    is_member = any(c["id"] == chat_id for c in chats.list_by_user(user_id))
+    if not is_member:
+        await websocket.close(code=4403)
+        return
+
+    await websocket.accept()
+    await websocket.send_json({"type": "history", "messages": messages.list_by_chat(chat_id)})
+    manager.connect(chat_id, user_id, websocket)
+
+    try:
+        while True:
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                raise
+            except Exception:
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            if not isinstance(data, dict) or data.get("type") != "text":
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+            content = data.get("content")
+            if not isinstance(content, str) or not content.strip():
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            message = messages.create(chat_id, user_id, "text", content)
+            await manager.broadcast(chat_id, {"type": "message", **message})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(chat_id, user_id, websocket)
