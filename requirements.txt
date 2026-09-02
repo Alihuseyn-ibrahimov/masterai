@@ -1,6 +1,7 @@
 pydantic>=2.7
 pytest>=8.0
 langchain-text-splitters>=1.1
+langchain-core>=1.1
 python-dotenv>=1.0
 groq>=0.11
 anthropic>=0.39
