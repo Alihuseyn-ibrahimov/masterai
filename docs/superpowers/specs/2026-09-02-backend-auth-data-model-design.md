@@ -22,12 +22,20 @@ saxlanması lazımdır ki, gələcək alt-sistemlər (çat, quiz UI) onun
 
 ## 2. Arxitektura
 
-`dildostu/server`-in sınanmış naxışı təkrarlanır — yeni asılılıq/pattern
-əlavə edilmir:
+`dildostu/server`-in Store/auth kod naxışı təkrarlanır, amma **layihə
+strukturu fərqlidir**: dildostu-da `app/` (Flutter) və `server/` (Python)
+tamam ayrı toolchain-lərdir, ona görə ayrı venv-ləri var. MasterAI-da isə
+`server/` birbaşa `pipeline/`-i idxal edir (hər ikisi Python) — ona görə
+**tək paylaşılan venv/pyproject** (artıq mövcud `masterai/pyproject.toml`
+və `masterai/.venv`) işlədilir, `server/` onun bir alt-paketi olur:
 
 ```
-masterai/server/
-  masterai_server/
+masterai/
+  pyproject.toml       # mövcud, dəyişməz (pythonpath = ["."])
+  requirements.txt        # mövcud, server asılılıqları (fastapi, bcrypt, s.) əlavə olunur
+  .venv/                     # mövcud, paylaşılan
+  pipeline/                     # (tamamlanıb, əvvəlki spec)
+  server/
     __init__.py
     auth.py             # bcrypt hash + JWT — dildostu/server/auth.py-dan demək olar eyni köçürülür
     user_store.py         # UserStore — sqlite3, dildostu/server/user_store.py naxışı
@@ -38,17 +46,20 @@ masterai/server/
     quiz_attempt_store.py           # QuizAttemptStore
     app.py                            # FastAPI: /auth/register, /auth/login, /health
   tests/
-    test_auth.py
-    test_user_store.py
-    test_friendship_store.py
-    test_chat_store.py
-    test_material_store.py
-    test_question_store.py
-    test_quiz_attempt_store.py
-    test_app.py
-  pyproject.toml    # pythonpath = [".", ".."] — ".." masterai/pipeline/-ə çıxış üçün
-  requirements.txt
+    server/
+      __init__.py
+      test_auth.py
+      test_user_store.py
+      test_friendship_store.py
+      test_chat_store.py
+      test_material_store.py
+      test_question_store.py
+      test_quiz_attempt_store.py
+      test_app.py
 ```
+
+Test importları: `from server.auth import ...` (`server/__init__.py` onu
+`masterai` kök pythonpath-ından adi alt-paket edir).
 
 **Store deseni:** hər Store sinfi öz cədvəlinin sxemini `_init_schema()`-da
 yaradır (`CREATE TABLE IF NOT EXISTS`), `sqlite3.connect(path,
@@ -64,11 +75,10 @@ axını, çat mesajlaşması, material yükləmə axını) həmin funksionallı�
 öz endpoint spec-i dizayn ediləndə həmin Store-a əlavə olunur, indi
 yazılmır (bax bölmə 7 — bunlar əhatə xaricindədir).
 
-**Pipeline asılılığı:** `masterai_server` `masterai/pipeline/`-i idxal edir
-(`from pipeline.pipeline import generate_quiz`). Ayrıca paketləmə/pip
-install tələb olunmur — `pyproject.toml`-da `pythonpath = [".", ".."]`
-kifayətdir (server `masterai/server/`-dən işə salınır, `..` `masterai/`-ə
-çıxır, oradan `pipeline` paketi görünür).
+**Pipeline asılılığı:** `server/` `pipeline/`-i birbaşa idxal edir
+(`from pipeline.pipeline import generate_quiz`) — hər ikisi eyni
+`masterai/` kökündə, eyni pythonpath-dadır, ayrıca paketləmə/pip install
+tələb olunmur.
 
 ## 3. DB sxemi
 
