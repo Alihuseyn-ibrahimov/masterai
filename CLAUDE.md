@@ -4,10 +4,10 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: aktiv inkişafda.** Dörd alt-sistem TDD ilə tamamlanıb (183 test,
+**Status: aktiv inkişafda.** Beş alt-sistem TDD ilə tamamlanıb (204 test,
 `masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
-63 + çat (Faza A+B) 63). Brainstorming skill-i ilə alt-sistemlərə bölünür,
-hər biri öz spec-i ilə (`docs/superpowers/specs/`).
+63 + çat (Faza A+B) 63 + material yükləmə 21). Brainstorming skill-i ilə
+alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -23,7 +23,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Əsas çat: mesajlaşma+WebSocket | `messages` cədvəli, `POST/GET /chats`, `WS /ws/chat/{id}` (real-time mətn, broadcast) | ✅ Tamamlandı (29 test) |
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
 | Dostluq/sosial qraf endpoint-ləri | Sorğu göndər/qəbul/rədd HTTP-si (DB sxemi hazırdır) | Planlaşdırılıb |
-| Material yükləmə endpoint-i | Pipeline-ı tetikləyən HTTP səthi | Planlaşdırılıb |
+| Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
 | n8n/MCP orkestrasiya | Material yükləndikdə tetiklənən pipeline, admin alətləri | Planlaşdırılıb |
 | Deploy | DigitalOcean, systemd, Cloudflare | Planlaşdırılıb |
