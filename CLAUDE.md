@@ -4,10 +4,11 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: aktiv inkişafda.** Beş alt-sistem TDD ilə tamamlanıb (204 test,
+**Status: aktiv inkişafda.** Altı alt-sistem TDD ilə tamamlanıb (249 test,
 `masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
-63 + çat (Faza A+B) 63 + material yükləmə 21). Brainstorming skill-i ilə
-alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
+63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45). Brainstorming
+skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
+(`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -22,7 +23,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Backend skeleti: Auth + Data modeli (`server/`) | Email+şifrə auth (bcrypt+JWT), 6 cədvəllik DB sxemi, minimal FastAPI | ✅ Tamamlandı (63 test) |
 | Əsas çat: mesajlaşma+WebSocket | `messages` cədvəli, `POST/GET /chats`, `WS /ws/chat/{id}` (real-time mətn, broadcast) | ✅ Tamamlandı (29 test) |
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
-| Dostluq/sosial qraf endpoint-ləri | Sorğu göndər/qəbul/rədd HTTP-si (DB sxemi hazırdır) | Planlaşdırılıb |
+| Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
 | n8n/MCP orkestrasiya | Material yükləndikdə tetiklənən pipeline, admin alətləri | Planlaşdırılıb |
