@@ -1,7 +1,10 @@
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
 from pipeline.models import MCQQuestion, PipelineResult
+from pipeline.pipeline import PipelineError
 from server.app import (
     app,
     get_chat_store,
@@ -40,6 +43,19 @@ def _fake_generator_success(source, questions_per_chunk=3):
         chunks_processed=1,
         chunks_failed=0,
     )
+
+
+def _fake_generator_failure(source, questions_per_chunk=3):
+    raise PipelineError("real test üçün süni xəta")
+
+
+def _wait_until_not_processing(materials, material_id, timeout=2.0):
+    deadline = time.time() + timeout
+    material = materials.get(material_id)
+    while material["status"] == "processing" and time.time() < deadline:
+        time.sleep(0.02)
+        material = materials.get(material_id)
+    return material
 
 
 @pytest.fixture
@@ -180,3 +196,40 @@ class TestListMaterials:
         r = env["client"].get(f"/chats/{env['chat_id']}/materials", headers=_auth(env["member"]))
         assert r.status_code == 200
         assert len(r.json()) == 1
+
+
+class TestBackgroundProcessing:
+    def test_successful_processing_creates_questions_and_system_message(self, env):
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az"},
+            headers=_auth(env["member"]),
+        )
+        material_id = r.json()["id"]
+
+        material = _wait_until_not_processing(env["materials"], material_id)
+
+        assert material["status"] == "ready"
+        created_questions = env["questions"].list_by_material(material_id)
+        assert len(created_questions) == 3
+        msgs = env["messages"].list_by_chat(env["chat_id"])
+        assert any("hazırdır" in m["content"] for m in msgs)
+        assert all(m["sender_id"] is None for m in msgs if "hazırdır" in m["content"])
+
+    def test_failed_processing_marks_failed_and_posts_message(self, env):
+        app.dependency_overrides[get_material_generator] = lambda: _fake_generator_failure
+
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az"},
+            headers=_auth(env["member"]),
+        )
+        material_id = r.json()["id"]
+
+        material = _wait_until_not_processing(env["materials"], material_id)
+
+        assert material["status"] == "failed"
+        created_questions = env["questions"].list_by_material(material_id)
+        assert created_questions == []
+        msgs = env["messages"].list_by_chat(env["chat_id"])
+        assert any("uğursuz" in m["content"] for m in msgs)
