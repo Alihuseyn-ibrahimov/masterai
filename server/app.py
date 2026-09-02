@@ -320,6 +320,7 @@ def create_chat(
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
     users: UserStore = Depends(get_user_store),
+    friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> ChatInfo:
     if req.kind == "group":
         chat = chats.create(kind="group", created_by=user["id"], name=req.name)
@@ -328,6 +329,8 @@ def create_chat(
         peer = users.get_by_id(req.peer_user_id)
         if peer is None:
             raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
+        if not friendships.are_friends(user["id"], req.peer_user_id):
+            raise HTTPException(status_code=403, detail="Yalnız dostlarla birbaşa çat yaradıla bilər")
         chat = chats.create(kind="direct", created_by=user["id"])
         chats.add_member(chat["id"], user["id"])
         chats.add_member(chat["id"], req.peer_user_id)

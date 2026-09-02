@@ -1,8 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from server.app import app, get_chat_store, get_token_secret, get_user_store
+from server.app import app, get_chat_store, get_friendship_store, get_token_secret, get_user_store
 from server.chat_store import ChatStore
+from server.friendship_store import FriendshipStore
 from server.user_store import UserStore
 
 _SECRET = "test-secret-key-32-chars-minimum!!"
@@ -12,8 +13,10 @@ _SECRET = "test-secret-key-32-chars-minimum!!"
 def client():
     users = UserStore(":memory:")
     chats = ChatStore(":memory:")
+    friendships = FriendshipStore(":memory:")
     app.dependency_overrides[get_user_store] = lambda: users
     app.dependency_overrides[get_chat_store] = lambda: chats
+    app.dependency_overrides[get_friendship_store] = lambda: friendships
     app.dependency_overrides[get_token_secret] = lambda: _SECRET
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -29,6 +32,16 @@ def _register(client, email="ali@example.com", password="Parol1234", display_nam
 
 def _auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _befriend(client, a, b) -> None:
+    """İki istifadəçini real dostluq endpoint-ləri ilə dost edir (sorğu+qəbul)."""
+    req = client.post(
+        "/friends/requests",
+        json={"addressee_user_id": b["user"]["id"]},
+        headers=_auth_headers(a["token"]),
+    ).json()
+    client.post(f"/friends/requests/{req['id']}/accept", headers=_auth_headers(b["token"]))
 
 
 class TestCreateGroupChat:
@@ -62,6 +75,7 @@ class TestCreateDirectChat:
     def test_creates_chat_with_both_members(self, client):
         ali = _register(client, email="ali@example.com")
         vali = _register(client, email="vali@example.com")
+        _befriend(client, ali, vali)
 
         r = client.post(
             "/chats",
@@ -90,6 +104,33 @@ class TestCreateDirectChat:
         )
         assert r.status_code == 404
 
+    def test_non_friends_cannot_create_direct_chat(self, client):
+        ali = _register(client, email="ali@example.com")
+        vali = _register(client, email="vali@example.com")
+
+        r = client.post(
+            "/chats",
+            json={"kind": "direct", "peer_user_id": vali["user"]["id"]},
+            headers=_auth_headers(ali["token"]),
+        )
+        assert r.status_code == 403
+
+    def test_pending_request_not_enough_to_create_chat(self, client):
+        ali = _register(client, email="ali@example.com")
+        vali = _register(client, email="vali@example.com")
+        client.post(
+            "/friends/requests",
+            json={"addressee_user_id": vali["user"]["id"]},
+            headers=_auth_headers(ali["token"]),
+        )
+
+        r = client.post(
+            "/chats",
+            json={"kind": "direct", "peer_user_id": vali["user"]["id"]},
+            headers=_auth_headers(ali["token"]),
+        )
+        assert r.status_code == 403
+
 
 class TestJoinGroupChat:
     def test_second_user_can_join(self, client):
@@ -109,6 +150,7 @@ class TestJoinGroupChat:
         ali = _register(client, email="ali@example.com")
         vali = _register(client, email="vali@example.com")
         third = _register(client, email="uc@example.com")
+        _befriend(client, ali, vali)
         chat_id = client.post(
             "/chats",
             json={"kind": "direct", "peer_user_id": vali["user"]["id"]},
