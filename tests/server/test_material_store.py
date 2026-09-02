@@ -44,3 +44,22 @@ def test_update_status(store):
     store.update_status(created["id"], "ready")
 
     assert store.get(created["id"])["status"] == "ready"
+
+
+def test_create_with_label(store):
+    material = store.create(
+        chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf", label="Tarix mühazirəsi"
+    )
+    assert material["label"] == "Tarix mühazirəsi"
+    assert store.get(material["id"])["label"] == "Tarix mühazirəsi"
+
+
+def test_create_without_label_defaults_to_none(store):
+    material = store.create(chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf")
+    assert material["label"] is None
+
+
+def test_list_by_chat_includes_label(store):
+    store.create(chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf", label="Etiket")
+    results = store.list_by_chat(1)
+    assert results[0]["label"] == "Etiket"

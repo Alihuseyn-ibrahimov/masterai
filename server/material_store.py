@@ -1,8 +1,7 @@
 """Yüklənən materialların SQLite saxlanması — minimal CRUD.
 
-Material yükləmə HTTP endpoint-i (pipeline-ı tetikləyən) bu fazanın
-əhatəsində deyil — öz spec-i dizayn ediləndə əlavə olunacaq. Bu Store
-yalnız cədvəli və statusun `processing → ready|failed` keçidini saxlayır.
+`label` sütunu material yükləmə fazasında (`ALTER TABLE ... ADD COLUMN`)
+əlavə olundu — köhnə sətirlərdə `NULL`/`None`, geriyə uyğundur.
 
 `threading.RLock()` bütün metodları əhatə edir (reentrant, çünki
 `create()` öz daxilində `get()`-i çağırır) — səbəb üçün bax
@@ -43,14 +42,20 @@ class MaterialStore:
                 );
                 """
             )
+            try:
+                self._conn.execute("ALTER TABLE materials ADD COLUMN label TEXT")
+            except sqlite3.OperationalError:
+                pass  # sütun artıq var (mövcud DB)
             self._conn.commit()
 
-    def create(self, chat_id: int, uploaded_by: int, kind: str, location: str) -> dict:
+    def create(
+        self, chat_id: int, uploaded_by: int, kind: str, location: str, label: str | None = None
+    ) -> dict:
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO materials (chat_id, uploaded_by, kind, location, status, created_at) "
-                "VALUES (?, ?, ?, ?, 'processing', ?)",
-                (chat_id, uploaded_by, kind, location, _utc_now_iso()),
+                "INSERT INTO materials (chat_id, uploaded_by, kind, location, status, created_at, label) "
+                "VALUES (?, ?, ?, ?, 'processing', ?, ?)",
+                (chat_id, uploaded_by, kind, location, _utc_now_iso(), label),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -58,7 +63,7 @@ class MaterialStore:
     def get(self, material_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, chat_id, uploaded_by, kind, location, status, created_at "
+                "SELECT id, chat_id, uploaded_by, kind, location, status, created_at, label "
                 "FROM materials WHERE id = ?",
                 (material_id,),
             )
@@ -68,7 +73,7 @@ class MaterialStore:
     def list_by_chat(self, chat_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, chat_id, uploaded_by, kind, location, status, created_at "
+                "SELECT id, chat_id, uploaded_by, kind, location, status, created_at, label "
                 "FROM materials WHERE chat_id = ? ORDER BY created_at",
                 (chat_id,),
             )
