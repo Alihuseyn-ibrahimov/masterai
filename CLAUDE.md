@@ -4,10 +4,10 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: aktiv inkişafda.** İki alt-sistem TDD ilə tamamlanıb (120+57=177
-test — bax hər alt-sistemin öz `.planning/` qovluğu üçün faktiki say).
-Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
-(`docs/superpowers/specs/`).
+**Status: aktiv inkişafda.** Üç alt-sistem TDD ilə tamamlanıb (149 test,
+`masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
+63 + əsas çat 29). Brainstorming skill-i ilə alt-sistemlərə bölünür, hər
+biri öz spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -20,7 +20,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 |---|---|---|
 | AI sual generasiya pipeline-ı (`pipeline/`) | Material ingestion (sayt/PDF/şəkil) + LangChain LCEL + MCQ çıxarılması | ✅ Tamamlandı (57 test) |
 | Backend skeleti: Auth + Data modeli (`server/`) | Email+şifrə auth (bcrypt+JWT), 6 cədvəllik DB sxemi, minimal FastAPI | ✅ Tamamlandı (63 test) |
-| Çat infrastrukturu | Şəxsi+qrup çatlar, WebSocket, AI bot iştirakçı | Planlaşdırılıb |
+| Əsas çat: mesajlaşma+WebSocket | `messages` cədvəli, `POST/GET /chats`, `WS /ws/chat/{id}` (real-time mətn, broadcast) | ✅ Tamamlandı (29 test) |
+| AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını, timer+erkən keçid, xal — əsas çatın üzərinə qurulur | Planlaşdırılıb |
 | Dostluq/sosial qraf endpoint-ləri | Sorğu göndər/qəbul/rədd HTTP-si (DB sxemi hazırdır) | Planlaşdırılıb |
 | Material yükləmə endpoint-i | Pipeline-ı tetikləyən HTTP səthi | Planlaşdırılıb |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
@@ -33,6 +34,15 @@ Sistemimiz üç növ materialı dəstəkləyir:
 - **Sayt linki** — BeautifulSoup/Selenium scraping
 - **PDF** — pypdf ilə mətn çıxarılması
 - **Şəkil** — pytesseract OCR
+
+## Bilinən risklər (production-dan əvvəl həll edilməli)
+
+- **WebSocket JWT query param-da (`?token=...`)** — brauzer WebSocket
+  API-si custom header dəstəkləmədiyi üçün belə edilib, amma real smoke
+  testində uvicorn access log-unda tam token açıq mətn kimi göründüyü
+  təsdiqləndi. Deploy-dan əvvəl: ya log-larda maskalama, ya da qısaömürlü
+  WS-özəl "ticket" tokeni ilə əvəzlə (bax
+  `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`, bölmə 4).
 
 ## Qeyd
 
