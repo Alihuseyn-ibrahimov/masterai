@@ -1,0 +1,9 @@
+[project]
+name = "masterai-pipeline"
+version = "0.1.0"
+description = "MasterAI — material-dan AI sual generasiya pipeline-ı"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
