@@ -18,17 +18,20 @@ from pipeline.pipeline import generate_quiz
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
+from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
     AuthResponse,
     ChatInfo,
     CreateChatRequest,
+    FriendshipInfo,
     LoginRequest,
     MaterialInfo,
     QuizSessionInfo,
     QuizStartRequest,
     RegisterRequest,
+    SendFriendRequestRequest,
     UserInfo,
 )
 from .question_store import QuestionStore
@@ -58,6 +61,7 @@ app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "ma
 app.state.question_store = QuestionStore(os.environ.get("QUESTIONS_DB_PATH", "questions.db"))
 app.state.quiz_session_store = QuizSessionStore(os.environ.get("QUIZ_SESSIONS_DB_PATH", "quiz_sessions.db"))
 app.state.quiz_attempt_store = QuizAttemptStore(os.environ.get("QUIZ_ATTEMPTS_DB_PATH", "quiz_attempts.db"))
+app.state.friendship_store = FriendshipStore(os.environ.get("FRIENDSHIPS_DB_PATH", "friendships.db"))
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
@@ -103,6 +107,11 @@ def get_quiz_session_store() -> QuizSessionStore:
 def get_quiz_attempt_store() -> QuizAttemptStore:
     """Quiz cavab store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.quiz_attempt_store
+
+
+def get_friendship_store() -> FriendshipStore:
+    """Dostluq store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.friendship_store
 
 
 def get_material_generator():

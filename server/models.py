@@ -76,3 +76,23 @@ class MaterialInfo(BaseModel):
     label: str | None
     status: str
     created_at: str
+
+
+class SendFriendRequestRequest(BaseModel):
+    addressee_email: str | None = None
+    addressee_user_id: int | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_target(self):
+        if (self.addressee_email is None) == (self.addressee_user_id is None):
+            raise ValueError("'addressee_email' VƏ YA 'addressee_user_id' — dəqiq biri tələb olunur")
+        return self
+
+
+class FriendshipInfo(BaseModel):
+    id: int
+    requester_id: int
+    addressee_id: int
+    status: str
+    created_at: str
+    responded_at: str | None
