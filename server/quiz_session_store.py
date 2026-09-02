@@ -82,6 +82,10 @@ class QuizSessionStore:
             self._conn.commit()
             return self.get(chat_id)
 
+    def count_all(self) -> int:
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM chat_quiz_sessions").fetchone()[0]
+
     def get(self, chat_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(

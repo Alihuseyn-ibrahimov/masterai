@@ -90,3 +90,7 @@ class QuestionStore:
                 (material_id,),
             )
             return [_row_to_dict(row) for row in cur.fetchall()]
+
+    def count_all(self) -> int:
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM questions").fetchone()[0]

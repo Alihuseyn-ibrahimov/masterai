@@ -112,3 +112,13 @@ def test_are_friends_true_only_when_accepted(store):
 
 def test_are_friends_false_when_no_relationship(store):
     assert store.are_friends(1, 2) is False
+
+
+def test_count_by_status(store):
+    a = store.create(requester_id=1, addressee_id=2)
+    store.create(requester_id=3, addressee_id=4)
+    store.update_status(a["id"], "accepted")
+
+    assert store.count_by_status("accepted") == 1
+    assert store.count_by_status("pending") == 1
+    assert store.count_by_status("declined") == 0

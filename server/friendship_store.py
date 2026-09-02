@@ -138,3 +138,10 @@ class FriendshipStore:
         with self._lock:
             existing = self._find_between_locked(user_a, user_b)
             return existing is not None and existing["status"] == "accepted"
+
+    def count_by_status(self, status: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT COUNT(*) FROM friendships WHERE status = ?", (status,)
+            )
+            return cur.fetchone()[0]

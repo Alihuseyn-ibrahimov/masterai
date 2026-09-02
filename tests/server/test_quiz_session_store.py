@@ -60,3 +60,10 @@ def test_create_replaces_finished_session_with_new_round(store):
 def test_advance_raises_when_no_session(store):
     with pytest.raises(ValueError):
         store.advance(999)
+
+
+def test_count_all(store):
+    assert store.count_all() == 0
+    store.create(chat_id=1, material_id=10, question_ids=[100])
+    store.create(chat_id=2, material_id=20, question_ids=[200])
+    assert store.count_all() == 2

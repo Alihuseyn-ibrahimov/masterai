@@ -63,3 +63,20 @@ def test_list_by_chat_includes_label(store):
     store.create(chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf", label="Etiket")
     results = store.list_by_chat(1)
     assert results[0]["label"] == "Etiket"
+
+
+def test_count_all(store):
+    assert store.count_all() == 0
+    store.create(chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf")
+    store.create(chat_id=1, uploaded_by=2, kind="link", location="https://x.az")
+    assert store.count_all() == 2
+
+
+def test_count_by_status(store):
+    a = store.create(chat_id=1, uploaded_by=2, kind="pdf", location="/a.pdf")
+    store.create(chat_id=1, uploaded_by=2, kind="link", location="https://x.az")
+    store.update_status(a["id"], "ready")
+
+    assert store.count_by_status("ready") == 1
+    assert store.count_by_status("processing") == 1
+    assert store.count_by_status("failed") == 0

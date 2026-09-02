@@ -101,3 +101,7 @@ class UserStore:
         with self._lock:
             self._conn.execute("SELECT 1")
             return True
+
+    def count_all(self) -> int:
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]

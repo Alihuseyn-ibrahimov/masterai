@@ -85,3 +85,14 @@ class MaterialStore:
                 "UPDATE materials SET status = ? WHERE id = ?", (status, material_id)
             )
             self._conn.commit()
+
+    def count_all(self) -> int:
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM materials").fetchone()[0]
+
+    def count_by_status(self, status: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT COUNT(*) FROM materials WHERE status = ?", (status,)
+            )
+            return cur.fetchone()[0]

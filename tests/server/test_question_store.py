@@ -53,3 +53,10 @@ def test_options_preserve_order_and_azerbaijani_characters(store):
     saved = store.create_from_mcq(material_id=1, mcq=_mcq())
     assert saved["options"][0] == "Bakı"
     assert saved["options"][4] == "Naxçıvan"
+
+
+def test_count_all(store):
+    assert store.count_all() == 0
+    store.create_from_mcq(material_id=1, mcq=_mcq("Sual 1?"))
+    store.create_from_mcq(material_id=2, mcq=_mcq("Sual 2?"))
+    assert store.count_all() == 2
