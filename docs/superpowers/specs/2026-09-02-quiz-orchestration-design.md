@@ -35,15 +35,36 @@ saxlanılır (Python-un zəif referanslı task-ı vaxtından əvvəl
 "çöp yığmaması" üçün — sadəcə arayışsız `create_task` real production-da
 riskli praktikadır).
 
-**Yarış vəziyyəti (race condition) qeydi — niyə kilid lazım deyil:**
-`record_answer`-in "cavabı yaz + hamı cavablayıbmı yoxla" bölməsi
-tamamilə sinxron `sqlite3` çağırışlarından ibarətdir, arada `await`
-yoxdur. Python asyncio-nun əməkdaşlıq əsaslı planlaşdırıcısı bir task-ı
-yalnız `await` nöqtəsində dəyişdirir — deməli bu bölmə təbii şəkildə
-atomikdir, əlavə `asyncio.Lock` lazım deyil. **Xəbərdarlıq:** Store
-qatı gələcəkdə async DB driverinə keçsə (məs. `aiosqlite`), bu
-invariantı qorumaq üçün açıq kilid əlavə edilməlidir — sadəcə
-`await`-ə çevirmək bu bölməni yarış vəziyyətinə açıq edər.
+**Yarış vəziyyəti (race condition) — DÜZƏLİŞ (implementasiya zamanı tapıldı):**
+İlkin fərziyyə "sinxron sqlite + await yoxdur = əlavə kilid lazım deyil"
+idi (Python asyncio-nun əməkdaşlıq əsaslı planlaşdırıcısı əsasında —
+**real tək-prosesli `uvicorn` deploy-u üçün bu doğrudur**). Amma real
+WebSocket inteqrasiya testində (Starlette `TestClient`) bunun test
+mühiti üçün YANLIŞ olduğu sübut edildi: `TestClient.websocket_connect()`
+hər bağlantını AYRI OS thread-ində işlədir, ona görə `record_answer`-in
+"sinxron" bölməsi belə iki fərqli thread arasında yarışa girə bilirdi.
+Əsl kök səbəb isə daha dərin idi: bütün Store-ların `sqlite3.connect(...,
+check_same_thread=False)` bağlantısı — bu parametr YALNIZ Python-un
+thread-yoxlamasını söndürür, bağlantını thread-safe ETMİR. Nəticədə
+çoxlu thread paylaşılan bağlantını paralel işlədəndə
+`OperationalError: cannot commit - no transaction is active` alınırdı.
+
+**Həll:** biznes-səviyyəli kilid (`quiz_runner.py`-də) əvəzinə, hər Store
+sinfinə (`user_store.py`, `chat_store.py`, `message_store.py`,
+`material_store.py`, `question_store.py`, `quiz_attempt_store.py`,
+`quiz_session_store.py`) və `connection_manager.py`-ə **daxili
+`threading.Lock`/`RLock`** əlavə olundu. `ConnectionManager.broadcast()`-
+də kilid yalnız hədəf siyahısının "şəklini çəkməsini" əhatə edir —
+`await ws.send_json(...)` HEÇ VAXT kilid altında çağırılmır (əks halda,
+broadcast fərqli thread-in event loop-unun cavab verməsindən asılı
+olduğu üçün, kilidi await zamanı saxlamaq DEADLOCK yaradır — bu da
+implementasiya zamanı empirik aşkarlanıb).
+
+`advance_question` isə `expected_index` parametri aldı: sessiya HƏLƏ DƏ
+gözlənilən indeksdə olmalıdır, əks halda (başqa çağırış artıq irəli
+aparıbsa) sakitcə no-op edir — bu, thread-dən asılı olmayan təmiz
+idempotentlik təminatıdır (bax `.planning/2026-09-02-masterai-quiz-orchestration/findings.md`
+"BÖYÜK TAPINTI" bölməsi, tam təhlil üçün).
 
 ## 3. DB sxemi (yeni cədvəl)
 

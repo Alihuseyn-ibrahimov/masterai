@@ -1,12 +1,13 @@
 """MasterAI backend FastAPI tətbiqi.
 
 Auth (/auth/register, /auth/login, /health) + əsas çat (POST/GET /chats,
-/chats/{id}/join). WebSocket mesajlaşma (Faza 4) və AI quiz orkestrasiyası
-hələ əhatə xaricindədir — bax spec-lər.
+/chats/{id}/join, WS /ws/chat/{id}) + AI quiz orkestrasiyası
+(POST /chats/{id}/quiz/start, WS "answer" mesaj tipi).
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -14,8 +15,30 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, W
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
+from .material_store import MaterialStore
 from .message_store import MessageStore
-from .models import AuthResponse, ChatInfo, CreateChatRequest, LoginRequest, RegisterRequest, UserInfo
+from .models import (
+    AuthResponse,
+    ChatInfo,
+    CreateChatRequest,
+    LoginRequest,
+    QuizSessionInfo,
+    QuizStartRequest,
+    RegisterRequest,
+    UserInfo,
+)
+from .question_store import QuestionStore
+from .quiz_attempt_store import QuizAttemptStore
+from .quiz_runner import (
+    DEFAULT_QUESTION_TIMEOUT_SECONDS,
+    AlreadyAnswered,
+    NotCurrentQuestion,
+    QuizError,
+    check_timeout,
+    record_answer,
+    start_quiz,
+)
+from .quiz_session_store import QuizAlreadyActive, QuizSessionStore
 from .user_store import DuplicateEmail, UserStore
 
 app = FastAPI(title="MasterAI")
@@ -23,6 +46,13 @@ app.state.user_store = UserStore(os.environ.get("USERS_DB_PATH", "users.db"))
 app.state.chat_store = ChatStore(os.environ.get("CHATS_DB_PATH", "chats.db"))
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
+app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
+app.state.question_store = QuestionStore(os.environ.get("QUESTIONS_DB_PATH", "questions.db"))
+app.state.quiz_session_store = QuizSessionStore(os.environ.get("QUIZ_SESSIONS_DB_PATH", "quiz_sessions.db"))
+app.state.quiz_attempt_store = QuizAttemptStore(os.environ.get("QUIZ_ATTEMPTS_DB_PATH", "quiz_attempts.db"))
+# chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
+# arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
+app.state.active_quiz_timeouts = {}
 
 
 def get_user_store() -> UserStore:
@@ -43,6 +73,26 @@ def get_message_store() -> MessageStore:
 def get_connection_manager() -> ConnectionManager:
     """WebSocket reyestri (testdə təzə instansla override olunur)."""
     return app.state.connection_manager
+
+
+def get_material_store() -> MaterialStore:
+    """Material store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.material_store
+
+
+def get_question_store() -> QuestionStore:
+    """Sual store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.question_store
+
+
+def get_quiz_session_store() -> QuizSessionStore:
+    """Quiz sessiya store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.quiz_session_store
+
+
+def get_quiz_attempt_store() -> QuizAttemptStore:
+    """Quiz cavab store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.quiz_attempt_store
 
 
 def get_token_secret() -> str:
@@ -162,6 +212,83 @@ def join_chat(
     return ChatInfo(**chat)
 
 
+def _schedule_timeout(
+    chat_id: int,
+    expected_index: int,
+    *,
+    session_store: QuizSessionStore,
+    question_store: QuestionStore,
+    attempt_store: QuizAttemptStore,
+    message_store: MessageStore,
+    connection_manager: ConnectionManager,
+) -> None:
+    """Sual üçün fon timeout-u planlaşdırır. Köhnə (artıq üstələnmiş) task-ın
+    üzərinə yazılması təhlükəsizdir — o, işə düşəndə `check_timeout`-un öz
+    `expected_index` yoxlaması onsuz da no-op edəcəkdi; erkən çöp yığılması
+    bu səbəbdən funksional fərq yaratmır."""
+    task = asyncio.create_task(
+        check_timeout(
+            chat_id,
+            expected_index,
+            session_store=session_store,
+            question_store=question_store,
+            attempt_store=attempt_store,
+            message_store=message_store,
+            connection_manager=connection_manager,
+            timeout_seconds=DEFAULT_QUESTION_TIMEOUT_SECONDS,
+        )
+    )
+    app.state.active_quiz_timeouts[chat_id] = task
+
+
+@app.post("/chats/{chat_id}/quiz/start", response_model=QuizSessionInfo, status_code=201)
+async def start_chat_quiz(
+    chat_id: int,
+    req: QuizStartRequest,
+    user: dict = Depends(get_current_user),
+    materials: MaterialStore = Depends(get_material_store),
+    questions: QuestionStore = Depends(get_question_store),
+    sessions: QuizSessionStore = Depends(get_quiz_session_store),
+    attempts: QuizAttemptStore = Depends(get_quiz_attempt_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> QuizSessionInfo:
+    material = materials.get(req.material_id)
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material tapılmadı")
+    if material["uploaded_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız materialı yükləyən quiz başlada bilər")
+    if material["chat_id"] != chat_id:
+        raise HTTPException(status_code=400, detail="Bu material bu çata aid deyil")
+    if material["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Material hələ hazır deyil")
+
+    try:
+        session = await start_quiz(
+            chat_id,
+            req.material_id,
+            question_store=questions,
+            session_store=sessions,
+            message_store=messages,
+            connection_manager=manager,
+        )
+    except QuizAlreadyActive:
+        raise HTTPException(status_code=409, detail="Bu çatda artıq aktiv quiz var")
+    except QuizError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    _schedule_timeout(
+        chat_id,
+        session["current_index"],
+        session_store=sessions,
+        question_store=questions,
+        attempt_store=attempts,
+        message_store=messages,
+        connection_manager=manager,
+    )
+    return QuizSessionInfo(**session)
+
+
 @app.websocket("/ws/chat/{chat_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -172,6 +299,9 @@ async def chat_websocket(
     chats: ChatStore = Depends(get_chat_store),
     messages: MessageStore = Depends(get_message_store),
     manager: ConnectionManager = Depends(get_connection_manager),
+    sessions: QuizSessionStore = Depends(get_quiz_session_store),
+    questions: QuestionStore = Depends(get_question_store),
+    attempts: QuizAttemptStore = Depends(get_quiz_attempt_store),
 ) -> None:
     try:
         user_id = verify_token(token, secret=secret)
@@ -206,16 +336,62 @@ async def chat_websocket(
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
                 continue
 
-            if not isinstance(data, dict) or data.get("type") != "text":
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-            content = data.get("content")
-            if not isinstance(content, str) or not content.strip():
+            if not isinstance(data, dict):
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
                 continue
 
-            message = messages.create(chat_id, user_id, "text", content)
-            await manager.broadcast(chat_id, {"type": "message", **message})
+            msg_type = data.get("type")
+
+            if msg_type == "text":
+                content = data.get("content")
+                if not isinstance(content, str) or not content.strip():
+                    await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                    continue
+                message = messages.create(chat_id, user_id, "text", content)
+                await manager.broadcast(chat_id, {"type": "message", **message})
+
+            elif msg_type == "answer":
+                question_id = data.get("question_id")
+                chosen_index = data.get("chosen_index")
+                if not isinstance(question_id, int) or not isinstance(chosen_index, int):
+                    await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                    continue
+
+                before = sessions.get(chat_id)
+                before_index = before["current_index"] if before else None
+                try:
+                    await record_answer(
+                        chat_id,
+                        user_id,
+                        question_id,
+                        chosen_index,
+                        session_store=sessions,
+                        question_store=questions,
+                        attempt_store=attempts,
+                        chat_store=chats,
+                        message_store=messages,
+                        connection_manager=manager,
+                    )
+                except (NotCurrentQuestion, AlreadyAnswered, QuizError) as exc:
+                    await websocket.send_json({"type": "error", "detail": str(exc)})
+                    continue
+
+                # Cavab hamı tərəfindən tamamlanıb erkən keçidi tetiklədisə,
+                # növbəti sual üçün yeni timeout planlaşdırılmalıdır.
+                after = sessions.get(chat_id)
+                if after is not None and after["status"] == "active" and after["current_index"] != before_index:
+                    _schedule_timeout(
+                        chat_id,
+                        after["current_index"],
+                        session_store=sessions,
+                        question_store=questions,
+                        attempt_store=attempts,
+                        message_store=messages,
+                        connection_manager=manager,
+                    )
+
+            else:
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
     except WebSocketDisconnect:
         pass
     finally:

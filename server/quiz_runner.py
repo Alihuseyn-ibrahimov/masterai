@@ -1,10 +1,23 @@
 """Quiz orkestrasiyası — sessiya başlatma, cavab qəbulu, növbə keçidi.
 
-Kritik bölmə (`record_answer`-də cavabı yaz + hamı cavablayıbmı yoxla)
-tamamilə sinxron sqlite çağırışlarından ibarətdir, arada `await` yoxdur —
-bu, əlavə kilid olmadan yarış vəziyyətinin qarşısını alır (bax spec,
-bölmə 2). Store qatı gələcəkdə async DB driverinə keçsə, bu invariantı
-qorumaq üçün açıq kilid (məs. per-chat `asyncio.Lock`) əlavə edilməlidir.
+`record_answer`-in yazma+qərar bölməsi tamamilə sinxron sqlite
+çağırışlarından ibarətdir, arada `await` yoxdur — real (tək prosesli,
+tək event loop) `uvicorn` deploy-unda bu, əlavə kilid olmadan yarış
+vəziyyətinin qarşısını almaq üçün kifayətdir (Python-un əməkdaşlıq
+əsaslı asyncio planlaşdırıcısı bir task-ı yalnız `await` nöqtəsində
+dəyişdirir).
+
+**Qeyd — test mühiti fərqlidir:** Starlette `TestClient`-in
+`websocket_connect()`-i hər bağlantını AYRI OS thread-ində işlədir (real
+smoke zamanı `threading.get_ident()` ilə təsdiqləndi) — bu, real deploy
+modelindən fərqlidir və `sqlite3` bağlantılarının (`check_same_thread=False`
+ilə açılsa da, bu ThreadSAFETY yox, yalnız YOXLAMANIN söndürülməsidir)
+çoxlu thread-dən paralel istifadəsi nəticəsində korlanmasına səbəb ola
+bilər (`OperationalError: cannot commit - no transaction is active`).
+Bunun düzgün həlli hər Store-un öz sqlite bağlantısını daxili
+`threading.Lock` ilə qorumasıdır (bax `user_store.py` və digərləri) —
+`quiz_runner`-in özündə əlavə biznes-səviyyəli kilid lazım deyil, çünki
+kök səbəb Store qatındaydı, orkestrasiya məntiqində yox.
 """
 
 from __future__ import annotations
@@ -97,13 +110,12 @@ async def record_answer(
     is_correct = chosen_index == question["correct_index"]
     attempt = attempt_store.create(question_id, user_id, chosen_index, is_correct)
 
-    # Yuxarıdakı bölmədə heç bir `await` yoxdur — bu yoxlama+irəliləmə
-    # qərarı digər cavabla eyni vaxtda yarışa girə bilməz (bax modul qeydi).
     answered_user_ids = {a["user_id"] for a in attempt_store.list_by_question(question_id)}
     member_ids = set(chat_store.list_member_ids(chat_id))
     if member_ids and answered_user_ids >= member_ids:
         await advance_question(
             chat_id,
+            expected_index=session["current_index"],
             session_store=session_store,
             question_store=question_store,
             attempt_store=attempt_store,
@@ -117,15 +129,25 @@ async def record_answer(
 async def advance_question(
     chat_id: int,
     *,
+    expected_index: int | None = None,
     session_store,
     question_store,
     attempt_store,
     message_store,
     connection_manager,
 ) -> dict | None:
+    """Cari sualı bağlayıb növbətiyə keçir (və ya sessiyanı bitirir).
+
+    `expected_index` verilibsə, sessiya HƏLƏ DƏ həmin indeksdə olmalıdır
+    — əks halda (başqa çağırış artıq irəli aparıbsa) sakitcə no-op edilir.
+    Bu, `check_timeout`-un gecikmiş atəşinin erkən keçiddən sonra heç nə
+    etməməsini təmin edir (idempotent).
+    """
     session = session_store.get(chat_id)
     if session is None or session["status"] != "active":
-        return None  # artıq bağlanıb/yoxdur — idempotent no-op (timeout-un gec çatması)
+        return None
+    if expected_index is not None and session["current_index"] != expected_index:
+        return None  # artıq başqa çağırış tərəfindən irəli aparılıb
 
     current_question_id = session["question_ids"][session["current_index"]]
     question = question_store.get(current_question_id)
@@ -179,16 +201,14 @@ async def check_timeout(
     timeout_seconds: float = DEFAULT_QUESTION_TIMEOUT_SECONDS,
 ) -> dict | None:
     """Sual göndəriləndə fon tapşırığı kimi planlaşdırılır. `timeout_seconds`
-    sonra sessiyanın HƏLƏ DƏ `expected_index`-də olduğunu yoxlayır — erkən
-    keçid artıq baş vermişsə (bax `record_answer`) sakitcə heç nə etmir."""
+    sonra `advance_question`-u `expected_index` ilə çağırır — sessiya artıq
+    başqa cür irəli aparılıbsa (erkən keçid), `advance_question`-un öz
+    yoxlaması sakitcə no-op edir."""
     await asyncio.sleep(timeout_seconds)
-
-    session = session_store.get(chat_id)
-    if session is None or session["status"] != "active" or session["current_index"] != expected_index:
-        return None
 
     return await advance_question(
         chat_id,
+        expected_index=expected_index,
         session_store=session_store,
         question_store=question_store,
         attempt_store=attempt_store,

@@ -53,3 +53,15 @@ class ChatInfo(BaseModel):
     name: str | None
     created_by: int
     created_at: str
+
+
+class QuizStartRequest(BaseModel):
+    material_id: int
+
+
+class QuizSessionInfo(BaseModel):
+    chat_id: int
+    material_id: int
+    question_ids: list[int]
+    current_index: int
+    status: str
