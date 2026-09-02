@@ -13,3 +13,10 @@ selenium>=4.20
 pytesseract>=0.3.10
 Pillow>=10.4
 reportlab>=4.2  # yalnız test fixture (sample.pdf) yaratmaq üçün, runtime asılılığı deyil
+
+# server/ (FastAPI backend) asılılıqları
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+bcrypt>=4.1
+PyJWT>=2.8
