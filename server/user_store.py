@@ -81,3 +81,8 @@ class UserStore:
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+    def ping(self) -> bool:
+        """DB bağlantısının işlək olduğunu yoxlayır (`/health` üçün)."""
+        self._conn.execute("SELECT 1")
+        return True

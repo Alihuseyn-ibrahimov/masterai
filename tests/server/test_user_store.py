@@ -52,6 +52,10 @@ class TestGetById:
         assert fetched == created
 
 
+def test_ping_returns_true_when_db_alive(store):
+    assert store.ping() is True
+
+
 def test_isolated_db_per_instance(tmp_path):
     store_a = UserStore(path=str(tmp_path / "a.db"))
     store_b = UserStore(path=str(tmp_path / "b.db"))
