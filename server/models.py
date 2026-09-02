@@ -96,3 +96,13 @@ class FriendshipInfo(BaseModel):
     status: str
     created_at: str
     responded_at: str | None
+
+
+class AdminStatsInfo(BaseModel):
+    users_total: int
+    materials_total: int
+    materials_ready: int
+    materials_failed: int
+    questions_total: int
+    quiz_sessions_total: int
+    friendships_accepted: int

@@ -22,6 +22,7 @@ from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipSto
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    AdminStatsInfo,
     AuthResponse,
     ChatInfo,
     CreateChatRequest,
@@ -196,6 +197,36 @@ def auth_login(
 def health(store: UserStore = Depends(get_user_store)) -> dict:
     store.ping()
     return {"status": "ok"}
+
+
+def require_admin(x_admin_key: str = Header(default="")) -> None:
+    """Admin-yalnız endpoint-lər üçün paylaşılan açar yoxlaması.
+
+    `ADMIN_API_KEY` boşdursa (env təyin olunmayıb) BÜTÜN çağırışlar
+    403 alır — boş açar "açıq admin" mənasına gəlmir.
+    """
+    expected = os.environ.get("ADMIN_API_KEY", "")
+    if not expected or x_admin_key != expected:
+        raise HTTPException(status_code=403, detail="Admin açarı səhvdir")
+
+
+@app.get("/admin/stats", response_model=AdminStatsInfo, dependencies=[Depends(require_admin)])
+def admin_stats(
+    users: UserStore = Depends(get_user_store),
+    materials: MaterialStore = Depends(get_material_store),
+    questions: QuestionStore = Depends(get_question_store),
+    sessions: QuizSessionStore = Depends(get_quiz_session_store),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> AdminStatsInfo:
+    return AdminStatsInfo(
+        users_total=users.count_all(),
+        materials_total=materials.count_all(),
+        materials_ready=materials.count_by_status("ready"),
+        materials_failed=materials.count_by_status("failed"),
+        questions_total=questions.count_all(),
+        quiz_sessions_total=sessions.count_all(),
+        friendships_accepted=friendships.count_by_status("accepted"),
+    )
 
 
 @app.post("/friends/requests", response_model=FriendshipInfo, status_code=201)
