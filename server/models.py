@@ -65,3 +65,14 @@ class QuizSessionInfo(BaseModel):
     question_ids: list[int]
     current_index: int
     status: str
+
+
+class MaterialInfo(BaseModel):
+    id: int
+    chat_id: int
+    uploaded_by: int
+    kind: str
+    location: str
+    label: str | None
+    status: str
+    created_at: str

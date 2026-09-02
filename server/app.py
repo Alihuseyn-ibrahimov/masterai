@@ -10,7 +10,10 @@ from __future__ import annotations
 import asyncio
 import os
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+
+from pipeline.models import MaterialSource
+from pipeline.pipeline import generate_quiz
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .chat_store import ChatStore
@@ -22,6 +25,7 @@ from .models import (
     ChatInfo,
     CreateChatRequest,
     LoginRequest,
+    MaterialInfo,
     QuizSessionInfo,
     QuizStartRequest,
     RegisterRequest,
@@ -39,7 +43,11 @@ from .quiz_runner import (
     start_quiz,
 )
 from .quiz_session_store import QuizAlreadyActive, QuizSessionStore
+from .uploads import PayloadTooLarge, save_upload
 from .user_store import DuplicateEmail, UserStore
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+_DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 
 app = FastAPI(title="MasterAI")
 app.state.user_store = UserStore(os.environ.get("USERS_DB_PATH", "users.db"))
@@ -53,6 +61,8 @@ app.state.quiz_attempt_store = QuizAttemptStore(os.environ.get("QUIZ_ATTEMPTS_DB
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
+# material_id -> planlaşdırılmış fon emalı task-ı (eyni naxış).
+app.state.active_material_tasks = {}
 
 
 def get_user_store() -> UserStore:
@@ -93,6 +103,16 @@ def get_quiz_session_store() -> QuizSessionStore:
 def get_quiz_attempt_store() -> QuizAttemptStore:
     """Quiz cavab store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.quiz_attempt_store
+
+
+def get_material_generator():
+    """Material→sual pipeline funksiyası (testdə fake funksiya ilə override olunur)."""
+    return generate_quiz
+
+
+def get_upload_dir() -> str:
+    """Yüklənən faylların saxlanacağı qovluq (testdə `tmp_path` ilə override olunur)."""
+    return os.environ.get("MATERIAL_UPLOAD_DIR", _DEFAULT_UPLOAD_DIR)
 
 
 def get_token_secret() -> str:
@@ -287,6 +307,112 @@ async def start_chat_quiz(
         connection_manager=manager,
     )
     return QuizSessionInfo(**session)
+
+
+async def _process_material(
+    material_id: int,
+    chat_id: int,
+    source: MaterialSource,
+    *,
+    generator,
+    material_store: MaterialStore,
+    question_store: QuestionStore,
+    message_store: MessageStore,
+    connection_manager: ConnectionManager,
+    questions_per_chunk: int = 3,
+) -> None:
+    """Materialı fon thread-ində emal edir — nəticə/xəta çata sistem mesajı
+    kimi bildirilir, HEÇ vaxt səssiz udulmur (spec bölmə 5-6)."""
+    try:
+        result = await asyncio.to_thread(generator, source, questions_per_chunk)
+    except Exception as exc:
+        material_store.update_status(material_id, "failed")
+        message = message_store.create(
+            chat_id, None, "system", f"Material emalı uğursuz oldu: {exc}"
+        )
+        await connection_manager.broadcast(chat_id, {"type": "message", **message})
+        return
+
+    for mcq in result.questions:
+        question_store.create_from_mcq(material_id, mcq)
+    material_store.update_status(material_id, "ready")
+    message = message_store.create(
+        chat_id, None, "system", f"Material hazırdır! {len(result.questions)} sual yaradıldı."
+    )
+    await connection_manager.broadcast(chat_id, {"type": "message", **message})
+
+
+@app.post("/chats/{chat_id}/materials", response_model=MaterialInfo, status_code=202)
+async def upload_material(
+    chat_id: int,
+    kind: str = Form(...),
+    location: str | None = Form(default=None),
+    file: UploadFile | None = File(default=None),
+    label: str | None = Form(default=None),
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    materials: MaterialStore = Depends(get_material_store),
+    questions: QuestionStore = Depends(get_question_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+    generator=Depends(get_material_generator),
+    upload_dir: str = Depends(get_upload_dir),
+) -> MaterialInfo:
+    chat = chats.get(chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    if kind not in ("link", "pdf", "image"):
+        raise HTTPException(status_code=400, detail="Naməlum material növü")
+
+    if kind == "link":
+        if not location:
+            raise HTTPException(status_code=400, detail="Link üçün 'location' tələb olunur")
+        source_location = location
+    else:
+        if file is None:
+            raise HTTPException(status_code=400, detail="Fayl tələb olunur")
+        try:
+            source_location = await save_upload(
+                file, upload_dir=upload_dir, max_bytes=MAX_UPLOAD_BYTES
+            )
+        except PayloadTooLarge:
+            raise HTTPException(status_code=413, detail="Fayl çox böyükdür")
+
+    material = materials.create(chat_id, user["id"], kind, source_location, label=label)
+
+    task = asyncio.create_task(
+        _process_material(
+            material["id"],
+            chat_id,
+            MaterialSource(kind=kind, location=source_location, label=label),
+            generator=generator,
+            material_store=materials,
+            question_store=questions,
+            message_store=messages,
+            connection_manager=manager,
+        )
+    )
+    app.state.active_material_tasks[material["id"]] = task
+
+    return MaterialInfo(**material)
+
+
+@app.get("/chats/{chat_id}/materials", response_model=list[MaterialInfo])
+def list_materials(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    materials: MaterialStore = Depends(get_material_store),
+) -> list[MaterialInfo]:
+    chat = chats.get(chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    return [MaterialInfo(**m) for m in materials.list_by_chat(chat_id)]
 
 
 @app.websocket("/ws/chat/{chat_id}")
