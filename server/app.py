@@ -198,6 +198,122 @@ def health(store: UserStore = Depends(get_user_store)) -> dict:
     return {"status": "ok"}
 
 
+@app.post("/friends/requests", response_model=FriendshipInfo, status_code=201)
+def send_friend_request(
+    req: SendFriendRequestRequest,
+    user: dict = Depends(get_current_user),
+    users: UserStore = Depends(get_user_store),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> FriendshipInfo:
+    if req.addressee_email is not None:
+        addressee = users.get_by_email(req.addressee_email)
+    else:
+        addressee = users.get_by_id(req.addressee_user_id)
+    if addressee is None:
+        raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
+    if addressee["id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="Özünüzə dost sorğusu göndərə bilməzsiniz")
+
+    try:
+        friendship = friendships.create(user["id"], addressee["id"])
+    except DuplicateFriendship:
+        raise HTTPException(status_code=409, detail="Artıq gözləyən dostluq sorğusu var")
+    except AlreadyFriends:
+        raise HTTPException(status_code=409, detail="Artıq dostsunuz")
+    return FriendshipInfo(**friendship)
+
+
+@app.get("/friends/requests", response_model=list[FriendshipInfo])
+def list_friend_requests(
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> list[FriendshipInfo]:
+    return [
+        FriendshipInfo(**f)
+        for f in friendships.list_by_user(user["id"])
+        if f["status"] == "pending"
+    ]
+
+
+def _get_friendship_or_404(friendship_id: int, friendships: FriendshipStore) -> dict:
+    friendship = friendships.get(friendship_id)
+    if friendship is None:
+        raise HTTPException(status_code=404, detail="Dostluq sorğusu tapılmadı")
+    return friendship
+
+
+@app.post("/friends/requests/{friendship_id}/accept", response_model=FriendshipInfo)
+def accept_friend_request(
+    friendship_id: int,
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> FriendshipInfo:
+    friendship = _get_friendship_or_404(friendship_id, friendships)
+    if friendship["addressee_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız ünvanlanan qəbul edə bilər")
+    if friendship["status"] != "pending":
+        raise HTTPException(status_code=409, detail="Sorğu artıq gözləmədə deyil")
+    friendships.update_status(friendship_id, "accepted")
+    return FriendshipInfo(**friendships.get(friendship_id))
+
+
+@app.post("/friends/requests/{friendship_id}/decline", response_model=FriendshipInfo)
+def decline_friend_request(
+    friendship_id: int,
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> FriendshipInfo:
+    friendship = _get_friendship_or_404(friendship_id, friendships)
+    if friendship["addressee_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız ünvanlanan rədd edə bilər")
+    if friendship["status"] != "pending":
+        raise HTTPException(status_code=409, detail="Sorğu artıq gözləmədə deyil")
+    friendships.update_status(friendship_id, "declined")
+    return FriendshipInfo(**friendships.get(friendship_id))
+
+
+@app.post("/friends/requests/{friendship_id}/cancel", response_model=FriendshipInfo)
+def cancel_friend_request(
+    friendship_id: int,
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> FriendshipInfo:
+    friendship = _get_friendship_or_404(friendship_id, friendships)
+    if friendship["requester_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız sorğunu göndərən ləğv edə bilər")
+    if friendship["status"] != "pending":
+        raise HTTPException(status_code=409, detail="Sorğu artıq gözləmədə deyil")
+    friendships.update_status(friendship_id, "cancelled")
+    return FriendshipInfo(**friendships.get(friendship_id))
+
+
+@app.get("/friends", response_model=list[FriendshipInfo])
+def list_friends(
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> list[FriendshipInfo]:
+    return [
+        FriendshipInfo(**f)
+        for f in friendships.list_by_user(user["id"])
+        if f["status"] == "accepted"
+    ]
+
+
+@app.post("/friends/{friendship_id}/unfriend", response_model=FriendshipInfo)
+def unfriend(
+    friendship_id: int,
+    user: dict = Depends(get_current_user),
+    friendships: FriendshipStore = Depends(get_friendship_store),
+) -> FriendshipInfo:
+    friendship = _get_friendship_or_404(friendship_id, friendships)
+    if user["id"] not in (friendship["requester_id"], friendship["addressee_id"]):
+        raise HTTPException(status_code=403, detail="Bu dostluğa aid deyilsiniz")
+    if friendship["status"] != "accepted":
+        raise HTTPException(status_code=409, detail="Yalnız aktiv dostluq pozula bilər")
+    friendships.update_status(friendship_id, "unfriended")
+    return FriendshipInfo(**friendships.get(friendship_id))
+
+
 @app.post("/chats", response_model=ChatInfo, status_code=201)
 def create_chat(
     req: CreateChatRequest,
