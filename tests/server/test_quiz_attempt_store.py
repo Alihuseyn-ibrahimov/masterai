@@ -41,3 +41,17 @@ def test_list_by_user(store):
     results = store.list_by_user(2)
     assert len(results) == 2
     assert {a["question_id"] for a in results} == {1, 2}
+
+
+def test_list_by_question(store):
+    store.create(question_id=1, user_id=2, chosen_index=0, is_correct=True)
+    store.create(question_id=1, user_id=3, chosen_index=1, is_correct=False)
+    store.create(question_id=2, user_id=2, chosen_index=0, is_correct=True)
+
+    results = store.list_by_question(1)
+    assert len(results) == 2
+    assert {a["user_id"] for a in results} == {2, 3}
+
+
+def test_list_by_question_empty_when_none(store):
+    assert store.list_by_question(999) == []

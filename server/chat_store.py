@@ -64,6 +64,12 @@ class ChatStore:
         )
         self._conn.commit()
 
+    def list_member_ids(self, chat_id: int) -> list[int]:
+        cur = self._conn.execute(
+            "SELECT user_id FROM chat_members WHERE chat_id = ?", (chat_id,)
+        )
+        return [row["user_id"] for row in cur.fetchall()]
+
     def list_by_user(self, user_id: int) -> list[dict]:
         cur = self._conn.execute(
             "SELECT c.id, c.kind, c.name, c.created_by, c.created_at FROM chats c "

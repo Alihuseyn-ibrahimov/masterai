@@ -61,6 +61,14 @@ class QuizAttemptStore:
         row = cur.fetchone()
         return _row_to_dict(row) if row else None
 
+    def list_by_question(self, question_id: int) -> list[dict]:
+        cur = self._conn.execute(
+            "SELECT id, question_id, user_id, chosen_index, is_correct, answered_at "
+            "FROM quiz_attempts WHERE question_id = ? ORDER BY answered_at",
+            (question_id,),
+        )
+        return [_row_to_dict(row) for row in cur.fetchall()]
+
     def list_by_user(self, user_id: int) -> list[dict]:
         cur = self._conn.execute(
             "SELECT id, question_id, user_id, chosen_index, is_correct, answered_at "

@@ -46,6 +46,18 @@ def test_add_member_and_list_by_user(store):
     assert chats_of_user_3 == []
 
 
+def test_list_member_ids(store):
+    chat = store.create(kind="group", created_by=1, name="Qrup")
+    store.add_member(chat["id"], user_id=1)
+    store.add_member(chat["id"], user_id=2)
+
+    assert sorted(store.list_member_ids(chat["id"])) == [1, 2]
+
+
+def test_list_member_ids_empty_for_unknown_chat(store):
+    assert store.list_member_ids(999) == []
+
+
 def test_adding_same_member_twice_is_idempotent(store):
     chat = store.create(kind="group", created_by=1, name="Qrup")
     store.add_member(chat["id"], user_id=1)
