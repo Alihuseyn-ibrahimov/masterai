@@ -1,8 +1,10 @@
-"""FastAPI request/response Pydantic modelləri (auth)."""
+"""FastAPI request/response Pydantic modelləri (auth + çat)."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+from typing import Literal
+
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class RegisterRequest(BaseModel):
@@ -29,3 +31,25 @@ class UserInfo(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     user: UserInfo
+
+
+class CreateChatRequest(BaseModel):
+    kind: Literal["direct", "group"]
+    name: str | None = Field(default=None, max_length=100)
+    peer_user_id: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_kind_specific_fields(self):
+        if self.kind == "group" and not self.name:
+            raise ValueError("Qrup çatı üçün 'name' tələb olunur")
+        if self.kind == "direct" and self.peer_user_id is None:
+            raise ValueError("Direct çat üçün 'peer_user_id' tələb olunur")
+        return self
+
+
+class ChatInfo(BaseModel):
+    id: int
+    kind: str
+    name: str | None
+    created_by: int
+    created_at: str
