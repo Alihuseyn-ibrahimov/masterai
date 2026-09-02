@@ -7,8 +7,10 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 **Status: aktiv inkişafda.** Yeddi alt-sistem tamamlanıb (263 test,
 `masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
 63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin
-14) + iki real n8n workflow (bax aşağı). Brainstorming skill-i ilə
-alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
+14) + iki real n8n workflow (bax aşağı). Deploy sənədləşdirilib
+(`DEPLOY.md` + `deploy/`), icra gözləyir — bax aşağı, "Deploy" sətri.
+Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
+(`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -27,7 +29,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi (aktiv), gündəlik statistika (deploy-u gözləyir) — n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 real workflow) |
-| Deploy | DigitalOcean, systemd, Cloudflare | Planlaşdırılıb |
+| Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `masterai.prdostu.com`, systemd+nginx+certbot — `DEPLOY.md` + `deploy/deploy_on_droplet.sh` hazır | Sənədləşdirilib, icra gözləyir (bu sandbox-da SSH/scp yoxdur) |
 
 ## Giriş formatları (pipeline)
 
@@ -48,9 +50,14 @@ Sistemimiz üç növ materialı dəstəkləyir:
   `Ghlqz9ZHM3RXiRjS` (n8n.prdostu.com) BİLƏRƏKDƏN aktivləşdirilməyib:
   `Statistikanı Çək` (HTTP Request) node-unun URL-i placeholder,
   "MasterAI Admin Key" kredensialının dəyəri yoxdur. Deploy-dan sonra:
-  URL-i real domenə (`https://prdostu.com/admin/stats`) yenilə, admin
-  key kredensialına real `ADMIN_API_KEY` dəyərini yaz, sonra
-  `publish_workflow`.
+  URL-i real domenə (`https://masterai.prdostu.com/admin/stats`) yenilə,
+  admin key kredensialına real `ADMIN_API_KEY` dəyərini yaz, sonra
+  `publish_workflow` (addım-addım bax `DEPLOY.md` bölmə 6).
+- **Deploy sənədləşdirilib, icra edilməyib** — `DEPLOY.md` + `deploy/`
+  qovluğu (systemd/nginx/skript) dildostu/masternr1 naxışına uyğun
+  yazılıb, amma bu sandbox-da `ssh`/`scp` YOXDUR — real icra
+  istifadəçinin öz mühitindən və ya SSH-a malik gələcək sessiyadan
+  edilməlidir. Bu, "Deploy" ✅ tamamlanıb demək DEYİL — yalnız hazırlıq.
 - **Sandbox↔n8n şəbəkə əlaqəsi bu mühitdə bloklanıb** — bu sandbox-un
   egress siyasəti `n8n.prdostu.com`-a çıxışı bloklayır (test zamanı
   aşkarlandı). Real deploy serverində adi internet çıxışı olacağı üçün

@@ -1,0 +1,23 @@
+[Unit]
+Description=MasterAI FastAPI backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/masterai
+EnvironmentFile=/opt/masterai/.env
+# YALNIZ 1 worker — məcburidir, seçim deyil: ConnectionManager (WebSocket
+# reyestri) və active_quiz_timeouts/active_material_tasks proses-daxili
+# yaddaşdadır (Redis/xarici state yoxdur). Birdən çox worker WebSocket
+# broadcast-ı və quiz timeout-larını sükutla korlayar (bax
+# server/connection_manager.py modul qeydi).
+ExecStart=/opt/masterai/.venv/bin/gunicorn \
+    server.app:app \
+    -k uvicorn.workers.UvicornWorker \
+    -w 1 \
+    -b 127.0.0.1:8110
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
