@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 
+import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 
 from pipeline.models import MaterialSource
@@ -468,6 +469,20 @@ async def start_chat_quiz(
     return QuizSessionInfo(**session)
 
 
+async def _notify_admin_webhook(payload: dict) -> None:
+    """`ADMIN_WEBHOOK_URL` (n8n Webhook Trigger) təyin olunubsa fire-and-
+    forget POST edir. Heç vaxt istisna atmır — bildiriş uğursuzluğu
+    material emalının nəticəsini POZMAMALIDIR (spec bölmə 3.2/6)."""
+    webhook_url = os.environ.get("ADMIN_WEBHOOK_URL")
+    if not webhook_url:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=3) as http:
+            await http.post(webhook_url, json=payload)
+    except Exception:
+        pass
+
+
 async def _process_material(
     material_id: int,
     chat_id: int,
@@ -490,6 +505,15 @@ async def _process_material(
             chat_id, None, "system", f"Material emalı uğursuz oldu: {exc}"
         )
         await connection_manager.broadcast(chat_id, {"type": "message", **message})
+        await _notify_admin_webhook(
+            {
+                "material_id": material_id,
+                "chat_id": chat_id,
+                "kind": source.kind,
+                "location": source.location,
+                "error": str(exc),
+            }
+        )
         return
 
     for mcq in result.questions:

@@ -233,3 +233,22 @@ class TestBackgroundProcessing:
         assert created_questions == []
         msgs = env["messages"].list_by_chat(env["chat_id"])
         assert any("uğursuz" in m["content"] for m in msgs)
+
+    def test_failed_processing_survives_unreachable_admin_webhook(self, env, monkeypatch):
+        """ADMIN_WEBHOOK_URL əlçatmaz olsa belə material nəticəsi (status,
+        sistem mesajı) TƏSİRLƏNMİR — real şəbəkə xətası ilə (mock yox)."""
+        monkeypatch.setenv("ADMIN_WEBHOOK_URL", "http://127.0.0.1:1/webhook")
+        app.dependency_overrides[get_material_generator] = lambda: _fake_generator_failure
+
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az"},
+            headers=_auth(env["member"]),
+        )
+        material_id = r.json()["id"]
+
+        material = _wait_until_not_processing(env["materials"], material_id)
+
+        assert material["status"] == "failed"
+        msgs = env["messages"].list_by_chat(env["chat_id"])
+        assert any("uğursuz" in m["content"] for m in msgs)
