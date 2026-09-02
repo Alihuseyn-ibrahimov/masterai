@@ -23,3 +23,4 @@ websockets>=13.0  # yalnız real-smoke test skripti üçün, runtime asılılı�
 bcrypt>=4.1
 PyJWT>=2.8
 email-validator>=2.1
+python-multipart>=0.0.12
