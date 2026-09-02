@@ -19,6 +19,7 @@ reportlab>=4.2  # yalnız test fixture (sample.pdf) yaratmaq üçün, runtime as
 fastapi>=0.115
 uvicorn[standard]>=0.30
 httpx>=0.27
+websockets>=13.0  # yalnız real-smoke test skripti üçün, runtime asılılığı deyil
 bcrypt>=4.1
 PyJWT>=2.8
 email-validator>=2.1
