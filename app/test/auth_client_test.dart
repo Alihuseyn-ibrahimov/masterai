@@ -24,7 +24,12 @@ void main() {
         final body = jsonDecode(req.body) as Map<String, dynamic>;
         expect(body['email'], 'ali@example.com');
         expect(body['display_name'], 'Əli');
-        return http.Response(_authResponse(), 201);
+        // `encoding: utf8` MƏCBURİDİR — `http.Response(String, int)`-in
+        // defolt kodlaşdırması latin1-dir (Azərbaycan hərfləri ilə
+        // toqquşur), amma çıxan sorğu body-si (`http.post`) utf8 işlədir —
+        // bu asimmetriya real `flutter test`-də tapıldı (bax
+        // masterai/CLAUDE.md, "Dərs" bölməsi).
+        return http.Response(_authResponse(), 201, encoding: utf8);
       });
       final client = AuthClient(baseUrl: 'https://x', httpClient: mock);
       final result = await client.register(
@@ -60,7 +65,7 @@ void main() {
     test('uğurlu giriş token qaytarır', () async {
       final mock = MockClient((req) async {
         expect(req.url.path, '/auth/login');
-        return http.Response(_authResponse(), 200);
+        return http.Response(_authResponse(), 200, encoding: utf8);
       });
       final client = AuthClient(baseUrl: 'https://x', httpClient: mock);
       final result = await client.login(email: 'ali@example.com', password: 'Parol1234');

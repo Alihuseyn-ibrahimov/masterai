@@ -90,13 +90,14 @@ sadə `Lock`).
    (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
    qarışdırılması asandır.
 
-## Dərs: Flutter app SDK-sız yazıldı — real yoxlama istifadəçinin işidir
+## Dərs: Flutter app SDK-sız yazıldı, sonra istifadəçinin real mühitində sınandı
 
-`app/` bu sandbox-da (Flutter SDK YOXDUR) yazılıb — `flutter analyze`/
-`flutter test`/`flutter run` işlədilə bilməyib. Backend sözləşməsinə
-(JSON sahələri, WS mesaj formatları) diqqətlə uyğunlaşdırılıb, hər
-fazadan sonra özünü-nəzərdən keçirmədə 2 real bug tapılıb düzəldilib:
+`app/` bu sandbox-da (Flutter SDK YOXDUR) yazılıb, sonra istifadəçinin
+Windows mühitində (`flutter pub get`/`analyze`/`test`) REAL yoxlanıldı.
+Özünü-nəzərdən keçirmədə (SDK-sız) 2 bug, real icrada isə 3 ƏLAVƏ bug
+tapılıb düzəldilib — cəmi 5:
 
+**SDK-sız özünü-nəzərdən keçirmədə tapılan (2):**
 1. Dart string interpolasiyası: `'($resp.statusCode)'` `resp`-i
    `toString()`-lə çap edib sonra hərfi ".statusCode)" yazardı —
    property access `${}` tələb edir, bare `$` yalnız sadə
@@ -106,10 +107,31 @@ fazadan sonra özünü-nəzərdən keçirmədə 2 real bug tapılıb düzəldili
    kartı hələ aktiv görünüb toxunanda backend-in `AlreadyAnswered`
    xətası alınırdı.
 
-**Bunlar `flutter analyze`/`test` olmadan tapılmışdı — kodun REAL
-işlədiyini sübut ETMİR**, yalnız gözlə görünən uyğunsuzluqları tutub.
-İlk addım həmişə: `cd app && flutter pub get && flutter analyze &&
-flutter test` (bax `app/README.md`).
+**İstifadəçinin real mühitində (`flutter pub get`/`analyze`/`test`) tapılan (3):**
+3. **`flutter pub get`:** `flutter_secure_storage ^11` (`win32 ^6.0.1`)
+   və `file_picker ^10.1.2` (`win32 ^5.9.0`) versiya toqquşması —
+   `file_picker: ^12.2.0`-a yüksəldildi.
+4. **`flutter analyze`:** `file_picker` 10→12 yüksəldilməsi API-ni
+   dəyişmişdi — `FilePicker.platform` artıq YOXDUR, statik metodlar
+   birbaşa `FilePicker`-dədir (`FilePicker.pickFile(...)`).
+5. **`flutter test`:** iki ayrı problem —
+   a) `Building native assets for package:objective_c failed` (boşluqlu
+      Windows yolu hook script-ini qırır) — `dildostu/app/pubspec.yaml`-da
+      ARTIQ HƏLL EDİLMİŞ eyni problem, eyni `dependency_overrides`
+      (`path_provider_android: 2.2.23`, `path_provider_foundation: 2.4.4`)
+      tətbiq edildi;
+   b) `http.Response(String, int)` konstruktoru defolt **latin1**
+      kodlaşdırması işlədir (utf8 YOX) — Azərbaycan hərfli test
+      fikstürləri (`'Əli'`) sükutla xəta atırdı, bu da client kodunun
+      geniş `catch (_)`-i tərəfindən "şəbəkə xətası" kimi gizlənirdi.
+      Həlli: `http.Response(body, code, encoding: utf8)`.
+
+**Vəziyyət:** `flutter analyze` real mühitdə "No issues found!" verdi
+(təsdiqlənib). `flutter test`-in son (5-ci düzəlişdən sonrakı) nəticəsi
+hələ təsdiqlənməyib — növbəti addım budur. İlk addım (yeni Flutter işi
+başlayanda) həmişə: `cd app && flutter pub get && flutter analyze &&
+flutter test` (bax `app/README.md`) — bu 5 bug SDK olmadan tapıla
+BİLMƏZDİ, "mənbədən yoxla" prinsipinin canlı nümunəsidir.
 
 ## Qeyd
 
