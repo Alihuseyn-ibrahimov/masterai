@@ -52,13 +52,13 @@ Sistemimiz üç növ materialı dəstəkləyir:
   təsdiqləndi. Deploy-dan əvvəl: ya log-larda maskalama, ya da qısaömürlü
   WS-özəl "ticket" tokeni ilə əvəzlə (bax
   `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`, bölmə 4).
-- **`_notify_admin_webhook()` real production-da hələ sınanmayıb** —
-  n8n-in "Uğursuz Material Bildirişi" workflow-u aktivdir və Telegram
-  çatdırılması ayrıca (n8n-in öz `test_workflow`-u ilə) təsdiqlənib, amma
-  backend-in ÖZÜNÜN real material uğursuzluğu zamanı bu webhook-u
-  çağırdığı hələ real production-da izlənməyib (yalnız pytest-də mock
-  ilə). İlk real uğursuz material yükləməsində Telegram-a bildiriş
-  gəldiyini yoxla.
+- ~~`_notify_admin_webhook()` real production-da hələ sınanmayıb~~ —
+  **✅ TƏSDİQLƏNDİ (2026-09-03):** Flutter app-ın real mühit testində
+  (qrup çatına sayt linki yükləndi, emal uğursuz oldu — bax aşağıdakı
+  "Dərs: real material uğursuzluğu" bölməsi) backend real şəkildə
+  `_notify_admin_webhook()`-u çağırdı və Telegram-a bildiriş REAL
+  gəldi (istifadəçi təsdiqlədi). Uc-uca zəncir (backend material
+  emalı → n8n webhook → Telegram) indi tam real şəraitdə yoxlanılıb.
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 
