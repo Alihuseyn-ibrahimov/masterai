@@ -440,11 +440,14 @@ class _MaterialsSheetState extends State<_MaterialsSheet> {
   }
 
   Future<void> _uploadFile(String kind, List<String>? extensions) async {
-    final result = await FilePicker.platform.pickFiles(
+    // file_picker 12: `FilePicker.platform` YOXDUR artıq — statik metodlar
+    // birbaşa `FilePicker`-in özündədir. `pickFile()` (tək fayl, `12.x`-də
+    // əlavə olunub) `.single`-a ehtiyacı aradan qaldırır.
+    final file = await FilePicker.pickFile(
       type: extensions == null ? FileType.image : FileType.custom,
       allowedExtensions: extensions,
     );
-    final path = result?.files.single.path;
+    final path = file?.path;
     if (path == null) return;
     await _runUpload(
       () => widget.materialClient.uploadFile(widget.token, widget.chatId, kind: kind, filePath: path),
