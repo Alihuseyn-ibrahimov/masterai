@@ -24,5 +24,16 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+# path_provider_android/path_provider_foundation-ın son versiyaları
+# jni/objective_c paketlərinə keçib — bunlar "native assets" tikinti
+# addımı tələb edir, bu isə boşluqlu Windows istifadəçi yolunda
+# (C:\Users\Alihuseyn Ibrahimov\...) sınır (real `flutter test` xətası,
+# eyni problem `dildostu/app/pubspec.yaml`-da da rast gəlinib və
+# sənədləşdirilib). Köhnə (MethodChannel əsaslı, hook tələb etməyən)
+# versiyalara sabitlənib.
+dependency_overrides:
+  path_provider_android: 2.2.23
+  path_provider_foundation: 2.4.4
+
 flutter:
   uses-material-design: true
