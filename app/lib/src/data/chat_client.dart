@@ -1,0 +1,61 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../models/chat.dart';
+import 'api_exception.dart';
+
+const _timeout = Duration(seconds: 10);
+
+/// `/chats` REST-i. Token hər çağırışa ötürülür (client daxili sessiya
+/// saxlamır — bax `session_storage.dart`).
+class ChatClient {
+  ChatClient({required this.baseUrl, http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
+
+  final String baseUrl;
+  final http.Client _http;
+
+  Future<List<ChatInfo>> listChats(String token) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .get(
+            Uri.parse('$baseUrl/chats'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException('Çatlar yüklənmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
+    return list.map((c) => ChatInfo.fromJson(c as Map<String, dynamic>)).toList();
+  }
+
+  /// Yalnız qrup çatı yaradır (MVP-də `direct` üçün UI yoxdur — backend
+  /// `kind="direct"` dostluq tələb edir, bax `friendship_store.py`).
+  Future<ChatInfo> createGroupChat(String token, {required String name}) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .post(
+            Uri.parse('$baseUrl/chats'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'kind': 'group', 'name': name}),
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 201) {
+      throw ApiException('Çat yaradıla bilmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    return ChatInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
+  }
+}
