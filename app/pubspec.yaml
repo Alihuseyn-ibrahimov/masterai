@@ -14,7 +14,10 @@ dependencies:
   http: ^1.6.0
   web_socket_channel: ^3.0.2
   flutter_secure_storage: ^11.0.0
-  file_picker: ^10.1.2
+  # ^10.1.2 win32 ^5.9.0 tələb edir, flutter_secure_storage 11-in win32
+  # ^6.0.1 tələbi ilə toqquşurdu (real `flutter pub get` xətası, Windows
+  # dev mühitində tapıldı). Pub-un öz təklifinə uyğun yeniləndi.
+  file_picker: ^12.2.0
 
 dev_dependencies:
   flutter_test:
