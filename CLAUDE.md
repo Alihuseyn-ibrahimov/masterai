@@ -110,6 +110,27 @@ mock-lanmış fixture-ları bunu görə bilməzdi, yalnız real bir saytla real
 `_notify_admin_webhook()` sınağını da real təsdiqlədi (Telegram-a real
 bildiriş gəldi).
 
+## Dərs: Groq `llama-3.3-70b-versatile` modelini dayandırıb
+
+Wikipedia fetch düzəlişindən (yuxarı bax) sonra material emalı yenə uğursuz
+oldu, amma fərqli xəta ilə: "Kifayət qədər keyfiyyətli sual alınmadı
+(0 < 3)". VPS-də birbaşa reproduksiya: `complete_with_fallback()` çağırışı
+Groq-dan **404 model_not_found** aldı (`llama-3.3-70b-versatile` artıq
+mövcud deyil), Ollama fallback-ı da VPS-də quraşdırılmadığı üçün (gözlənilən
+— yalnız lokal) uğursuz oldu, `claude` provider-i isə heç konfiqurasiya
+olunmayıb (`ANTHROPIC_API_KEY` yoxdur) — nəticədə bütün provider-lər
+uğursuz oldu. `client.models.list()` ilə hesabın canlı model siyahısı
+sorğulandı (sənəd yox, HƏQİQİ API cavabı) — `llama-3.3-70b-versatile`
+siyahıda YOXDUR, Groq artıq əsasən `openai/gpt-oss-*`, `qwen/*` modellərini
+saxlayır. `pipeline/providers.py`-də defolt `GROQ_MODEL`
+`openai/gpt-oss-120b`-yə dəyişdirildi (`.env.example` də yeniləndi).
+**Diqqət: `dildostu/server/dildostu_server/providers.py`-də də eyni
+köhnəlmiş defolt var** (bu tapşırığın əhatəsindən kənar saxlanıldı, ayrıca
+düzəldilməlidir). Bu, "mənbədən yoxla" prinsipinin daha bir nümunəsidir —
+LLM provider-lərin model kataloqu vaxtaşırı dəyişir, kodda sabit yazılmış
+model adı sükutla köhnəlib sınmaya bilər; pytest mock-ları bunu görə
+bilməz, yalnız real API çağırışı aşkar edir.
+
 ## Dərs: Flutter app SDK-sız yazıldı, sonra istifadəçinin real mühitində sınandı
 
 `app/` bu sandbox-da (Flutter SDK YOXDUR) yazılıb, sonra istifadəçinin

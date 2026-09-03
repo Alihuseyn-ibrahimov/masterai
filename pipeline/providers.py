@@ -13,7 +13,11 @@ from typing import Callable
 
 Completer = Callable[[str, str], str]  # (system, user) -> text
 
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# `llama-3.3-70b-versatile` Groq tərəfindən dayandırılıb (real production-da
+# 404 model_not_found ilə tapıldı, bax masterai/CLAUDE.md) — `client.models.
+# list()` ilə hesabın canlı model siyahısi yoxlanıb, `openai/gpt-oss-120b`
+# seçilib (mövcud olanlar arasında ən böyük ümumi-təyinatlı chat model).
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:32b")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
