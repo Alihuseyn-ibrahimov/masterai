@@ -8,16 +8,16 @@ quiz kimi həll et.
 bax) — bu app-da ayrıca konfiqurasiya lazım deyil, `lib/src/config.dart`-da
 sabit yazılıb.
 
-## VACİB — bu kod bu formada HEÇ TEST EDİLMƏYİB
+## Vəziyyət: uc-uca real mühitdə təsdiqlənib
 
-Bu app Claude tərəfindən Flutter SDK-sı OLMAYAN bir mühitdə yazılıb —
-`flutter analyze`/`flutter test`/`flutter run` işlədilə bilməyib. Kod
-backend-in real sözləşməsinə (JSON sahə adları, WebSocket mesaj formatları)
-diqqətlə uyğunlaşdırılıb və hər fayldan sonra özünü-nəzərdən keçirmə
-aparılıb (bax `.planning/2026-09-03-masterai-flutter-app/`), amma real
-yoxlama **sizin işinizdir** — dildostu/app-ın da eyni presedenti var
-(bax `dildostu/CLAUDE.md`, "Android build YALNIZ istifadəçinin öz
-terminalından").
+Bu app Claude tərəfindən Flutter SDK-sı OLMAYAN bir mühitdə yazılıb, sonra
+istifadəçinin öz Windows mühitində (`flutter analyze`/`test`/`run`, real
+Android emulyator) tam yoxlanılıb. `flutter analyze` — 0 xəta, `flutter
+test` — 26/26, `flutter run` — real backend-lə (qeydiyyat → qrup çatı →
+mesajlaşma → material yükləmə → AI sual generasiyası → quiz həlli)
+uc-uca işlədi (bax `.planning/2026-09-03-masterai-flutter-app/progress.md`
+üçün tam sınaq jurnalı, o cümlədən yol boyu tapılıb düzəldilmiş real
+bug-lar — `masterai/CLAUDE.md`-nin "Dərs" bölmələri).
 
 ## İşə salma
 

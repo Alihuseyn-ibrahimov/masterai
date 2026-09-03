@@ -4,8 +4,9 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: backend canlıdır, Flutter app kodu yazılıb və real mühitdə
-`analyze`+`test` təsdiqlənib (`flutter run` hələ yoxlanmayıb).**
+**Status: MVP tam uc-uca real production-da təsdiqlənib** (qeydiyyat →
+qrup çatı → mesajlaşma (WS) → material yükləmə → AI sual generasiyası →
+quiz həlli → xallandırma, real Android emulyatorda, real backend-lə).
 `https://masterai.prdostu.com` — real DigitalOcean VPS-də (HTTPS, systemd,
 nginx) işləyir. Yeddi backend alt-sistemi tamamlanıb (263 test, `masterai/`
 daxilində vahid pytest run — pipeline 57 + backend auth/data 63 + çat
@@ -13,8 +14,10 @@ daxilində vahid pytest run — pipeline 57 + backend auth/data 63 + çat
 n8n workflow, HƏR İKİSİ aktiv/production-da. Flutter app-ın (`app/`) MVP
 nüvəsi yazılıb (22 fayl, bax "Dərs: Flutter app SDK-sız yazıldı") —
 istifadəçinin real Windows mühitində `flutter analyze` ("No issues
-found!") və `flutter test` (26 test, hamısı keçdi) təsdiqlənib. Yalnız
-`flutter run` (real cihaz/emulyatorda uc-uca) hələ sınanmayıb.
+found!"), `flutter test` (26 test) və `flutter run` (Android Studio AVD,
+real cihazda) HƏR ÜÇÜ təsdiqlənib. Uc-uca real test zamanı 2 real backend
+bug-ı da tapılıb düzəldilib (bax "Dərs: real material uğursuzluğu" və
+"Dərs: Groq `llama-3.3-70b-versatile` modelini dayandırıb").
 Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
 (`docs/superpowers/specs/`).
 
@@ -33,7 +36,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
-| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | ✅ `analyze`+`test` real mühitdə təsdiqlənib (26 test keçdi), `flutter run` hələ sınanmayıb — bax `app/README.md` |
+| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | ✅ Tam uc-uca real mühitdə təsdiqlənib (`analyze`+`test`+`run`, real Android emulyator, real backend) — bax `app/README.md` |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 
