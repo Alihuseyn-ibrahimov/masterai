@@ -94,6 +94,22 @@ sadə `Lock`).
    (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
    qarışdırılması asandır.
 
+## Dərs: real material uğursuzluğu — Wikipedia `requests`-in defolt User-Agent-ini bloklayır
+
+Flutter app-ın real emulyator (Android Studio AVD) testində qrup çatına
+sayt linki (`az.wikipedia.org`) yükləndi, backend "Sayt yüklənmədi" ilə
+uğursuz oldu. VPS-də birbaşa reproduksiya edildi:
+`requests.get(url)` (heç bir header-siz) → **403**, eyni sorğu brauzer
+`User-Agent`-i ilə → **200**. Kök səbəb: Wikimedia `python-requests/...`
+kimi bot-görünüşlü UA-ları rədd edir. `pipeline/ingestion/web_extractor.py`-da
+`_download_static()`-a sabit brauzer `User-Agent` header-i əlavə olundu
+(test: `test_download_static_sends_browser_user_agent`, 264 test).
+**Bu, "mənbədən yoxla" prinsipinin daha bir nümunəsidir** — pytest-in
+mock-lanmış fixture-ları bunu görə bilməzdi, yalnız real bir saytla real
+şəbəkə sorğusu tapdı. Eyni zamanda bu hadisə "Bilinən risklər"dəki
+`_notify_admin_webhook()` sınağını da real təsdiqlədi (Telegram-a real
+bildiriş gəldi).
+
 ## Dərs: Flutter app SDK-sız yazıldı, sonra istifadəçinin real mühitində sınandı
 
 `app/` bu sandbox-da (Flutter SDK YOXDUR) yazılıb, sonra istifadəçinin

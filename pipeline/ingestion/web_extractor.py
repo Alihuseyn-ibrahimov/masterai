@@ -8,9 +8,20 @@ from pipeline.models import MaterialSource, RawMaterial
 # belə hallarda Selenium ilə render olunmuş səhifəyə keçilir.
 _MIN_STATIC_TEXT_LENGTH = 100
 
+# Bəzi saytlar (məs. Wikipedia) `requests`-in defolt User-Agent-ini
+# ("python-requests/...") bot kimi tanıyıb 403 ilə rədd edir — real
+# production-da (bax masterai/CLAUDE.md, "Dərs: real material
+# uğursuzluğu") brauzer kimi tanınan bir UA ilə eyni sorğu 200 qaytardı.
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    )
+}
+
 
 def _download_static(url: str) -> str:
-    response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=15, headers=_BROWSER_HEADERS)
     response.raise_for_status()
     return response.text
 
