@@ -24,12 +24,19 @@ void main() {
         final body = jsonDecode(req.body) as Map<String, dynamic>;
         expect(body['email'], 'ali@example.com');
         expect(body['display_name'], 'Əli');
-        // `encoding: utf8` MƏCBURİDİR — `http.Response(String, int)`-in
-        // defolt kodlaşdırması latin1-dir (Azərbaycan hərfləri ilə
-        // toqquşur), amma çıxan sorğu body-si (`http.post`) utf8 işlədir —
-        // bu asimmetriya real `flutter test`-də tapıldı (bax
-        // masterai/CLAUDE.md, "Dərs" bölməsi).
-        return http.Response(_authResponse(), 201, encoding: utf8);
+        // `http.Response(String, int)`-in `encoding` adlı parametri YOXDUR —
+        // kodlaşdırma daxili olaraq `headers`-dəki `content-type`-dan
+        // törədilir: `application/json` olsa utf8, əks halda (və ya
+        // header heç yoxdursa) defolt latin1 (bax `http` paketinin real
+        // `response.dart` mənbəyi). Latin1 Azərbaycan hərfləri ilə
+        // toqquşduğu üçün bu header AÇIQ göstərilməlidir — bu asimmetriya
+        // real `flutter test`-də tapıldı (bax masterai/CLAUDE.md, "Dərs"
+        // bölməsi).
+        return http.Response(
+          _authResponse(),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
       });
       final client = AuthClient(baseUrl: 'https://x', httpClient: mock);
       final result = await client.register(
@@ -65,7 +72,11 @@ void main() {
     test('uğurlu giriş token qaytarır', () async {
       final mock = MockClient((req) async {
         expect(req.url.path, '/auth/login');
-        return http.Response(_authResponse(), 200, encoding: utf8);
+        return http.Response(
+          _authResponse(),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       });
       final client = AuthClient(baseUrl: 'https://x', httpClient: mock);
       final result = await client.login(email: 'ali@example.com', password: 'Parol1234');

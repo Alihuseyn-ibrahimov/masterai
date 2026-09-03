@@ -120,18 +120,25 @@ tapılıb düzəldilib — cəmi 5:
       ARTIQ HƏLL EDİLMİŞ eyni problem, eyni `dependency_overrides`
       (`path_provider_android: 2.2.23`, `path_provider_foundation: 2.4.4`)
       tətbiq edildi;
-   b) `http.Response(String, int)` konstruktoru defolt **latin1**
-      kodlaşdırması işlədir (utf8 YOX) — Azərbaycan hərfli test
-      fikstürləri (`'Əli'`) sükutla xəta atırdı, bu da client kodunun
-      geniş `catch (_)`-i tərəfindən "şəbəkə xətası" kimi gizlənirdi.
-      Həlli: `http.Response(body, code, encoding: utf8)`.
+   b) `http.Response(String, int)` konstruktorunun `encoding` adlı
+      parametri YOXDUR (mənim ilk düzəlişim — `encoding: utf8` — buna görə
+      compile xətası verdi, istifadəçinin real paket mənbəyini
+      göstərməsi ilə üzə çıxdı). Kodlaşdırma daxili olaraq `headers`-dəki
+      `content-type`-dan törədilir: `application/json` olsa avtomatik
+      utf8, əks halda (header göndərilməsə də) defolt **latin1** —
+      Azərbaycan hərfli test fikstürləri (`'Əli'`) sükutla xəta atırdı,
+      bu da client kodunun geniş `catch (_)`-i tərəfindən "şəbəkə xətası"
+      kimi gizlənirdi. Doğru həlli: `http.Response(body, code, headers:
+      {'content-type': 'application/json'})`.
 
 **Vəziyyət:** `flutter analyze` real mühitdə "No issues found!" verdi
-(təsdiqlənib). `flutter test`-in son (5-ci düzəlişdən sonrakı) nəticəsi
-hələ təsdiqlənməyib — növbəti addım budur. İlk addım (yeni Flutter işi
-başlayanda) həmişə: `cd app && flutter pub get && flutter analyze &&
-flutter test` (bax `app/README.md`) — bu 5 bug SDK olmadan tapıla
-BİLMƏZDİ, "mənbədən yoxla" prinsipinin canlı nümunəsidir.
+(təsdiqlənib). `flutter test`-in düzəliş (5b) tətbiq olunub, real
+təsdiq (istifadəçinin `flutter test` təkrar icrası) növbəti addımdır.
+İlk addım (yeni Flutter işi başlayanda) həmişə: `cd app && flutter pub
+get && flutter analyze && flutter test` (bax `app/README.md`) — bu 5
+bug SDK olmadan tapıla BİLMƏZDİ, "mənbədən yoxla" prinsipinin canlı
+nümunəsidir (ilk səhv düzəliş də daxil olmaqla — mən özüm yoxlamadan
+güman etdim, istifadəçinin real paket mənbəyini göstərməsi ilə düzəldi).
 
 ## Qeyd
 
