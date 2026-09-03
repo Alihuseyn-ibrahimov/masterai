@@ -4,13 +4,13 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: aktiv inkişafda.** Yeddi alt-sistem tamamlanıb (263 test,
-`masterai/` daxilində vahid pytest run — pipeline 57 + backend auth/data
-63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin
-14) + iki real n8n workflow (bax aşağı). Deploy sənədləşdirilib
-(`DEPLOY.md` + `deploy/`), icra gözləyir — bax aşağı, "Deploy" sətri.
-Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
-(`docs/superpowers/specs/`).
+**Status: canlıdır.** `https://masterai.prdostu.com` — real DigitalOcean
+VPS-də (HTTPS, systemd, nginx) işləyir. Yeddi alt-sistem tamamlanıb (263
+test, `masterai/` daxilində vahid pytest run — pipeline 57 + backend
+auth/data 63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45 +
+n8n admin 14) + iki n8n workflow, HƏR İKİSİ aktiv/production-da (bax
+aşağı). Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz
+spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -28,8 +28,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
-| n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi (aktiv), gündəlik statistika (deploy-u gözləyir) — n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 real workflow) |
-| Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `masterai.prdostu.com`, systemd+nginx+certbot — `DEPLOY.md` + `deploy/deploy_on_droplet.sh` hazır | Sənədləşdirilib, icra gözləyir (bu sandbox-da SSH/scp yoxdur) |
+| n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
+| Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 
 ## Giriş formatları (pipeline)
 
@@ -46,25 +46,13 @@ Sistemimiz üç növ materialı dəstəkləyir:
   təsdiqləndi. Deploy-dan əvvəl: ya log-larda maskalama, ya da qısaömürlü
   WS-özəl "ticket" tokeni ilə əvəzlə (bax
   `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`, bölmə 4).
-- **n8n "Gündəlik Statistika" workflow-u deploy-u gözləyir** —
-  `Ghlqz9ZHM3RXiRjS` (n8n.prdostu.com) BİLƏRƏKDƏN aktivləşdirilməyib:
-  `Statistikanı Çək` (HTTP Request) node-unun URL-i placeholder,
-  "MasterAI Admin Key" kredensialının dəyəri yoxdur. Deploy-dan sonra:
-  URL-i real domenə (`https://masterai.prdostu.com/admin/stats`) yenilə,
-  admin key kredensialına real `ADMIN_API_KEY` dəyərini yaz, sonra
-  `publish_workflow` (addım-addım bax `DEPLOY.md` bölmə 6).
-- **Deploy sənədləşdirilib, icra edilməyib** — `DEPLOY.md` + `deploy/`
-  qovluğu (systemd/nginx/skript) dildostu/masternr1 naxışına uyğun
-  yazılıb, amma bu sandbox-da `ssh`/`scp` YOXDUR — real icra
-  istifadəçinin öz mühitindən və ya SSH-a malik gələcək sessiyadan
-  edilməlidir. Bu, "Deploy" ✅ tamamlanıb demək DEYİL — yalnız hazırlıq.
-- **Sandbox↔n8n şəbəkə əlaqəsi bu mühitdə bloklanıb** — bu sandbox-un
-  egress siyasəti `n8n.prdostu.com`-a çıxışı bloklayır (test zamanı
-  aşkarlandı). Real deploy serverində adi internet çıxışı olacağı üçün
-  `_notify_admin_webhook()` normal işləməlidir — amma deploy-dan sonra
-  bunu real bir uğursuz material yükləməsi ilə YENİDƏN yoxlamaq lazımdır
-  (bu sandbox-da doğrulanmayıb, yalnız n8n-in özündə `test_workflow`
-  ilə təcrid olunmuş halda doğrulanıb).
+- **`_notify_admin_webhook()` real production-da hələ sınanmayıb** —
+  n8n-in "Uğursuz Material Bildirişi" workflow-u aktivdir və Telegram
+  çatdırılması ayrıca (n8n-in öz `test_workflow`-u ilə) təsdiqlənib, amma
+  backend-in ÖZÜNÜN real material uğursuzluğu zamanı bu webhook-u
+  çağırdığı hələ real production-da izlənməyib (yalnız pytest-də mock
+  ilə). İlk real uğursuz material yükləməsində Telegram-a bildiriş
+  gəldiyini yoxla.
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 
@@ -80,6 +68,25 @@ ayrı OS thread-ində işlətməsi) və gələcək `--workers`/çoxlu-thread
 ssenarilərində qorunmaq üçün **hər yeni Store sinfi də daxili kilid
 işlətməlidir** (nested public-metod çağırışı varsa `RLock`, yoxdursa
 sadə `Lock`).
+
+## Dərs: real deploy zamanı rast gəlinən 3 tələ (VPS-ə aid, kod problemi deyil)
+
+1. **VPS-dəki `/opt/pr-agent/repo` checkout-u `main` branch-indədir** —
+   bizim işimiz `claude/ai-engineering-monthly-project-g5cg2y`-dadır.
+   `git pull` sükutla `main`-i yeniləyir, `masterai/` görünmür. Deploy-dan
+   əvvəl HƏMİŞƏ `git checkout claude/ai-engineering-monthly-project-g5cg2y`
+   (və ya işlənən branch) yoxla.
+2. **`ufw` yalnız `22`+`443` icazə verirdi, `80` YOX idi** — certbot-un
+   HTTP-01 doğrulaması (`/.well-known/acme-challenge/...`) port 80
+   tələb edir, "Timeout during connect (likely firewall problem)" xətası
+   verdi. Həlli: `ufw allow 80/tcp`. Digər `prdostu.com` alt-domenləri
+   üçün də bu VPS-də eyni yoxlama edilməlidir.
+3. **n8n MCP-nin credential yaratma aləti YOXDUR** (təhlükəsizlik
+   səbəbindən) — `httpHeaderAuth` kimi kredensiallar yalnız n8n UI-dan
+   əl ilə yaradıla bilər, sonra `update_workflow`-un `setNodeCredential`
+   əməliyyatı ilə node-a bağlanır. UI-da "Name" sahəsi HEADER ADI-dır
+   (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
+   qarışdırılması asandır.
 
 ## Qeyd
 
