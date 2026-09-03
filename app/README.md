@@ -48,9 +48,6 @@ səhvi var). `flutter test` data qatını (auth/chat/material/quiz client-ləri
   `user_id` rəqəm kimi göstərilir ("İstifadəçi #3"), çünki app-da
   istifadəçi-ID→ad kataloqu yoxdur (backend-də belə bir endpoint də yoxdur
   hələ). Kosmetik məhdudiyyət, funksionallığı poza bilmir.
-- **Launcher ikonu müvəqqətidir** (dildostu-dan köçürülüb) — real MasterAI
-  brendinq (`android/app/src/main/res/mipmap-*/ic_launcher.png`) sonrakı
-  fazada.
 - **İmzalama (release keystore) yoxdur** — `build.gradle.kts` debug
   açarları ilə release build edir (`flutter run --release` işləsin deyə),
   Play Store dərci üçün öz keystore-unuzu əlavə etməlisiniz.
