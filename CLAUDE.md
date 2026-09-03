@@ -4,13 +4,15 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: canlıdır.** `https://masterai.prdostu.com` — real DigitalOcean
-VPS-də (HTTPS, systemd, nginx) işləyir. Yeddi alt-sistem tamamlanıb (263
-test, `masterai/` daxilində vahid pytest run — pipeline 57 + backend
-auth/data 63 + çat (Faza A+B) 63 + material yükləmə 21 + dostluq 45 +
-n8n admin 14) + iki n8n workflow, HƏR İKİSİ aktiv/production-da (bax
-aşağı). Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz
-spec-i ilə (`docs/superpowers/specs/`).
+**Status: backend canlıdır, Flutter app kod tərəfi yazılıb (yoxlanmayıb).**
+`https://masterai.prdostu.com` — real DigitalOcean VPS-də (HTTPS, systemd,
+nginx) işləyir. Yeddi backend alt-sistemi tamamlanıb (263 test, `masterai/`
+daxilində vahid pytest run — pipeline 57 + backend auth/data 63 + çat
+(Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin 14) + iki
+n8n workflow, HƏR İKİSİ aktiv/production-da. Flutter app-ın (`app/`) MVP
+nüvəsi yazılıb (22 fayl, bax "Dərs: Flutter app SDK-sız yazıldı"), real
+yoxlama istifadəçinin öz mühitindədir. Brainstorming skill-i ilə
+alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -27,7 +29,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
-| Flutter app | Bu sandbox-da Flutter SDK yoxdur — istifadəçinin öz mühitində | Planlaşdırılıb |
+| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | Kod yazılıb (22 fayl), `flutter analyze`/`test`/`run` istifadəçinin öz mühitini gözləyir — bax `app/README.md` |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 
@@ -87,6 +89,27 @@ sadə `Lock`).
    əməliyyatı ilə node-a bağlanır. UI-da "Name" sahəsi HEADER ADI-dır
    (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
    qarışdırılması asandır.
+
+## Dərs: Flutter app SDK-sız yazıldı — real yoxlama istifadəçinin işidir
+
+`app/` bu sandbox-da (Flutter SDK YOXDUR) yazılıb — `flutter analyze`/
+`flutter test`/`flutter run` işlədilə bilməyib. Backend sözləşməsinə
+(JSON sahələri, WS mesaj formatları) diqqətlə uyğunlaşdırılıb, hər
+fazadan sonra özünü-nəzərdən keçirmədə 2 real bug tapılıb düzəldilib:
+
+1. Dart string interpolasiyası: `'($resp.statusCode)'` `resp`-i
+   `toString()`-lə çap edib sonra hərfi ".statusCode)" yazardı —
+   property access `${}` tələb edir, bare `$` yalnız sadə
+   identifikatorlar üçündür.
+2. Quiz sual kartının "bağlıdır" statusu yalnız lokal tap-i izləyirdi —
+   çat yenidən açılanda artıq nəticəsi gəlmiş (`QuizResultItem`) sual
+   kartı hələ aktiv görünüb toxunanda backend-in `AlreadyAnswered`
+   xətası alınırdı.
+
+**Bunlar `flutter analyze`/`test` olmadan tapılmışdı — kodun REAL
+işlədiyini sübut ETMİR**, yalnız gözlə görünən uyğunsuzluqları tutub.
+İlk addım həmişə: `cd app && flutter pub get && flutter analyze &&
+flutter test` (bax `app/README.md`).
 
 ## Qeyd
 

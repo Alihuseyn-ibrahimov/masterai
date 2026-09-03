@@ -1,0 +1,66 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:masterai/src/data/api_exception.dart';
+import 'package:masterai/src/data/chat_client.dart';
+
+void main() {
+  group('listChats', () {
+    test('token Authorization başlığında göndərilir, siyahı parse olunur', () async {
+      final mock = MockClient((req) async {
+        expect(req.headers['Authorization'], 'Bearer tok123');
+        expect(req.url.path, '/chats');
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 1,
+              'kind': 'group',
+              'name': 'Qrup',
+              'created_by': 1,
+              'created_at': '2026-09-03T00:00:00Z',
+            },
+          ]),
+          200,
+        );
+      });
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      final chats = await client.listChats('tok123');
+      expect(chats, hasLength(1));
+      expect(chats.single.name, 'Qrup');
+    });
+
+    test('401 → ApiException (statusCode daxil)', () async {
+      final mock = MockClient((req) async => http.Response('{}', 401));
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(
+        client.listChats('köhnə-token'),
+        throwsA(isA<ApiException>().having((e) => e.statusCode, 'statusCode', 401)),
+      );
+    });
+  });
+
+  group('createGroupChat', () {
+    test('kind=group body-si göndərilir', () async {
+      final mock = MockClient((req) async {
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        expect(body['kind'], 'group');
+        expect(body['name'], 'Yeni qrup');
+        return http.Response(
+          jsonEncode({
+            'id': 5,
+            'kind': 'group',
+            'name': 'Yeni qrup',
+            'created_by': 1,
+            'created_at': '2026-09-03T00:00:00Z',
+          }),
+          201,
+        );
+      });
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      final chat = await client.createGroupChat('tok', name: 'Yeni qrup');
+      expect(chat.id, 5);
+    });
+  });
+}

@@ -1,0 +1,70 @@
+# MasterAI — Flutter App (MVP nüvəsi)
+
+Dövlət qulluğu/magistratura imtahanına hazırlaşanlar üçün: dərs materialı
+yüklə → AI test sualları çıxarsın → dostlarla (qrup çatında) birgə canlı
+quiz kimi həll et.
+
+**Backend:** `https://masterai.prdostu.com` (canlı, `masterai/DEPLOY.md`-yə
+bax) — bu app-da ayrıca konfiqurasiya lazım deyil, `lib/src/config.dart`-da
+sabit yazılıb.
+
+## VACİB — bu kod bu formada HEÇ TEST EDİLMƏYİB
+
+Bu app Claude tərəfindən Flutter SDK-sı OLMAYAN bir mühitdə yazılıb —
+`flutter analyze`/`flutter test`/`flutter run` işlədilə bilməyib. Kod
+backend-in real sözləşməsinə (JSON sahə adları, WebSocket mesaj formatları)
+diqqətlə uyğunlaşdırılıb və hər fayldan sonra özünü-nəzərdən keçirmə
+aparılıb (bax `.planning/2026-09-03-masterai-flutter-app/`), amma real
+yoxlama **sizin işinizdir** — dildostu/app-ın da eyni presedenti var
+(bax `dildostu/CLAUDE.md`, "Android build YALNIZ istifadəçinin öz
+terminalından").
+
+## İşə salma
+
+```bash
+cd masterai/app
+flutter pub get
+flutter analyze          # statik xəta yoxlaması — İLK BUNU İŞLƏT
+flutter test              # data qatı unit testləri
+flutter run                # real cihaz/emulator-da
+```
+
+`flutter analyze` mütləq təmiz çıxmalıdır (əks halda kodda tip/import
+səhvi var). `flutter test` data qatını (auth/chat/material/quiz client-ləri
++ `ChatItem` JSON parsing) yoxlayır — UI widget testləri bu fazada YOXDUR
+(vaxt/effort balansı, MVP-nin əhatəsindən kənar buraxılıb).
+
+## Bilinən məhdudiyyətlər (MVP, qəsdən əhatə xaricində)
+
+- **Dostluq idarəetməsi UI-ı yoxdur** — backend-də `POST /friends/requests`
+  və s. hazırdır, amma app-da ekran yoxdur. Nəticə: `direct` (şəxsi) çat
+  yaradıla BİLMİR (backend dostluq tələb edir) — yalnız **qrup çatları**
+  işləyir. Solo/qrup test axını (öz-özünə qrup yarat → material yüklə →
+  quiz həll et) tam funksionaldır.
+- **WebSocket avtomatik yenidən qoşulma yoxdur** — bağlantı kəsilsə
+  (`ChatScreen`-in narıncı zolağı görünər) istifadəçi çatdan çıxıb yenidən
+  girməlidir.
+- **İstifadəçi adı göstərilmir mesaj/quiz kartlarında** — `sender_id`/
+  `user_id` rəqəm kimi göstərilir ("İstifadəçi #3"), çünki app-da
+  istifadəçi-ID→ad kataloqu yoxdur (backend-də belə bir endpoint də yoxdur
+  hələ). Kosmetik məhdudiyyət, funksionallığı poza bilmir.
+- **Launcher ikonu müvəqqətidir** (dildostu-dan köçürülüb) — real MasterAI
+  brendinq (`android/app/src/main/res/mipmap-*/ic_launcher.png`) sonrakı
+  fazada.
+- **İmzalama (release keystore) yoxdur** — `build.gradle.kts` debug
+  açarları ilə release build edir (`flutter run --release` işləsin deyə),
+  Play Store dərci üçün öz keystore-unuzu əlavə etməlisiniz.
+
+## Struktur
+
+```
+lib/
+  main.dart              # root + saxlanmış sessiya yoxlaması
+  src/
+    config.dart           # backend ünvanları
+    models/                # backend JSON-una uyğun modellər
+      chat_item.dart        # ən mürəkkəb — WS history/canlı hadisə normalizasiyası
+    data/                   # REST/WebSocket client-ləri
+    ui/                     # ekranlar
+test/                    # data qatı unit testləri (MockClient)
+```
