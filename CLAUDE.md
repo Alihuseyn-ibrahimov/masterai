@@ -4,15 +4,19 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: backend canlıdır, Flutter app kod tərəfi yazılıb (yoxlanmayıb).**
+**Status: backend canlıdır, Flutter app kodu yazılıb və real mühitdə
+`analyze`+`test` təsdiqlənib (`flutter run` hələ yoxlanmayıb).**
 `https://masterai.prdostu.com` — real DigitalOcean VPS-də (HTTPS, systemd,
 nginx) işləyir. Yeddi backend alt-sistemi tamamlanıb (263 test, `masterai/`
 daxilində vahid pytest run — pipeline 57 + backend auth/data 63 + çat
 (Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin 14) + iki
 n8n workflow, HƏR İKİSİ aktiv/production-da. Flutter app-ın (`app/`) MVP
-nüvəsi yazılıb (22 fayl, bax "Dərs: Flutter app SDK-sız yazıldı"), real
-yoxlama istifadəçinin öz mühitindədir. Brainstorming skill-i ilə
-alt-sistemlərə bölünür, hər biri öz spec-i ilə (`docs/superpowers/specs/`).
+nüvəsi yazılıb (22 fayl, bax "Dərs: Flutter app SDK-sız yazıldı") —
+istifadəçinin real Windows mühitində `flutter analyze` ("No issues
+found!") və `flutter test` (26 test, hamısı keçdi) təsdiqlənib. Yalnız
+`flutter run` (real cihaz/emulyatorda uc-uca) hələ sınanmayıb.
+Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
+(`docs/superpowers/specs/`).
 
 ## Arxitektura
 
@@ -29,7 +33,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
-| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | Kod yazılıb (22 fayl), `flutter analyze`/`test`/`run` istifadəçinin öz mühitini gözləyir — bax `app/README.md` |
+| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | ✅ `analyze`+`test` real mühitdə təsdiqlənib (26 test keçdi), `flutter run` hələ sınanmayıb — bax `app/README.md` |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 
@@ -131,14 +135,14 @@ tapılıb düzəldilib — cəmi 5:
       kimi gizlənirdi. Doğru həlli: `http.Response(body, code, headers:
       {'content-type': 'application/json'})`.
 
-**Vəziyyət:** `flutter analyze` real mühitdə "No issues found!" verdi
-(təsdiqlənib). `flutter test`-in düzəliş (5b) tətbiq olunub, real
-təsdiq (istifadəçinin `flutter test` təkrar icrası) növbəti addımdır.
-İlk addım (yeni Flutter işi başlayanda) həmişə: `cd app && flutter pub
-get && flutter analyze && flutter test` (bax `app/README.md`) — bu 5
-bug SDK olmadan tapıla BİLMƏZDİ, "mənbədən yoxla" prinsipinin canlı
-nümunəsidir (ilk səhv düzəliş də daxil olmaqla — mən özüm yoxlamadan
-güman etdim, istifadəçinin real paket mənbəyini göstərməsi ilə düzəldi).
+**Vəziyyət:** `flutter analyze` — "No issues found!" (təsdiqlənib).
+`flutter test` — **26 test, hamısı keçdi** (təsdiqlənib, düzəliş 5b-dən
+sonra). İlk addım (yeni Flutter işi başlayanda) həmişə: `cd app &&
+flutter pub get && flutter analyze && flutter test` (bax
+`app/README.md`) — bu 5 bug SDK olmadan tapıla BİLMƏZDİ, "mənbədən
+yoxla" prinsipinin canlı nümunəsidir (ilk səhv düzəliş də daxil
+olmaqla — mən özüm yoxlamadan güman etdim, istifadəçinin real paket
+mənbəyini göstərməsi ilə düzəldi).
 
 ## Qeyd
 
