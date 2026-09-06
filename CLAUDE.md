@@ -78,7 +78,7 @@ ssenarilərində qorunmaq üçün **hər yeni Store sinfi də daxili kilid
 işlətməlidir** (nested public-metod çağırışı varsa `RLock`, yoxdursa
 sadə `Lock`).
 
-## Dərs: real deploy zamanı rast gəlinən 3 tələ (VPS-ə aid, kod problemi deyil)
+## Dərs: real deploy zamanı rast gəlinən tələlər (VPS-ə aid, kod problemi deyil)
 
 1. **VPS-dəki `/opt/pr-agent/repo` checkout-u `main` branch-indədir** —
    bizim işimiz `claude/ai-engineering-monthly-project-g5cg2y`-dadır.
@@ -96,6 +96,14 @@ sadə `Lock`).
    əməliyyatı ilə node-a bağlanır. UI-da "Name" sahəsi HEADER ADI-dır
    (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
    qarışdırılması asandır.
+4. **Bu VPS-in DigitalOcean abunəliyi bitib deaktiv olsa, DÖRD şey eyni
+   anda düşür** — masterai, dildostu-live, masternr1 (aktiv pilot!) və
+   n8n, hamısı `<SERVER_IP>`-u paylaşır. Real hadisə: abunəlik bitdi,
+   VPS tam əlçatmaz oldu (SSH/HTTPS/ping — HAMISI timeout), Flutter
+   app-da real telefonda "Bağlantı xətası" bununla izah olundu (kod
+   bug-ı DEYİL). Bu VPS-in abunəlik/ödəniş statusu digər layihələrdən
+   asılı olmayaraq mütəmadi yoxlanılmalıdır — bir hesabın bitməsi üç
+   layihəni birdən öldürür.
 
 ## Dərs: real material uğursuzluğu — Wikipedia `requests`-in defolt User-Agent-ini bloklayır
 
