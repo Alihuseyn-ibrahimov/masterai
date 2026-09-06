@@ -23,16 +23,24 @@ if [ -z "${GROQ_API_KEY:-}" ]; then
 fi
 echo "Server qovlugu: $SRV"
 
-echo "=== 1/6 venv + asililiqlar ==="
+echo "=== 1/7 sistem paketleri ==="
+# pytesseract (OCR) ve selenium (JS-rendering) Python bagli paketleridir,
+# ozleri deyil — real VPS-de tesseract-ocr olmadigi ucun sekil materiali
+# "tesseract is not installed" xetasi ile ugursuz oldu (bax masterai/
+# CLAUDE.md, "Derse: real deploy zamani rast gelinen telelar", bend 5).
+apt-get update -qq
+apt-get install -y -qq tesseract-ocr
+
+echo "=== 2/7 venv + asililiqlar ==="
 cd "$SRV"
 python3 -m venv .venv
 .venv/bin/pip install -q -U pip
 .venv/bin/pip install -q -r requirements.txt
 
-echo "=== 2/6 data qovlugu ==="
+echo "=== 3/7 data qovlugu ==="
 mkdir -p "$SRV/data/uploads"
 
-echo "=== 3/6 .env ==="
+echo "=== 4/7 .env ==="
 JWT_SECRET_VAL="${JWT_SECRET:-$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(48))')}"
 ADMIN_API_KEY_VAL="${ADMIN_API_KEY:-$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(48))')}"
 {
@@ -54,7 +62,7 @@ ADMIN_API_KEY_VAL="${ADMIN_API_KEY:-$(.venv/bin/python -c 'import secrets; print
 chmod 600 "$SRV/.env"
 echo "ADMIN_API_KEY (n8n 'Gündəlik Statistika' workflow-una lazım olacaq): $ADMIN_API_KEY_VAL"
 
-echo "=== 4/6 systemd servis ==="
+echo "=== 5/7 systemd servis ==="
 cat > /etc/systemd/system/masterai.service <<UNIT
 [Unit]
 Description=MasterAI FastAPI backend
@@ -78,7 +86,7 @@ echo "--- health (localhost) ---"
 curl -s http://127.0.0.1:8110/health || echo "(health cavab vermedi — jurnal: journalctl -u masterai -n 30)"
 echo
 
-echo "=== 5/6 nginx reverse proxy ($DOMAIN) ==="
+echo "=== 6/7 nginx reverse proxy ($DOMAIN) ==="
 cat > /etc/nginx/sites-available/masterai <<NGINX
 map \$http_upgrade \$connection_upgrade {
     default upgrade;
@@ -116,7 +124,7 @@ NGINX
 ln -sf /etc/nginx/sites-available/masterai /etc/nginx/sites-enabled/masterai
 nginx -t && systemctl reload nginx
 
-echo "=== 6/6 HTTPS (certbot) ==="
+echo "=== 7/7 HTTPS (certbot) ==="
 if ! command -v certbot >/dev/null 2>&1; then
   apt-get update -qq && apt-get install -y -qq certbot python3-certbot-nginx
 fi

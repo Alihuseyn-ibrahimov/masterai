@@ -104,6 +104,14 @@ sadə `Lock`).
    bug-ı DEYİL). Bu VPS-in abunəlik/ödəniş statusu digər layihələrdən
    asılı olmayaraq mütəmadi yoxlanılmalıdır — bir hesabın bitməsi üç
    layihəni birdən öldürür.
+5. **`tesseract-ocr` VPS-də quraşdırılmayıb** — real telefonda şəkil
+   materialı yükləndikdə "Material emalı uğursuz oldu: tesseract is
+   not installed or it's not in your PATH" xətası verdi (`pytesseract`
+   sistemdə `tesseract` binarını axtarır, Python paketi kifayət etmir).
+   Həlli: `apt install -y tesseract-ocr` (servisi restart etmək lazım
+   deyil, hər çağırışda binar yenidən axtarılır). `requirements.txt`-də
+   bu sistem asılılığı qeyd olunmayıb — gələcək VPS-lərdə deploy
+   skriptinə (`deploy_on_droplet.sh`) əlavə edilməlidir.
 
 ## Dərs: real material uğursuzluğu — Wikipedia `requests`-in defolt User-Agent-ini bloklayır
 
