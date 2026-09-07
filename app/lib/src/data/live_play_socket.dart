@@ -14,9 +14,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 /// kimi görünür, `LiveHostSocket`-in eyni sadələşdirməsinə bənzər
 /// (aydın xəta mesajı yoxdur, ekran ümumi "qoşulma alınmadı" göstərir).
 class LivePlaySocket {
-  LivePlaySocket({required String wsBaseUrl, required String pin, required String displayName})
-      : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play'),
-        _displayName = displayName;
+  LivePlaySocket({required String wsBaseUrl, required String pin, required this._displayName})
+      : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play');
 
   final Uri _uri;
   final String _displayName;
