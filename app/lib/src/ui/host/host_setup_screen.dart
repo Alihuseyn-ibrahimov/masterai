@@ -182,6 +182,7 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       return;
     }
+    if (!mounted) return;
     if (chats.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
