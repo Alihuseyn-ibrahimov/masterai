@@ -211,6 +211,26 @@ class MyAssignmentInfo(BaseModel):
     score: int | None
 
 
+class ChatMemberInfo(BaseModel):
+    user_id: int
+    display_name: str
+
+
+class HistoryEntry(BaseModel):
+    """Fərdi tələbə tarixçəsi sətri — canlı sessiya VƏ ev tapşırığı
+    nəticələri eyni xronoloji siyahıda birləşdirilir (bax `app.py`,
+    `_history_entries_for_student`)."""
+
+    kind: Literal["live", "homework"]
+    subject: str
+    title: str
+    score: int
+    total_questions: int
+    date: str
+    chat_id: int | None = None
+    session_id: int | None = None
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int

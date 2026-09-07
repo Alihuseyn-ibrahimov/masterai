@@ -94,4 +94,30 @@ void main() {
       );
     });
   });
+
+  group('listMembers', () {
+    test('üzv siyahısını qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'GET');
+        expect(req.url.path, '/chats/3/members');
+        return http.Response(
+          jsonEncode([
+            {'user_id': 1, 'display_name': 'Müəllim'},
+            {'user_id': 2, 'display_name': 'Tələbə'},
+          ]),
+          200,
+        );
+      });
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      final members = await client.listMembers('tok', 3);
+      expect(members, hasLength(2));
+      expect(members[1].displayName, 'Tələbə');
+    });
+
+    test('403 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 403));
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(client.listMembers('tok', 3), throwsA(isA<ApiException>()));
+    });
+  });
 }

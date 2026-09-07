@@ -69,6 +69,23 @@ class TestAttempts:
         rows = store.list_attempts_for_assignment(a["id"])
         assert len(rows) == 2
 
+    def test_list_attempts_by_student_only_completed(self, store):
+        a1 = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        a2 = store.create_assignment(1, 8, "2026-09-20", created_by=1)
+        completed = store.get_or_create_attempt(a1["id"], student_id=5)
+        store.answer(completed["id"], 0, chosen_index=1, is_correct=True, total_questions=1)
+        store.get_or_create_attempt(a2["id"], student_id=5)  # in_progress qalır
+        rows = store.list_attempts_by_student(5)
+        assert len(rows) == 1
+        assert rows[0]["assignment_id"] == a1["id"]
+        assert rows[0]["status"] == "completed"
+
+    def test_list_attempts_by_student_ignores_other_students(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        attempt = store.get_or_create_attempt(a["id"], student_id=6)
+        store.answer(attempt["id"], 0, chosen_index=1, is_correct=True, total_questions=1)
+        assert store.list_attempts_by_student(5) == []
+
 
 class TestAnswer:
     def test_records_correct_answer_and_advances(self, store):

@@ -44,10 +44,12 @@ from .models import (
     AdminStatsInfo,
     AuthResponse,
     ChatInfo,
+    ChatMemberInfo,
     CreateChatRequest,
     CreateHomeworkAssignmentRequest,
     CreateLiveSessionRequest,
     FriendshipInfo,
+    HistoryEntry,
     HomeworkAnswerRequest,
     HomeworkAnswerResult,
     HomeworkAssignmentInfo,
@@ -463,6 +465,27 @@ def join_chat(
         raise HTTPException(status_code=400, detail="Direct çata kənardan qoşulmaq olmaz")
     chats.add_member(chat_id, user["id"])
     return ChatInfo(**chat)
+
+
+@app.get("/chats/{chat_id}/members", response_model=list[ChatMemberInfo])
+def list_chat_members(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+) -> list[ChatMemberInfo]:
+    """Çatın üzv siyahısı — müəllimin Fərdi tələbə tarixçəsi ekranında
+    tələbə seçmək üçün istifadə olunur (bax `/history/student/{id}`)."""
+    if chats.get(chat_id) is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    result = []
+    for member_id in chats.list_member_ids(chat_id):
+        member = users.get_by_id(member_id)
+        if member is not None:
+            result.append(ChatMemberInfo(user_id=member_id, display_name=member["display_name"]))
+    return result
 
 
 def _schedule_timeout(
@@ -1072,6 +1095,101 @@ def list_my_assignments(
     return result
 
 
+def _history_entries_for_student(
+    student_id: int,
+    *,
+    live_sessions: LiveSessionStore,
+    question_sets: QuestionSetStore,
+    homework: HomeworkStore,
+) -> list[HistoryEntry]:
+    """Bir tələbənin canlı sessiya VƏ ev tapşırığı nəticələrini eyni
+    xronoloji siyahıda birləşdirir (bax `/history/me`,
+    `/history/student/{id}`). Canlı sessiya xalı `report_json`-dan
+    (sessiya bitəndə bir dəfə hesablanıb keşlənib) çıxarılır — yenidən
+    hesablanmır."""
+    entries: list[HistoryEntry] = []
+
+    for row in live_sessions.list_participations_for_user(student_id):
+        question_set = question_sets.get(row["question_set_id"])
+        if question_set is None or not row["report_json"]:
+            continue
+        report = json.loads(row["report_json"])
+        own_row = next(
+            (r for r in report.get("rankings", []) if r["participant_id"] == row["participant_id"]),
+            None,
+        )
+        if own_row is None:
+            continue
+        entries.append(
+            HistoryEntry(
+                kind="live",
+                subject=question_set["subject"],
+                title=question_set["title"],
+                score=own_row["score"],
+                total_questions=report.get("total_questions", question_sets.count_questions(question_set["id"])),
+                date=row["created_at"],
+                session_id=row["session_id"],
+            )
+        )
+
+    for attempt in homework.list_attempts_by_student(student_id):
+        assignment = homework.get_assignment(attempt["assignment_id"])
+        if assignment is None:
+            continue
+        question_set = question_sets.get(assignment["question_set_id"])
+        if question_set is None:
+            continue
+        entries.append(
+            HistoryEntry(
+                kind="homework",
+                subject=question_set["subject"],
+                title=question_set["title"],
+                score=attempt["score"],
+                total_questions=question_sets.count_questions(question_set["id"]),
+                date=attempt["completed_at"],
+                chat_id=assignment["chat_id"],
+            )
+        )
+
+    entries.sort(key=lambda e: e.date, reverse=True)
+    return entries
+
+
+@app.get("/history/me", response_model=list[HistoryEntry])
+def get_my_history(
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HistoryEntry]:
+    return _history_entries_for_student(
+        user["id"], live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+
+
+@app.get("/history/student/{student_id}", response_model=list[HistoryEntry])
+def get_student_history(
+    student_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HistoryEntry]:
+    """Müəllimin başqa bir tələbənin tarixçəsinə baxması — yalnız ortaq
+    çatı olan (bax `list_chat_members`-in eyni naxışı) tələbələr üçün."""
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim başqa tələbənin tarixçəsinə baxa bilər")
+    shares_chat = any(
+        student_id in chats.list_member_ids(chat["id"]) for chat in chats.list_by_user(user["id"])
+    )
+    if not shares_chat:
+        raise HTTPException(status_code=403, detail="Bu tələbə ilə ortaq çatınız yoxdur")
+    return _history_entries_for_student(
+        student_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+
+
 @app.post("/homework/assignments/{assignment_id}/start", response_model=HomeworkAttemptState)
 def start_homework_attempt(
     assignment_id: int,
@@ -1259,6 +1377,7 @@ async def live_play_websocket(
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
     manager: LiveConnectionManager = Depends(get_live_connection_manager),
+    secret: str = Depends(get_token_secret),
 ) -> None:
     await websocket.accept()
 
@@ -1272,9 +1391,22 @@ async def live_play_websocket(
         await websocket.close(code=4400)
         return
 
+    # `token` KÖNÜLLÜDÜR — PIN qoşulması hesabsız da mümkündür (bax
+    # `JoinPinScreen`, giriş ekranından ƏVVƏL istifadə edilə bilər).
+    # Daxil olmuş istifadəçi öz tokenini göndərəndə iştirakçı hesaba
+    # bağlanır (Fərdi tələbə tarixçəsi buna əsaslanır) — etibarsız/köhnə
+    # tokenlə qoşulma RƏDD EDİLMİR, sadəcə anonim kimi davam edir.
+    token = (join_msg or {}).get("token") if isinstance(join_msg, dict) else None
+    user_id: int | None = None
+    if isinstance(token, str) and token.strip():
+        try:
+            user_id = verify_token(token.strip(), secret=secret)
+        except InvalidToken:
+            user_id = None
+
     try:
         session, participant = await join_live_session(
-            pin, display_name, session_store=live_sessions, connection_manager=manager
+            pin, display_name, session_store=live_sessions, connection_manager=manager, user_id=user_id
         )
     except LiveSessionNotFound:
         await websocket.close(code=4404)

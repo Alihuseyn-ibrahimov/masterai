@@ -61,6 +61,12 @@ class LiveSessionStore:
                 );
                 """
             )
+            try:
+                self._conn.execute(
+                    "ALTER TABLE live_participants ADD COLUMN user_id INTEGER"
+                )
+            except sqlite3.OperationalError:
+                pass  # sütun artıq var (mövcud DB) — bax `user_store.py`-nin eyni naxışı
             self._conn.commit()
 
     # ---- sessiyalar ------------------------------------------------
@@ -143,12 +149,19 @@ class LiveSessionStore:
 
     # ---- iştirakçılar ------------------------------------------------
 
-    def add_participant(self, session_id: int, display_name: str) -> dict:
+    def add_participant(
+        self, session_id: int, display_name: str, user_id: int | None = None
+    ) -> dict:
+        """`user_id` YALNIZ tələbə daxil olmuş hesabla PIN-ə qoşulanda dolur
+        (bax `app.py`, `live_play_websocket` — token könüllüdür, çünki PIN
+        qoşulması hesabsız da mümkündür) — Fərdi tələbə tarixçəsi bunu
+        istifadə edir, anonim qoşulmalar (`user_id IS NULL`) tarixçəyə
+        düşmür."""
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO live_participants (session_id, display_name, joined_at) "
-                "VALUES (?, ?, ?)",
-                (session_id, display_name, _utc_now_iso()),
+                "INSERT INTO live_participants (session_id, display_name, joined_at, user_id) "
+                "VALUES (?, ?, ?, ?)",
+                (session_id, display_name, _utc_now_iso(), user_id),
             )
             self._conn.commit()
             return self.get_participant(cur.lastrowid)
@@ -156,7 +169,8 @@ class LiveSessionStore:
     def get_participant(self, participant_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, session_id, display_name, joined_at FROM live_participants WHERE id = ?",
+                "SELECT id, session_id, display_name, joined_at, user_id "
+                "FROM live_participants WHERE id = ?",
                 (participant_id,),
             )
             row = cur.fetchone()
@@ -165,7 +179,7 @@ class LiveSessionStore:
     def list_participants(self, session_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, session_id, display_name, joined_at FROM live_participants "
+                "SELECT id, session_id, display_name, joined_at, user_id FROM live_participants "
                 "WHERE session_id = ? ORDER BY joined_at",
                 (session_id,),
             )
@@ -235,6 +249,22 @@ class LiveSessionStore:
             for row in rows:
                 row["is_correct"] = bool(row["is_correct"])
             return rows
+
+    def list_participations_for_user(self, user_id: int) -> list[dict]:
+        """Bu istifadəçinin iştirak etdiyi bütün BİTMİŞ (`finished`) canlı
+        sessiyalar — Fərdi tələbə tarixçəsi üçün (bax `app.py`,
+        `/history/*`). Xal ayrıca hesablanmır, `report_json`-dan (artıq
+        sessiya bitəndə bir dəfə hesablanıb keşlənib) çıxarılır."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT s.id as session_id, s.question_set_id, s.report_json, s.created_at, "
+                "p.id as participant_id FROM live_participants p "
+                "JOIN live_sessions s ON s.id = p.session_id "
+                "WHERE p.user_id = ? AND s.status = 'finished' "
+                "ORDER BY s.created_at DESC",
+                (user_id,),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def compute_scores(self, session_id: int) -> dict[int, int]:
         """Hər iştirakçı üçün düzgün cavab sayı — heç düzgün cavabı

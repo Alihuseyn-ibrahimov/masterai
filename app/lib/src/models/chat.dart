@@ -21,3 +21,17 @@ class ChatInfo {
         createdAt: json['created_at'] as String,
       );
 }
+
+/// `GET /chats/{id}/members` sətri — müəllimin Fərdi tələbə tarixçəsi
+/// ekranında tələbə seçmək üçün istifadə olunur.
+class ChatMemberInfo {
+  final int userId;
+  final String displayName;
+
+  const ChatMemberInfo({required this.userId, required this.displayName});
+
+  factory ChatMemberInfo.fromJson(Map<String, dynamic> json) => ChatMemberInfo(
+        userId: json['user_id'] as int,
+        displayName: json['display_name'] as String,
+      );
+}

@@ -6,6 +6,7 @@ import '../data/chat_client.dart';
 import '../data/session_storage.dart';
 import '../models/chat.dart';
 import 'chat_screen.dart';
+import 'history/my_history_screen.dart';
 import 'homework/homework_assignment_list_screen.dart';
 import 'join/join_pin_screen.dart';
 import 'login_screen.dart';
@@ -151,7 +152,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             icon: const Icon(Icons.groups),
             tooltip: 'Sinif sessiyasına qoşul (PIN ilə)',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => const JoinPinScreen(),
+              builder: (_) => JoinPinScreen(token: widget.token),
             )),
           ),
           IconButton(icon: const Icon(Icons.group_add), tooltip: 'Çata qoşul', onPressed: _joinChat),
@@ -160,6 +161,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
             tooltip: 'Tapşırıqlarım',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => HomeworkAssignmentListScreen(token: widget.token),
+            )),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Mənim tarixçəm',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => MyHistoryScreen(token: widget.token),
             )),
           ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Çıxış'),

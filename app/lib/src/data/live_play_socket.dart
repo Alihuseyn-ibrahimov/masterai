@@ -14,11 +14,20 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 /// kimi görünür, `LiveHostSocket`-in eyni sadələşdirməsinə bənzər
 /// (aydın xəta mesajı yoxdur, ekran ümumi "qoşulma alınmadı" göstərir).
 class LivePlaySocket {
-  LivePlaySocket({required String wsBaseUrl, required String pin, required this._displayName})
-      : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play');
+  LivePlaySocket({
+    required String wsBaseUrl,
+    required String pin,
+    required this._displayName,
+    String? token,
+  })  : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play'),
+        _token = token;
 
   final Uri _uri;
   final String _displayName;
+  /// KÖNÜLLÜDÜR — yalnız daxil olmuş istifadəçi qoşulanda dolur (bax
+  /// `JoinPinScreen`), Fərdi tələbə tarixçəsində iştirakçını hesaba
+  /// bağlamaq üçün (bax `server/live_session_store.py`, `add_participant`).
+  final String? _token;
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
 
@@ -43,7 +52,10 @@ class LivePlaySocket {
       onError: (_) => _disconnectController.add(null),
       onDone: () => _disconnectController.add(null),
     );
-    channel.sink.add(jsonEncode({'display_name': _displayName}));
+    channel.sink.add(jsonEncode({
+      'display_name': _displayName,
+      if (_token != null) 'token': _token,
+    }));
   }
 
   void _handleRaw(dynamic raw) {

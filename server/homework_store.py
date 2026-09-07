@@ -171,6 +171,19 @@ class HomeworkStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def list_attempts_by_student(self, student_id: int) -> list[dict]:
+        """Tələbənin bütün TAMAMLANMIŞ cəhdləri (bütün tapşırıqlar üzrə) —
+        Fərdi tələbə tarixçəsi üçün (bax `app.py`, `/history/*`).
+        `in_progress`/`pending` cəhdlər hələ "tarixçə" sayılmır."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, assignment_id, student_id, status, current_question_index, "
+                "score, started_at, completed_at FROM homework_attempts "
+                "WHERE student_id = ? AND status = 'completed' ORDER BY completed_at DESC",
+                (student_id,),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
     # ---- cavablar ------------------------------------------------
 
     def answer(

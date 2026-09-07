@@ -90,6 +90,37 @@ def test_add_and_list_participants(store):
     assert store.count_participants(session["id"]) == 2
 
 
+def test_add_participant_stores_optional_user_id(store):
+    session = store.create_session(question_set_id=1)
+    anon = store.add_participant(session["id"], "Qonaq")
+    logged_in = store.add_participant(session["id"], "Aygün", user_id=42)
+    assert anon["user_id"] is None
+    assert logged_in["user_id"] == 42
+
+
+def test_list_participations_for_user_only_finished_sessions(store):
+    finished = store.create_session(question_set_id=1)
+    participant = store.add_participant(finished["id"], "Aygün", user_id=42)
+    store.save_report(finished["id"], '{"rankings": [{"participant_id": %d, "score": 2}]}' % participant["id"])
+    store.set_status(finished["id"], "finished")
+
+    still_active = store.create_session(question_set_id=2)
+    store.add_participant(still_active["id"], "Aygün", user_id=42)
+
+    rows = store.list_participations_for_user(42)
+    assert len(rows) == 1
+    assert rows[0]["session_id"] == finished["id"]
+    assert rows[0]["participant_id"] == participant["id"]
+
+
+def test_list_participations_for_user_ignores_anonymous_and_other_users(store):
+    session = store.create_session(question_set_id=1)
+    store.add_participant(session["id"], "Qonaq")
+    store.add_participant(session["id"], "Başqası", user_id=7)
+    store.set_status(session["id"], "finished")
+    assert store.list_participations_for_user(42) == []
+
+
 def test_participants_do_not_leak_across_sessions(store):
     s1 = store.create_session(question_set_id=1)
     s2 = store.create_session(question_set_id=2)

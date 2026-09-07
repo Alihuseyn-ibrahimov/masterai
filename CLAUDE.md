@@ -41,6 +41,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 | Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
 | Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq) | Müəllim tapşırıq təyin edir (veb+mobil, `is_teacher` bayrağı) → tələbə "Tapşırıqlarım"da öz sürəti ilə həll edir → müəllim hesabatda görür, `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`, `.planning/2026-09-07-masterai-homework-mode/` | ✅ Tam uc-uca REAL test edilib (təyin→görmə→həll→hesabat) — bax aşağı "Ev Təkrarı Rejimi" bölməsi |
+| Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Backend+Flutter yazılıb, 404 backend test keçir — istifadəçinin real mühitində HƏLƏ sınanmayıb, bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -91,6 +92,28 @@ Növbəti planlaşdırılan fazalar (istifadəçi ilə razılaşdırılıb): Fə
 tələbə tarixçəsi, Çox-müəllimli idarəetmə, Sual redaktə/təsdiq ekranı.
 Ətraflı tarixçə/qərarlar üçün bax
 `.planning/2026-09-07-masterai-homework-mode/progress.md`.
+
+## Fərdi tələbə tarixçəsi (Faza 3)
+
+Faza 1+2-nin üzərinə: tələbənin canlı sessiya VƏ ev tapşırığı
+nəticələri eyni xronoloji siyahıda birləşdirilir. Tələbə "Mənim
+tarixçəm" ekranında öz nəticələrinə baxır, müəllim "Fərdi tələbə
+tarixçəsi" ekranından (çat seç → üzv seç) istənilən tələbənin
+tarixçəsinə baxır (yalnız ortaq çatı olan tələbələr üçün icazə verilir).
+
+**Real arxitektura boşluğu tapılıb düzəldilib:** `live_participants`
+əvvəllər `users`-a bağlı deyildi (PIN qoşulması qəsdən hesabsızdır).
+İndi `WS /ws/live/{pin}/play` join mesajına KÖNÜLLÜ `token` sahəsi
+əlavə olundu — yalnız daxil olmuş istifadəçi qoşulanda dolur (bax
+"join-after-login" bölməsi, `chat_list_screen.dart`-dakı "Sinif
+sessiyasına qoşul" ikonu), etibarsız/köhnə token qoşulmanı RƏDD ETMİR,
+sadəcə anonim kimi davam edir — pre-login PIN axını dəyişməz qalır.
+
+**Vəziyyət (2026-09-07):** Backend 404 test keçir (əvvəlki 381 + 23
+yeni). Flutter tərəfi (`ui/history/`) yazılıb, istifadəçinin real
+mühitində (`flutter analyze`+`test`+`run`, canlı sessiya+ev tapşırığı
+uc-uca) HƏLƏ sınanmayıb. Ətraflı bax
+`.planning/2026-09-07-masterai-student-history/progress.md`.
 
 ## Giriş formatları (pipeline)
 

@@ -115,7 +115,7 @@ def compute_report(session_id: int, *, session_store, question_set_store) -> dic
 
 
 async def join_session(
-    pin: str, display_name: str, *, session_store, connection_manager
+    pin: str, display_name: str, *, session_store, connection_manager, user_id: int | None = None
 ) -> tuple[dict, dict]:
     session = session_store.get_by_pin(pin)
     if session is None:
@@ -123,7 +123,7 @@ async def join_session(
     if session["status"] != "waiting":
         raise SessionNotJoinable(pin)
 
-    participant = session_store.add_participant(session["id"], display_name)
+    participant = session_store.add_participant(session["id"], display_name, user_id=user_id)
     count = session_store.count_participants(session["id"])
     await connection_manager.broadcast_host(
         session["id"],

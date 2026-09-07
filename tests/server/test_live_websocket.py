@@ -110,3 +110,22 @@ class TestPlayWebSocket:
             with env["client"].websocket_connect(f"/ws/live/{env['session']['pin']}/play") as ws:
                 ws.send_json({"display_name": "Əli"})
                 ws.receive_json()
+
+    def test_join_with_valid_token_links_participant_to_user(self, env):
+        token = create_token(env["teacher"]["id"], secret=_SECRET)
+        with env["client"].websocket_connect(f"/ws/live/{env['session']['pin']}/play") as ws:
+            ws.send_json({"display_name": "Əli", "token": token})
+            joined = ws.receive_json()
+            assert joined["type"] == "joined"
+
+        participants = env["live_sessions"].list_participants(env["session"]["id"])
+        assert participants[0]["user_id"] == env["teacher"]["id"]
+
+    def test_join_with_invalid_token_still_joins_anonymously(self, env):
+        with env["client"].websocket_connect(f"/ws/live/{env['session']['pin']}/play") as ws:
+            ws.send_json({"display_name": "Əli", "token": "zibil"})
+            joined = ws.receive_json()
+            assert joined["type"] == "joined"
+
+        participants = env["live_sessions"].list_participants(env["session"]["id"])
+        assert participants[0]["user_id"] is None

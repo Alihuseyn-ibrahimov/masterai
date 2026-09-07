@@ -8,9 +8,17 @@ import 'student_session_screen.dart';
 
 /// Tələbənin canlı sinif sessiyasına qoşulma ekranı — heç bir hesab
 /// tələb etmir (bax dizayn sənədi, "Tələbə tərəfi"). Giriş ekranından
-/// bir düymə ilə açılır.
+/// VƏ ya (daxil olmuş istifadəçi üçün) çat siyahısından bir düymə ilə
+/// açılır.
+///
+/// `token` KÖNÜLLÜDÜR — yalnız daxil olmuş istifadəçi bu ekranı
+/// `ChatListScreen`-dən açanda dolur (bax `chat_list_screen.dart`), giriş
+/// ekranından əvvəlki (hesabsız) qoşulmada `null` qalır. Doldurulanda
+/// Fərdi tələbə tarixçəsi bu iştirakı həmin hesaba bağlayır.
 class JoinPinScreen extends StatefulWidget {
-  const JoinPinScreen({super.key});
+  const JoinPinScreen({super.key, this.token});
+
+  final String? token;
 
   @override
   State<JoinPinScreen> createState() => _JoinPinScreenState();
@@ -42,6 +50,7 @@ class _JoinPinScreenState extends State<JoinPinScreen> {
       wsBaseUrl: kWsBaseUrl,
       pin: _pinController.text.trim(),
       displayName: _nameController.text.trim(),
+      token: widget.token,
     );
 
     final joinedCompleter = Completer<Map<String, dynamic>>();

@@ -82,4 +82,25 @@ class ChatClient {
     }
     return ChatInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
   }
+
+  /// Çatın üzv siyahısı — Fərdi tələbə tarixçəsi ekranında müəllimin
+  /// tələbə seçməsi üçün (bax `history_client.dart`).
+  Future<List<ChatMemberInfo>> listMembers(String token, int chatId) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .get(
+            Uri.parse('$baseUrl/chats/$chatId/members'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException('Üzvlər yüklənmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
+    return list.map((m) => ChatMemberInfo.fromJson(m as Map<String, dynamic>)).toList();
+  }
 }

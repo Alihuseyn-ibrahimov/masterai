@@ -88,6 +88,15 @@ class TestJoinSession:
         assert payload["count"] == 1
 
     @pytest.mark.asyncio
+    async def test_join_passes_through_optional_user_id(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, participant = await join_session(
+            session["pin"], "Aygün", session_store=env["sessions"],
+            connection_manager=env["manager"], user_id=42,
+        )
+        assert participant["user_id"] == 42
+
+    @pytest.mark.asyncio
     async def test_raises_for_unknown_pin(self, env):
         with pytest.raises(SessionNotFound):
             await join_session("000000", "Əli", session_store=env["sessions"], connection_manager=env["manager"])

@@ -14,6 +14,7 @@ import '../models/chat.dart';
 import '../models/chat_item.dart';
 import '../models/material.dart';
 import '../models/question_set.dart';
+import 'history/history_student_picker_screen.dart';
 import 'homework/homework_teacher_assignments_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -240,6 +241,13 @@ class _ChatScreenState extends State<ChatScreen> {
               tooltip: 'Tapşırıq hesabatları',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => HomeworkTeacherAssignmentsScreen(token: widget.token),
+              )),
+            ),
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'Fərdi tələbə tarixçəsi',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => HistoryStudentPickerScreen(token: widget.token),
               )),
             ),
           ],
