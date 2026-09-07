@@ -6,6 +6,7 @@ import '../data/chat_client.dart';
 import '../data/session_storage.dart';
 import '../models/chat.dart';
 import 'chat_screen.dart';
+import 'homework/homework_assignment_list_screen.dart';
 import 'login_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -108,6 +109,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
       appBar: AppBar(
         title: Text('Salam, ${widget.displayName}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.assignment),
+            tooltip: 'Tapşırıqlarım',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => HomeworkAssignmentListScreen(token: widget.token),
+            )),
+          ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Çıxış'),
         ],
       ),
