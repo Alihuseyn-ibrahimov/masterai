@@ -18,9 +18,8 @@ class LivePlaySocket {
     required String wsBaseUrl,
     required String pin,
     required this._displayName,
-    String? token,
-  })  : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play'),
-        _token = token;
+    this._token,
+  }) : _uri = Uri.parse('$wsBaseUrl/ws/live/$pin/play');
 
   final Uri _uri;
   final String _displayName;

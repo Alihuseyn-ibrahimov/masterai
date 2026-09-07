@@ -6,6 +6,11 @@ import 'package:http/testing.dart';
 import 'package:masterai/src/data/api_exception.dart';
 import 'package:masterai/src/data/chat_client.dart';
 
+// Bax `masterai/CLAUDE.md`, "Dərs: Flutter app..." — `http.Response`-un
+// kodlaşdırması `content-type` header-indən törəyir, Azərbaycan hərfləri
+// olan fixture-larda bu HƏMİŞƏ açıq göstərilməlidir.
+const _jsonHeaders = {'content-type': 'application/json'};
+
 void main() {
   group('listChats', () {
     test('token Authorization başlığında göndərilir, siyahı parse olunur', () async {
@@ -106,6 +111,7 @@ void main() {
             {'user_id': 2, 'display_name': 'Tələbə'},
           ]),
           200,
+          headers: _jsonHeaders,
         );
       });
       final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
