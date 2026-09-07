@@ -30,12 +30,14 @@ from .models import (
     FriendshipInfo,
     LoginRequest,
     MaterialInfo,
+    QuestionSetInfo,
     QuizSessionInfo,
     QuizStartRequest,
     RegisterRequest,
     SendFriendRequestRequest,
     UserInfo,
 )
+from .question_set_store import SUBJECTS, QuestionSetStore
 from .question_store import QuestionStore
 from .quiz_attempt_store import QuizAttemptStore
 from .quiz_runner import (
@@ -64,11 +66,14 @@ app.state.question_store = QuestionStore(os.environ.get("QUESTIONS_DB_PATH", "qu
 app.state.quiz_session_store = QuizSessionStore(os.environ.get("QUIZ_SESSIONS_DB_PATH", "quiz_sessions.db"))
 app.state.quiz_attempt_store = QuizAttemptStore(os.environ.get("QUIZ_ATTEMPTS_DB_PATH", "quiz_attempts.db"))
 app.state.friendship_store = FriendshipStore(os.environ.get("FRIENDSHIPS_DB_PATH", "friendships.db"))
+app.state.question_set_store = QuestionSetStore(os.environ.get("QUESTION_SETS_DB_PATH", "question_sets.db"))
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
 # material_id -> planlaşdırılmış fon emalı task-ı (eyni naxış).
 app.state.active_material_tasks = {}
+# question_set_id -> planlaşdırılmış fon emalı task-ı (eyni naxış).
+app.state.active_question_set_tasks = {}
 
 
 def get_user_store() -> UserStore:
@@ -114,6 +119,11 @@ def get_quiz_attempt_store() -> QuizAttemptStore:
 def get_friendship_store() -> FriendshipStore:
     """Dostluq store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.friendship_store
+
+
+def get_question_set_store() -> QuestionSetStore:
+    """Canlı sessiya sual bankı store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.question_set_store
 
 
 def get_material_generator():
@@ -596,6 +606,109 @@ def list_materials(
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     return [MaterialInfo(**m) for m in materials.list_by_chat(chat_id)]
+
+
+def _question_set_info(qs: dict, question_count: int) -> QuestionSetInfo:
+    return QuestionSetInfo(**qs, question_count=question_count)
+
+
+async def _process_question_set(
+    question_set_id: int,
+    source: MaterialSource,
+    *,
+    generator,
+    question_set_store: QuestionSetStore,
+    questions_per_chunk: int = 3,
+) -> None:
+    """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
+    `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
+    deyil (nəticə `question_sets.status`+`error` sahələrindən polling
+    ilə oxunur, bax dizayn sənədi)."""
+    try:
+        result = await asyncio.to_thread(generator, source, questions_per_chunk)
+    except Exception as exc:
+        question_set_store.mark_failed(question_set_id, str(exc))
+        return
+
+    for mcq in result.questions:
+        question_set_store.add_question(question_set_id, mcq)
+    question_set_store.mark_ready(question_set_id)
+
+
+@app.post("/live/question-sets", response_model=QuestionSetInfo, status_code=202)
+async def create_question_set(
+    subject: str = Form(...),
+    title: str = Form(...),
+    kind: str = Form(...),
+    location: str | None = Form(default=None),
+    file: UploadFile | None = File(default=None),
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    generator=Depends(get_material_generator),
+    upload_dir: str = Depends(get_upload_dir),
+) -> QuestionSetInfo:
+    if subject not in SUBJECTS:
+        raise HTTPException(status_code=400, detail="Naməlum fənn")
+    if kind not in ("link", "pdf", "image"):
+        raise HTTPException(status_code=400, detail="Naməlum material növü")
+
+    if kind == "link":
+        if not location:
+            raise HTTPException(status_code=400, detail="Link üçün 'location' tələb olunur")
+        source_location = location
+    else:
+        if file is None:
+            raise HTTPException(status_code=400, detail="Fayl tələb olunur")
+        try:
+            source_location = await save_upload(
+                file, upload_dir=upload_dir, max_bytes=MAX_UPLOAD_BYTES
+            )
+        except PayloadTooLarge:
+            raise HTTPException(status_code=413, detail="Fayl çox böyükdür")
+
+    question_set = question_sets.create(
+        subject=subject,
+        title=title,
+        material_kind=kind,
+        material_location=source_location,
+        created_by=user["id"],
+    )
+
+    task = asyncio.create_task(
+        _process_question_set(
+            question_set["id"],
+            MaterialSource(kind=kind, location=source_location),
+            generator=generator,
+            question_set_store=question_sets,
+        )
+    )
+    app.state.active_question_set_tasks[question_set["id"]] = task
+
+    return _question_set_info(question_set, question_count=0)
+
+
+@app.get("/live/question-sets/{question_set_id}", response_model=QuestionSetInfo)
+def get_question_set(
+    question_set_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> QuestionSetInfo:
+    question_set = question_sets.get(question_set_id)
+    if question_set is None:
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    count = question_sets.count_questions(question_set_id)
+    return _question_set_info(question_set, question_count=count)
+
+
+@app.get("/live/question-sets", response_model=list[QuestionSetInfo])
+def list_question_sets(
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> list[QuestionSetInfo]:
+    return [
+        _question_set_info(qs, question_count=question_sets.count_questions(qs["id"]))
+        for qs in question_sets.list_all()
+    ]
 
 
 @app.websocket("/ws/chat/{chat_id}")

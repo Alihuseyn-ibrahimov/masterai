@@ -98,6 +98,19 @@ class FriendshipInfo(BaseModel):
     responded_at: str | None
 
 
+class QuestionSetInfo(BaseModel):
+    id: int
+    subject: str
+    title: str
+    status: str
+    material_kind: str
+    material_location: str
+    error: str | None
+    question_count: int
+    created_by: int
+    created_at: str
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int
