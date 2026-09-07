@@ -40,6 +40,7 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 | Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
+| Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq) | Müəllim tapşırıq təyin edir (veb+mobil, `is_teacher` bayrağı) → tələbə "Tapşırıqlarım"da öz sürəti ilə həll edir → müəllim hesabatda görür, `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`, `.planning/2026-09-07-masterai-homework-mode/` | ✅ Tam uc-uca REAL test edilib (təyin→görmə→həll→hesabat) — bax aşağı "Ev Təkrarı Rejimi" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -60,6 +61,33 @@ bir neçə tələbə) miqyas testi — indiyədək yalnız 1 iştirakçı ilə (
 noutbukda 2 brauzer sekməsi) sınanıb. Master NR 1 kursuna göstərmək üçün
 real sınaq dərsi planlaşdırılmalıdır. Ətraflı tarixçə/qərarlar üçün bax
 `.planning/2026-09-07-masterai-live-classroom/progress.md`.
+
+## Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq)
+
+Faza 1-in üzərinə paralel əlavə: müəllim mövcud bir sual bankını
+(canlı sessiya üçün yaradılmış) bir qrup çata "ev tapşırığı" kimi son
+tarixlə təyin edir (veb host konsolu VƏ mobil çat ekranı — hər ikisi
+`is_teacher` bayrağı ilə açılır), tələbə "Tapşırıqlarım" ekranında görüb
+öz sürəti ilə həll edir (WebSocket yoxdur, vaxt sayğacı yoxdur, hər
+cavabdan sonra dərhal geri bildirim, fasilə/davam mümkün, tək cəhd),
+müəllim "Tapşırıq hesabatları" ekranında hər tələbənin statusunu
+(gözləyir/davam edir/tamamlanıb+xal) görür.
+
+**2026-09-07 tarixində TAM UC-UCA REAL TEST edilib**: müəllim (veb)
+"alma" sual bankından bir çata tapşırıq təyin etdi → tələbə (Android
+emulyator, ayrı hesab) "Tapşırıqlarım"da gördü, açıb HƏLL ETDİ →
+müəllim hesabatda REAL statusları gördü (özü "gözləyir", tələbə
+"tamamlanıb" ✓). 381 backend test + 39 Flutter test, hamısı keçir.
+Bu prosesdə real özü-özünə tapılan bir funksional boşluq (hesabata
+baxmaq üçün UI unudulmuşdu) aşkarlanıb dərhal düzəldildi.
+
+**Açıq qalan (bu fazanın əhatəsindən kənar):** mobil app-da mövcud
+çata özü-özünə qoşulma UI-ı yoxdur (backend endpoint-i var, real testdə
+`curl`la aşıldı) — bu, ayrıca "çat idarəetməsi" təkmilləşdirməsidir.
+Növbəti planlaşdırılan fazalar (istifadəçi ilə razılaşdırılıb): Fərdi
+tələbə tarixçəsi, Çox-müəllimli idarəetmə, Sual redaktə/təsdiq ekranı.
+Ətraflı tarixçə/qərarlar üçün bax
+`.planning/2026-09-07-masterai-homework-mode/progress.md`.
 
 ## Giriş formatları (pipeline)
 
