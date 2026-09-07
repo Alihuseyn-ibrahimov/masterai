@@ -7,6 +7,7 @@ import '../data/session_storage.dart';
 import '../models/chat.dart';
 import 'chat_screen.dart';
 import 'homework/homework_assignment_list_screen.dart';
+import 'join/join_pin_screen.dart';
 import 'login_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -146,6 +147,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
       appBar: AppBar(
         title: Text('Salam, ${widget.displayName}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.groups),
+            tooltip: 'Sinif sessiyasına qoşul (PIN ilə)',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const JoinPinScreen(),
+            )),
+          ),
           IconButton(icon: const Icon(Icons.group_add), tooltip: 'Çata qoşul', onPressed: _joinChat),
           IconButton(
             icon: const Icon(Icons.assignment),

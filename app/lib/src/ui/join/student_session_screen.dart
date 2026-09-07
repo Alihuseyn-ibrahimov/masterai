@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/live_play_socket.dart';
-import '../login_screen.dart';
-import '../../data/session_storage.dart';
 
 /// Server-tərəfli timeout-un (bax `server/live_session_runner.py`,
 /// `DEFAULT_QUESTION_TIMEOUT_SECONDS`) YALNIZ vizual təxmini əksidir —
@@ -116,11 +114,13 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
     widget.socket.sendAnswer(questionIndex: _question!['index'] as int, chosenIndex: index);
   }
 
+  /// Naviqasiya yığınının İLK ekranına qayıdır — bu, giriş ekranından
+  /// ƏVVƏL qoşulanda `LoginScreen`, daxil olmuş istifadəçi üçün isə
+  /// `ChatListScreen`-dir (bax `chat_list_screen.dart`-dakı "Sinif
+  /// sessiyasına qoşul" giriş nöqtəsi) — sabit `LoginScreen`-ə
+  /// yönləndirmə artıq daxil olmuş istifadəçini səhvən çıxış etdirirdi.
   void _leave() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => LoginScreen(sessionStorage: SecureSessionStorage())),
-      (route) => false,
-    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
