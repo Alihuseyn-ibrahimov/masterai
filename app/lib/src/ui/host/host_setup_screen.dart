@@ -208,7 +208,7 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
                 initialValue: selectedChat,
                 decoration: const InputDecoration(labelText: 'Qrup çatı'),
                 items: chats
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.name ?? 'Şəxsi çat')))
+                    .map((c) => DropdownMenuItem(value: c, child: Text('${c.name ?? 'Şəxsi çat'} (ID: ${c.id})')))
                     .toList(),
                 onChanged: (v) => setDialogState(() => selectedChat = v ?? selectedChat),
               ),

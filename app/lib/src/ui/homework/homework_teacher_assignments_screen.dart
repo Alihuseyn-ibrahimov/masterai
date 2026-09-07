@@ -138,7 +138,9 @@ class _HomeworkTeacherAssignmentsScreenState extends State<HomeworkTeacherAssign
           child: DropdownButtonFormField<ChatInfo>(
             initialValue: _selectedChat,
             decoration: const InputDecoration(labelText: 'Çat'),
-            items: _chats.map((c) => DropdownMenuItem(value: c, child: Text(c.name ?? 'Şəxsi çat'))).toList(),
+            items: _chats
+                .map((c) => DropdownMenuItem(value: c, child: Text('${c.name ?? 'Şəxsi çat'} (ID: ${c.id})')))
+                .toList(),
             onChanged: _selectChat,
           ),
         ),
