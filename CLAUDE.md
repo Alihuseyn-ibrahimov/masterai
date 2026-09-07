@@ -39,6 +39,27 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | ✅ Tam uc-uca real mühitdə təsdiqlənib (`analyze`+`test`+`run`, real Android emulyator, real backend) — bax `app/README.md` |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
+| Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
+
+## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
+
+Mövcud tələbə-yönümlü sistemə TOXUNMADAN əlavə olunmuş paralel alt-sistem:
+müəllim veb brauzerdə (`flutter run -d chrome`/`build web`) sual bankı
+yaradır → AI sualları çıxarır → PIN-li canlı sessiya başladır; tələbələr
+hesabsız, yalnız PIN+ad ilə mobil/veb-dən qoşulur, Kahoot-tərzi cavablayır.
+
+**2026-09-07 tarixində TAM UC-UCA REAL TEST edilib** (istifadəçinin real
+Windows mühitində, real backend-ə qarşı): sual bankı yaradılması → AI-nın
+real 3 sual çıxarması → PIN → tələbənin qoşulması → 3 sualın canlı
+göstərilməsi/cavablanması → avtomatik keçid → sessiya bitməsi → host-un
+"Sessiya hesabatı" ekranı (yekun sıralama + sual-sual təhlil) — HAMISI
+düzgün işlədi. 343 backend test + 32 Flutter test, hamısı keçir.
+
+**Açıq qalan:** real FİZİKİ çoxcihaz (bir neçə AYRI telefon, eyni anda
+bir neçə tələbə) miqyas testi — indiyədək yalnız 1 iştirakçı ilə (eyni
+noutbukda 2 brauzer sekməsi) sınanıb. Master NR 1 kursuna göstərmək üçün
+real sınaq dərsi planlaşdırılmalıdır. Ətraflı tarixçə/qərarlar üçün bax
+`.planning/2026-09-07-masterai-live-classroom/progress.md`.
 
 ## Giriş formatları (pipeline)
 
