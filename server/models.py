@@ -124,6 +124,29 @@ class LiveSessionInfo(BaseModel):
     created_at: str
 
 
+class LiveRankingRow(BaseModel):
+    rank: int
+    participant_id: int
+    display_name: str
+    score: int
+
+
+class LiveQuestionReport(BaseModel):
+    index: int
+    question: str
+    correct_index: int
+    correct_count: int
+    total_answers: int
+    most_common_wrong_index: int | None
+
+
+class LiveSessionReport(BaseModel):
+    session_id: int
+    total_questions: int
+    rankings: list[LiveRankingRow]
+    per_question: list[LiveQuestionReport]
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int

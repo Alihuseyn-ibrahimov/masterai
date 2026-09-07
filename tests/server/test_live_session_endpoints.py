@@ -1,8 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from pipeline.models import MCQQuestion
 from server.app import app, get_live_session_store, get_question_set_store, get_token_secret, get_user_store
 from server.auth import create_token
+from server.live_session_runner import join_session, record_answer, start_session
 from server.live_session_store import LiveSessionStore
 from server.question_set_store import QuestionSetStore
 from server.user_store import UserStore
@@ -64,3 +66,63 @@ def test_creates_session_with_pin(env):
     assert body["question_set_id"] == qs["id"]
     assert body["status"] == "waiting"
     assert len(body["pin"]) == 6
+
+
+class _NoopConnectionManager:
+    async def broadcast_host(self, session_id, message):
+        pass
+
+    async def broadcast_players(self, session_id, message):
+        pass
+
+
+class TestGetReport:
+    def test_requires_auth(self, env):
+        r = env["client"].get("/live/sessions/1/report")
+        assert r.status_code == 401
+
+    def test_unknown_session_returns_404(self, env):
+        r = env["client"].get("/live/sessions/999/report", headers=_auth(env["teacher"]))
+        assert r.status_code == 404
+
+    def test_not_finished_session_returns_400(self, env):
+        qs = env["question_sets"].create(
+            subject="mentiq", title="A", material_kind="link", material_location="https://x.az",
+            created_by=env["teacher"]["id"],
+        )
+        env["question_sets"].mark_ready(qs["id"])
+        session = env["live_sessions"].create_session(qs["id"])
+
+        r = env["client"].get(f"/live/sessions/{session['id']}/report", headers=_auth(env["teacher"]))
+        assert r.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_finished_session_returns_cached_report(self, env):
+        qs = env["question_sets"].create(
+            subject="mentiq", title="A", material_kind="link", material_location="https://x.az",
+            created_by=env["teacher"]["id"],
+        )
+        env["question_sets"].add_question(
+            qs["id"],
+            MCQQuestion(question="Sual 1?", options=["A", "B", "C", "D", "E"], correct_index=0, explanation="izah"),
+        )
+        env["question_sets"].mark_ready(qs["id"])
+        session = env["live_sessions"].create_session(qs["id"])
+
+        manager = _NoopConnectionManager()
+        _, participant = await join_session(session["pin"], "Əli", session_store=env["live_sessions"], connection_manager=manager)
+        await start_session(session["id"], session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager)
+        await record_answer(
+            session["id"], participant["id"], 0, chosen_index=0,
+            session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager,
+        )
+
+        r = env["client"].get(f"/live/sessions/{session['id']}/report", headers=_auth(env["teacher"]))
+        assert r.status_code == 200
+        body = r.json()
+        assert body["session_id"] == session["id"]
+        assert body["total_questions"] == 1
+        assert body["rankings"] == [
+            {"rank": 1, "participant_id": participant["id"], "display_name": "Əli", "score": 1}
+        ]
+        assert body["per_question"][0]["correct_count"] == 1

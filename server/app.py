@@ -8,6 +8,7 @@ Auth (/auth/register, /auth/login, /health) + əsas çat (POST/GET /chats,
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 
 import httpx
@@ -29,6 +30,7 @@ from .live_session_runner import SessionNotFound as LiveSessionNotFound
 from .live_session_runner import SessionNotJoinable as LiveSessionNotJoinable
 from .live_session_runner import advance_question as advance_live_question
 from .live_session_runner import check_timeout as check_live_timeout
+from .live_session_runner import compute_report as compute_live_report
 from .live_session_runner import join_session as join_live_session
 from .live_session_runner import record_answer as record_live_answer
 from .live_session_runner import start_session as start_live_session
@@ -43,6 +45,7 @@ from .models import (
     CreateLiveSessionRequest,
     FriendshipInfo,
     LiveSessionInfo,
+    LiveSessionReport,
     LoginRequest,
     MaterialInfo,
     QuestionSetInfo,
@@ -863,6 +866,30 @@ def create_live_session(
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
     session = live_sessions.create_session(req.question_set_id)
     return LiveSessionInfo(**session)
+
+
+@app.get("/live/sessions/{session_id}/report", response_model=LiveSessionReport)
+def get_live_session_report(
+    session_id: int,
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> LiveSessionReport:
+    session = live_sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Sessiya tapılmadı")
+    if session["status"] != "finished":
+        raise HTTPException(status_code=400, detail="Sessiya hələ bitməyib")
+
+    if session["report_json"]:
+        report = json.loads(session["report_json"])
+    else:
+        # Ehtiyat yolu — normalda `advance_question` sessiya bitəndə
+        # hesabatı artıq hesablayıb keşləyib (bax live_session_runner.py).
+        report = compute_live_report(
+            session_id, session_store=live_sessions, question_set_store=question_sets
+        )
+    return LiveSessionReport(**report)
 
 
 def _schedule_live_timeout(

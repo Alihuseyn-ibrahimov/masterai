@@ -12,6 +12,7 @@ Store öz daxili kilidini işlədir.
 from __future__ import annotations
 
 import asyncio
+import json
 
 DEFAULT_QUESTION_TIMEOUT_SECONDS = 20
 
@@ -63,6 +64,54 @@ def _leaderboard(session_id: int, *, session_store) -> list[dict]:
     ]
     rows.sort(key=lambda r: r["score"], reverse=True)
     return rows
+
+
+def compute_report(session_id: int, *, session_store, question_set_store) -> dict:
+    """Sessiya sonu hesabatı: yekun sıralama + sual-sual təhlil (ən çox
+    seçilən səhv variant daxil — "sinif harada çətinlik çəkir" göstəricisi,
+    bax dizayn sənədi, bölmə 5). Sessiya bitəndə `advance_question`
+    tərəfindən bir dəfə hesablanıb `report_json`-a keşlənir."""
+    session = session_store.get(session_id)
+    questions = question_set_store.list_questions(session["question_set_id"])
+
+    scores = session_store.compute_scores(session_id)
+    participants = session_store.list_participants(session_id)
+    ranking_rows = sorted(
+        (
+            {"participant_id": p["id"], "display_name": p["display_name"], "score": scores.get(p["id"], 0)}
+            for p in participants
+        ),
+        key=lambda r: r["score"],
+        reverse=True,
+    )
+    rankings = [{"rank": i + 1, **row} for i, row in enumerate(ranking_rows)]
+
+    per_question = []
+    for index, question in enumerate(questions):
+        answers = session_store.list_answers_for_question(session_id, index)
+        correct_count = sum(1 for a in answers if a["is_correct"])
+        wrong_counts: dict[int, int] = {}
+        for a in answers:
+            if not a["is_correct"]:
+                wrong_counts[a["chosen_index"]] = wrong_counts.get(a["chosen_index"], 0) + 1
+        most_common_wrong_index = max(wrong_counts, key=wrong_counts.get) if wrong_counts else None
+        per_question.append(
+            {
+                "index": index,
+                "question": question["question"],
+                "correct_index": question["correct_index"],
+                "correct_count": correct_count,
+                "total_answers": len(answers),
+                "most_common_wrong_index": most_common_wrong_index,
+            }
+        )
+
+    return {
+        "session_id": session_id,
+        "total_questions": len(questions),
+        "rankings": rankings,
+        "per_question": per_question,
+    }
 
 
 async def join_session(
@@ -184,6 +233,8 @@ async def advance_question(
     updated = session_store.advance(session_id)
     if updated["current_question_index"] >= len(questions):
         session_store.set_status(session_id, "finished")
+        report = compute_report(session_id, session_store=session_store, question_set_store=question_set_store)
+        session_store.save_report(session_id, json.dumps(report, ensure_ascii=False))
         finish_payload = {
             "total_questions": len(questions),
             "leaderboard": _leaderboard(session_id, session_store=session_store),

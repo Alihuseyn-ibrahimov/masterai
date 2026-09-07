@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from server.live_session_runner import (
@@ -7,6 +9,7 @@ from server.live_session_runner import (
     SessionNotFound,
     SessionNotJoinable,
     advance_question,
+    compute_report,
     join_session,
     record_answer,
     start_session,
@@ -233,3 +236,75 @@ class TestAdvanceQuestion:
         result = await advance_question(session["id"], expected_index=0, **_kwargs(env))
         assert result is None
         assert len(env["manager"].player_sent) == sent_count_before
+
+
+class TestComputeReport:
+    @pytest.mark.asyncio
+    async def test_rankings_sorted_by_score_descending(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], **_kwargs(env))
+
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))  # düzgün
+        await record_answer(session["id"], p2["id"], 0, chosen_index=1, **_kwargs(env))  # səhv
+        await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))  # düzgün
+        await record_answer(session["id"], p2["id"], 1, chosen_index=1, **_kwargs(env))  # düzgün
+
+        report = compute_report(session["id"], session_store=env["sessions"], question_set_store=env["question_sets"])
+
+        assert report["session_id"] == session["id"]
+        assert report["total_questions"] == 2
+        assert report["rankings"] == [
+            {"rank": 1, "participant_id": p1["id"], "display_name": "Əli", "score": 2},
+            {"rank": 2, "participant_id": p2["id"], "display_name": "Vəli", "score": 1},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_per_question_reports_correct_count_and_most_common_wrong(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p3 = await join_session(session["pin"], "Səbinə", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], **_kwargs(env))
+
+        # 0-cı sual (correct_index=0): p1 düzgün, p2 və p3 eyni səhv variantı (2) seçir
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+        await record_answer(session["id"], p2["id"], 0, chosen_index=2, **_kwargs(env))
+        await record_answer(session["id"], p3["id"], 0, chosen_index=2, **_kwargs(env))
+
+        report = compute_report(session["id"], session_store=env["sessions"], question_set_store=env["question_sets"])
+        q0 = report["per_question"][0]
+
+        assert q0["question"] == "Sual 1?"
+        assert q0["correct_index"] == 0
+        assert q0["correct_count"] == 1
+        assert q0["total_answers"] == 3
+        assert q0["most_common_wrong_index"] == 2
+
+    @pytest.mark.asyncio
+    async def test_most_common_wrong_index_is_none_when_no_wrong_answers(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+
+        report = compute_report(session["id"], session_store=env["sessions"], question_set_store=env["question_sets"])
+        assert report["per_question"][0]["most_common_wrong_index"] is None
+
+    @pytest.mark.asyncio
+    async def test_session_finish_caches_report_json(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], **_kwargs(env))
+
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))
+
+        finished = env["sessions"].get(session["id"])
+        assert finished["status"] == "finished"
+        assert finished["report_json"] is not None
+
+        cached_report = json.loads(finished["report_json"])
+        assert cached_report["total_questions"] == 2
+        assert cached_report["rankings"][0]["participant_id"] == p1["id"]
