@@ -14,6 +14,7 @@ import '../models/chat.dart';
 import '../models/chat_item.dart';
 import '../models/material.dart';
 import '../models/question_set.dart';
+import 'homework/homework_teacher_assignments_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -228,12 +229,20 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Text(widget.chat.name ?? 'Şəxsi çat'),
         actions: [
-          if (widget.isTeacher)
+          if (widget.isTeacher) ...[
             IconButton(
               icon: const Icon(Icons.assignment_add),
               tooltip: 'Ev tapşırığı təyin et',
               onPressed: _assignHomework,
             ),
+            IconButton(
+              icon: const Icon(Icons.assignment_turned_in),
+              tooltip: 'Tapşırıq hesabatları',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => HomeworkTeacherAssignmentsScreen(token: widget.token),
+              )),
+            ),
+          ],
         ],
         bottom: _connected
             ? null

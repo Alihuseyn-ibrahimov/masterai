@@ -10,6 +10,7 @@ import '../../data/live_client.dart';
 import '../../data/session_storage.dart';
 import '../../models/chat.dart';
 import '../../models/question_set.dart';
+import '../homework/homework_teacher_assignments_screen.dart';
 import '../login_screen.dart';
 import 'host_session_screen.dart';
 
@@ -259,6 +260,14 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
       appBar: AppBar(
         title: const Text('MasterAI — Müəllim konsolu'),
         actions: [
+          if (widget.isTeacher)
+            IconButton(
+              icon: const Icon(Icons.assignment_turned_in),
+              tooltip: 'Tapşırıq hesabatları',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => HomeworkTeacherAssignmentsScreen(token: widget.token),
+              )),
+            ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh, tooltip: 'Yenilə'),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Çıxış'),
         ],
