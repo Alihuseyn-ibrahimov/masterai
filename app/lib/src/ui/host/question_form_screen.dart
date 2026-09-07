@@ -91,7 +91,10 @@ class _QuestionFormScreenState extends State<QuestionFormScreen> {
             Text('Variantlar (düzgün cavabı seçin)', style: Theme.of(context).textTheme.titleSmall),
             RadioGroup<int>(
               groupValue: _correctIndex,
-              onChanged: _saving ? null : (v) => setState(() => _correctIndex = v ?? _correctIndex),
+              onChanged: (v) {
+                if (_saving) return;
+                setState(() => _correctIndex = v ?? _correctIndex);
+              },
               child: Column(
                 children: [
                   for (var i = 0; i < _optionControllers.length; i++)
