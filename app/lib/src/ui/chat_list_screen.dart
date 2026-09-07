@@ -15,12 +15,14 @@ class ChatListScreen extends StatefulWidget {
     required this.userId,
     required this.displayName,
     required this.sessionStorage,
+    required this.isTeacher,
   });
 
   final String token;
   final int userId;
   final String displayName;
   final SessionStorage sessionStorage;
+  final bool isTeacher;
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -95,6 +97,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         chat: chat,
         token: widget.token,
         userId: widget.userId,
+        isTeacher: widget.isTeacher,
       ),
     ));
   }

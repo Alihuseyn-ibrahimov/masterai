@@ -6,13 +6,15 @@ import 'package:http/testing.dart';
 import 'package:masterai/src/data/api_exception.dart';
 import 'package:masterai/src/data/auth_client.dart';
 
-String _authResponse({String email = 'ali@example.com', int id = 1}) => jsonEncode({
+String _authResponse({String email = 'ali@example.com', int id = 1, bool isTeacher = false}) =>
+    jsonEncode({
       'token': 'tok123',
       'user': {
         'id': id,
         'email': email,
         'display_name': 'Əli',
         'created_at': '2026-09-03T00:00:00Z',
+        'is_teacher': isTeacher,
       },
     });
 
@@ -46,6 +48,7 @@ void main() {
       );
       expect(result.token, 'tok123');
       expect(result.user.displayName, 'Əli');
+      expect(result.user.isTeacher, false);
     });
 
     test('409 → aydın xəta mesajı', () async {

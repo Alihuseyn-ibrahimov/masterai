@@ -3,12 +3,14 @@ class UserInfo {
   final String email;
   final String displayName;
   final String createdAt;
+  final bool isTeacher;
 
   const UserInfo({
     required this.id,
     required this.email,
     required this.displayName,
     required this.createdAt,
+    required this.isTeacher,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) => UserInfo(
@@ -16,6 +18,7 @@ class UserInfo {
         email: json['email'] as String,
         displayName: json['display_name'] as String,
         createdAt: json['created_at'] as String,
+        isTeacher: json['is_teacher'] as bool,
       );
 }
 

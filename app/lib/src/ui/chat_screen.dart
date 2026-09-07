@@ -6,18 +6,28 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../data/api_exception.dart';
 import '../data/chat_socket.dart';
+import '../data/homework_client.dart';
+import '../data/live_client.dart';
 import '../data/material_client.dart';
 import '../data/quiz_client.dart';
 import '../models/chat.dart';
 import '../models/chat_item.dart';
 import '../models/material.dart';
+import '../models/question_set.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.chat, required this.token, required this.userId});
+  const ChatScreen({
+    super.key,
+    required this.chat,
+    required this.token,
+    required this.userId,
+    required this.isTeacher,
+  });
 
   final ChatInfo chat;
   final String token;
   final int userId;
+  final bool isTeacher;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -27,6 +37,8 @@ class _ChatScreenState extends State<ChatScreen> {
   late final ChatSocket _socket;
   final _materialClient = MaterialClient(baseUrl: kApiBaseUrl);
   final _quizClient = QuizClient(baseUrl: kApiBaseUrl);
+  final _liveClient = LiveClient(baseUrl: kApiBaseUrl);
+  final _homeworkClient = HomeworkClient(baseUrl: kApiBaseUrl);
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -111,6 +123,93 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Bu çata (`widget.chat` sabitdir, bax Ev Təkrarı Rejimi dizayn
+  /// sənədi) ev tapşırığı təyin edir — mövcud "Hazırdır" sual
+  /// banklarından (istənilən fənn) birini seçdirir.
+  Future<void> _assignHomework() async {
+    List<QuestionSetInfo> readySets;
+    try {
+      readySets = (await _liveClient.listQuestionSets(widget.token))
+          .where((qs) => qs.status == 'ready')
+          .toList();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    if (readySets.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hazır sual bankı yoxdur — əvvəlcə host konsolunda birini yaradın.')),
+      );
+      return;
+    }
+
+    QuestionSetInfo selectedSet = readySets.first;
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Ev tapşırığı təyin et'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<QuestionSetInfo>(
+                initialValue: selectedSet,
+                decoration: const InputDecoration(labelText: 'Sual bankı'),
+                items: readySets
+                    .map((qs) => DropdownMenuItem(value: qs, child: Text('${qs.subjectLabel} — ${qs.title}')))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => selectedSet = v ?? selectedSet),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Son tarix'),
+                subtitle: Text(_isoDate(selectedDate)),
+                trailing: const Icon(Icons.calendar_month),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setDialogState(() => selectedDate = picked);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Təyin et')),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _homeworkClient.createAssignment(
+        widget.token,
+        chatId: widget.chat.id,
+        questionSetId: selectedSet.id,
+        dueDate: _isoDate(selectedDate),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tapşırıq təyin olundu.')));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   /// Şəxsən mənim cavabladığım (`_answeredQuestionIds`) VƏ artıq nəticəsi
   /// gəlmiş (bax `_QuizResultCard` — hamı cavablayıb tur bağlanıb) suallar.
   /// Yalnız local tap-i izləmək kifayət etmirdi: çat yenidən açılanda
@@ -127,6 +226,14 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.chat.name ?? 'Şəxsi çat'),
+        actions: [
+          if (widget.isTeacher)
+            IconButton(
+              icon: const Icon(Icons.assignment_add),
+              tooltip: 'Ev tapşırığı təyin et',
+              onPressed: _assignHomework,
+            ),
+        ],
         bottom: _connected
             ? null
             : const PreferredSize(

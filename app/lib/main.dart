@@ -45,6 +45,7 @@ class _BootstrapState extends State<_Bootstrap> {
   String? _token;
   int? _userId;
   String? _displayName;
+  bool _isTeacher = false;
 
   @override
   void initState() {
@@ -56,11 +57,13 @@ class _BootstrapState extends State<_Bootstrap> {
     final token = await _sessionStorage.readToken();
     final userId = await _sessionStorage.readUserId();
     final displayName = await _sessionStorage.readDisplayName();
+    final isTeacher = await _sessionStorage.readIsTeacher();
     if (!mounted) return;
     setState(() {
       _token = token;
       _userId = userId;
       _displayName = displayName;
+      _isTeacher = isTeacher;
       _checking = false;
     });
   }
@@ -75,13 +78,14 @@ class _BootstrapState extends State<_Bootstrap> {
       // "Frontend"), mobil app tələbə axınıdır — platformlar arasında
       // ayrı ekran ailəsi.
       if (kIsWeb) {
-        return HostSetupScreen(token: _token!, sessionStorage: _sessionStorage);
+        return HostSetupScreen(token: _token!, sessionStorage: _sessionStorage, isTeacher: _isTeacher);
       }
       return ChatListScreen(
         token: _token!,
         userId: _userId!,
         displayName: _displayName!,
         sessionStorage: _sessionStorage,
+        isTeacher: _isTeacher,
       );
     }
     return LoginScreen(sessionStorage: _sessionStorage);
