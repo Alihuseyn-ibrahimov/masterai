@@ -56,6 +56,7 @@ from .models import (
     HomeworkAttemptState,
     HomeworkQuestionPayload,
     HomeworkReportRow,
+    LiveQuestionInfo,
     LiveSessionInfo,
     LiveSessionReport,
     LoginRequest,
@@ -67,6 +68,7 @@ from .models import (
     RegisterRequest,
     SendFriendRequestRequest,
     SetTeacherRequest,
+    UpdateQuestionRequest,
     UserInfo,
 )
 from .question_set_store import SUBJECTS, QuestionSetStore
@@ -831,6 +833,57 @@ def list_question_sets(
         _question_set_info(qs, question_count=question_sets.count_questions(qs["id"]))
         for qs in question_sets.list_all()
     ]
+
+
+@app.get("/live/question-sets/{question_set_id}/questions", response_model=list[LiveQuestionInfo])
+def list_live_questions(
+    question_set_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> list[LiveQuestionInfo]:
+    """Sual bankının BÜTÜN sualları, düzgün cavab+izah DAXİL — yalnız
+    müəllim redaktə ekranı üçün (bax Sual redaktə/təsdiq ekranı, Faza 5).
+    Tələbələrə göndərilən oyun payload-u (`_question_payload`) bunu
+    QƏSDƏN göstərmir."""
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim suallara baxa bilər")
+    if question_sets.get(question_set_id) is None:
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    return [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
+
+
+@app.patch("/live/questions/{question_id}", response_model=LiveQuestionInfo)
+def update_live_question(
+    question_id: int,
+    req: UpdateQuestionRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> LiveQuestionInfo:
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim sualı redaktə edə bilər")
+    if question_sets.get_question(question_id) is None:
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    updated = question_sets.update_question(
+        question_id,
+        question=req.question,
+        options=req.options,
+        correct_index=req.correct_index,
+        explanation=req.explanation,
+    )
+    return LiveQuestionInfo(**updated)
+
+
+@app.delete("/live/questions/{question_id}", status_code=204)
+def delete_live_question(
+    question_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> None:
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim sualı silə bilər")
+    if question_sets.get_question(question_id) is None:
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    question_sets.delete_question(question_id)
 
 
 @app.websocket("/ws/chat/{chat_id}")

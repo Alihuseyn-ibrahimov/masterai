@@ -113,6 +113,32 @@ class QuestionSetInfo(BaseModel):
     created_at: str
 
 
+class LiveQuestionInfo(BaseModel):
+    """Sual bankının BİR sualının TAM (düzgün cavab+izah daxil) məlumatı —
+    yalnız müəllim redaktə ekranı üçün (bax Sual redaktə/təsdiq ekranı,
+    Faza 5). Sessiya/tapşırıq zamanı oyunçulara göndərilən yük (`_question_
+    payload`) BUNDAN QƏSDƏN fərqlidir — cavab sızmasın deyə."""
+
+    id: int
+    question_set_id: int
+    question: str
+    options: list[str]
+    correct_index: int
+    explanation: str
+    created_at: str
+
+
+class UpdateQuestionRequest(BaseModel):
+    """`pipeline.models.MCQQuestion`-un eyni məhdudiyyətləri (5 variant,
+    0-4 düzgün cavab indeksi) — AI-nin çıxardığı formatla uyğunluğu
+    qorumaq üçün."""
+
+    question: str
+    options: list[str] = Field(min_length=5, max_length=5)
+    correct_index: int = Field(ge=0, le=4)
+    explanation: str
+
+
 class CreateLiveSessionRequest(BaseModel):
     question_set_id: int
 

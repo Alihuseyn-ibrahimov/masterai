@@ -122,3 +122,38 @@ def test_count_questions(store):
     assert store.count_questions(qs["id"]) == 0
     store.add_question(qs["id"], _mcq())
     assert store.count_questions(qs["id"]) == 1
+
+
+def test_get_question_returns_none_when_missing(store):
+    assert store.get_question(999) is None
+
+
+def test_update_question_changes_content(store):
+    qs = store.create(
+        subject="mentiq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    created = store.add_question(qs["id"], _mcq("Köhnə sual?"))
+    updated = store.update_question(
+        created["id"],
+        question="Yeni sual?",
+        options=["X", "Y", "Z", "W", "V"],
+        correct_index=2,
+        explanation="yeni izah",
+    )
+    assert updated["question"] == "Yeni sual?"
+    assert updated["options"] == ["X", "Y", "Z", "W", "V"]
+    assert updated["correct_index"] == 2
+    assert updated["explanation"] == "yeni izah"
+    assert store.get_question(created["id"]) == updated
+
+
+def test_delete_question_removes_it(store):
+    qs = store.create(
+        subject="mentiq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    created = store.add_question(qs["id"], _mcq())
+    store.delete_question(created["id"])
+    assert store.get_question(created["id"]) is None
+    assert store.count_questions(qs["id"]) == 0

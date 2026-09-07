@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/live_question.dart';
 import '../models/live_session.dart';
 import '../models/question_set.dart';
 import 'api_exception.dart';
@@ -79,6 +80,63 @@ class LiveClient {
   Future<LiveSessionReport> getReport(String token, int sessionId) async {
     final resp = await _get(token, '/live/sessions/$sessionId/report');
     return LiveSessionReport.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
+  }
+
+  /// Sual bankının BÜTÜN suallarının TAM məzmunu (düzgün cavab+izah
+  /// daxil) — yalnız müəllim redaktə ekranı üçün (bax Sual redaktə/
+  /// təsdiq ekranı, Faza 5).
+  Future<List<LiveQuestionInfo>> listQuestions(String token, int questionSetId) async {
+    final resp = await _get(token, '/live/question-sets/$questionSetId/questions');
+    final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
+    return list.map((q) => LiveQuestionInfo.fromJson(q as Map<String, dynamic>)).toList();
+  }
+
+  Future<LiveQuestionInfo> updateQuestion(
+    String token,
+    int questionId, {
+    required String question,
+    required List<String> options,
+    required int correctIndex,
+    required String explanation,
+  }) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .patch(
+            Uri.parse('$baseUrl/live/questions/$questionId'),
+            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'question': question,
+              'options': options,
+              'correct_index': correctIndex,
+              'explanation': explanation,
+            }),
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException('Sual yenilənmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    return LiveQuestionInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
+  }
+
+  Future<void> deleteQuestion(String token, int questionId) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .delete(
+            Uri.parse('$baseUrl/live/questions/$questionId'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 204) {
+      throw ApiException('Sual silinmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
   }
 
   Future<http.Response> _get(String token, String path) async {

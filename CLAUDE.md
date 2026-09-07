@@ -42,7 +42,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
 | Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq) | Müəllim tapşırıq təyin edir (veb+mobil, `is_teacher` bayrağı) → tələbə "Tapşırıqlarım"da öz sürəti ilə həll edir → müəllim hesabatda görür, `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`, `.planning/2026-09-07-masterai-homework-mode/` | ✅ Tam uc-uca REAL test edilib (təyin→görmə→həll→hesabat) — bax aşağı "Ev Təkrarı Rejimi" bölməsi |
 | Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
-| Çox-müəllimli idarəetmə (Faza 4 — `is_admin` rolu) | Admin (ayrıca `is_admin` bayrağı) tətbiq daxilindən e-poçtla başqa istifadəçini müəllim edir/çıxarır — VPS-də əl ilə skript artıq lazım deyil, `.planning/2026-09-07-masterai-multi-teacher-management/` | ✅ Backend+Flutter yazılıb, 411 backend test keçir — istifadəçinin real mühitində HƏLƏ sınanmayıb, bax aşağı "Çox-müəllimli idarəetmə" bölməsi |
+| Çox-müəllimli idarəetmə (Faza 4 — `is_admin` rolu) | Admin (ayrıca `is_admin` bayrağı) tətbiq daxilindən e-poçtla başqa istifadəçini müəllim edir/çıxarır, hazırkı müəllimlərin siyahısını görür — VPS-də əl ilə skript artıq lazım deyil, `.planning/2026-09-07-masterai-multi-teacher-management/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Çox-müəllimli idarəetmə" bölməsi |
+| Sual redaktə/təsdiq ekranı (Faza 5 — mövcud sualları düzəlt/sil) | Müəllim veb host konsolunda hər sual bankının suallarını görüb mətn/variant/düzgün cavab/izahı redaktə edir və ya silir (əlavə etmə/məcburi təsdiq bu fazaya daxil deyil), `.planning/2026-09-07-masterai-question-edit/` | ✅ Backend+Flutter yazılıb, 433 backend test keçir — istifadəçinin real mühitində HƏLƏ sınanmayıb, bax aşağı "Sual redaktə/təsdiq ekranı" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -129,10 +130,23 @@ mütləq VPS-də əl ilə (`UserStore.set_admin`, `set_teacher`-in eyni
 naxışı) təyin edilməlidir, tətbiq daxilindən heç vaxt ilk admin yaradıla
 bilməz.
 
-**Vəziyyət (2026-09-07):** Backend 411 test keçir. Flutter tərəfi
-(`ui/admin/`) yazılıb, istifadəçinin real mühitində HƏLƏ sınanmayıb.
-Ətraflı bax
+**Vəziyyət (2026-09-07):** Tam uc-uca REAL test edilib (bootstrap admin
+təyinatı VPS-də, e-poçtla müəllim təyini, müəllim siyahısının
+göstərilməsi). Ətraflı bax
 `.planning/2026-09-07-masterai-multi-teacher-management/progress.md`.
+
+## Sual redaktə/təsdiq ekranı (Faza 5)
+
+Müəllim veb host konsolunda "Hazırdır" statuslu hər sual bankının
+sualları siyahısına baxıb hər hansı birinin mətnini, 5 variantını,
+düzgün cavabını və izahını redaktə edir və ya silir. Məcburi təsdiq
+addımı YOXDUR — sual bankı indiki kimi "ready" olan kimi dərhal
+sessiya/tapşırıq üçün istifadə oluna bilər, redaktə isteğe bağlıdır.
+
+**Vəziyyət (2026-09-07):** Backend 433 test keçir. Flutter tərəfi
+(`ui/host/question_edit_screen.dart`, `question_form_screen.dart`)
+yazılıb, istifadəçinin real mühitində HƏLƏ sınanmayıb. Ətraflı bax
+`.planning/2026-09-07-masterai-question-edit/progress.md`.
 
 ## Giriş formatları (pipeline)
 

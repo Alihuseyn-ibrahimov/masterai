@@ -156,4 +156,88 @@ void main() {
       expect(report.perQuestion.single.mostCommonWrongIndex, 2);
     });
   });
+
+  Map<String, dynamic> _questionJson({String question = 'Köhnə sual?'}) => {
+        'id': 5,
+        'question_set_id': 1,
+        'question': question,
+        'options': ['A', 'B', 'C', 'D', 'E'],
+        'correct_index': 0,
+        'explanation': 'izah',
+        'created_at': '2026-09-07T00:00:00Z',
+      };
+
+  group('listQuestions', () {
+    test('sual siyahısını qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/live/question-sets/1/questions');
+        return http.Response(jsonEncode([_questionJson()]), 200, headers: _jsonHeaders);
+      });
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      final questions = await client.listQuestions('tok', 1);
+      expect(questions, hasLength(1));
+      expect(questions[0].correctIndex, 0);
+    });
+
+    test('403 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 403));
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(client.listQuestions('tok', 1), throwsA(isA<ApiException>()));
+    });
+  });
+
+  group('updateQuestion', () {
+    test('yenilənmiş sualı qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'PATCH');
+        expect(req.url.path, '/live/questions/5');
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        expect(body['question'], 'Yeni sual?');
+        expect(body['correct_index'], 2);
+        return http.Response(jsonEncode(_questionJson(question: 'Yeni sual?')), 200, headers: _jsonHeaders);
+      });
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      final updated = await client.updateQuestion(
+        'tok', 5,
+        question: 'Yeni sual?',
+        options: ['A', 'B', 'C', 'D', 'E'],
+        correctIndex: 2,
+        explanation: 'izah',
+      );
+      expect(updated.question, 'Yeni sual?');
+    });
+
+    test('422 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 422));
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(
+        client.updateQuestion(
+          'tok', 5,
+          question: 'X',
+          options: ['A', 'B'],
+          correctIndex: 0,
+          explanation: 'izah',
+        ),
+        throwsA(isA<ApiException>()),
+      );
+    });
+  });
+
+  group('deleteQuestion', () {
+    test('204 → uğurla bitir', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'DELETE');
+        expect(req.url.path, '/live/questions/5');
+        return http.Response('', 204);
+      });
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      await client.deleteQuestion('tok', 5);
+    });
+
+    test('404 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 404));
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(client.deleteQuestion('tok', 5), throwsA(isA<ApiException>()));
+    });
+  });
 }

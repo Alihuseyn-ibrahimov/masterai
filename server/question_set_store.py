@@ -145,9 +145,9 @@ class QuestionSetStore:
                 ),
             )
             self._conn.commit()
-            return self._get_question(cur.lastrowid)
+            return self.get_question(cur.lastrowid)
 
-    def _get_question(self, question_id: int) -> dict | None:
+    def get_question(self, question_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, question_set_id, question, options, correct_index, explanation, created_at "
@@ -156,6 +156,30 @@ class QuestionSetStore:
             )
             row = cur.fetchone()
             return _question_row_to_dict(row) if row else None
+
+    def update_question(
+        self,
+        question_id: int,
+        question: str,
+        options: list[str],
+        correct_index: int,
+        explanation: str,
+    ) -> dict | None:
+        """Müəllimin sual redaktəsi (bax Sual redaktə/təsdiq ekranı, Faza 5)
+        — sual sayı/sırası dəyişmir, yalnız məzmun yenilənir."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE live_questions SET question = ?, options = ?, correct_index = ?, "
+                "explanation = ? WHERE id = ?",
+                (question, json.dumps(options, ensure_ascii=False), correct_index, explanation, question_id),
+            )
+            self._conn.commit()
+            return self.get_question(question_id)
+
+    def delete_question(self, question_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM live_questions WHERE id = ?", (question_id,))
+            self._conn.commit()
 
     def list_questions(self, question_set_id: int) -> list[dict]:
         with self._lock:

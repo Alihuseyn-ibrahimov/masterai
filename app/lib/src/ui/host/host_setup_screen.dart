@@ -15,6 +15,7 @@ import '../history/history_student_picker_screen.dart';
 import '../homework/homework_teacher_assignments_screen.dart';
 import '../login_screen.dart';
 import 'host_session_screen.dart';
+import 'question_edit_screen.dart';
 
 /// Host konsolunun ilk ekranı — fənn seç, mövcud sual bankından seç
 /// (ya yeni link əlavə et), sonra canlı sessiya başlat. Bax dizayn
@@ -335,12 +336,20 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
               ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (widget.isTeacher)
+                    if (widget.isTeacher) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit_note),
+                        tooltip: 'Sualları redaktə et',
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => QuestionEditScreen(token: widget.token, questionSetId: qs.id, title: qs.title),
+                        )),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.assignment_add),
                         tooltip: 'Tapşırıq kimi təyin et',
                         onPressed: () => _assignHomework(qs),
                       ),
+                    ],
                     FilledButton(
                       onPressed: () => _startSession(qs),
                       child: const Text('Sessiya başlat'),
