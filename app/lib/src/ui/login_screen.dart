@@ -7,6 +7,7 @@ import '../data/auth_client.dart';
 import '../data/session_storage.dart';
 import 'chat_list_screen.dart';
 import 'host/host_setup_screen.dart';
+import 'join/join_pin_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -89,6 +90,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 24),
+                  // Hesab tələb etməyən giriş nöqtəsi (bax dizayn sənədi,
+                  // "Tələbə tərəfi") — login formasından ƏVVƏL göstərilir.
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const JoinPinScreen()),
+                    ),
+                    icon: const Icon(Icons.groups),
+                    label: const Text('Sinif sessiyasına qoşul (PIN ilə)'),
+                  ),
+                  const SizedBox(height: 20),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('və ya')),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
