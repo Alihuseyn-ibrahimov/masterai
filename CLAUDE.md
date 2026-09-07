@@ -81,9 +81,12 @@ müəllim hesabatda REAL statusları gördü (özü "gözləyir", tələbə
 Bu prosesdə real özü-özünə tapılan bir funksional boşluq (hesabata
 baxmaq üçün UI unudulmuşdu) aşkarlanıb dərhal düzəldildi.
 
-**Açıq qalan (bu fazanın əhatəsindən kənar):** mobil app-da mövcud
-çata özü-özünə qoşulma UI-ı yoxdur (backend endpoint-i var, real testdə
-`curl`la aşıldı) — bu, ayrıca "çat idarəetməsi" təkmilləşdirməsidir.
+**Çata qoşulma UI-ı** (real testdə tapılan boşluq, dərhal düzəldildi):
+çat siyahısı ekranına "Çata qoşul" ikonu əlavə olundu — çat ID-sini
+(mövcud çat sətirlərinin subtitle-ında görünür) əl ilə yazıb özü-özünə
+qoşulmaq mümkündür (`POST /chats/{id}/join`, mövcud backend
+endpoint-i, dəyişiklik yoxdur).
+
 Növbəti planlaşdırılan fazalar (istifadəçi ilə razılaşdırılıb): Fərdi
 tələbə tarixçəsi, Çox-müəllimli idarəetmə, Sual redaktə/təsdiq ekranı.
 Ətraflı tarixçə/qərarlar üçün bax

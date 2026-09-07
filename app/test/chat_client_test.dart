@@ -63,4 +63,35 @@ void main() {
       expect(chat.id, 5);
     });
   });
+
+  group('joinChat', () {
+    test('uğurlu qoşulma çatı qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'POST');
+        expect(req.url.path, '/chats/3/join');
+        return http.Response(
+          jsonEncode({
+            'id': 3,
+            'kind': 'group',
+            'name': 'Qrup',
+            'created_by': 2,
+            'created_at': '2026-09-03T00:00:00Z',
+          }),
+          200,
+        );
+      });
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      final chat = await client.joinChat('tok', 3);
+      expect(chat.id, 3);
+    });
+
+    test('404 → aydın xəta mesajı', () async {
+      final mock = MockClient((req) async => http.Response('{}', 404));
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(
+        client.joinChat('tok', 999),
+        throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('tapılmadı'))),
+      );
+    });
+  });
 }

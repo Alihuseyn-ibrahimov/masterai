@@ -58,4 +58,28 @@ class ChatClient {
     }
     return ChatInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
   }
+
+  /// Mövcud bir qrup çatına özü-özünə qoşulur (`POST /chats/{id}/join`)
+  /// — müəllim çat ID-sini tələbələrə ayrıca bildirir (məs. WhatsApp
+  /// qrupunda), bax `masterai/CLAUDE.md`, "Ev Təkrarı Rejimi" bölməsi.
+  Future<ChatInfo> joinChat(String token, int chatId) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .post(
+            Uri.parse('$baseUrl/chats/$chatId/join'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException(
+        resp.statusCode == 404 ? 'Bu ID ilə çat tapılmadı.' : 'Çata qoşulmaq mümkün olmadı (${resp.statusCode}).',
+        statusCode: resp.statusCode,
+      );
+    }
+    return ChatInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
+  }
 }

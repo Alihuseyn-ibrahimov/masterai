@@ -92,6 +92,43 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
+  /// Mövcud bir qrup çatına özü-özünə qoşulur — müəllim çat ID-sini
+  /// (host konsolunda/çat siyahısında görünən rəqəm) tələbələrə ayrıca
+  /// bildirir, bax `masterai/CLAUDE.md`, "Ev Təkrarı Rejimi" bölməsi.
+  Future<void> _joinChat() async {
+    final idController = TextEditingController();
+    final chatId = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Çata qoşul'),
+        content: TextField(
+          controller: idController,
+          decoration: const InputDecoration(labelText: 'Çat ID (müəllimdən alın)'),
+          keyboardType: TextInputType.number,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, int.tryParse(idController.text.trim())),
+            child: const Text('Qoşul'),
+          ),
+        ],
+      ),
+    );
+    if (chatId == null) return;
+
+    try {
+      final chat = await _chatClient.joinChat(widget.token, chatId);
+      setState(() => _chatsFuture = _load());
+      if (!mounted) return;
+      _openChat(chat);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   void _openChat(ChatInfo chat) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ChatScreen(
@@ -109,6 +146,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       appBar: AppBar(
         title: Text('Salam, ${widget.displayName}'),
         actions: [
+          IconButton(icon: const Icon(Icons.group_add), tooltip: 'Çata qoşul', onPressed: _joinChat),
           IconButton(
             icon: const Icon(Icons.assignment),
             tooltip: 'Tapşırıqlarım',
@@ -156,7 +194,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   child: Icon(chat.kind == 'group' ? Icons.groups : Icons.person),
                 ),
                 title: Text(chat.name ?? 'Şəxsi çat'),
-                subtitle: Text(chat.kind == 'group' ? 'Qrup çatı' : 'Şəxsi çat'),
+                subtitle: Text(
+                  chat.kind == 'group' ? 'Qrup çatı · ID: ${chat.id}' : 'Şəxsi çat',
+                ),
                 onTap: () => _openChat(chat),
               );
             },
