@@ -20,6 +20,19 @@ from .auth import InvalidToken, create_token, hash_password, token_secret, verif
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
+from .live_connection_manager import LiveConnectionManager
+from .live_session_runner import AlreadyAnswered as LiveAlreadyAnswered
+from .live_session_runner import DEFAULT_QUESTION_TIMEOUT_SECONDS as LIVE_QUESTION_TIMEOUT_SECONDS
+from .live_session_runner import LiveSessionError
+from .live_session_runner import NotCurrentQuestion as LiveNotCurrentQuestion
+from .live_session_runner import SessionNotFound as LiveSessionNotFound
+from .live_session_runner import SessionNotJoinable as LiveSessionNotJoinable
+from .live_session_runner import advance_question as advance_live_question
+from .live_session_runner import check_timeout as check_live_timeout
+from .live_session_runner import join_session as join_live_session
+from .live_session_runner import record_answer as record_live_answer
+from .live_session_runner import start_session as start_live_session
+from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
@@ -27,7 +40,9 @@ from .models import (
     AuthResponse,
     ChatInfo,
     CreateChatRequest,
+    CreateLiveSessionRequest,
     FriendshipInfo,
+    LiveSessionInfo,
     LoginRequest,
     MaterialInfo,
     QuestionSetInfo,
@@ -67,6 +82,8 @@ app.state.quiz_session_store = QuizSessionStore(os.environ.get("QUIZ_SESSIONS_DB
 app.state.quiz_attempt_store = QuizAttemptStore(os.environ.get("QUIZ_ATTEMPTS_DB_PATH", "quiz_attempts.db"))
 app.state.friendship_store = FriendshipStore(os.environ.get("FRIENDSHIPS_DB_PATH", "friendships.db"))
 app.state.question_set_store = QuestionSetStore(os.environ.get("QUESTION_SETS_DB_PATH", "question_sets.db"))
+app.state.live_session_store = LiveSessionStore(os.environ.get("LIVE_SESSIONS_DB_PATH", "live_sessions.db"))
+app.state.live_connection_manager = LiveConnectionManager()
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
@@ -74,6 +91,8 @@ app.state.active_quiz_timeouts = {}
 app.state.active_material_tasks = {}
 # question_set_id -> planlaşdırılmış fon emalı task-ı (eyni naxış).
 app.state.active_question_set_tasks = {}
+# live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
+app.state.active_live_timeouts = {}
 
 
 def get_user_store() -> UserStore:
@@ -124,6 +143,16 @@ def get_friendship_store() -> FriendshipStore:
 def get_question_set_store() -> QuestionSetStore:
     """Canlı sessiya sual bankı store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.question_set_store
+
+
+def get_live_session_store() -> LiveSessionStore:
+    """Canlı sessiya store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.live_session_store
+
+
+def get_live_connection_manager() -> LiveConnectionManager:
+    """Canlı sessiya WebSocket reyestri (testdə təzə instansla override olunur)."""
+    return app.state.live_connection_manager
 
 
 def get_material_generator():
@@ -818,3 +847,208 @@ async def chat_websocket(
         pass
     finally:
         manager.disconnect(chat_id, user_id, websocket)
+
+
+@app.post("/live/sessions", response_model=LiveSessionInfo, status_code=201)
+def create_live_session(
+    req: CreateLiveSessionRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+) -> LiveSessionInfo:
+    question_set = question_sets.get(req.question_set_id)
+    if question_set is None:
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    if question_set["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
+    session = live_sessions.create_session(req.question_set_id)
+    return LiveSessionInfo(**session)
+
+
+def _schedule_live_timeout(
+    session_id: int,
+    expected_index: int,
+    *,
+    session_store: LiveSessionStore,
+    question_set_store: QuestionSetStore,
+    connection_manager: LiveConnectionManager,
+) -> None:
+    """Bax `_schedule_timeout` — eyni naxış, canlı sessiya üçün."""
+    task = asyncio.create_task(
+        check_live_timeout(
+            session_id,
+            expected_index,
+            session_store=session_store,
+            question_set_store=question_set_store,
+            connection_manager=connection_manager,
+            timeout_seconds=LIVE_QUESTION_TIMEOUT_SECONDS,
+        )
+    )
+    app.state.active_live_timeouts[session_id] = task
+
+
+@app.websocket("/ws/live/{pin}/host")
+async def live_host_websocket(
+    websocket: WebSocket,
+    pin: str,
+    token: str = Query(...),
+    secret: str = Depends(get_token_secret),
+    users: UserStore = Depends(get_user_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    manager: LiveConnectionManager = Depends(get_live_connection_manager),
+) -> None:
+    try:
+        user_id = verify_token(token, secret=secret)
+    except InvalidToken:
+        await websocket.close(code=4401)
+        return
+    if users.get_by_id(user_id) is None:
+        await websocket.close(code=4401)
+        return
+
+    session = live_sessions.get_by_pin(pin)
+    if session is None:
+        await websocket.close(code=4404)
+        return
+
+    await websocket.accept()
+    manager.connect_host(session["id"], websocket)
+    await websocket.send_json(
+        {
+            "type": "state",
+            "session_id": session["id"],
+            "status": session["status"],
+            "participants": live_sessions.list_participants(session["id"]),
+        }
+    )
+
+    try:
+        while True:
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                raise
+            except Exception:
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            if not isinstance(data, dict):
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            action = data.get("action")
+
+            if action == "start":
+                try:
+                    await start_live_session(
+                        session["id"],
+                        session_store=live_sessions,
+                        question_set_store=question_sets,
+                        connection_manager=manager,
+                    )
+                except LiveSessionError as exc:
+                    await websocket.send_json({"type": "error", "detail": str(exc)})
+                    continue
+                _schedule_live_timeout(
+                    session["id"], 0,
+                    session_store=live_sessions, question_set_store=question_sets,
+                    connection_manager=manager,
+                )
+
+            elif action == "next":
+                before = live_sessions.get(session["id"])
+                updated = await advance_live_question(
+                    session["id"],
+                    session_store=live_sessions,
+                    question_set_store=question_sets,
+                    connection_manager=manager,
+                )
+                if (
+                    updated is not None
+                    and updated["status"] == "active"
+                    and before is not None
+                    and updated["current_question_index"] != before["current_question_index"]
+                ):
+                    _schedule_live_timeout(
+                        session["id"], updated["current_question_index"],
+                        session_store=live_sessions, question_set_store=question_sets,
+                        connection_manager=manager,
+                    )
+
+            else:
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect_host(session["id"], websocket)
+
+
+@app.websocket("/ws/live/{pin}/play")
+async def live_play_websocket(
+    websocket: WebSocket,
+    pin: str,
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    manager: LiveConnectionManager = Depends(get_live_connection_manager),
+) -> None:
+    await websocket.accept()
+
+    try:
+        join_msg = await websocket.receive_json()
+    except Exception:
+        await websocket.close(code=4400)
+        return
+    display_name = (join_msg or {}).get("display_name") if isinstance(join_msg, dict) else None
+    if not isinstance(display_name, str) or not display_name.strip():
+        await websocket.close(code=4400)
+        return
+
+    try:
+        session, participant = await join_live_session(
+            pin, display_name, session_store=live_sessions, connection_manager=manager
+        )
+    except LiveSessionNotFound:
+        await websocket.close(code=4404)
+        return
+    except LiveSessionNotJoinable:
+        await websocket.close(code=4409)
+        return
+
+    manager.connect_player(session["id"], participant["id"], websocket)
+    await websocket.send_json(
+        {"type": "joined", "participant_id": participant["id"], "session_id": session["id"]}
+    )
+
+    try:
+        while True:
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                raise
+            except Exception:
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            if not isinstance(data, dict) or data.get("type") != "answer":
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            question_index = data.get("question_index")
+            chosen_index = data.get("chosen_index")
+            if not isinstance(question_index, int) or not isinstance(chosen_index, int):
+                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            try:
+                await record_live_answer(
+                    session["id"], participant["id"], question_index, chosen_index,
+                    session_store=live_sessions, question_set_store=question_sets,
+                    connection_manager=manager,
+                )
+            except (LiveNotCurrentQuestion, LiveAlreadyAnswered, LiveSessionError) as exc:
+                await websocket.send_json({"type": "error", "detail": str(exc)})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect_player(session["id"], participant["id"], websocket)

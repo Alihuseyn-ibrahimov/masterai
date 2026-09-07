@@ -111,6 +111,19 @@ class QuestionSetInfo(BaseModel):
     created_at: str
 
 
+class CreateLiveSessionRequest(BaseModel):
+    question_set_id: int
+
+
+class LiveSessionInfo(BaseModel):
+    id: int
+    question_set_id: int
+    pin: str
+    status: str
+    current_question_index: int
+    created_at: str
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int
