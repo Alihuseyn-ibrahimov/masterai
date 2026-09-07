@@ -64,6 +64,14 @@ def test_count_all(store):
     assert store.count_all() == 2
 
 
+def test_set_teacher(store):
+    user = store.create("ali@example.az", "hash", "Əli")
+    store.set_teacher(user["id"], True)
+    assert store.get_by_id(user["id"])["is_teacher"] == 1
+    store.set_teacher(user["id"], False)
+    assert store.get_by_id(user["id"])["is_teacher"] == 0
+
+
 def test_isolated_db_per_instance(tmp_path):
     store_a = UserStore(path=str(tmp_path / "a.db"))
     store_b = UserStore(path=str(tmp_path / "b.db"))

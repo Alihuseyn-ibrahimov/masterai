@@ -22,6 +22,8 @@ from .auth import InvalidToken, create_token, hash_password, token_secret, verif
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
+from .homework_store import AttemptAlreadyCompleted, HomeworkStore
+from .homework_store import NotCurrentQuestion as HomeworkNotCurrentQuestion
 from .live_connection_manager import LiveConnectionManager
 from .live_session_runner import AlreadyAnswered as LiveAlreadyAnswered
 from .live_session_runner import DEFAULT_QUESTION_TIMEOUT_SECONDS as LIVE_QUESTION_TIMEOUT_SECONDS
@@ -43,12 +45,20 @@ from .models import (
     AuthResponse,
     ChatInfo,
     CreateChatRequest,
+    CreateHomeworkAssignmentRequest,
     CreateLiveSessionRequest,
     FriendshipInfo,
+    HomeworkAnswerRequest,
+    HomeworkAnswerResult,
+    HomeworkAssignmentInfo,
+    HomeworkAttemptState,
+    HomeworkQuestionPayload,
+    HomeworkReportRow,
     LiveSessionInfo,
     LiveSessionReport,
     LoginRequest,
     MaterialInfo,
+    MyAssignmentInfo,
     QuestionSetInfo,
     QuizSessionInfo,
     QuizStartRequest,
@@ -101,6 +111,7 @@ app.state.friendship_store = FriendshipStore(os.environ.get("FRIENDSHIPS_DB_PATH
 app.state.question_set_store = QuestionSetStore(os.environ.get("QUESTION_SETS_DB_PATH", "question_sets.db"))
 app.state.live_session_store = LiveSessionStore(os.environ.get("LIVE_SESSIONS_DB_PATH", "live_sessions.db"))
 app.state.live_connection_manager = LiveConnectionManager()
+app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "homework.db"))
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
@@ -170,6 +181,11 @@ def get_live_session_store() -> LiveSessionStore:
 def get_live_connection_manager() -> LiveConnectionManager:
     """Canlı sessiya WebSocket reyestri (testdə təzə instansla override olunur)."""
     return app.state.live_connection_manager
+
+
+def get_homework_store() -> HomeworkStore:
+    """Ev təkrarı rejimi store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.homework_store
 
 
 def get_material_generator():
@@ -905,6 +921,216 @@ def get_live_session_report(
             session_id, session_store=live_sessions, question_set_store=question_sets
         )
     return LiveSessionReport(**report)
+
+
+# ==== Ev təkrarı rejimi (Faza 2) ====================================
+# WebSocket YOXDUR — asinxron, tək-oyunçulu rejim (bax dizayn sənədi,
+# `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`).
+
+
+def _homework_assignment_info(
+    assignment: dict, *, chats: ChatStore, homework: HomeworkStore
+) -> HomeworkAssignmentInfo:
+    member_count = len(chats.list_member_ids(assignment["chat_id"]))
+    completed_count = sum(
+        1 for a in homework.list_attempts_for_assignment(assignment["id"]) if a["status"] == "completed"
+    )
+    return HomeworkAssignmentInfo(
+        **assignment, completed_count=completed_count, total_members=member_count
+    )
+
+
+def _homework_question_payload(index: int, total: int, question: dict) -> HomeworkQuestionPayload:
+    # correct_index/explanation QƏSDƏN yoxdur — cavab sızmasın (bax Faza-1-in eyni naxışı).
+    return HomeworkQuestionPayload(
+        index=index, total=total, question=question["question"], options=question["options"]
+    )
+
+
+def _homework_attempt_state(attempt: dict, questions: list[dict]) -> HomeworkAttemptState:
+    question = None
+    if attempt["status"] != "completed":
+        question = _homework_question_payload(
+            attempt["current_question_index"], len(questions), questions[attempt["current_question_index"]]
+        )
+    return HomeworkAttemptState(
+        attempt_id=attempt["id"],
+        status=attempt["status"],
+        current_question_index=attempt["current_question_index"],
+        score=attempt["score"],
+        question=question,
+    )
+
+
+def _homework_status_and_score(attempt: dict | None) -> tuple[str, int | None]:
+    if attempt is None:
+        return "gözləyir", None
+    if attempt["status"] == "completed":
+        return "tamamlanıb", attempt["score"]
+    return "davam edir", None
+
+
+@app.post("/homework/assignments", response_model=HomeworkAssignmentInfo, status_code=201)
+def create_homework_assignment(
+    req: CreateHomeworkAssignmentRequest,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> HomeworkAssignmentInfo:
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim tapşırıq təyin edə bilər")
+    if chats.get(req.chat_id) is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(req.chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    question_set = question_sets.get(req.question_set_id)
+    if question_set is None:
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    if question_set["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
+
+    assignment = homework.create_assignment(
+        req.chat_id, req.question_set_id, req.due_date, created_by=user["id"]
+    )
+    return _homework_assignment_info(assignment, chats=chats, homework=homework)
+
+
+@app.get("/homework/assignments", response_model=list[HomeworkAssignmentInfo])
+def list_homework_assignments(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HomeworkAssignmentInfo]:
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    assignments = [
+        a for a in homework.list_assignments_for_chat(chat_id) if a["created_by"] == user["id"]
+    ]
+    return [_homework_assignment_info(a, chats=chats, homework=homework) for a in assignments]
+
+
+@app.get("/homework/assignments/{assignment_id}/report", response_model=list[HomeworkReportRow])
+def get_homework_report(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HomeworkReportRow]:
+    assignment = homework.get_assignment(assignment_id)
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Tapşırıq tapılmadı")
+    if assignment["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız tapşırığı yaradan müəllim hesabata baxa bilər")
+
+    attempts_by_student = {
+        a["student_id"]: a for a in homework.list_attempts_for_assignment(assignment_id)
+    }
+    rows = []
+    for member_id in chats.list_member_ids(assignment["chat_id"]):
+        member = users.get_by_id(member_id)
+        if member is None:
+            continue
+        status, score = _homework_status_and_score(attempts_by_student.get(member_id))
+        rows.append(
+            HomeworkReportRow(
+                student_id=member_id, display_name=member["display_name"], status=status, score=score
+            )
+        )
+    return rows
+
+
+@app.get("/homework/my-assignments", response_model=list[MyAssignmentInfo])
+def list_my_assignments(
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[MyAssignmentInfo]:
+    result = []
+    for chat in chats.list_by_user(user["id"]):
+        for assignment in homework.list_assignments_for_chat(chat["id"]):
+            question_set = question_sets.get(assignment["question_set_id"])
+            if question_set is None:
+                continue
+            status, score = _homework_status_and_score(
+                homework.get_attempt_for_student(assignment["id"], user["id"])
+            )
+            result.append(
+                MyAssignmentInfo(
+                    assignment_id=assignment["id"],
+                    chat_id=chat["id"],
+                    subject=question_set["subject"],
+                    title=question_set["title"],
+                    due_date=assignment["due_date"],
+                    status=status,
+                    score=score,
+                )
+            )
+    return result
+
+
+@app.post("/homework/assignments/{assignment_id}/start", response_model=HomeworkAttemptState)
+def start_homework_attempt(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> HomeworkAttemptState:
+    assignment = homework.get_assignment(assignment_id)
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Tapşırıq tapılmadı")
+    if user["id"] not in chats.list_member_ids(assignment["chat_id"]):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    questions = question_sets.list_questions(assignment["question_set_id"])
+    attempt = homework.get_or_create_attempt(assignment_id, student_id=user["id"])
+    return _homework_attempt_state(attempt, questions)
+
+
+@app.post("/homework/attempts/{attempt_id}/answer", response_model=HomeworkAnswerResult)
+def answer_homework_question(
+    attempt_id: int,
+    req: HomeworkAnswerRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> HomeworkAnswerResult:
+    attempt = homework.get_attempt(attempt_id)
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Cəhd tapılmadı")
+    if attempt["student_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Bu cəhd sizə aid deyil")
+
+    assignment = homework.get_assignment(attempt["assignment_id"])
+    questions = question_sets.list_questions(assignment["question_set_id"])
+    if not 0 <= req.question_index < len(questions):
+        raise HTTPException(status_code=400, detail="Sual indeksi düzgün deyil")
+
+    question = questions[req.question_index]
+    is_correct = req.chosen_index == question["correct_index"]
+    try:
+        updated = homework.answer(
+            attempt_id, req.question_index, req.chosen_index, is_correct,
+            total_questions=len(questions),
+        )
+    except (HomeworkNotCurrentQuestion, AttemptAlreadyCompleted) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    next_question = None
+    if updated["status"] != "completed":
+        next_question = _homework_question_payload(
+            updated["current_question_index"], len(questions), questions[updated["current_question_index"]]
+        )
+    return HomeworkAnswerResult(
+        is_correct=is_correct,
+        correct_index=question["correct_index"],
+        explanation=question["explanation"],
+        next_question=next_question,
+    )
 
 
 def _schedule_live_timeout(

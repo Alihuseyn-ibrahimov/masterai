@@ -102,6 +102,16 @@ class UserStore:
             row = cur.fetchone()
             return dict(row) if row else None
 
+    def set_teacher(self, user_id: int, is_teacher: bool) -> None:
+        """`is_teacher` bayrağını dəyişir — idarəetmə UI-ı YOXDUR (bax
+        dizayn sənədi, Ev Təkrarı Rejimi), bu, VPS-də əl ilə bir dəfəlik
+        skriptdən (və ya bu test kimi) çağırılmaq üçündür."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET is_teacher = ? WHERE id = ?", (int(is_teacher), user_id)
+            )
+            self._conn.commit()
+
     def ping(self) -> bool:
         """DB bağlantısının işlək olduğunu yoxlayır (`/health` üçün)."""
         with self._lock:

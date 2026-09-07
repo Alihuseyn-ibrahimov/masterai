@@ -148,6 +148,69 @@ class LiveSessionReport(BaseModel):
     per_question: list[LiveQuestionReport]
 
 
+class CreateHomeworkAssignmentRequest(BaseModel):
+    chat_id: int
+    question_set_id: int
+    due_date: str
+
+
+class HomeworkAssignmentInfo(BaseModel):
+    id: int
+    chat_id: int
+    question_set_id: int
+    due_date: str
+    created_by: int
+    created_at: str
+    completed_count: int
+    total_members: int
+
+
+class HomeworkQuestionPayload(BaseModel):
+    index: int
+    total: int
+    question: str
+    options: list[str]
+
+
+class HomeworkAttemptState(BaseModel):
+    attempt_id: int
+    status: str
+    current_question_index: int
+    score: int
+    # `None` — cəhd artıq tamamlanıb, göstəriləcək sual yoxdur.
+    question: HomeworkQuestionPayload | None
+
+
+class HomeworkAnswerRequest(BaseModel):
+    question_index: int
+    chosen_index: int
+
+
+class HomeworkAnswerResult(BaseModel):
+    is_correct: bool
+    correct_index: int
+    explanation: str
+    # `None` — bu, sonuncu sual idi, cəhd tamamlandı.
+    next_question: HomeworkQuestionPayload | None
+
+
+class HomeworkReportRow(BaseModel):
+    student_id: int
+    display_name: str
+    status: Literal["gözləyir", "davam edir", "tamamlanıb"]
+    score: int | None
+
+
+class MyAssignmentInfo(BaseModel):
+    assignment_id: int
+    chat_id: int
+    subject: str
+    title: str
+    due_date: str
+    status: Literal["gözləyir", "davam edir", "tamamlanıb"]
+    score: int | None
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int
