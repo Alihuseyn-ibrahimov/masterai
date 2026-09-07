@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../config.dart';
@@ -5,6 +6,7 @@ import '../data/api_exception.dart';
 import '../data/auth_client.dart';
 import '../data/session_storage.dart';
 import 'chat_list_screen.dart';
+import 'host/host_setup_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -50,12 +52,14 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => ChatListScreen(
-          token: auth.token,
-          userId: auth.user.id,
-          displayName: auth.user.displayName,
-          sessionStorage: widget.sessionStorage,
-        ),
+        builder: (_) => kIsWeb
+            ? HostSetupScreen(token: auth.token, sessionStorage: widget.sessionStorage)
+            : ChatListScreen(
+                token: auth.token,
+                userId: auth.user.id,
+                displayName: auth.user.displayName,
+                sessionStorage: widget.sessionStorage,
+              ),
       ));
     } on ApiException catch (e) {
       setState(() => _error = e.message);

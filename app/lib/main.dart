@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'src/data/session_storage.dart';
 import 'src/ui/chat_list_screen.dart';
+import 'src/ui/host/host_setup_screen.dart';
 import 'src/ui/login_screen.dart';
 
 void main() {
@@ -69,6 +71,12 @@ class _BootstrapState extends State<_Bootstrap> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_token != null && _userId != null && _displayName != null) {
+      // Veb build YALNIZ müəllim host konsolu üçündür (bax dizayn sənədi,
+      // "Frontend"), mobil app tələbə axınıdır — platformlar arasında
+      // ayrı ekran ailəsi.
+      if (kIsWeb) {
+        return HostSetupScreen(token: _token!, sessionStorage: _sessionStorage);
+      }
       return ChatListScreen(
         token: _token!,
         userId: _userId!,
