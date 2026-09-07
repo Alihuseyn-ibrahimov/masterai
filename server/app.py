@@ -293,6 +293,18 @@ def set_teacher_role(
     return _user_info(users.get_by_id(target["id"]))
 
 
+@app.get("/admin/teachers", response_model=list[UserInfo])
+def list_teacher_role(
+    user: dict = Depends(get_current_user),
+    users: UserStore = Depends(get_user_store),
+) -> list[UserInfo]:
+    """Hazırda müəllim olan bütün istifadəçilər — admin-in "Müəllim
+    idarəetməsi" ekranında siyahını görməsi üçün."""
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="Yalnız admin müəllim siyahısına baxa bilər")
+    return [_user_info(t) for t in users.list_teachers()]
+
+
 @app.get("/health")
 def health(store: UserStore = Depends(get_user_store)) -> dict:
     store.ping()

@@ -52,4 +52,24 @@ void main() {
       );
     });
   });
+
+  group('listTeachers', () {
+    test('müəllim siyahısını qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'GET');
+        expect(req.url.path, '/admin/teachers');
+        return http.Response(jsonEncode([_userJson()]), 200, headers: _jsonHeaders);
+      });
+      final client = AdminClient(baseUrl: 'https://x', httpClient: mock);
+      final teachers = await client.listTeachers('tok');
+      expect(teachers, hasLength(1));
+      expect(teachers[0].displayName, 'Aygün');
+    });
+
+    test('403 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 403));
+      final client = AdminClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(client.listTeachers('tok'), throwsA(isA<ApiException>()));
+    });
+  });
 }

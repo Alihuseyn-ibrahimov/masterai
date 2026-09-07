@@ -130,6 +130,17 @@ class UserStore:
             )
             self._conn.commit()
 
+    def list_teachers(self) -> list[dict]:
+        """Hazırda `is_teacher=1` olan bütün istifadəçilər — admin-in
+        "Müəllim idarəetməsi" ekranında siyahını görməsi üçün (bax
+        `app.py`, `GET /admin/teachers`)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
+                "FROM users WHERE is_teacher = 1 ORDER BY display_name"
+            )
+            return [dict(row) for row in cur.fetchall()]
+
     def ping(self) -> bool:
         """DB bağlantısının işlək olduğunu yoxlayır (`/health` üçün)."""
         with self._lock:

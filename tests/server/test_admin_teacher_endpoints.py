@@ -77,3 +77,23 @@ class TestSetTeacherRole:
         )
         assert r.status_code == 200
         assert r.json()["is_teacher"] is True
+
+
+class TestListTeacherRole:
+    def test_requires_auth(self, env):
+        assert env["client"].get("/admin/teachers").status_code == 401
+
+    def test_non_admin_gets_403(self, env):
+        r = env["client"].get("/admin/teachers", headers=_auth(env["plain"]))
+        assert r.status_code == 403
+
+    def test_returns_only_teachers(self, env):
+        env["users"].set_teacher(env["plain"]["id"], True)
+        r = env["client"].get("/admin/teachers", headers=_auth(env["admin"]))
+        assert r.status_code == 200
+        emails = [t["email"] for t in r.json()]
+        assert emails == ["aygun@masternr1.az"]  # admin özü müəllim deyil, ona görə yoxdur
+
+    def test_empty_when_no_teachers(self, env):
+        r = env["client"].get("/admin/teachers", headers=_auth(env["admin"]))
+        assert r.json() == []

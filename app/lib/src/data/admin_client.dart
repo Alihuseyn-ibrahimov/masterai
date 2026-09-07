@@ -38,4 +38,20 @@ class AdminClient {
     }
     return UserInfo.fromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>);
   }
+
+  Future<List<UserInfo>> listTeachers(String token) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .get(Uri.parse('$baseUrl/admin/teachers'), headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException('Müəllim siyahısı yüklənmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
+    return list.map((u) => UserInfo.fromJson(u as Map<String, dynamic>)).toList();
+  }
 }

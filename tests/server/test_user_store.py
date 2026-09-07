@@ -81,6 +81,16 @@ def test_set_admin(store):
     assert store.get_by_id(user["id"])["is_admin"] == 0
 
 
+def test_list_teachers(store):
+    ali = store.create("ali@example.az", "hash", "Əli")
+    vali = store.create("vali@example.az", "hash", "Vəli")
+    store.create("qonaq@example.az", "hash", "Qonaq")  # müəllim deyil
+    store.set_teacher(ali["id"], True)
+    store.set_teacher(vali["id"], True)
+    teachers = store.list_teachers()
+    assert [t["display_name"] for t in teachers] == ["Vəli", "Əli"]  # ada görə sıralanır
+
+
 def test_isolated_db_per_instance(tmp_path):
     store_a = UserStore(path=str(tmp_path / "a.db"))
     store_b = UserStore(path=str(tmp_path / "b.db"))
