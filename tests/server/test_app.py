@@ -86,3 +86,25 @@ class TestHealth:
         r = client.get("/health")
         assert r.status_code == 200
         assert r.json() == {"status": "ok"}
+
+
+class TestCors:
+    """Host konsolu (`app/` veb build-i) brauzerdə işlədiyi üçün CORS
+    header-ləri lazımdır — bax Faza 4 real testində tapılan "bağlantı
+    xətası" bug-ı, `masterai/CLAUDE.md`."""
+
+    def test_allows_any_origin_on_actual_request(self, client):
+        r = client.get("/health", headers={"Origin": "http://localhost:62270"})
+        assert r.headers["access-control-allow-origin"] == "*"
+
+    def test_preflight_allows_post_with_authorization_header(self, client):
+        r = client.options(
+            "/live/question-sets",
+            headers={
+                "Origin": "http://localhost:62270",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization",
+            },
+        )
+        assert r.status_code == 200
+        assert r.headers["access-control-allow-origin"] == "*"

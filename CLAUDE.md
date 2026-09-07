@@ -200,6 +200,39 @@ yoxla" prinsipinin canlı nümunəsidir (ilk səhv düzəliş də daxil
 olmaqla — mən özüm yoxlamadan güman etdim, istifadəçinin real paket
 mənbəyini göstərməsi ilə düzəldi).
 
+## Dərs: veb host konsolunda CORS unudulmuşdu — backend HEÇ VAXT brauzerdən çağırılmamışdı
+
+Faza 4-ün (Canlı Sinif Sessiyası, host konsolu) real brauzer testində
+(`flutter run -d chrome`, istifadəçinin real Windows mühitində) giriş
+formasında "Bağlantı xətası" alındı, baxmayaraq ki eyni backend mobil
+tərəfdən (`flutter run` Android emulyator/cihaz) aylardır problemsiz
+işləyir. Kök səbəb: `server/app.py`-də HEÇ VAXT `CORSMiddleware`
+qurulmayıb — mobil HTTP client-i brauzerin same-origin siyasətinə tabe
+deyil, ona görə bu problem indiyə qədər ÜZƏ ÇIXMAMIŞDI (bütün əvvəlki 341
+test və real mobil test bunu görə bilməzdi). `localhost:...`-dan
+`https://masterai.prdostu.com`-a `fetch`/`XMLHttpRequest` (Flutter
+`http` paketinin veb tərəfi bunları işlədir) cross-origin sayılır,
+server `Access-Control-Allow-Origin` header-i qaytarmadığı üçün brauzer
+cavabı client koduna çatdırmır — bu da bizim `ApiException`-ın geniş
+`catch (_)`-i tərəfindən "şəbəkə xətası" kimi göstərilir (eyni
+gizlətmə naxışı `dildostu` UA-403 dərsində də olub).
+
+Həll: `app.add_middleware(CORSMiddleware, allow_origins=["*"],
+allow_credentials=False, allow_methods=["*"], allow_headers=["*"])`
+əlavə edildi (`allow_credentials=False` MƏCBURİDİR —
+`allow_origins=["*"]` ilə `True` uyğun gəlmir, üstəlik auth Bearer
+header-lə aparılır, cookie/credential yoxdur, ona görə wildcard
+təhlükəsizdir). Testlər: `TestCors` (`tests/server/test_app.py`) —
+adi sorğuda `access-control-allow-origin: *` VƏ preflight (`OPTIONS` +
+`Access-Control-Request-Method`) sorğusunun 200 qaytardığını yoxlayır
+(343/343 test keçir). **Bu, "mənbədən yoxla" prinsipinin daha bir
+nümunəsidir** — CORS SƏLƏHLƏNMƏSİ yalnız real brauzerdə, real
+cross-origin sorğu ilə üzə çıxır, pytest-in `TestClient`-i (server
+prosesinin daxilindən çağırdığı üçün) və mobil `flutter run` bunu
+GÖRƏ BİLMƏZ. **Diqqət:** bu düzəliş hələ VPS-ə deploy EDİLMƏYİB
+(`git pull` + `systemctl restart masterai` lazımdır) — deploy-dan sonra
+Chrome-da yenidən sınanmalıdır.
+
 ## Qeyd
 
 Ad seçimi ilə bağlı: repoda `masternr1/` (Master NR 1 tədris mərkəzi üçün AI

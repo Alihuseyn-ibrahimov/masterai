@@ -13,6 +13,7 @@ import os
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 from pipeline.models import MaterialSource
 from pipeline.pipeline import generate_quiz
@@ -75,6 +76,19 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 _DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 
 app = FastAPI(title="MasterAI")
+# Host konsolu (`app/`-in veb build-i) brauzerdə işlədiyi üçün CORS
+# tələb olunur — mobil HTTP client-i buna məruz qalmır, YALNIZ veb
+# `flutter run -d chrome`/`flutter build web` üçün lazımdır (bax Faza 4
+# real testində tapılan bug, `masterai/CLAUDE.md`). Auth Bearer
+# header-lə aparılır (cookie/credential yoxdur), ona görə `allow_origins`
+# wildcard-ı `allow_credentials=False` ilə təhlükəsizdir.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.state.user_store = UserStore(os.environ.get("USERS_DB_PATH", "users.db"))
 app.state.chat_store = ChatStore(os.environ.get("CHATS_DB_PATH", "chats.db"))
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
