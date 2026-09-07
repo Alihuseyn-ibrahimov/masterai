@@ -220,6 +220,7 @@ def _user_info(user: dict) -> UserInfo:
         email=user["email"],
         display_name=user["display_name"],
         created_at=user["created_at"],
+        is_teacher=bool(user["is_teacher"]),
     )
 
 

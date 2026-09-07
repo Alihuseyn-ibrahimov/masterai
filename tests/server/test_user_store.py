@@ -18,6 +18,7 @@ class TestCreate:
         assert user["display_name"] == "Əli"
         assert user["phone"] is None
         assert user["created_at"]
+        assert user["is_teacher"] == 0
 
     def test_normalizes_email_case(self, store):
         user = store.create("Ali@Example.AZ", "hash", "Əli")

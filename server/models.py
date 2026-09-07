@@ -26,6 +26,7 @@ class UserInfo(BaseModel):
     email: str
     display_name: str
     created_at: str
+    is_teacher: bool
 
 
 class AuthResponse(BaseModel):

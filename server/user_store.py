@@ -54,6 +54,12 @@ class UserStore:
                 );
                 """
             )
+            try:
+                self._conn.execute(
+                    "ALTER TABLE users ADD COLUMN is_teacher INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass  # sütun artıq var (mövcud DB) — bax `material_store.py`-nin eyni naxışı
             self._conn.commit()
 
     def create(
@@ -79,7 +85,7 @@ class UserStore:
     def get_by_email(self, email: str) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at "
+                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher "
                 "FROM users WHERE email = ?",
                 (_normalize_email(email),),
             )
@@ -89,7 +95,7 @@ class UserStore:
     def get_by_id(self, user_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at "
+                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher "
                 "FROM users WHERE id = ?",
                 (user_id,),
             )

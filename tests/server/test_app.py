@@ -32,6 +32,7 @@ class TestRegister:
         assert body["token"]
         assert body["user"]["email"] == "ali@example.com"
         assert body["user"]["display_name"] == "Əli"
+        assert body["user"]["is_teacher"] is False
 
     def test_password_hash_never_returned(self, client):
         r = _register(client)
@@ -63,6 +64,7 @@ class TestLogin:
         r = client.post("/auth/login", json={"email": "ali@example.com", "password": "Parol1234"})
         assert r.status_code == 200
         assert r.json()["token"]
+        assert r.json()["user"]["is_teacher"] is False
 
     def test_wrong_password_401(self, client):
         _register(client, email="ali@example.com", password="Parol1234")
