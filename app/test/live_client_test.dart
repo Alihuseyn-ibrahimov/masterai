@@ -157,7 +157,7 @@ void main() {
     });
   });
 
-  Map<String, dynamic> _questionJson({String question = 'Köhnə sual?'}) => {
+  Map<String, dynamic> questionJson({String question = 'Köhnə sual?'}) => {
         'id': 5,
         'question_set_id': 1,
         'question': question,
@@ -171,7 +171,7 @@ void main() {
     test('sual siyahısını qaytarır', () async {
       final mock = MockClient((req) async {
         expect(req.url.path, '/live/question-sets/1/questions');
-        return http.Response(jsonEncode([_questionJson()]), 200, headers: _jsonHeaders);
+        return http.Response(jsonEncode([questionJson()]), 200, headers: _jsonHeaders);
       });
       final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
       final questions = await client.listQuestions('tok', 1);
@@ -194,7 +194,7 @@ void main() {
         final body = jsonDecode(req.body) as Map<String, dynamic>;
         expect(body['question'], 'Yeni sual?');
         expect(body['correct_index'], 2);
-        return http.Response(jsonEncode(_questionJson(question: 'Yeni sual?')), 200, headers: _jsonHeaders);
+        return http.Response(jsonEncode(questionJson(question: 'Yeni sual?')), 200, headers: _jsonHeaders);
       });
       final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
       final updated = await client.updateQuestion(

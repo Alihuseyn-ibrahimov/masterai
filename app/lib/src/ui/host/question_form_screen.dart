@@ -89,26 +89,30 @@ class _QuestionFormScreenState extends State<QuestionFormScreen> {
             ),
             const SizedBox(height: 16),
             Text('Variantlar (düzgün cavabı seçin)', style: Theme.of(context).textTheme.titleSmall),
-            for (var i = 0; i < _optionControllers.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    Radio<int>(
-                      value: i,
-                      groupValue: _correctIndex,
-                      onChanged: _saving ? null : (v) => setState(() => _correctIndex = v ?? _correctIndex),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _optionControllers[i],
-                        decoration: InputDecoration(labelText: _letters[i]),
-                        enabled: !_saving,
+            RadioGroup<int>(
+              groupValue: _correctIndex,
+              onChanged: _saving ? null : (v) => setState(() => _correctIndex = v ?? _correctIndex),
+              child: Column(
+                children: [
+                  for (var i = 0; i < _optionControllers.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Radio<int>(value: i),
+                          Expanded(
+                            child: TextField(
+                              controller: _optionControllers[i],
+                              decoration: InputDecoration(labelText: _letters[i]),
+                              enabled: !_saving,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _explanationController,
