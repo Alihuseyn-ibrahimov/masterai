@@ -66,6 +66,7 @@ from .models import (
     QuizStartRequest,
     RegisterRequest,
     SendFriendRequestRequest,
+    SetTeacherRequest,
     UserInfo,
 )
 from .question_set_store import SUBJECTS, QuestionSetStore
@@ -239,6 +240,7 @@ def _user_info(user: dict) -> UserInfo:
         display_name=user["display_name"],
         created_at=user["created_at"],
         is_teacher=bool(user["is_teacher"]),
+        is_admin=bool(user["is_admin"]),
     )
 
 
@@ -267,6 +269,28 @@ def auth_login(
     if user is None or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="E-poçt və ya şifrə səhvdir")
     return AuthResponse(token=create_token(user["id"], secret=secret), user=_user_info(user))
+
+
+@app.post("/admin/teachers", response_model=UserInfo)
+def set_teacher_role(
+    req: SetTeacherRequest,
+    user: dict = Depends(get_current_user),
+    users: UserStore = Depends(get_user_store),
+) -> UserInfo:
+    """`is_admin` istifadəçilər e-poçtla başqa bir istifadəçini müəllim
+    edə/etməkdən çıxara bilər (bax Çox-müəllimli idarəetmə, Faza 4). Bu,
+    aşağıdakı `require_admin` (API-açarlı, n8n avtomatlaşdırması üçün)
+    İLƏ QARIŞDIRILMAMALIDIR — tamam fərqli bir icazə mexanizmidir
+    (istifadəçinin öz Bearer token-lə gələn `is_admin` bayrağı). İLK
+    admin hələ də VPS-də əl ilə (`UserStore.set_admin`) təyin edilməlidir
+    — bootstrap problemi, admin YOXDURSA heç kim admin təyin edə bilməz."""
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="Yalnız admin müəllim təyin edə bilər")
+    target = users.get_by_email(req.email)
+    if target is None:
+        raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
+    users.set_teacher(target["id"], req.is_teacher)
+    return _user_info(users.get_by_id(target["id"]))
 
 
 @app.get("/health")

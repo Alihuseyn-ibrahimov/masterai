@@ -41,7 +41,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 | Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
 | Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq) | Müəllim tapşırıq təyin edir (veb+mobil, `is_teacher` bayrağı) → tələbə "Tapşırıqlarım"da öz sürəti ilə həll edir → müəllim hesabatda görür, `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`, `.planning/2026-09-07-masterai-homework-mode/` | ✅ Tam uc-uca REAL test edilib (təyin→görmə→həll→hesabat) — bax aşağı "Ev Təkrarı Rejimi" bölməsi |
-| Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Backend+Flutter yazılıb, 404 backend test keçir — istifadəçinin real mühitində HƏLƏ sınanmayıb, bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
+| Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
+| Çox-müəllimli idarəetmə (Faza 4 — `is_admin` rolu) | Admin (ayrıca `is_admin` bayrağı) tətbiq daxilindən e-poçtla başqa istifadəçini müəllim edir/çıxarır — VPS-də əl ilə skript artıq lazım deyil, `.planning/2026-09-07-masterai-multi-teacher-management/` | ✅ Backend+Flutter yazılıb, 411 backend test keçir — istifadəçinin real mühitində HƏLƏ sınanmayıb, bax aşağı "Çox-müəllimli idarəetmə" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -109,11 +110,29 @@ tarixçəsinə baxır (yalnız ortaq çatı olan tələbələr üçün icazə ve
 sessiyasına qoşul" ikonu), etibarsız/köhnə token qoşulmanı RƏDD ETMİR,
 sadəcə anonim kimi davam edir — pre-login PIN axını dəyişməz qalır.
 
-**Vəziyyət (2026-09-07):** Backend 404 test keçir (əvvəlki 381 + 23
-yeni). Flutter tərəfi (`ui/history/`) yazılıb, istifadəçinin real
-mühitində (`flutter analyze`+`test`+`run`, canlı sessiya+ev tapşırığı
-uc-uca) HƏLƏ sınanmayıb. Ətraflı bax
+**Vəziyyət (2026-09-07):** Tam uc-uca REAL test edilib (canlı sessiya +
+ev tapşırığı + hər iki tərəfin — tələbə "Mənim tarixçəm", müəllim "Fərdi
+tələbə tarixçəsi" — ekranları). Ətraflı bax
 `.planning/2026-09-07-masterai-student-history/progress.md`.
+
+## Çox-müəllimli idarəetmə (Faza 4)
+
+Ayrıca `is_admin` bayrağı (`is_teacher`-in eyni `ALTER TABLE` naxışı) —
+`is_admin` istifadəçilər tətbiq daxilindən (`POST /admin/teachers`,
+e-poçtla) başqa bir istifadəçini müəllim edir/çıxarır. **Diqqət:** bu,
+mövcud `require_admin` (API-açarlı, `ADMIN_API_KEY`, n8n
+avtomatlaşdırması üçün, `/admin/stats`) İLƏ QARIŞDIRILMAMALIDIR — tamam
+ayrı iki icazə mexanizmidir.
+
+**Bootstrap problemi:** `is_admin` hamıda `false` başlayır — İLK admin
+mütləq VPS-də əl ilə (`UserStore.set_admin`, `set_teacher`-in eyni
+naxışı) təyin edilməlidir, tətbiq daxilindən heç vaxt ilk admin yaradıla
+bilməz.
+
+**Vəziyyət (2026-09-07):** Backend 411 test keçir. Flutter tərəfi
+(`ui/admin/`) yazılıb, istifadəçinin real mühitində HƏLƏ sınanmayıb.
+Ətraflı bax
+`.planning/2026-09-07-masterai-multi-teacher-management/progress.md`.
 
 ## Giriş formatları (pipeline)
 

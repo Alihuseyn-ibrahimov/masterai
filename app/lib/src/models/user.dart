@@ -4,6 +4,7 @@ class UserInfo {
   final String displayName;
   final String createdAt;
   final bool isTeacher;
+  final bool isAdmin;
 
   const UserInfo({
     required this.id,
@@ -11,6 +12,7 @@ class UserInfo {
     required this.displayName,
     required this.createdAt,
     required this.isTeacher,
+    required this.isAdmin,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) => UserInfo(
@@ -19,6 +21,7 @@ class UserInfo {
         displayName: json['display_name'] as String,
         createdAt: json['created_at'] as String,
         isTeacher: json['is_teacher'] as bool,
+        isAdmin: json['is_admin'] as bool,
       );
 }
 

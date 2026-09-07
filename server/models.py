@@ -27,6 +27,7 @@ class UserInfo(BaseModel):
     display_name: str
     created_at: str
     is_teacher: bool
+    is_admin: bool
 
 
 class AuthResponse(BaseModel):
@@ -209,6 +210,14 @@ class MyAssignmentInfo(BaseModel):
     due_date: str
     status: Literal["gözləyir", "davam edir", "tamamlanıb"]
     score: int | None
+
+
+class SetTeacherRequest(BaseModel):
+    """Admin-in başqa bir istifadəçini müəllim edib/etməməsi üçün
+    (bax `app.py`, `POST /admin/teachers` — yalnız `is_admin`)."""
+
+    email: str
+    is_teacher: bool
 
 
 class ChatMemberInfo(BaseModel):

@@ -60,6 +60,12 @@ class UserStore:
                 )
             except sqlite3.OperationalError:
                 pass  # sütun artıq var (mövcud DB) — bax `material_store.py`-nin eyni naxışı
+            try:
+                self._conn.execute(
+                    "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass  # sütun artıq var (mövcud DB)
             self._conn.commit()
 
     def create(
@@ -85,7 +91,7 @@ class UserStore:
     def get_by_email(self, email: str) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher "
+                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
                 "FROM users WHERE email = ?",
                 (_normalize_email(email),),
             )
@@ -95,7 +101,7 @@ class UserStore:
     def get_by_id(self, user_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher "
+                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
                 "FROM users WHERE id = ?",
                 (user_id,),
             )
@@ -103,12 +109,24 @@ class UserStore:
             return dict(row) if row else None
 
     def set_teacher(self, user_id: int, is_teacher: bool) -> None:
-        """`is_teacher` bayrağını dəyişir — idarəetmə UI-ı YOXDUR (bax
-        dizayn sənədi, Ev Təkrarı Rejimi), bu, VPS-də əl ilə bir dəfəlik
-        skriptdən (və ya bu test kimi) çağırılmaq üçündür."""
+        """`is_teacher` bayrağını dəyişir — Çox-müəllimli idarəetmədən
+        (Faza 4) əvvəl idarəetmə UI-ı YOXDUR, VPS-də əl ilə bir dəfəlik
+        skriptdən çağırılırdı; indi `POST /admin/teachers` bunu çağırır
+        (bax `app.py`, yalnız `is_admin` istifadəçilər üçün)."""
         with self._lock:
             self._conn.execute(
                 "UPDATE users SET is_teacher = ? WHERE id = ?", (int(is_teacher), user_id)
+            )
+            self._conn.commit()
+
+    def set_admin(self, user_id: int, is_admin: bool) -> None:
+        """`is_admin` bayrağını dəyişir — İLK admin hələ də VPS-də əl ilə
+        (bu metodla) təyin edilməlidir (bootstrap problemi: admin YOXDURSA
+        heç kim admin təyin edə bilməz), sonrakı adminlər tətbiq daxilindən
+        təyin oluna bilər (bax dizayn qeydi, `masterai/CLAUDE.md`)."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET is_admin = ? WHERE id = ?", (int(is_admin), user_id)
             )
             self._conn.commit()
 

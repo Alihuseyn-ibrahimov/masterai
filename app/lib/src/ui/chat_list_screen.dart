@@ -5,6 +5,7 @@ import '../data/api_exception.dart';
 import '../data/chat_client.dart';
 import '../data/session_storage.dart';
 import '../models/chat.dart';
+import 'admin/admin_teacher_management_screen.dart';
 import 'chat_screen.dart';
 import 'history/my_history_screen.dart';
 import 'homework/homework_assignment_list_screen.dart';
@@ -19,6 +20,7 @@ class ChatListScreen extends StatefulWidget {
     required this.displayName,
     required this.sessionStorage,
     required this.isTeacher,
+    required this.isAdmin,
   });
 
   final String token;
@@ -26,6 +28,7 @@ class ChatListScreen extends StatefulWidget {
   final String displayName;
   final SessionStorage sessionStorage;
   final bool isTeacher;
+  final bool isAdmin;
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -170,6 +173,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
               builder: (_) => MyHistoryScreen(token: widget.token),
             )),
           ),
+          if (widget.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              tooltip: 'Müəllim idarəetməsi',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => AdminTeacherManagementScreen(token: widget.token),
+              )),
+            ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Çıxış'),
         ],
       ),

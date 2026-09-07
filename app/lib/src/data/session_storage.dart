@@ -9,11 +9,13 @@ abstract class SessionStorage {
   Future<int?> readUserId();
   Future<String?> readDisplayName();
   Future<bool> readIsTeacher();
+  Future<bool> readIsAdmin();
   Future<void> writeSession({
     required String token,
     required int userId,
     required String displayName,
     required bool isTeacher,
+    required bool isAdmin,
   });
   Future<void> clear();
 }
@@ -26,6 +28,7 @@ class SecureSessionStorage implements SessionStorage {
   static const _userIdKey = 'masterai.auth.user_id.v1';
   static const _displayNameKey = 'masterai.auth.display_name.v1';
   static const _isTeacherKey = 'masterai.auth.is_teacher.v1';
+  static const _isAdminKey = 'masterai.auth.is_admin.v1';
 
   final FlutterSecureStorage _storage;
 
@@ -48,16 +51,24 @@ class SecureSessionStorage implements SessionStorage {
   }
 
   @override
+  Future<bool> readIsAdmin() async {
+    final raw = await _storage.read(key: _isAdminKey);
+    return raw == '1';
+  }
+
+  @override
   Future<void> writeSession({
     required String token,
     required int userId,
     required String displayName,
     required bool isTeacher,
+    required bool isAdmin,
   }) async {
     await _storage.write(key: _tokenKey, value: token);
     await _storage.write(key: _userIdKey, value: userId.toString());
     await _storage.write(key: _displayNameKey, value: displayName);
     await _storage.write(key: _isTeacherKey, value: isTeacher ? '1' : '0');
+    await _storage.write(key: _isAdminKey, value: isAdmin ? '1' : '0');
   }
 
   @override
@@ -66,6 +77,7 @@ class SecureSessionStorage implements SessionStorage {
     await _storage.delete(key: _userIdKey);
     await _storage.delete(key: _displayNameKey);
     await _storage.delete(key: _isTeacherKey);
+    await _storage.delete(key: _isAdminKey);
   }
 }
 
@@ -75,6 +87,7 @@ class InMemorySessionStorage implements SessionStorage {
   int? userId;
   String? displayName;
   bool isTeacher = false;
+  bool isAdmin = false;
 
   @override
   Future<String?> readToken() async => token;
@@ -89,16 +102,21 @@ class InMemorySessionStorage implements SessionStorage {
   Future<bool> readIsTeacher() async => isTeacher;
 
   @override
+  Future<bool> readIsAdmin() async => isAdmin;
+
+  @override
   Future<void> writeSession({
     required String token,
     required int userId,
     required String displayName,
     required bool isTeacher,
+    required bool isAdmin,
   }) async {
     this.token = token;
     this.userId = userId;
     this.displayName = displayName;
     this.isTeacher = isTeacher;
+    this.isAdmin = isAdmin;
   }
 
   @override
@@ -107,5 +125,6 @@ class InMemorySessionStorage implements SessionStorage {
     userId = null;
     displayName = null;
     isTeacher = false;
+    isAdmin = false;
   }
 }

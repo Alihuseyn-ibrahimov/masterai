@@ -19,6 +19,7 @@ class TestCreate:
         assert user["phone"] is None
         assert user["created_at"]
         assert user["is_teacher"] == 0
+        assert user["is_admin"] == 0
 
     def test_normalizes_email_case(self, store):
         user = store.create("Ali@Example.AZ", "hash", "Əli")
@@ -70,6 +71,14 @@ def test_set_teacher(store):
     assert store.get_by_id(user["id"])["is_teacher"] == 1
     store.set_teacher(user["id"], False)
     assert store.get_by_id(user["id"])["is_teacher"] == 0
+
+
+def test_set_admin(store):
+    user = store.create("ali@example.az", "hash", "Əli")
+    store.set_admin(user["id"], True)
+    assert store.get_by_id(user["id"])["is_admin"] == 1
+    store.set_admin(user["id"], False)
+    assert store.get_by_id(user["id"])["is_admin"] == 0
 
 
 def test_isolated_db_per_instance(tmp_path):

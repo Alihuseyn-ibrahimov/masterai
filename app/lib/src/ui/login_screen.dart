@@ -51,6 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
         userId: auth.user.id,
         displayName: auth.user.displayName,
         isTeacher: auth.user.isTeacher,
+        isAdmin: auth.user.isAdmin,
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(
@@ -59,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 token: auth.token,
                 sessionStorage: widget.sessionStorage,
                 isTeacher: auth.user.isTeacher,
+                isAdmin: auth.user.isAdmin,
               )
             : ChatListScreen(
                 token: auth.token,
@@ -66,6 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 displayName: auth.user.displayName,
                 sessionStorage: widget.sessionStorage,
                 isTeacher: auth.user.isTeacher,
+                isAdmin: auth.user.isAdmin,
               ),
       ));
     } on ApiException catch (e) {

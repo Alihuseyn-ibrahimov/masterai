@@ -10,6 +10,7 @@ import '../../data/live_client.dart';
 import '../../data/session_storage.dart';
 import '../../models/chat.dart';
 import '../../models/question_set.dart';
+import '../admin/admin_teacher_management_screen.dart';
 import '../history/history_student_picker_screen.dart';
 import '../homework/homework_teacher_assignments_screen.dart';
 import '../login_screen.dart';
@@ -21,17 +22,21 @@ import 'host_session_screen.dart';
 ///
 /// `isTeacher=true` olanda hər "Hazırdır" bank üçün "Tapşırıq kimi təyin
 /// et" düyməsi də görünür (bax Ev Təkrarı Rejimi dizayn sənədi).
+/// `isAdmin=true` olanda "Müəllim idarəetməsi" ikonu da görünür (bax
+/// Çox-müəllimli idarəetmə, Faza 4).
 class HostSetupScreen extends StatefulWidget {
   const HostSetupScreen({
     super.key,
     required this.token,
     required this.sessionStorage,
     required this.isTeacher,
+    required this.isAdmin,
   });
 
   final String token;
   final SessionStorage sessionStorage;
   final bool isTeacher;
+  final bool isAdmin;
 
   @override
   State<HostSetupScreen> createState() => _HostSetupScreenState();
@@ -277,6 +282,14 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
               )),
             ),
           ],
+          if (widget.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              tooltip: 'Müəllim idarəetməsi',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => AdminTeacherManagementScreen(token: widget.token),
+              )),
+            ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh, tooltip: 'Yenilə'),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout, tooltip: 'Çıxış'),
         ],
