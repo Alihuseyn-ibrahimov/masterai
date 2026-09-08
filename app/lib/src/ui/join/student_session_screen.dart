@@ -43,6 +43,18 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
   bool _disconnected = false;
   String? _liveError;
 
+  /// Bütün iştirakçılar cavab verən kimi server dərhal (heç bir
+  /// gecikmə olmadan) "result"-dan sonra "question"/"finished"
+  /// göndərir (bax `server/live_session_runner.py`, `record_answer`) —
+  /// TƏK iştirakçılı sessiyada bu, nəticə ekranının insan gözü ilə
+  /// görünməyəcək qədər qısa çıxmasına səbəb olurdu (real testdə
+  /// tapıldı). Bu minimum-göstərmə vaxtı YALNIZ CLIENT-tərəfli vizual
+  /// düzəlişdir — server-in real vaxt idarəetməsinə TOXUNMUR, sadəcə
+  /// "result" fazasından sonra gələn növbəti hadisəni bir qədər saxlayır.
+  static const _kMinResultDisplay = Duration(seconds: 2);
+  Timer? _resultHoldTimer;
+  Map<String, dynamic>? _pendingEvent;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +72,7 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _resultHoldTimer?.cancel();
     widget.socket.dispose();
     super.dispose();
   }
@@ -77,6 +90,16 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
   }
 
   void _handleEvent(Map<String, dynamic> event) {
+    if (event['type'] != 'result' && _resultHoldTimer != null) {
+      // Nəticə hələ minimum müddətini "yaşayır" — bu hadisəni saxla,
+      // taymer bitəndə tətbiq olunacaq (bax `_kMinResultDisplay`).
+      _pendingEvent = event;
+      return;
+    }
+    _applyEvent(event);
+  }
+
+  void _applyEvent(Map<String, dynamic> event) {
     switch (event['type']) {
       case 'question':
         setState(() {
@@ -93,6 +116,12 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
         setState(() {
           _phase = 'result';
           _result = event;
+        });
+        _resultHoldTimer = Timer(_kMinResultDisplay, () {
+          _resultHoldTimer = null;
+          final pending = _pendingEvent;
+          _pendingEvent = null;
+          if (pending != null) _applyEvent(pending);
         });
         break;
       case 'finished':
