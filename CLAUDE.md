@@ -44,6 +44,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
 | Çox-müəllimli idarəetmə (Faza 4 — `is_admin` rolu) | Admin (ayrıca `is_admin` bayrağı) tətbiq daxilindən e-poçtla başqa istifadəçini müəllim edir/çıxarır, hazırkı müəllimlərin siyahısını görür — VPS-də əl ilə skript artıq lazım deyil, `.planning/2026-09-07-masterai-multi-teacher-management/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Çox-müəllimli idarəetmə" bölməsi |
 | Sual redaktə/təsdiq ekranı (Faza 5 — mövcud sualları düzəlt/sil) | Müəllim veb host konsolunda hər sual bankının suallarını görüb mətn/variant/düzgün cavab/izahı redaktə edir və ya silir (əlavə etmə/məcburi təsdiq bu fazaya daxil deyil), `.planning/2026-09-07-masterai-question-edit/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Sual redaktə/təsdiq ekranı" bölməsi |
+| Vizual dizayn yenilənməsi | `google_fonts` (Nunito+Inter), `ThemeExtension<AppSubjectColors>` (6 fənn aksent rəngi), işıq/tünd rejim, canlı sessiya/həll ekranlarının "enerjili" gücləndirilməsi, `docs/superpowers/specs/2026-09-08-masterai-visual-design-refresh.md`, `.planning/2026-09-08-masterai-visual-design/` | ✅ Phase 1-4 REAL test edilib. Phase 5 (animasiya) kodca hazır, son real təsdiqi gözlənilir |
+| Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -149,6 +151,46 @@ orijinal 4-fazalı roadmap-ı (Ev Təkrarı Rejimi → Fərdi tələbə
 tarixçəsi → Çox-müəllimli idarəetmə → Sual redaktə/təsdiq) TAM başa
 çatdı. Ətraflı bax
 `.planning/2026-09-07-masterai-question-edit/progress.md`.
+
+## Nailiyyət nişanları + Liderlik lövhəsi (Faza 6)
+
+Vizual dizayn yenilənməsindən (aşağı bax) sonra brainstorming skill-i ilə
+razılaşdırılan ikinci layihə: 5 sabit nişan (`ilk_addim`, `yuz_faiz`,
+`fenn_ustasi`, `suretli_eqli`, `silsile_5`) mövcud tarixçə datasından
+TƏNBƏL (hər `GET /badges/me` çağırışında yenidən) hesablanır, tələbə
+"Mənim tarixçəm" ekranındakı 🏆 ikonundan "Nailiyyətlərim" ekranına
+baxır. Hər qrup çatının içindəki 🏆 ikonu isə o çatın liderlik lövhəsini
+açır — **yalnız ev tapşırığı xalları** (canlı sessiyalar heç bir çata
+bağlı olmadığı üçün, bax dizayn sənədi "Əsas arxitektura tapıntısı").
+
+**Vəziyyət (2026-09-08):** Backend 461/461 pytest (bu sandbox-da real
+icra) + Flutter tərəfi istifadəçinin real Windows mühitində tam
+uc-uca TƏSDİQLƏNDİ (Nailiyyətlərim + Liderlik lövhəsi ekranları hər
+ikisi işlək). Ətraflı bax
+`.planning/2026-09-08-masterai-badges-leaderboard/progress.md`.
+
+## Vizual dizayn yenilənməsi
+
+4-fazalı funksional roadmap tam bitdikdən sonra brainstorming skill-i ilə
+hazırlanan dizayn yeniləməsi: `google_fonts` (başlıqlar üçün Nunito,
+mətn üçün Inter), `ThemeExtension<AppSubjectColors>` ilə 6 fənn üçün
+aksent rəng (mövcud `ColorScheme.fromSeed` struktur rənglərinə
+TOXUNULMADAN), `ThemeMode.system` (işıq/tünd rejim), canlı sessiya/ev
+tapşırığı həll ekranlarının "sakit əsas + enerjili" gücləndirilməsi
+(böyük/qalın düymələr, elastik pop animasiyaları).
+
+**Real bug tapılıb düzəldilib:** tək-iştirakçılı canlı sessiyada
+`live_session_runner.py`-nin mövcud davranışı (bütün iştirakçılar cavab
+verən kimi DƏRHAL növbəti suala keçid) nəticə ekranının gözlə görünməyəcək
+qədər qısa çıxmasına səbəb olurdu (bu, bu sessiyada YARADILAN reqressiya
+DEYİL — server məntiqi dəyişdirilmədi). Client-tərəfli minimum-göstərmə
+taymeri (2 saniyə) ilə düzəldildi.
+
+**Vəziyyət (2026-09-08):** Phase 1-4 (font, `AppSubjectColors`, tünd
+rejim, mövcud ekranlara fənn rəngi tətbiqi) real mühitdə TƏSDİQLƏNDİ.
+Phase 5 (canlı sessiya/həll ekranlarının enerjili animasiyası + yuxarıdakı
+bug düzəlişi) kodca yazılıb, son real təsdiqi hələ GÖZLƏNİLİR. Ətraflı
+bax `.planning/2026-09-08-masterai-visual-design/progress.md`.
 
 ## Giriş formatları (pipeline)
 
