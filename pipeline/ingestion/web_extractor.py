@@ -88,7 +88,12 @@ def extract(source: MaterialSource) -> RawMaterial:
     try:
         html = _download_static(source.location)
     except Exception as exc:
-        raise IngestionError(f"Sayt yüklənmədi: {source.location}") from exc
+        # `{exc}` bilərəkdən mesaja daxil edilir — əvvəllər əsl səbəb
+        # (məs. Selenium/Chrome xətası) heç yerdə görünmürdü, yalnız
+        # `from exc` ilə traceback-ə zəncirlənirdi, amma bunu heç kim
+        # loglamırdı (bax `server/app.py`, `_process_material`-a
+        # `logger.exception` əlavəsi) — istifadəçi/loqlarda dərhal görünsün.
+        raise IngestionError(f"Sayt yüklənmədi: {source.location} ({exc})") from exc
 
     text = _extract_text(html)
 
@@ -97,7 +102,7 @@ def extract(source: MaterialSource) -> RawMaterial:
             html = _download_js_rendered(source.location)
         except Exception as exc:
             raise IngestionError(
-                f"Sayt JS-rendering ilə də yüklənmədi: {source.location}"
+                f"Sayt JS-rendering ilə də yüklənmədi: {source.location} ({exc})"
             ) from exc
         text = _extract_text(html)
 

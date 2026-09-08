@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime
 
 import httpx
+
+logger = logging.getLogger(__name__)
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -690,6 +693,9 @@ async def _process_material(
     try:
         result = await asyncio.to_thread(generator, source, question_count)
     except Exception as exc:
+        # `str(exc)` çat mesajında yalnız QISA görünür — tam traceback
+        # (chained `__cause__` daxil) yalnız burada, journalctl-də qalır.
+        logger.exception("Material emalı uğursuz oldu (material_id=%s)", material_id)
         material_store.update_status(material_id, "failed")
         message = message_store.create(
             chat_id, None, "system", f"Material emalı uğursuz oldu: {exc}"
@@ -812,6 +818,7 @@ async def _process_question_set(
     try:
         result = await asyncio.to_thread(generator, source, question_count)
     except Exception as exc:
+        logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
         question_set_store.mark_failed(question_set_id, str(exc))
         return
 
