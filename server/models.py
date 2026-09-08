@@ -266,6 +266,16 @@ class HistoryEntry(BaseModel):
     session_id: int | None = None
 
 
+class LeaderboardRow(BaseModel):
+    """Çat-üzrə liderlik lövhəsi sətri — yalnız ev tapşırığı xalları
+    (bax Faza 6 dizayn sənədi, "canlı sessiyalar çata bağlı deyil")."""
+
+    user_id: int
+    display_name: str
+    total_score: int
+    rank: int
+
+
 class BadgeInfo(BaseModel):
     """Bir nailiyyət nişanının vəziyyəti — `earned=False` olanda
     `earned_at=None` (bax Faza 6 dizayn sənədi, 5 sabit `badge_type`)."""

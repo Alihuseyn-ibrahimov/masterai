@@ -130,3 +130,32 @@ class TestAnswer:
         store.answer(attempt["id"], 0, 0, True, total_questions=1)
         with pytest.raises(AttemptAlreadyCompleted):
             store.answer(attempt["id"], 0, 0, True, total_questions=1)
+
+
+class TestChatLeaderboard:
+    def test_empty_when_no_completed_attempts(self, store):
+        assert store.get_chat_leaderboard(1) == {}
+
+    def test_sums_scores_across_assignments_in_same_chat(self, store):
+        a1 = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        a2 = store.create_assignment(1, 8, "2026-09-20", created_by=1)
+        att1 = store.get_or_create_attempt(a1["id"], student_id=5)
+        store.answer(att1["id"], 0, 0, True, total_questions=1)
+        att2 = store.get_or_create_attempt(a2["id"], student_id=5)
+        store.answer(att2["id"], 0, 0, True, total_questions=1)
+        assert store.get_chat_leaderboard(1) == {5: 2}
+
+    def test_does_not_leak_across_chats(self, store):
+        a1 = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        a2 = store.create_assignment(2, 8, "2026-09-14", created_by=1)
+        att1 = store.get_or_create_attempt(a1["id"], student_id=5)
+        store.answer(att1["id"], 0, 0, True, total_questions=1)
+        att2 = store.get_or_create_attempt(a2["id"], student_id=6)
+        store.answer(att2["id"], 0, 0, True, total_questions=1)
+        assert store.get_chat_leaderboard(1) == {5: 1}
+        assert store.get_chat_leaderboard(2) == {6: 1}
+
+    def test_excludes_in_progress_attempts(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        store.get_or_create_attempt(a["id"], student_id=5)  # in_progress qalır
+        assert store.get_chat_leaderboard(1) == {}

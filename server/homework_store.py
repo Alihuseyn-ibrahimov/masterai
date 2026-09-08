@@ -171,6 +171,23 @@ class HomeworkStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def get_chat_leaderboard(self, chat_id: int) -> dict[int, int]:
+        """Çatın hər üzvünün TAMAMLANMIŞ ev tapşırıqlarının cəm xalı —
+        `student_id -> total_score`. Cəhdi olmayan üzvlər burada
+        YOXDUR (çağıran `chats.list_member_ids`-lə birləşdirib 0-la
+        doldurmalıdır, bax `app.py`, `get_chat_leaderboard` — canlı
+        sessiyanın `compute_scores`-unun eyni naxışı)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT ha.student_id as student_id, SUM(ha.score) as total_score "
+                "FROM homework_attempts ha "
+                "JOIN homework_assignments a ON a.id = ha.assignment_id "
+                "WHERE a.chat_id = ? AND ha.status = 'completed' "
+                "GROUP BY ha.student_id",
+                (chat_id,),
+            )
+            return {row["student_id"]: row["total_score"] for row in cur.fetchall()}
+
     def list_attempts_by_student(self, student_id: int) -> list[dict]:
         """Tələbənin bütün TAMAMLANMIŞ cəhdləri (bütün tapşırıqlar üzrə) —
         Fərdi tələbə tarixçəsi üçün (bax `app.py`, `/history/*`).

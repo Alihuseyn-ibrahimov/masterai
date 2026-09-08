@@ -59,6 +59,7 @@ from .models import (
     HomeworkAttemptState,
     HomeworkQuestionPayload,
     HomeworkReportRow,
+    LeaderboardRow,
     LiveQuestionInfo,
     LiveSessionInfo,
     LiveSessionReport,
@@ -533,6 +534,35 @@ def list_chat_members(
         if member is not None:
             result.append(ChatMemberInfo(user_id=member_id, display_name=member["display_name"]))
     return result
+
+
+@app.get("/chats/{chat_id}/leaderboard", response_model=list[LeaderboardRow])
+def get_chat_leaderboard(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[LeaderboardRow]:
+    """Çatın liderlik lövhəsi — YALNIZ ev tapşırığı xalları (bax Faza 6
+    dizayn sənədi, "canlı sessiyalar çata bağlı deyil"). 0-xallı üzvlər
+    də daxildir (`live_session_store.compute_scores`-un eyni naxışı)."""
+    if chats.get(chat_id) is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    scores = homework.get_chat_leaderboard(chat_id)
+    rows = []
+    for member_id in chats.list_member_ids(chat_id):
+        member = users.get_by_id(member_id)
+        if member is not None:
+            rows.append((member_id, member["display_name"], scores.get(member_id, 0)))
+    rows.sort(key=lambda r: r[2], reverse=True)
+    return [
+        LeaderboardRow(user_id=uid, display_name=name, total_score=score, rank=i + 1)
+        for i, (uid, name, score) in enumerate(rows)
+    ]
 
 
 def _schedule_timeout(
