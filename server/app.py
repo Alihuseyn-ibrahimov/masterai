@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from datetime import datetime
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
@@ -19,6 +20,7 @@ from pipeline.models import MaterialSource
 from pipeline.pipeline import generate_quiz
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
+from .badge_store import BadgeStore
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
@@ -43,6 +45,7 @@ from .message_store import MessageStore
 from .models import (
     AdminStatsInfo,
     AuthResponse,
+    BadgeInfo,
     ChatInfo,
     ChatMemberInfo,
     CreateChatRequest,
@@ -117,6 +120,7 @@ app.state.question_set_store = QuestionSetStore(os.environ.get("QUESTION_SETS_DB
 app.state.live_session_store = LiveSessionStore(os.environ.get("LIVE_SESSIONS_DB_PATH", "live_sessions.db"))
 app.state.live_connection_manager = LiveConnectionManager()
 app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "homework.db"))
+app.state.badge_store = BadgeStore(os.environ.get("BADGES_DB_PATH", "badges.db"))
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
@@ -191,6 +195,11 @@ def get_live_connection_manager() -> LiveConnectionManager:
 def get_homework_store() -> HomeworkStore:
     """Ev təkrarı rejimi store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.homework_store
+
+
+def get_badge_store() -> BadgeStore:
+    """Nailiyyət nişanları store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.badge_store
 
 
 def get_material_generator():
@@ -1276,6 +1285,83 @@ def get_student_history(
         raise HTTPException(status_code=403, detail="Bu tələbə ilə ortaq çatınız yoxdur")
     return _history_entries_for_student(
         student_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+
+
+_BADGE_TYPES = ("ilk_addim", "yuz_faiz", "fenn_ustasi", "suretli_eqli", "silsile_5")
+_SURETLI_EQLI_MAX_MINUTES = 3
+_FENN_USTASI_MIN_COUNT = 5
+_SILSILE_MIN_DAYS = 5
+
+
+def _evaluate_badges(
+    student_id: int,
+    *,
+    live_sessions: LiveSessionStore,
+    question_sets: QuestionSetStore,
+    homework: HomeworkStore,
+    badges: BadgeStore,
+) -> list[BadgeInfo]:
+    """5 nişan meyarını yoxlayır, YENİ qazananları `badges.mark_earned`-ə
+    yazır (tənbəl hesablama — bax Faza 6 dizayn sənədi). Mövcud
+    `_history_entries_for_student`-i (Faza 3) yenidən istifadə edir,
+    yalnız "sürətli əqli" üçün ev tapşırığı cəhdlərinin xam
+    (`started_at`/`completed_at`) datasına ayrıca müraciət edir."""
+    entries = _history_entries_for_student(
+        student_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+    attempts = homework.list_attempts_by_student(student_id)
+
+    newly_qualified: set[str] = set()
+
+    if entries:
+        newly_qualified.add("ilk_addim")
+
+    if any(e.total_questions > 0 and e.score == e.total_questions for e in entries):
+        newly_qualified.add("yuz_faiz")
+
+    subject_counts: dict[str, int] = {}
+    for e in entries:
+        if e.kind == "homework":
+            subject_counts[e.subject] = subject_counts.get(e.subject, 0) + 1
+    if any(count >= _FENN_USTASI_MIN_COUNT for count in subject_counts.values()):
+        newly_qualified.add("fenn_ustasi")
+
+    for attempt in attempts:
+        started = datetime.fromisoformat(attempt["started_at"])
+        completed = datetime.fromisoformat(attempt["completed_at"])
+        if (completed - started).total_seconds() < _SURETLI_EQLI_MAX_MINUTES * 60:
+            newly_qualified.add("suretli_eqli")
+            break
+
+    distinct_days = {datetime.fromisoformat(e.date).date() for e in entries}
+    if len(distinct_days) >= _SILSILE_MIN_DAYS:
+        newly_qualified.add("silsile_5")
+
+    for badge_type in newly_qualified:
+        badges.mark_earned(student_id, badge_type)
+
+    earned = badges.get_earned(student_id)
+    return [
+        BadgeInfo(badge_type=bt, earned=bt in earned, earned_at=earned.get(bt))
+        for bt in _BADGE_TYPES
+    ]
+
+
+@app.get("/badges/me", response_model=list[BadgeInfo])
+def get_my_badges(
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    badges: BadgeStore = Depends(get_badge_store),
+) -> list[BadgeInfo]:
+    return _evaluate_badges(
+        user["id"],
+        live_sessions=live_sessions,
+        question_sets=question_sets,
+        homework=homework,
+        badges=badges,
     )
 
 

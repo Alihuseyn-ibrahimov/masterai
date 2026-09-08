@@ -266,6 +266,15 @@ class HistoryEntry(BaseModel):
     session_id: int | None = None
 
 
+class BadgeInfo(BaseModel):
+    """Bir nailiyyət nişanının vəziyyəti — `earned=False` olanda
+    `earned_at=None` (bax Faza 6 dizayn sənədi, 5 sabit `badge_type`)."""
+
+    badge_type: str
+    earned: bool
+    earned_at: str | None
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int
