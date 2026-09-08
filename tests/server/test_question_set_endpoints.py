@@ -20,7 +20,7 @@ from server.user_store import UserStore
 _SECRET = "test-secret-key-32-chars-minimum!!"
 
 
-def _fake_generator_success(source, questions_per_chunk=3):
+def _fake_generator_success(source, question_count=10):
     return PipelineResult(
         questions=[
             MCQQuestion(
@@ -34,10 +34,11 @@ def _fake_generator_success(source, questions_per_chunk=3):
         source=source,
         chunks_processed=1,
         chunks_failed=0,
+        requested_question_count=question_count,
     )
 
 
-def _fake_generator_failure(source, questions_per_chunk=3):
+def _fake_generator_failure(source, question_count=10):
     raise PipelineError("real test üçün süni xəta")
 
 
@@ -121,6 +122,51 @@ class TestCreateValidation:
             headers=_auth(env["teacher"]),
         )
         assert r.status_code == 413
+
+
+class TestQuestionCountValidation:
+    def test_below_minimum_returns_400(self, env):
+        r = env["client"].post(
+            "/live/question-sets",
+            data={
+                "subject": "mentiq", "title": "A", "kind": "link", "location": "https://x.az",
+                "question_count": 2,
+            },
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 400
+
+    def test_above_maximum_returns_400(self, env):
+        r = env["client"].post(
+            "/live/question-sets",
+            data={
+                "subject": "mentiq", "title": "A", "kind": "link", "location": "https://x.az",
+                "question_count": 31,
+            },
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 400
+
+    def test_requested_count_is_passed_through_to_generator(self, env):
+        captured = {}
+
+        def capturing_generator(source, question_count=10):
+            captured["question_count"] = question_count
+            return _fake_generator_success(source, question_count)
+
+        app.dependency_overrides[get_material_generator] = lambda: capturing_generator
+
+        r = env["client"].post(
+            "/live/question-sets",
+            data={
+                "subject": "mentiq", "title": "A", "kind": "link", "location": "https://x.az",
+                "question_count": 20,
+            },
+            headers=_auth(env["teacher"]),
+        )
+        _wait_until_not_processing(env["question_sets"], r.json()["id"])
+
+        assert captured["question_count"] == 20
 
 
 class TestCreateAccepted:

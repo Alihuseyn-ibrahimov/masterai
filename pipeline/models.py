@@ -26,3 +26,8 @@ class PipelineResult(BaseModel):
     source: MaterialSource
     chunks_processed: int
     chunks_failed: int
+    # Çağıranın istədiyi ümumi sual sayı (bax `pipeline.generate_quiz`,
+    # `target_question_count`) — `len(questions)` bundan az ola bilər
+    # (material qısadırsa), çağıran (server) bu fərqi istifadəçiyə
+    # bildirmək üçün istifadə edir.
+    requested_question_count: int

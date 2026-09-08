@@ -38,13 +38,16 @@ class MaterialClient {
   }
 
   /// Link materialı — `location` sayt ünvanıdır, fayl yoxdur.
+  /// `questionCount` — müəllimin istədiyi ÜMUMİ sual sayı (3-30, bax
+  /// `server/app.py`, `_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`).
   Future<MaterialInfo> uploadLink(
     String token,
     int chatId, {
     required String location,
     String? label,
+    int questionCount = 10,
   }) =>
-      _upload(token, chatId, kind: 'link', location: location, label: label);
+      _upload(token, chatId, kind: 'link', location: location, label: label, questionCount: questionCount);
 
   /// PDF/şəkil materialı — `filePath` yerli fayl yoludur (`file_picker`-dən).
   Future<MaterialInfo> uploadFile(
@@ -53,8 +56,9 @@ class MaterialClient {
     required String kind, // "pdf" | "image"
     required String filePath,
     String? label,
+    int questionCount = 10,
   }) =>
-      _upload(token, chatId, kind: kind, filePath: filePath, label: label);
+      _upload(token, chatId, kind: kind, filePath: filePath, label: label, questionCount: questionCount);
 
   Future<MaterialInfo> _upload(
     String token,
@@ -63,11 +67,13 @@ class MaterialClient {
     String? location,
     String? filePath,
     String? label,
+    int questionCount = 10,
   }) async {
     final uri = Uri.parse('$baseUrl/chats/$chatId/materials');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
-      ..fields['kind'] = kind;
+      ..fields['kind'] = kind
+      ..fields['question_count'] = '$questionCount';
     if (location != null) request.fields['location'] = location;
     if (label != null) request.fields['label'] = label;
     if (filePath != null) {

@@ -57,6 +57,33 @@ void main() {
         throwsA(isA<ApiException>().having((e) => e.statusCode, 'statusCode', 400)),
       );
     });
+
+    test('questionCount "question_count" sahəsi kimi göndərilir', () async {
+      final mock = MockClient((req) async {
+        final body = Uri.splitQueryString(req.body);
+        expect(body['question_count'], '15');
+        return http.Response(
+          jsonEncode({
+            'id': 1,
+            'subject': 'mentiq',
+            'title': 'A',
+            'status': 'processing',
+            'material_kind': 'link',
+            'material_location': 'https://x.az',
+            'error': null,
+            'question_count': 0,
+            'created_by': 1,
+            'created_at': '2026-09-07T00:00:00Z',
+          }),
+          202,
+          headers: _jsonHeaders,
+        );
+      });
+      final client = LiveClient(baseUrl: 'https://x', httpClient: mock);
+      await client.createQuestionSet(
+        'tok', subject: 'mentiq', title: 'A', location: 'https://x.az', questionCount: 15,
+      );
+    });
   });
 
   group('listQuestionSets', () {

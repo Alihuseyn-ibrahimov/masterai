@@ -95,6 +95,11 @@ from .user_store import DuplicateEmail, UserStore
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 _DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 
+# Müəllimin material yükləyəndə təyin edə biləcəyi ümumi sual sayı aralığı
+# (bax `pipeline.generate_quiz`, `target_question_count`).
+_MIN_QUESTION_COUNT = 3
+_MAX_QUESTION_COUNT = 30
+
 app = FastAPI(title="MasterAI")
 # Host konsolu (`app/`-in veb build-i) brauzerdə işlədiyi üçün CORS
 # tələb olunur — mobil HTTP client-i buna məruz qalmır, YALNIZ veb
@@ -657,6 +662,17 @@ async def _notify_admin_webhook(payload: dict) -> None:
         pass
 
 
+def _material_ready_message(result) -> str:
+    actual = len(result.questions)
+    requested = result.requested_question_count
+    if actual >= requested:
+        return f"Material hazırdır! {actual} sual yaradıldı."
+    return (
+        f"Material hazırdır! {actual}/{requested} sual yaradıldı "
+        "(material qısa idi, daha az sual alındı)."
+    )
+
+
 async def _process_material(
     material_id: int,
     chat_id: int,
@@ -667,12 +683,12 @@ async def _process_material(
     question_store: QuestionStore,
     message_store: MessageStore,
     connection_manager: ConnectionManager,
-    questions_per_chunk: int = 3,
+    question_count: int = 10,
 ) -> None:
     """Materialı fon thread-ində emal edir — nəticə/xəta çata sistem mesajı
     kimi bildirilir, HEÇ vaxt səssiz udulmur (spec bölmə 5-6)."""
     try:
-        result = await asyncio.to_thread(generator, source, questions_per_chunk)
+        result = await asyncio.to_thread(generator, source, question_count)
     except Exception as exc:
         material_store.update_status(material_id, "failed")
         message = message_store.create(
@@ -693,9 +709,7 @@ async def _process_material(
     for mcq in result.questions:
         question_store.create_from_mcq(material_id, mcq)
     material_store.update_status(material_id, "ready")
-    message = message_store.create(
-        chat_id, None, "system", f"Material hazırdır! {len(result.questions)} sual yaradıldı."
-    )
+    message = message_store.create(chat_id, None, "system", _material_ready_message(result))
     await connection_manager.broadcast(chat_id, {"type": "message", **message})
 
 
@@ -706,6 +720,7 @@ async def upload_material(
     location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     label: str | None = Form(default=None),
+    question_count: int = Form(default=10),
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
     materials: MaterialStore = Depends(get_material_store),
@@ -723,6 +738,11 @@ async def upload_material(
 
     if kind not in ("link", "pdf", "image"):
         raise HTTPException(status_code=400, detail="Naməlum material növü")
+    if not (_MIN_QUESTION_COUNT <= question_count <= _MAX_QUESTION_COUNT):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sual sayı {_MIN_QUESTION_COUNT}-{_MAX_QUESTION_COUNT} arasında olmalıdır",
+        )
 
     if kind == "link":
         if not location:
@@ -750,6 +770,7 @@ async def upload_material(
             question_store=questions,
             message_store=messages,
             connection_manager=manager,
+            question_count=question_count,
         )
     )
     app.state.active_material_tasks[material["id"]] = task
@@ -782,14 +803,14 @@ async def _process_question_set(
     *,
     generator,
     question_set_store: QuestionSetStore,
-    questions_per_chunk: int = 3,
+    question_count: int = 10,
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
     deyil (nəticə `question_sets.status`+`error` sahələrindən polling
     ilə oxunur, bax dizayn sənədi)."""
     try:
-        result = await asyncio.to_thread(generator, source, questions_per_chunk)
+        result = await asyncio.to_thread(generator, source, question_count)
     except Exception as exc:
         question_set_store.mark_failed(question_set_id, str(exc))
         return
@@ -806,6 +827,7 @@ async def create_question_set(
     kind: str = Form(...),
     location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    question_count: int = Form(default=10),
     user: dict = Depends(get_current_user),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
@@ -815,6 +837,11 @@ async def create_question_set(
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     if kind not in ("link", "pdf", "image"):
         raise HTTPException(status_code=400, detail="Naməlum material növü")
+    if not (_MIN_QUESTION_COUNT <= question_count <= _MAX_QUESTION_COUNT):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sual sayı {_MIN_QUESTION_COUNT}-{_MAX_QUESTION_COUNT} arasında olmalıdır",
+        )
 
     if kind == "link":
         if not location:
@@ -844,6 +871,7 @@ async def create_question_set(
             MaterialSource(kind=kind, location=source_location),
             generator=generator,
             question_set_store=question_sets,
+            question_count=question_count,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task

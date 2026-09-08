@@ -34,6 +34,26 @@ void main() {
       expect(material.status, 'processing');
     });
 
+    test('questionCount dəyəri "question_count" sahəsi kimi göndərilir', () async {
+      final mock = MockClient.streaming((req, bodyStream) async {
+        final multipart = req as http.MultipartRequest;
+        expect(multipart.fields['question_count'], '15');
+        return http.StreamedResponse(Stream.value(utf8.encode(_materialResponse())), 202);
+      });
+      final client = MaterialClient(baseUrl: 'https://x', httpClient: mock);
+      await client.uploadLink('tok', 5, location: 'https://x.az', questionCount: 15);
+    });
+
+    test('questionCount ötürülməsə defolt "10" göndərilir', () async {
+      final mock = MockClient.streaming((req, bodyStream) async {
+        final multipart = req as http.MultipartRequest;
+        expect(multipart.fields['question_count'], '10');
+        return http.StreamedResponse(Stream.value(utf8.encode(_materialResponse())), 202);
+      });
+      final client = MaterialClient(baseUrl: 'https://x', httpClient: mock);
+      await client.uploadLink('tok', 5, location: 'https://x.az');
+    });
+
     test('413 → aydın "çox böyükdür" mesajı', () async {
       final mock = MockClient.streaming(
         (req, bodyStream) async => http.StreamedResponse(Stream.value(utf8.encode('{}')), 413),

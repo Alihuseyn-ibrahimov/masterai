@@ -93,7 +93,9 @@ class TestPipelineResult:
             source=source,
             chunks_processed=1,
             chunks_failed=0,
+            requested_question_count=1,
         )
         assert result.questions == [question]
         assert result.chunks_processed == 1
         assert result.chunks_failed == 0
+        assert result.requested_question_count == 1

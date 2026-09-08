@@ -107,6 +107,7 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
     String subject = kSubjectLabels.keys.first;
     final titleController = TextEditingController();
     final locationController = TextEditingController();
+    final questionCountController = TextEditingController(text: '10');
 
     final created = await showDialog<bool>(
       context: context,
@@ -137,6 +138,15 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
                 decoration: const InputDecoration(labelText: 'Material linki (sayt ünvanı)'),
                 keyboardType: TextInputType.url,
               ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: questionCountController,
+                decoration: const InputDecoration(
+                  labelText: 'Neçə sual?',
+                  helperText: '3-30 arası',
+                ),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
           actions: [
@@ -149,12 +159,21 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
     if (created != true) return;
     if (titleController.text.trim().isEmpty || locationController.text.trim().isEmpty) return;
 
+    final questionCount = int.tryParse(questionCountController.text.trim());
+    if (questionCount == null || questionCount < 3 || questionCount > 30) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Sual sayı 3-30 arasında olmalıdır.')));
+      return;
+    }
+
     try {
       await _liveClient.createQuestionSet(
         widget.token,
         subject: subject,
         title: titleController.text.trim(),
         location: locationController.text.trim(),
+        questionCount: questionCount,
       );
       _refresh();
     } on ApiException catch (e) {

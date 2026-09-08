@@ -536,11 +536,30 @@ class _MaterialsSheetState extends State<_MaterialsSheet> {
   late Future<List<MaterialInfo>> _materialsFuture;
   bool _uploading = false;
   String? _uploadError;
+  final _questionCountController = TextEditingController(text: '10');
 
   @override
   void initState() {
     super.initState();
     _materialsFuture = widget.materialClient.listMaterials(widget.token, widget.chatId);
+  }
+
+  @override
+  void dispose() {
+    _questionCountController.dispose();
+    super.dispose();
+  }
+
+  /// `null` qaytarırsa `_uploadError`-a xəta mesajı yazılıb — çağıran
+  /// yükləməni davam etdirməməlidir (bax `server/app.py`,
+  /// `_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`).
+  int? _validatedQuestionCount() {
+    final value = int.tryParse(_questionCountController.text.trim());
+    if (value == null || value < 3 || value > 30) {
+      setState(() => _uploadError = 'Sual sayı 3-30 arasında olmalıdır.');
+      return null;
+    }
+    return value;
   }
 
   void _refresh() {
@@ -570,10 +589,18 @@ class _MaterialsSheetState extends State<_MaterialsSheet> {
       ),
     );
     if (url == null || url.isEmpty) return;
-    await _runUpload(() => widget.materialClient.uploadLink(widget.token, widget.chatId, location: url));
+    final questionCount = _validatedQuestionCount();
+    if (questionCount == null) return;
+    await _runUpload(
+      () => widget.materialClient.uploadLink(
+        widget.token, widget.chatId, location: url, questionCount: questionCount,
+      ),
+    );
   }
 
   Future<void> _uploadFile(String kind, List<String>? extensions) async {
+    final questionCount = _validatedQuestionCount();
+    if (questionCount == null) return;
     // file_picker 12: `FilePicker.platform` YOXDUR artıq — statik metodlar
     // birbaşa `FilePicker`-in özündədir. `pickFile()` (tək fayl, `12.x`-də
     // əlavə olunub) `.single`-a ehtiyacı aradan qaldırır.
@@ -584,7 +611,9 @@ class _MaterialsSheetState extends State<_MaterialsSheet> {
     final path = file?.path;
     if (path == null) return;
     await _runUpload(
-      () => widget.materialClient.uploadFile(widget.token, widget.chatId, kind: kind, filePath: path),
+      () => widget.materialClient.uploadFile(
+        widget.token, widget.chatId, kind: kind, filePath: path, questionCount: questionCount,
+      ),
     );
   }
 
@@ -626,6 +655,17 @@ class _MaterialsSheetState extends State<_MaterialsSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Materiallar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _questionCountController,
+            keyboardType: TextInputType.number,
+            enabled: !_uploading,
+            decoration: const InputDecoration(
+              labelText: 'Neçə sual?',
+              helperText: '3-30 arası, bu material üçün',
+              isDense: true,
+            ),
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

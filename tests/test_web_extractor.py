@@ -78,3 +78,92 @@ def test_raises_when_both_static_and_js_yield_no_text(monkeypatch):
     source = MaterialSource(kind="link", location="https://example.az/bos-sehife")
     with pytest.raises(IngestionError):
         web_extractor.extract(source)
+
+
+class _FakeElement:
+    def __init__(self, text: str):
+        self.text = text
+
+
+class _FakeDriver:
+    """`document.readyState` və body mətninin ardıcıl oxunuşlarını
+    simulyasiya edir — real Selenium sürücüsü olmadan `_wait_for_page_ready`-i
+    sınamaq üçün (bax `_wait_for_page_ready`, konkret sayt strukturuna
+    bağlı olmayan universal gözləmə)."""
+
+    def __init__(self, ready_states: list[str], body_texts: list[str]):
+        self._ready_states = ready_states
+        self._body_texts = body_texts
+        self.script_calls = 0
+        self.body_calls = 0
+
+    def execute_script(self, script: str) -> str:
+        value = self._ready_states[min(self.script_calls, len(self._ready_states) - 1)]
+        self.script_calls += 1
+        return value
+
+    def find_element(self, by, value):
+        text = self._body_texts[min(self.body_calls, len(self._body_texts) - 1)]
+        self.body_calls += 1
+        return _FakeElement(text)
+
+
+class TestWaitForPageReady:
+    def test_returns_once_ready_state_complete_and_body_text_stabilizes(self, monkeypatch):
+        monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 2.0)
+        monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+        driver = _FakeDriver(
+            ready_states=["loading", "loading", "complete"],
+            body_texts=["JS ile render olunan metn"] * 5,
+        )
+
+        web_extractor._wait_for_page_ready(driver)
+
+        assert driver.script_calls == 3
+        # readyState=='complete' olan kimi, mətn 2 ardıcıl oxunuşda
+        # dəyişməzsə dərhal qayıdır — 5 dəfə oxumur.
+        assert driver.body_calls == 2
+
+    def test_gives_up_after_timeout_when_text_never_stabilizes(self, monkeypatch):
+        monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+
+        class _EverGrowingDriver(_FakeDriver):
+            def find_element(self, by, value):
+                self.body_calls += 1
+                return _FakeElement("x" * self.body_calls)  # HƏR oxunuşda fərqli uzunluq
+
+        driver = _EverGrowingDriver(ready_states=["complete"], body_texts=[])
+
+        # sonsuz dövrəyə düşmədən, timeout-dan sonra sükutla qayıtmalıdır
+        web_extractor._wait_for_page_ready(driver)
+
+        assert driver.body_calls > 0
+
+
+def test_download_js_rendered_waits_for_ready_then_returns_page_source(monkeypatch):
+    monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 2.0)
+    monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+
+    quit_calls = []
+
+    class _FakeChromeDriver(_FakeDriver):
+        def __init__(self, **_kwargs):
+            super().__init__(ready_states=["complete"], body_texts=["sabit metn"] * 3)
+            self.page_source = "<html><body>sabit metn</body></html>"
+            self.got_url = None
+
+        def get(self, url):
+            self.got_url = url
+
+        def quit(self):
+            quit_calls.append(True)
+
+    import selenium.webdriver as real_webdriver
+
+    monkeypatch.setattr(real_webdriver, "Chrome", _FakeChromeDriver)
+
+    html = web_extractor._download_js_rendered("https://example.az/spa")
+
+    assert "sabit metn" in html
+    assert quit_calls == [True]

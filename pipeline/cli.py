@@ -33,7 +33,7 @@ def _build_parser() -> argparse.ArgumentParser:
     group.add_argument("--pdf", help="PDF fayl yolu")
     group.add_argument("--link", help="Sayt linki")
     group.add_argument("--image", help="Şəkil fayl yolu")
-    parser.add_argument("--questions-per-chunk", type=int, default=3)
+    parser.add_argument("--question-count", type=int, default=10)
     return parser
 
 
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     source = _build_source(args)
 
     try:
-        result = generate_quiz(source, questions_per_chunk=args.questions_per_chunk)
+        result = generate_quiz(source, target_question_count=args.question_count)
     except PipelineError as exc:
         print(f"Pipeline uğursuz oldu: {exc}", file=sys.stderr)
         return 1

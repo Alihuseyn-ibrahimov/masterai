@@ -20,11 +20,14 @@ class LiveClient {
   final String baseUrl;
   final http.Client _http;
 
+  /// `questionCount` — müəllimin istədiyi ÜMUMİ sual sayı (3-30, bax
+  /// `server/app.py`, `_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`).
   Future<QuestionSetInfo> createQuestionSet(
     String token, {
     required String subject,
     required String title,
     required String location,
+    int questionCount = 10,
   }) async {
     http.Response resp;
     try {
@@ -32,7 +35,13 @@ class LiveClient {
           .post(
             Uri.parse('$baseUrl/live/question-sets'),
             headers: {'Authorization': 'Bearer $token'},
-            body: {'subject': subject, 'title': title, 'kind': 'link', 'location': location},
+            body: {
+              'subject': subject,
+              'title': title,
+              'kind': 'link',
+              'location': location,
+              'question_count': '$questionCount',
+            },
           )
           .timeout(_timeout);
     } catch (_) {

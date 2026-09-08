@@ -1,8 +1,18 @@
+import time
+
 import requests
 from bs4 import BeautifulSoup
 
 from pipeline.ingestion.errors import IngestionError
 from pipeline.models import MaterialSource, RawMaterial
+
+# JS-render olunan (SPA/React/Angular) saytlarda məzmun səhifə açılandan
+# BİR NEÇƏ SANİYƏ sonra DOM-a əlavə olunur — dərhal `page_source` oxumaq
+# boş/natamam mətnə səbəb olur (real production-da tapılıb, bax
+# masterai/CLAUDE.md). `_wait_for_page_ready` bunu universal şəkildə
+# (konkret sayt strukturuna bağlı olmadan) gözləyir.
+_JS_READY_TIMEOUT_SECONDS = 10.0
+_JS_POLL_INTERVAL_SECONDS = 0.5
 
 # Bu həddən az mətn statik HTML-in əsasən JS ilə doldurulduğuna işarədir —
 # belə hallarda Selenium ilə render olunmuş səhifəyə keçilir.
@@ -26,6 +36,31 @@ def _download_static(url: str) -> str:
     return response.text
 
 
+def _wait_for_page_ready(driver) -> None:
+    """İki mərhələli, konkret sayt strukturuna bağlı OLMAYAN gözləmə:
+    (1) brauzerin öz `document.readyState`-i, (2) body mətninin
+    sabitləşməsi — ardıcıl 2 ölçmədə uzunluq dəyişməzsə, SPA-nın data
+    fetch-inin bitdiyi qəbul edilir. Maksimum `_JS_READY_TIMEOUT_SECONDS`
+    sonra, hələ dəyişirsə belə, olan vəziyyət qəbul edilir (sonsuz
+    gözləmənin qarşısını almaq üçün)."""
+    from selenium.webdriver.common.by import By
+
+    deadline = time.monotonic() + _JS_READY_TIMEOUT_SECONDS
+
+    while time.monotonic() < deadline:
+        if driver.execute_script("return document.readyState") == "complete":
+            break
+        time.sleep(_JS_POLL_INTERVAL_SECONDS)
+
+    previous_length = None
+    while time.monotonic() < deadline:
+        current_length = len(driver.find_element(By.TAG_NAME, "body").text)
+        if previous_length is not None and current_length == previous_length:
+            return
+        previous_length = current_length
+        time.sleep(_JS_POLL_INTERVAL_SECONDS)
+
+
 def _download_js_rendered(url: str) -> str:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -36,6 +71,7 @@ def _download_js_rendered(url: str) -> str:
     driver = webdriver.Chrome(options=options)
     try:
         driver.get(url)
+        _wait_for_page_ready(driver)
         return driver.page_source
     finally:
         driver.quit()

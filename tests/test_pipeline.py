@@ -64,13 +64,50 @@ def test_generate_quiz_end_to_end_with_fake_extractor(monkeypatch):
 
     source = MaterialSource(kind="pdf", location="fake.pdf")
     result = generate_quiz(
-        source, questions_per_chunk=3, completers=_valid_completer(3), order=["groq"]
+        source, target_question_count=3, completers=_valid_completer(3), order=["groq"]
     )
 
     assert len(result.questions) >= 3
     assert result.source == source
     assert result.chunks_failed == 0
     assert result.chunks_processed >= 1
+    assert result.requested_question_count == 3
+
+
+def test_generate_quiz_truncates_to_target_when_more_are_generated(monkeypatch):
+    """Material bir neçə chunk-a bölünürsə, hər chunk-dan `target`-a
+    çatmaq üçün lazım olandan çox sual istənilə bilər (dedup itkisinə
+    qarşı) — dedup-dan sonra `target`-dan artıq qalarsa kəsilməlidir."""
+    monkeypatch.setattr(
+        pdf_extractor, "extract", lambda source: RawMaterial(text=_long_text(), metadata={})
+    )
+
+    source = MaterialSource(kind="pdf", location="fake.pdf")
+    result = generate_quiz(
+        source, target_question_count=4, completers=_valid_completer(3), order=["groq"]
+    )
+
+    assert len(result.questions) == 4
+    assert result.requested_question_count == 4
+
+
+def test_generate_quiz_accepts_fewer_than_target_when_material_is_short(monkeypatch):
+    """Material qısadırsa (az chunk), tələb olunan sayı bacarmasa da,
+    ən azı `_MIN_QUESTIONS` alınırsa nəticə qəbul edilir (undershoot)."""
+    monkeypatch.setattr(
+        pdf_extractor, "extract", lambda source: RawMaterial(text="qısa material mətni", metadata={})
+    )
+
+    def small_completer(system: str, user: str) -> str:
+        return json.dumps({"questions": [_question(i) for i in range(3)]})
+
+    source = MaterialSource(kind="pdf", location="fake.pdf")
+    result = generate_quiz(
+        source, target_question_count=20, completers={"groq": small_completer}, order=["groq"]
+    )
+
+    assert len(result.questions) == 3
+    assert result.requested_question_count == 20
 
 
 def test_ingestion_error_propagates_unwrapped(monkeypatch):

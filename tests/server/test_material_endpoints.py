@@ -28,7 +28,7 @@ from server.user_store import UserStore
 _SECRET = "test-secret-key-32-chars-minimum!!"
 
 
-def _fake_generator_success(source, questions_per_chunk=3):
+def _fake_generator_success(source, question_count=10):
     return PipelineResult(
         questions=[
             MCQQuestion(
@@ -42,11 +42,32 @@ def _fake_generator_success(source, questions_per_chunk=3):
         source=source,
         chunks_processed=1,
         chunks_failed=0,
+        requested_question_count=question_count,
     )
 
 
-def _fake_generator_failure(source, questions_per_chunk=3):
+def _fake_generator_failure(source, question_count=10):
     raise PipelineError("real test üçün süni xəta")
+
+
+def _fake_generator_echoes_request(source, question_count=10):
+    """`question_count`-un REST-dən düzgün ötürüldüyünü yoxlamaq üçün —
+    tam istənilən sayda sual "yaradır", çatışmazlıq mesajı yaranmır."""
+    return PipelineResult(
+        questions=[
+            MCQQuestion(
+                question=f"Sual {i}?",
+                options=["A", "B", "C", "D", "E"],
+                correct_index=0,
+                explanation="izah",
+            )
+            for i in range(question_count)
+        ],
+        source=source,
+        chunks_processed=1,
+        chunks_failed=0,
+        requested_question_count=question_count,
+    )
 
 
 def _wait_until_not_processing(materials, material_id, timeout=2.0):
@@ -196,6 +217,53 @@ class TestListMaterials:
         r = env["client"].get(f"/chats/{env['chat_id']}/materials", headers=_auth(env["member"]))
         assert r.status_code == 200
         assert len(r.json()) == 1
+
+
+class TestQuestionCount:
+    def test_below_minimum_returns_400(self, env):
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az", "question_count": 2},
+            headers=_auth(env["member"]),
+        )
+        assert r.status_code == 400
+
+    def test_above_maximum_returns_400(self, env):
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az", "question_count": 31},
+            headers=_auth(env["member"]),
+        )
+        assert r.status_code == 400
+
+    def test_requested_count_is_passed_through_to_generator(self, env):
+        app.dependency_overrides[get_material_generator] = lambda: _fake_generator_echoes_request
+
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az", "question_count": 15},
+            headers=_auth(env["member"]),
+        )
+        material_id = r.json()["id"]
+
+        material = _wait_until_not_processing(env["materials"], material_id)
+
+        assert material["status"] == "ready"
+        assert len(env["questions"].list_by_material(material_id)) == 15
+
+    def test_shortfall_message_mentions_requested_and_actual_counts(self, env):
+        r = env["client"].post(
+            f"/chats/{env['chat_id']}/materials",
+            data={"kind": "link", "location": "https://x.az"},
+            headers=_auth(env["member"]),
+        )
+        material_id = r.json()["id"]
+        _wait_until_not_processing(env["materials"], material_id)
+
+        msgs = env["messages"].list_by_chat(env["chat_id"])
+        ready_msg = next(m for m in msgs if "hazırdır" in m["content"])
+        assert "3/10 sual yaradıldı" in ready_msg["content"]
+        assert "qısa idi" in ready_msg["content"]
 
 
 class TestBackgroundProcessing:
