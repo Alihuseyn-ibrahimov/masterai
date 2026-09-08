@@ -23,8 +23,7 @@ TextTheme _buildTextTheme(TextTheme base) {
   TextStyle heading(TextStyle? style, FontWeight weight) => GoogleFonts.nunito(
         textStyle: style,
         fontWeight: weight,
-        fontFamilyFallback: _fontFallback,
-      );
+      ).copyWith(fontFamilyFallback: _fontFallback);
   return body.copyWith(
     displayLarge: heading(body.displayLarge, FontWeight.w800),
     displayMedium: heading(body.displayMedium, FontWeight.w800),
