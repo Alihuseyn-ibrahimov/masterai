@@ -35,6 +35,42 @@ def test_falls_back_to_js_rendering_when_static_text_too_short(monkeypatch):
     assert "JS ile render olunan metn" in raw.text
 
 
+def test_extract_text_prefers_main_tag_content_over_surrounding_ui_chrome():
+    """Real testdə tapılıb (e-qanun.az): JS-render olunan saytların tab/
+    düymə/status mətnləri `<nav>`/`<header>` DEYİL, sadə `<div>`/`<button>`
+    elementləridir — bunlar köhnə tag-siyahısı ilə tutulmurdu, nəticədə
+    AI sual generasiyası UI mətnindən sual düzəldirdi. `<main>` mövcuddursa
+    YALNIZ ondan mətn çıxarılmalıdır."""
+    html = (
+        "<html><body>"
+        "<div>Mətn Şəkil Versiyalar Əlaqəli Sənədlər Qüvvədədir Yüklə</div>"
+        "<main><p>Konstitusiyanın 94-cü maddəsi dövlət qulluğunu tənzimləyir.</p></main>"
+        "</body></html>"
+    )
+
+    text = web_extractor._extract_text(html)
+
+    assert "Konstitusiyanın 94-cü maddəsi" in text
+    assert "Qüvvədədir" not in text
+    assert "Yüklə" not in text
+
+
+def test_extract_text_strips_header_button_aside_form():
+    html = (
+        "<html><body>"
+        "<header>Sayt başlığı (ignorlanmalidır)</header>"
+        "<button>Yüklə</button>"
+        "<aside>Yan panel (ignorlanmalidır)</aside>"
+        "<form>Axtarış (ignorlanmalidır)</form>"
+        "<p>Əsas məzmun budur.</p>"
+        "</body></html>"
+    )
+
+    text = web_extractor._extract_text(html)
+
+    assert text == "Əsas məzmun budur."
+
+
 def test_raises_when_static_fetch_fails(monkeypatch):
     def boom(url):
         raise ConnectionError("saxta şəbəkə xətası")

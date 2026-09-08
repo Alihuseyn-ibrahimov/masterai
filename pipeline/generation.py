@@ -20,7 +20,12 @@ from pipeline.providers import Completer, DEFAULT_ORDER, complete_with_fallback
 SYSTEM_PROMPT = (
     "Sən Azərbaycan dilində dövlət qulluğu və magistratura imtahanlarına "
     "hazırlıq üçün keyfiyyətli çoxseçimli (MCQ) test sualları hazırlayan bir "
-    "köməkçisən. Yalnız verilən materiala əsaslan, uydurma məlumat işlətmə."
+    "köməkçisən. Yalnız verilən materiala əsaslan, uydurma məlumat işlətmə. "
+    "Material bəzən sayt naviqasiyası, düymə/tab adları (məs. \"Yüklə\", "
+    "\"Versiyalar\", \"Qüvvədədir\") kimi sənədin ƏSAS MƏZMUNUNA aid "
+    "OLMAYAN mətn hissələri ehtiva edə bilər — belə hissələr üzrə HEÇ VAXT "
+    "sual hazırlama, yalnız sənədin özünün faktiki məzmunundan (mövzu, "
+    "maddə, anlayış və s.) sual qur."
 )
 
 _RETRY_REMINDER = (

@@ -85,9 +85,17 @@ def _download_js_rendered(url: str) -> str:
 
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer"]):
+    for tag in soup(["script", "style", "nav", "footer", "header", "button", "aside", "form"]):
         tag.decompose()
-    return soup.get_text(separator="\n", strip=True)
+    # Real testdə tapılıb (e-qanun.az): JS-render olunan saytların tab/
+    # düymə/status mətnləri (məs. "Mətn/Şəkil/Versiyalar", "Qüvvədədir",
+    # "Yüklə") adətən `<nav>`/`<header>` DEYİL, sadə `<div>`/`<button>`
+    # elementləridir — bunlar yuxarıdakı tag siyahısı ilə tutulmaya bilər.
+    # `<main>`/`<article>` (HTML5-in semantik "əsas məzmun" konvensiyası)
+    # varsa, YALNIZ ondan mətn çıxarmaq bu cür UI "qabığını" kənarda qoyur.
+    main = soup.find("main") or soup.find("article")
+    root = main if main is not None else soup
+    return root.get_text(separator="\n", strip=True)
 
 
 def extract(source: MaterialSource) -> RawMaterial:
