@@ -156,7 +156,8 @@ class _QuestionView extends StatelessWidget {
               backgroundColor: result != null && i == result!.correctIndex
                   ? Colors.green
                   : (selectedIndex == i ? Colors.red : null),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             onPressed: selectedIndex == null ? () => onSelect(i) : null,
             child: Text('${_letters[i]}) ${question.options[i]}'),
@@ -165,11 +166,18 @@ class _QuestionView extends StatelessWidget {
         ],
         if (result != null) ...[
           const SizedBox(height: 8),
-          Text(
-            result!.isCorrect ? 'Düzgün! 🎉' : 'Səhv',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: result!.isCorrect ? Colors.green : Colors.red,
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.5, end: 1),
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.elasticOut,
+            builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+            child: Text(
+              result!.isCorrect ? 'Düzgün! 🎉' : 'Səhv',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: result!.isCorrect ? Colors.green : Colors.red,
+              ),
             ),
           ),
           const SizedBox(height: 4),

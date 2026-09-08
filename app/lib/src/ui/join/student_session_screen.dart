@@ -221,13 +221,19 @@ class _QuestionView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         for (var i = 0; i < options.length; i++) ...[
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: selectedIndex == i ? _colors[i % _colors.length] : null,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+          AnimatedScale(
+            scale: selectedIndex == i ? 1.04 : 1,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutBack,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: selectedIndex == i ? _colors[i % _colors.length] : null,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              onPressed: answered ? null : () => onSelect(i),
+              child: Text('${_letters[i]}) ${options[i]}'),
             ),
-            onPressed: answered ? null : () => onSelect(i),
-            child: Text('${_letters[i]}) ${options[i]}'),
           ),
           const SizedBox(height: 8),
         ],
@@ -261,11 +267,17 @@ class _ResultView extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          selectedIndex == null ? 'Cavab vermədiniz' : (wasCorrect ? 'Düzgün! 🎉' : 'Səhv'),
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: selectedIndex == null ? null : (wasCorrect ? Colors.green : Colors.red),
-              ),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.5, end: 1),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.elasticOut,
+          builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+          child: Text(
+            selectedIndex == null ? 'Cavab vermədiniz' : (wasCorrect ? 'Düzgün! 🎉' : 'Səhv'),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: selectedIndex == null ? null : (wasCorrect ? Colors.green : Colors.red),
+                ),
+          ),
         ),
         const SizedBox(height: 8),
         Text('Düzgün cavab: ${_letters[correctIndex]}'),
