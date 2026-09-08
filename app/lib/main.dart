@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'src/data/session_storage.dart';
 import 'src/ui/chat_list_screen.dart';
@@ -8,6 +9,31 @@ import 'src/ui/login_screen.dart';
 
 void main() {
   runApp(const MasterAiApp());
+}
+
+/// Başlıqlar üçün Nunito (dəyirmi, canlı), mətn üçün Inter (oxunaqlı) —
+/// bax vizual dizayn yenilənməsi speci. `fontFamilyFallback` TƏHLÜKƏSİZLİK
+/// ŞƏBƏKƏSİDİR: seçilmiş fontda olmayan hər hansı hərf (Azərbaycan Ə/ə
+/// riski, bax `findings.md`) avtomatik defolt Roboto-ya keçir — heç bir
+/// hərf "boş qutu" kimi göstərilmir.
+const _fontFallback = ['Roboto'];
+
+TextTheme _buildTextTheme(TextTheme base) {
+  final body = GoogleFonts.interTextTheme(base);
+  TextStyle heading(TextStyle? style, FontWeight weight) => GoogleFonts.nunito(
+        textStyle: style,
+        fontWeight: weight,
+        fontFamilyFallback: _fontFallback,
+      );
+  return body.copyWith(
+    displayLarge: heading(body.displayLarge, FontWeight.w800),
+    displayMedium: heading(body.displayMedium, FontWeight.w800),
+    displaySmall: heading(body.displaySmall, FontWeight.w700),
+    headlineLarge: heading(body.headlineLarge, FontWeight.w700),
+    headlineMedium: heading(body.headlineMedium, FontWeight.w700),
+    headlineSmall: heading(body.headlineSmall, FontWeight.w700),
+    titleLarge: heading(body.titleLarge, FontWeight.w700),
+  );
 }
 
 class MasterAiApp extends StatelessWidget {
@@ -21,6 +47,7 @@ class MasterAiApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2F6FED)),
         useMaterial3: true,
+        textTheme: _buildTextTheme(ThemeData().textTheme),
       ),
       home: const _Bootstrap(),
     );

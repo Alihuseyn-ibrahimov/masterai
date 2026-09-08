@@ -18,6 +18,11 @@ dependencies:
   # ^6.0.1 tələbi ilə toqquşurdu (real `flutter pub get` xətası, Windows
   # dev mühitində tapıldı). Pub-un öz təklifinə uyğun yeniləndi.
   file_picker: ^12.2.0
+  # Tipoqrafiya (bax vizual dizayn yenilənməsi speci) — başlıqlar üçün
+  # Nunito, mətn üçün Inter. Hər ikisi Azərbaycan hərflərini (Ə/ə daxil)
+  # dəstəkləyir, amma real render istifadəçinin real mühitində
+  # yoxlanılmalıdır (bax `main.dart`-dakı `fontFamilyFallback`).
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
