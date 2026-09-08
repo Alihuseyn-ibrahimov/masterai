@@ -4,6 +4,7 @@ import '../../config.dart';
 import '../../data/api_exception.dart';
 import '../../data/history_client.dart';
 import '../../models/history.dart';
+import '../badges/my_badges_screen.dart';
 import 'history_list_view.dart';
 
 /// Tələbənin öz keçmiş nəticələri (canlı sessiya + ev tapşırığı) —
@@ -34,7 +35,16 @@ class _MyHistoryScreenState extends State<MyHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mənim tarixçəm'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh, tooltip: 'Yenilə')],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.emoji_events),
+            tooltip: 'Nailiyyətlərim',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => MyBadgesScreen(token: widget.token),
+            )),
+          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh, tooltip: 'Yenilə'),
+        ],
       ),
       body: FutureBuilder<List<HistoryEntry>>(
         future: _future,

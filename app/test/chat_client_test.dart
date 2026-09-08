@@ -126,4 +126,32 @@ void main() {
       await expectLater(client.listMembers('tok', 3), throwsA(isA<ApiException>()));
     });
   });
+
+  group('getLeaderboard', () {
+    test('sıralı siyahını qaytarır', () async {
+      final mock = MockClient((req) async {
+        expect(req.method, 'GET');
+        expect(req.url.path, '/chats/3/leaderboard');
+        return http.Response(
+          jsonEncode([
+            {'user_id': 1, 'display_name': 'Əli', 'total_score': 5, 'rank': 1},
+            {'user_id': 2, 'display_name': 'Vəli', 'total_score': 2, 'rank': 2},
+          ]),
+          200,
+          headers: _jsonHeaders,
+        );
+      });
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      final rows = await client.getLeaderboard('tok', 3);
+      expect(rows, hasLength(2));
+      expect(rows[0].rank, 1);
+      expect(rows[0].displayName, 'Əli');
+    });
+
+    test('403 → ApiException', () async {
+      final mock = MockClient((req) async => http.Response('{}', 403));
+      final client = ChatClient(baseUrl: 'https://x', httpClient: mock);
+      await expectLater(client.getLeaderboard('tok', 3), throwsA(isA<ApiException>()));
+    });
+  });
 }

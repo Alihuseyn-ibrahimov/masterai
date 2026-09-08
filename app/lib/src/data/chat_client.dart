@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/chat.dart';
+import '../models/leaderboard.dart';
 import 'api_exception.dart';
 
 const _timeout = Duration(seconds: 10);
@@ -102,5 +103,26 @@ class ChatClient {
     }
     final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
     return list.map((m) => ChatMemberInfo.fromJson(m as Map<String, dynamic>)).toList();
+  }
+
+  /// Çatın liderlik lövhəsi — yalnız ev tapşırığı xalları (bax Faza 6
+  /// dizayn sənədi).
+  Future<List<LeaderboardRow>> getLeaderboard(String token, int chatId) async {
+    http.Response resp;
+    try {
+      resp = await _http
+          .get(
+            Uri.parse('$baseUrl/chats/$chatId/leaderboard'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      throw const ApiException(kNetworkErrorMessage);
+    }
+    if (resp.statusCode != 200) {
+      throw ApiException('Liderlik lövhəsi yüklənmədi (${resp.statusCode}).', statusCode: resp.statusCode);
+    }
+    final list = jsonDecode(utf8.decode(resp.bodyBytes)) as List;
+    return list.map((r) => LeaderboardRow.fromJson(r as Map<String, dynamic>)).toList();
   }
 }

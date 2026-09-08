@@ -14,6 +14,7 @@ import '../models/chat.dart';
 import '../models/chat_item.dart';
 import '../models/material.dart';
 import '../models/question_set.dart';
+import 'chat_leaderboard_screen.dart';
 import 'history/history_student_picker_screen.dart';
 import 'homework/homework_teacher_assignments_screen.dart';
 
@@ -251,6 +252,14 @@ class _ChatScreenState extends State<ChatScreen> {
               )),
             ),
           ],
+          if (widget.chat.kind == 'group')
+            IconButton(
+              icon: const Icon(Icons.emoji_events),
+              tooltip: 'Liderlik lövhəsi',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => ChatLeaderboardScreen(token: widget.token, chat: widget.chat),
+              )),
+            ),
         ],
         bottom: _connected
             ? null
