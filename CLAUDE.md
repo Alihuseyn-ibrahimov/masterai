@@ -67,6 +67,15 @@ noutbukda 2 brauzer sekməsi) sınanıb. Master NR 1 kursuna göstərmək üçü
 real sınaq dərsi planlaşdırılmalıdır. Ətraflı tarixçə/qərarlar üçün bax
 `.planning/2026-09-07-masterai-live-classroom/progress.md`.
 
+**2026-09-08 tarixində sinxron model tam ləğv edilib (fərdi tempo):**
+əvvəlki "hər kəs eyni sualda, 20san sayğac, hamı cavablayanda avtomatik
+keçid" modeli əvəzinə indi hər tələbə öz "Növbəti sual" düyməsi ilə öz
+sürəti ilə irəliləyir, müəllim sessiya başladanda ÜMUMİ bir vaxt
+büdcəsi (defolt/seçim: 1-10 dəqiqə) təyin edir. Real Windows mühitində
+(host konsolu vaxt limiti seçici + fərdi tərəqqi siyahısı, tələbə
+mənual keçid) TAM TƏSDİQLƏNDİ. Ətraflı bax
+`.planning/2026-09-08-masterai-live-session-pacing/progress.md`.
+
 ## Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq)
 
 Faza 1-in üzərinə paralel əlavə: müəllim mövcud bir sual bankını
