@@ -46,6 +46,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Sual redaktə/təsdiq ekranı (Faza 5 — mövcud sualları düzəlt/sil) | Müəllim veb host konsolunda hər sual bankının suallarını görüb mətn/variant/düzgün cavab/izahı redaktə edir və ya silir (əlavə etmə/məcburi təsdiq bu fazaya daxil deyil), `.planning/2026-09-07-masterai-question-edit/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Sual redaktə/təsdiq ekranı" bölməsi |
 | Vizual dizayn yenilənməsi | `google_fonts` (Nunito+Inter), `ThemeExtension<AppSubjectColors>` (6 fənn aksent rəngi), işıq/tünd rejim, canlı sessiya/həll ekranlarının "enerjili" gücləndirilməsi, `docs/superpowers/specs/2026-09-08-masterai-visual-design-refresh.md`, `.planning/2026-09-08-masterai-visual-design/` | ✅ Phase 1-4 REAL test edilib. Phase 5 (animasiya) kodca hazır, son real təsdiqi gözlənilir |
 | Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
+| Canlı sessiya fərdi tempo (sinxron model ləğvi) | Hər tələbə öz "Növbəti sual" düyməsi ilə öz sürəti ilə irəliləyir, müəllim ÜMUMİ vaxt limiti (1-10 dəqiqə) təyin edir, `.planning/2026-09-08-masterai-live-session-pacing/` | ✅ Tam uc-uca REAL test edilib — bax yuxarı "Canlı Sinif Sessiyası" bölməsi |
+| İngestion keyfiyyəti (link JS-render) + sual sayı seçimi | Müəllim hər material yükləməsində ÜMUMİ sual sayını (3-30) təyin edir, JS-render olunan saytlar (SPA) universal gözləmə ilə oxunur, sayt UI naviqasiyası sual generasiyasından xaric edilir, `docs/superpowers/specs/2026-09-08-masterai-ingestion-question-count-design.md`, `.planning/2026-09-08-masterai-ingestion-question-count/` | ✅ Tam uc-uca REAL test edilib (VPS-də) — bax aşağı "İngestion keyfiyyəti" bölməsi |
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
@@ -195,11 +197,33 @@ qədər qısa çıxmasına səbəb olurdu (bu, bu sessiyada YARADILAN reqressiya
 DEYİL — server məntiqi dəyişdirilmədi). Client-tərəfli minimum-göstərmə
 taymeri (2 saniyə) ilə düzəldildi.
 
-**Vəziyyət (2026-09-08):** Phase 1-4 (font, `AppSubjectColors`, tünd
-rejim, mövcud ekranlara fənn rəngi tətbiqi) real mühitdə TƏSDİQLƏNDİ.
-Phase 5 (canlı sessiya/həll ekranlarının enerjili animasiyası + yuxarıdakı
-bug düzəlişi) kodca yazılıb, son real təsdiqi hələ GÖZLƏNİLİR. Ətraflı
-bax `.planning/2026-09-08-masterai-visual-design/progress.md`.
+**Vəziyyət (2026-09-08):** Phase 1-5 (font, `AppSubjectColors`, tünd
+rejim, mövcud ekranlara fənn rəngi tətbiqi, canlı sessiya/həll
+ekranlarının enerjili animasiyası + yuxarıdakı bug düzəlişi) real
+mühitdə TAM TƏSDİQLƏNDİ. Ətraflı bax
+`.planning/2026-09-08-masterai-visual-design/progress.md`.
+
+## İngestion keyfiyyəti (link JS-render) + sual sayı seçimi
+
+Müəllim hər material (PDF/link/şəkil) yükləməsində ÜMUMİ sual sayını
+(3-30, defolt 10) təyin edir — `pipeline.generate_quiz` bunu
+`target_question_count` kimi qəbul edib chunk-lara görə lazımi
+`questions_per_chunk`-ı özü hesablayır, dedup-dan sonra tələb olunan
+sayda kəsir (material qısadırsa xəbərdarlıqla az sayla qəbul edir).
+
+Sayt (link) materialının JS-render olunan (SPA) saytlarda oxunması
+universal `readyState`+mətn-sabitləşmə gözləməsi ilə yaxşılaşdırıldı,
+`--disable-dev-shm-usage` bayrağı əlavə olundu. Sual generasiyasının
+sayt UI naviqasiyasından (tab adları, status nişanları, düymələr) sual
+düzəltməməsi üçün `_extract_text` `<main>`/`<article>` varsa YALNIZ
+ondan mətn çıxarır, sistem prompt-una da açıq təlimat əlavə olundu.
+
+**Vəziyyət (2026-09-08):** Tam uc-uca REAL VPS-də test edilib
+(`e-qanun.az` linki) — sual sayı seçimi, link yükləməsi, sual
+generasiyası, canlı sessiya, hesabat HAMISI işlədi. Yol boyu VPS-in
+Chrome/disk/swap infrastrukturu da düzəldildi (bax aşağı "Dərs: VPS-də
+Chrome/Selenium quraşdırma"). Ətraflı bax
+`.planning/2026-09-08-masterai-ingestion-question-count/progress.md`.
 
 ## Giriş formatları (pipeline)
 
@@ -273,6 +297,28 @@ sadə `Lock`).
    deyil, hər çağırışda binar yenidən axtarılır). `requirements.txt`-də
    bu sistem asılılığı qeyd olunmayıb — gələcək VPS-lərdə deploy
    skriptinə (`deploy_on_droplet.sh`) əlavə edilməlidir.
+6. **VPS-in diski (10GB) çox kiçikdir, `tesseract-ocr`-un eyni növ
+   boşluğu Chrome/Selenium üçün də təkrarlandı, amma qat-qat ağır
+   nəticələrlə (2026-09-08):** JS-render (link ingestion) düzəlişini
+   real sınayanda VPS-də Chrome/chromedriver ÜMUMİYYƏTLƏ yox olduğu
+   üzə çıxdı. Quraşdırma cəhdi zamanı VPS-in diski onsuz da demək olar
+   TAM dolu idi (8.7G/8.7G) — `journalctl` tək başına 876M tuturdu.
+   Bu zaman əlavə edilən 2GB-lıq ehtiyat swap fayl diski TAM doldurub
+   `masterai` servisini ÇÖKDÜRDÜ (crash-loop, "No usable temporary
+   directory found"). Sonra snap-paketli `chromium-browser` "session
+   not created: DevToolsActivePort file doesn't exist" verdi (snap-ın
+   sərt AppArmor confinement-i /tmp-ə tam çıxışı bloklayır,
+   `--disable-dev-shm-usage` bunu HƏLL ETMİR) — snap chromium silinib
+   Google Chrome-un rəsmi `.deb` paketi qoyuldu (bu da X11/GL asılılıq
+   zənciri ilə diski yenidən doldurub `dpkg` xətası verdi, `apt clean`
+   + `apt --fix-broken install` ilə tamamlandı). **Hazırkı sabit
+   vəziyyət:** `/usr/bin/google-chrome` quraşdırılıb, jurnal ölçüsü
+   `SystemMaxUse=150M` ilə məhdudlaşdırılıb, VPS-in ehtiyat swap-ı
+   YOXDUR (yalnız əvvəlcədən mövcud `/swapfile`, 1.1G). Disk daim
+   ~90%+ dolu qalır — **gələcəkdə bu VPS-də hər hansı `apt install`
+   əməliyyatından ƏVVƏL mütləq `df -h /` yoxlanmalıdır**, əks halda
+   eyni səbəbdən masternr1 (aktiv pilot!) daxil bütün servislər risk
+   altına düşür.
 
 ## Dərs: real material uğursuzluğu — Wikipedia `requests`-in defolt User-Agent-ini bloklayır
 
