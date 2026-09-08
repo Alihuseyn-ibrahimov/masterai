@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'src/data/session_storage.dart';
+import 'src/theme/app_subject_colors.dart';
 import 'src/ui/chat_list_screen.dart';
 import 'src/ui/host/host_setup_screen.dart';
 import 'src/ui/login_screen.dart';
+
+const _kSeedColor = Color(0xFF2F6FED);
 
 void main() {
   runApp(const MasterAiApp());
@@ -44,10 +47,18 @@ class MasterAiApp extends StatelessWidget {
       title: 'MasterAI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2F6FED)),
+        colorScheme: ColorScheme.fromSeed(seedColor: _kSeedColor),
         useMaterial3: true,
         textTheme: _buildTextTheme(ThemeData().textTheme),
+        extensions: const [AppSubjectColors.light],
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: _kSeedColor, brightness: Brightness.dark),
+        useMaterial3: true,
+        textTheme: _buildTextTheme(ThemeData(brightness: Brightness.dark).textTheme),
+        extensions: const [AppSubjectColors.dark],
+      ),
+      themeMode: ThemeMode.system,
       home: const _Bootstrap(),
     );
   }
