@@ -95,3 +95,9 @@ Color subjectColor(BuildContext context, String subjectKey) {
   final colors = Theme.of(context).extension<AppSubjectColors>();
   return colors?.forSubject(subjectKey) ?? Theme.of(context).colorScheme.primary;
 }
+
+/// `subjectColor`-un fonunda oxunaqlı qalan kontrast rəngi — light
+/// temada (tünd/doymuş fənn rəngləri) ağ, dark temada (açıq fənn
+/// tonları) demək olar qara.
+Color subjectColorForeground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark ? Colors.black87 : Colors.white;

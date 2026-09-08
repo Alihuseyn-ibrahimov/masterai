@@ -4,6 +4,7 @@ import '../../config.dart';
 import '../../data/api_exception.dart';
 import '../../data/homework_client.dart';
 import '../../models/homework.dart';
+import '../../theme/app_subject_colors.dart';
 import 'homework_solve_screen.dart';
 
 /// Tələbənin bütün çatlarındakı ev tapşırıqları — bax Ev Təkrarı Rejimi
@@ -79,10 +80,12 @@ class _HomeworkAssignmentListScreenState extends State<HomeworkAssignmentListScr
               final overdue = _isOverdue(a);
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: a.status == 'tamamlanıb' ? Colors.green : null,
+                  backgroundColor:
+                      a.status == 'tamamlanıb' ? Colors.green : subjectColor(context, a.subject),
+                  foregroundColor: a.status == 'tamamlanıb' ? Colors.white : subjectColorForeground(context),
                   child: Icon(a.status == 'tamamlanıb' ? Icons.check : Icons.assignment),
                 ),
-                title: Text('${a.subject} — ${a.title}'),
+                title: Text('${a.subjectLabel} — ${a.title}'),
                 subtitle: Text(
                   '${_statusLabel(a.status, a.score)} · Son tarix: ${a.dueDate}${overdue ? ' (gecikmiş)' : ''}',
                   style: overdue ? const TextStyle(color: Colors.red) : null,

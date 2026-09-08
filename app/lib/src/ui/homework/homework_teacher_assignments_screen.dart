@@ -8,6 +8,7 @@ import '../../data/live_client.dart';
 import '../../models/chat.dart';
 import '../../models/homework.dart';
 import '../../models/question_set.dart';
+import '../../theme/app_subject_colors.dart';
 import 'homework_teacher_report_screen.dart';
 
 class _AssignmentRow {
@@ -162,7 +163,11 @@ class _HomeworkTeacherAssignmentsScreenState extends State<HomeworkTeacherAssign
         final row = _rows[index];
         final qs = row.questionSet;
         return ListTile(
-          leading: CircleAvatar(child: Text(row.assignment.completedCount.toString())),
+          leading: CircleAvatar(
+            backgroundColor: qs != null ? subjectColor(context, qs.subject) : null,
+            foregroundColor: qs != null ? subjectColorForeground(context) : null,
+            child: Text(row.assignment.completedCount.toString()),
+          ),
           title: Text(qs != null ? '${qs.subjectLabel} — ${qs.title}' : 'Sual bankı #${row.assignment.questionSetId}'),
           subtitle: Text(
             'Son tarix: ${row.assignment.dueDate} · Tamamlayan: '

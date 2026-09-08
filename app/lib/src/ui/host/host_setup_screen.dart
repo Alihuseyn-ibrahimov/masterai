@@ -10,6 +10,7 @@ import '../../data/live_client.dart';
 import '../../data/session_storage.dart';
 import '../../models/chat.dart';
 import '../../models/question_set.dart';
+import '../../theme/app_subject_colors.dart';
 import '../admin/admin_teacher_management_screen.dart';
 import '../history/history_student_picker_screen.dart';
 import '../homework/homework_teacher_assignments_screen.dart';
@@ -329,7 +330,11 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
       itemBuilder: (context, index) {
         final qs = questionSets[index];
         return ListTile(
-          leading: CircleAvatar(child: Text(qs.questionCount.toString())),
+          leading: CircleAvatar(
+            backgroundColor: subjectColor(context, qs.subject),
+            foregroundColor: subjectColorForeground(context),
+            child: Text(qs.questionCount.toString()),
+          ),
           title: Text(qs.title),
           subtitle: Text('${qs.subjectLabel} — ${_statusLabel(qs.status, qs.error)}'),
           trailing: qs.status == 'ready'

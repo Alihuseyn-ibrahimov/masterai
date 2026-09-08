@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/history.dart';
+import '../../theme/app_subject_colors.dart';
 
 /// Canlı sessiya + ev tapşırığı nəticələrinin birləşdirilmiş siyahısı —
 /// `MyHistoryScreen` VƏ `StudentHistoryScreen` bunu paylaşır (yalnız
@@ -26,7 +27,11 @@ class HistoryListView extends StatelessWidget {
       itemBuilder: (context, index) {
         final e = entries[index];
         return ListTile(
-          leading: CircleAvatar(child: Icon(e.kind == 'live' ? Icons.groups : Icons.assignment)),
+          leading: CircleAvatar(
+            backgroundColor: subjectColor(context, e.subject),
+            foregroundColor: subjectColorForeground(context),
+            child: Icon(e.kind == 'live' ? Icons.groups : Icons.assignment),
+          ),
           title: Text('${e.subjectLabel} — ${e.title}'),
           subtitle: Text(
             '${e.kind == 'live' ? 'Canlı sessiya' : 'Ev tapşırığı'} · '

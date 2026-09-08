@@ -1,3 +1,5 @@
+import 'question_set.dart' show kSubjectLabels;
+
 class HomeworkAssignmentInfo {
   final int id;
   final int chatId;
@@ -140,6 +142,8 @@ class MyAssignmentInfo {
     required this.status,
     required this.score,
   });
+
+  String get subjectLabel => kSubjectLabels[subject] ?? subject;
 
   factory MyAssignmentInfo.fromJson(Map<String, dynamic> json) => MyAssignmentInfo(
         assignmentId: json['assignment_id'] as int,
