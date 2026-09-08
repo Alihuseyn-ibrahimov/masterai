@@ -1,6 +1,14 @@
 """Canlı sinif sessiyası orkestrasiyası — qoşulma, başlatma, cavab qəbulu,
-növbə keçidi. `quiz_runner.py`-nin naxışını təkrarlayır, amma çat/mesaj
-sisteminə bağlı deyil (bax dizayn sənədi).
+fərdi templi sual keçidi. `quiz_runner.py`-nin naxışını təkrarlayır, amma
+çat/mesaj sisteminə bağlı deyil (bax dizayn sənədi).
+
+**Fərdi tempo modeli** (bax `.planning/2026-09-08-masterai-live-session-
+pacing/`): hər iştirakçı öz sürəti ilə "Növbəti sual" ilə irəliləyir —
+sual-üzrə paylaşılan `current_question_index`/timeout ARTIQ YOXDUR.
+İştirakçının cari indeksi onun artıq verdiyi cavabların SAYINDAN törəyir
+(`LiveSessionStore.count_answers_by_participant`). Yalnız BİR ÜMUMİ
+(sessiya-səviyyəli) vaxt büdcəsi var — sessiya başlayanda müəllim təyin
+edir, bitəndə kim harada qalıbsa sessiya ORADA bağlanır.
 
 Sinxronizasiya qeydi `quiz_runner.py`-nin modul qeydinin eynisidir: real
 (tək prosesli, tək event loop) `uvicorn` deploy-unda əlavə kilid lazım
@@ -13,8 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timezone
 
-DEFAULT_QUESTION_TIMEOUT_SECONDS = 20
+DEFAULT_SESSION_DURATION_SECONDS = 180
 
 
 class LiveSessionError(Exception):
@@ -30,11 +39,15 @@ class SessionNotJoinable(LiveSessionError):
 
 
 class NotCurrentQuestion(LiveSessionError):
-    """Cavab hazırkı aktiv sualdan fərqli (köhnə) sual üçündür."""
+    """Cavab bu iştirakçının hazırkı (fərdi) sualından fərqli sual üçündür."""
 
 
 class AlreadyAnswered(LiveSessionError):
     """İştirakçı bu sualı artıq cavablayıb."""
+
+
+class SessionTimeExpired(LiveSessionError):
+    """Sessiyanın ümumi vaxt büdcəsi artıq bitib — yeni cavab qəbul edilmir."""
 
 
 def _question_payload(index: int, total: int, question: dict) -> dict:
@@ -47,12 +60,21 @@ def _question_payload(index: int, total: int, question: dict) -> dict:
     }
 
 
-async def _broadcast_question(
-    session_id: int, index: int, questions: list[dict], *, connection_manager
-) -> None:
-    payload = _question_payload(index, len(questions), questions[index])
-    await connection_manager.broadcast_host(session_id, {"type": "question", **payload})
-    await connection_manager.broadcast_players(session_id, {"type": "question", **payload})
+def _elapsed_seconds(session: dict) -> float:
+    started = datetime.fromisoformat(session["started_at"])
+    return (datetime.now(timezone.utc) - started).total_seconds()
+
+
+def _remaining_seconds(session: dict) -> float:
+    if session["duration_seconds"] is None or session["started_at"] is None:
+        return 0.0
+    return max(0.0, session["duration_seconds"] - _elapsed_seconds(session))
+
+
+def _time_expired(session: dict) -> bool:
+    if session["duration_seconds"] is None or session["started_at"] is None:
+        return False
+    return _elapsed_seconds(session) >= session["duration_seconds"]
 
 
 def _leaderboard(session_id: int, *, session_store) -> list[dict]:
@@ -69,8 +91,10 @@ def _leaderboard(session_id: int, *, session_store) -> list[dict]:
 def compute_report(session_id: int, *, session_store, question_set_store) -> dict:
     """Sessiya sonu hesabatı: yekun sıralama + sual-sual təhlil (ən çox
     seçilən səhv variant daxil — "sinif harada çətinlik çəkir" göstəricisi,
-    bax dizayn sənədi, bölmə 5). Sessiya bitəndə `advance_question`
-    tərəfindən bir dəfə hesablanıb `report_json`-a keşlənir."""
+    bax dizayn sənədi, bölmə 5). Fərdi templi modeldə iştirakçılar fərqli
+    sayda sual cavablamış ola bilər (vaxt bitəndə kim harada qalıbsa) —
+    `compute_scores`/`list_answers_for_question` bunu artıq nəzərə alır
+    (yalnız faktiki verilmiş cavabları sayır)."""
     session = session_store.get(session_id)
     questions = question_set_store.list_questions(session["question_set_id"])
 
@@ -138,8 +162,13 @@ async def join_session(
 
 
 async def start_session(
-    session_id: int, *, session_store, question_set_store, connection_manager
+    session_id: int, duration_seconds: int = DEFAULT_SESSION_DURATION_SECONDS,
+    *, session_store, question_set_store, connection_manager,
 ) -> dict:
+    """Sessiyanı başladır — ÜMUMİ (`duration_seconds`) vaxt büdcəsi ilə.
+    Bütün hazırda qoşulmuş iştirakçılara öz ilk sualları (index 0) eyni
+    anda göndərilir, sonrakı hər keçid isə fərdi olaraq `request_next`
+    vasitəsilə aparılır."""
     session = session_store.get(session_id)
     if session is None:
         raise SessionNotFound(session_id)
@@ -150,8 +179,20 @@ async def start_session(
     if not questions:
         raise LiveSessionError("Sual bankında sual yoxdur")
 
-    session_store.set_status(session_id, "active")
-    await _broadcast_question(session_id, 0, questions, connection_manager=connection_manager)
+    session = session_store.start(session_id, duration_seconds)
+
+    await connection_manager.broadcast_host(
+        session_id,
+        {
+            "type": "started",
+            "duration_seconds": duration_seconds,
+            "total_questions": len(questions),
+        },
+    )
+    payload = _question_payload(0, len(questions), questions[0])
+    await connection_manager.broadcast_players(
+        session_id, {"type": "question", **payload, "remaining_seconds": _remaining_seconds(session)}
+    )
     return session_store.get(session_id)
 
 
@@ -159,11 +200,18 @@ async def record_answer(
     session_id: int, participant_id: int, question_index: int, chosen_index: int,
     *, session_store, question_set_store, connection_manager,
 ) -> dict:
+    """Cavabı qeydə alır və NƏTİCƏNİ YALNIZ cavablayan iştirakçıya göndərir
+    (əvvəlki paylaşılan modeldən fərqli olaraq broadcast YOXDUR) — növbəti
+    suala keçid ayrıca `request_next` çağırışı ilə (tələbənin öz "Növbəti"
+    düyməsi) baş verir, burada avtomatik irəliləmə YOXDUR."""
     session = session_store.get(session_id)
     if session is None or session["status"] != "active":
         raise LiveSessionError(f"session_id={session_id} üçün aktiv sessiya yoxdur")
+    if _time_expired(session):
+        raise SessionTimeExpired("Sessiyanın vaxtı bitib")
 
-    if question_index != session["current_question_index"]:
+    current_index = session_store.count_answers_by_participant(session_id, participant_id)
+    if question_index != current_index:
         raise NotCurrentQuestion(question_index)
     if session_store.has_answered(session_id, participant_id, question_index):
         raise AlreadyAnswered(participant_id, question_index)
@@ -175,93 +223,123 @@ async def record_answer(
         session_id, participant_id, question_index, chosen_index, is_correct
     )
 
-    answered_count = len(session_store.list_answers_for_question(session_id, question_index))
-    total_participants = session_store.count_participants(session_id)
     await connection_manager.broadcast_host(
         session_id,
         {
-            "type": "answer_progress",
-            "answered_count": answered_count,
-            "total_participants": total_participants,
+            "type": "participant_progress",
+            "participant_id": participant_id,
+            "answered_count": question_index + 1,
+            "total_questions": len(questions),
         },
     )
-
-    if total_participants and answered_count >= total_participants:
-        await advance_question(
-            session_id,
-            expected_index=question_index,
-            session_store=session_store,
-            question_set_store=question_set_store,
-            connection_manager=connection_manager,
-        )
+    await connection_manager.send_to_player(
+        session_id,
+        participant_id,
+        {
+            "type": "result",
+            "index": question_index,
+            "correct_index": question["correct_index"],
+            "explanation": question["explanation"],
+            "is_correct": is_correct,
+        },
+    )
 
     return answer
 
 
-async def advance_question(
-    session_id: int, *, expected_index: int | None = None,
-    session_store, question_set_store, connection_manager,
-) -> dict | None:
-    """Cari sualı bağlayıb növbətiyə keçir (və ya sessiyanı bitirir).
-
-    `expected_index` verilibsə, sessiya HƏLƏ DƏ həmin indeksdə olmalıdır
-    — əks halda (başqa çağırış artıq irəli aparıbsa) sakitcə no-op edilir
-    (mövcud `quiz_runner.advance_question`-un eyni idempotentlik naxışı,
-    `check_timeout`-un gecikmiş atəşinin erkən keçiddən sonra heç nə
-    etməməsi üçün)."""
+async def _finish_session_if_ready(
+    session_id: int, *, session_store, question_set_store, connection_manager
+) -> bool:
+    """BÜTÜN iştirakçılar fərdi bitiribsə (bütün suallarını cavablayıb),
+    YA DA sessiyanın ümumi vaxtı artıq bitibsə, sessiyanı ZORLA/tam bitirir
+    (hesabatı hesablayıb keşləyir, host+bütün oyunçulara YEKUN `finished`
+    (tam liderlik lövhəsi ilə) broadcast edir). Əks halda heç nə etmir."""
     session = session_store.get(session_id)
     if session is None or session["status"] != "active":
-        return None
-    if expected_index is not None and session["current_question_index"] != expected_index:
-        return None
+        return False
 
     questions = question_set_store.list_questions(session["question_set_id"])
-    index = session["current_question_index"]
-    question = questions[index]
-    answers = session_store.list_answers_for_question(session_id, index)
-
-    result_payload = {
-        "index": index,
-        "correct_index": question["correct_index"],
-        "explanation": question["explanation"],
-        "answered_count": len(answers),
-        "leaderboard": _leaderboard(session_id, session_store=session_store)[:5],
-    }
-    await connection_manager.broadcast_host(session_id, {"type": "result", **result_payload})
-    await connection_manager.broadcast_players(session_id, {"type": "result", **result_payload})
-
-    updated = session_store.advance(session_id)
-    if updated["current_question_index"] >= len(questions):
-        session_store.set_status(session_id, "finished")
-        report = compute_report(session_id, session_store=session_store, question_set_store=question_set_store)
-        session_store.save_report(session_id, json.dumps(report, ensure_ascii=False))
-        finish_payload = {
-            "total_questions": len(questions),
-            "leaderboard": _leaderboard(session_id, session_store=session_store),
-        }
-        await connection_manager.broadcast_host(session_id, {"type": "finished", **finish_payload})
-        await connection_manager.broadcast_players(session_id, {"type": "finished", **finish_payload})
-        return session_store.get(session_id)
-
-    await _broadcast_question(
-        session_id, updated["current_question_index"], questions, connection_manager=connection_manager
+    total = len(questions)
+    participants = session_store.list_participants(session_id)
+    all_done = bool(participants) and all(
+        session_store.count_answers_by_participant(session_id, p["id"]) >= total for p in participants
     )
-    return updated
+    if not (all_done or _time_expired(session)):
+        return False
+
+    session_store.set_status(session_id, "finished")
+    report = compute_report(session_id, session_store=session_store, question_set_store=question_set_store)
+    session_store.save_report(session_id, json.dumps(report, ensure_ascii=False))
+    finish_payload = {
+        "total_questions": total,
+        "leaderboard": _leaderboard(session_id, session_store=session_store),
+    }
+    await connection_manager.broadcast_host(session_id, {"type": "finished", **finish_payload})
+    await connection_manager.broadcast_players(session_id, {"type": "finished", **finish_payload})
+    return True
 
 
-async def check_timeout(
-    session_id: int, expected_index: int, *, session_store, question_set_store,
-    connection_manager, timeout_seconds: float = DEFAULT_QUESTION_TIMEOUT_SECONDS,
-) -> dict | None:
-    """Sual göndəriləndə fon tapşırığı kimi planlaşdırılır. `timeout_seconds`
-    sonra `advance_question`-u `expected_index` ilə çağırır — müəllim
-    "Növbəti sual" ilə artıq irəli aparıbsa, `advance_question`-un öz
-    yoxlaması sakitcə no-op edir."""
-    await asyncio.sleep(timeout_seconds)
-    return await advance_question(
-        session_id,
-        expected_index=expected_index,
-        session_store=session_store,
-        question_set_store=question_set_store,
+async def request_next(
+    session_id: int, participant_id: int, *, session_store, question_set_store, connection_manager
+) -> None:
+    """Tələbənin "Növbəti sual" düyməsi bunu çağırır. Bu iştirakçı üçün
+    suallar bitibsə (və ya ümumi vaxt artıq bitibsə) ona DƏRHAL öz şəxsi
+    nəticəsini göndərir (`personal_finished`) və sessiyanın TAM bitib-
+    bitmədiyini yoxlayır (bax `_finish_session_if_ready`) — yekun tam
+    liderlik lövhəsi YALNIZ sessiya həqiqətən bitəndə gəlir. Əks halda bu
+    iştirakçıya öz növbəti sualını göndərir."""
+    session = session_store.get(session_id)
+    if session is None or session["status"] != "active":
+        raise LiveSessionError(f"session_id={session_id} üçün aktiv sessiya yoxdur")
+
+    questions = question_set_store.list_questions(session["question_set_id"])
+    total = len(questions)
+    index = session_store.count_answers_by_participant(session_id, participant_id)
+
+    if _time_expired(session) or index >= total:
+        answers = session_store.list_answers_for_participant(session_id, participant_id)
+        correct_count = sum(1 for a in answers if a["is_correct"])
+        await connection_manager.send_to_player(
+            session_id,
+            participant_id,
+            {
+                "type": "personal_finished",
+                "correct_count": correct_count,
+                "answered_count": len(answers),
+                "total_questions": total,
+            },
+        )
+        await _finish_session_if_ready(
+            session_id, session_store=session_store, question_set_store=question_set_store,
+            connection_manager=connection_manager,
+        )
+        return
+
+    payload = _question_payload(index, total, questions[index])
+    await connection_manager.send_to_player(
+        session_id, participant_id,
+        {"type": "question", **payload, "remaining_seconds": _remaining_seconds(session)},
+    )
+
+
+async def force_finish_if_expired(
+    session_id: int, *, session_store, question_set_store, connection_manager
+) -> bool:
+    """Sessiya başlayanda BİR DƏFƏLİK fon tapşırığı kimi planlaşdırılır
+    (`duration_seconds` sonra) — o anda sessiya hələ 'active'dirsə, kim
+    harada qalıbsa sessiyanı ORADA zorla bitirir (bax `_finish_session_if_ready`,
+    eyni yoxlama vaxt bitdiyi üçün onsuz da müsbət nəticələnir)."""
+    return await _finish_session_if_ready(
+        session_id, session_store=session_store, question_set_store=question_set_store,
+        connection_manager=connection_manager,
+    )
+
+
+async def watch_session_duration(
+    session_id: int, duration_seconds: float, *, session_store, question_set_store, connection_manager
+) -> bool:
+    await asyncio.sleep(duration_seconds)
+    return await force_finish_if_expired(
+        session_id, session_store=session_store, question_set_store=question_set_store,
         connection_manager=connection_manager,
     )

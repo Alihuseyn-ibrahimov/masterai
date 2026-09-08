@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 
 import '../../data/live_play_socket.dart';
 
-/// Server-tərəfli timeout-un (bax `server/live_session_runner.py`,
-/// `DEFAULT_QUESTION_TIMEOUT_SECONDS`) YALNIZ vizual təxmini əksidir —
-/// geri sayım zolağı sırf UI bəzəyidir, real vaxt aşımını SERVER
-/// idarə edir (bu ekran heç nə "gec" göndərmir, sadəcə düymələri
-/// bağlayır).
-const _kQuestionTimeoutSeconds = 20;
-
-/// Tələbənin canlı sessiya ekranı — gözləmə/sual/nəticə/bitmə
+/// Tələbənin canlı sessiya ekranı — gözləmə/sual/nəticə/fərdi-bitmə/bitmə
 /// vəziyyətlərinin HAMISINI `JoinPinScreen`-də artıq qoşulmuş TƏK WS
 /// bağlantısı üzərində idarə edir (bax `HostSessionScreen`-in eyni
 /// naxışı).
+///
+/// **Fərdi tempo modeli** (bax `.planning/2026-09-08-masterai-live-session-
+/// pacing/`): sual-üzrə vaxt sayğacı VƏ cavabdan sonrakı avtomatik keçid
+/// TAM LƏĞV OLUNUB — tələbə nəticəni gördükdən sonra öz sürəti ilə
+/// "Növbəti sual" düyməsinə basaraq irəliləyir. Yalnız BİR ÜMUMİ
+/// (sessiya-səviyyəli) qalan vaxt göstərilir, server hər sual göndərəndə
+/// bunu təzələyir (`remaining_seconds`).
 class StudentSessionScreen extends StatefulWidget {
   const StudentSessionScreen({
     super.key,
@@ -32,28 +32,17 @@ class StudentSessionScreen extends StatefulWidget {
 }
 
 class _StudentSessionScreenState extends State<StudentSessionScreen> {
-  String _phase = 'waiting'; // waiting | question | result | finished
+  String _phase = 'waiting'; // waiting | question | result | personal_finished | finished
   Map<String, dynamic>? _question;
   int? _selectedIndex;
   bool _answered = false;
   Timer? _countdownTimer;
-  int _remainingSeconds = _kQuestionTimeoutSeconds;
+  int _remainingSeconds = 0;
   Map<String, dynamic>? _result;
+  Map<String, dynamic>? _personalFinished;
   Map<String, dynamic>? _finished;
   bool _disconnected = false;
   String? _liveError;
-
-  /// Bütün iştirakçılar cavab verən kimi server dərhal (heç bir
-  /// gecikmə olmadan) "result"-dan sonra "question"/"finished"
-  /// göndərir (bax `server/live_session_runner.py`, `record_answer`) —
-  /// TƏK iştirakçılı sessiyada bu, nəticə ekranının insan gözü ilə
-  /// görünməyəcək qədər qısa çıxmasına səbəb olurdu (real testdə
-  /// tapıldı). Bu minimum-göstərmə vaxtı YALNIZ CLIENT-tərəfli vizual
-  /// düzəlişdir — server-in real vaxt idarəetməsinə TOXUNMUR, sadəcə
-  /// "result" fazasından sonra gələn növbəti hadisəni bir qədər saxlayır.
-  static const _kMinResultDisplay = Duration(seconds: 2);
-  Timer? _resultHoldTimer;
-  Map<String, dynamic>? _pendingEvent;
 
   @override
   void initState() {
@@ -72,14 +61,13 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    _resultHoldTimer?.cancel();
     widget.socket.dispose();
     super.dispose();
   }
 
-  void _startCountdown() {
+  void _startCountdown(int remainingSeconds) {
     _countdownTimer?.cancel();
-    setState(() => _remainingSeconds = _kQuestionTimeoutSeconds);
+    setState(() => _remainingSeconds = remainingSeconds);
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds <= 0) {
         timer.cancel();
@@ -90,18 +78,9 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
   }
 
   void _handleEvent(Map<String, dynamic> event) {
-    if (event['type'] != 'result' && _resultHoldTimer != null) {
-      // Nəticə hələ minimum müddətini "yaşayır" — bu hadisəni saxla,
-      // taymer bitəndə tətbiq olunacaq (bax `_kMinResultDisplay`).
-      _pendingEvent = event;
-      return;
-    }
-    _applyEvent(event);
-  }
-
-  void _applyEvent(Map<String, dynamic> event) {
     switch (event['type']) {
       case 'question':
+        _countdownTimer?.cancel();
         setState(() {
           _phase = 'question';
           _question = event;
@@ -109,7 +88,7 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
           _answered = false;
           _liveError = null;
         });
-        _startCountdown();
+        _startCountdown((event['remaining_seconds'] as num).round());
         break;
       case 'result':
         _countdownTimer?.cancel();
@@ -117,11 +96,12 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
           _phase = 'result';
           _result = event;
         });
-        _resultHoldTimer = Timer(_kMinResultDisplay, () {
-          _resultHoldTimer = null;
-          final pending = _pendingEvent;
-          _pendingEvent = null;
-          if (pending != null) _applyEvent(pending);
+        break;
+      case 'personal_finished':
+        _countdownTimer?.cancel();
+        setState(() {
+          _phase = 'personal_finished';
+          _personalFinished = event;
         });
         break;
       case 'finished':
@@ -141,6 +121,10 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
       _answered = true;
     });
     widget.socket.sendAnswer(questionIndex: _question!['index'] as int, chosenIndex: index);
+  }
+
+  void _requestNext() {
+    widget.socket.sendNext();
   }
 
   /// Naviqasiya yığınının İLK ekranına qayıdır — bu, giriş ekranından
@@ -185,13 +169,21 @@ class _StudentSessionScreenState extends State<StudentSessionScreen> {
               answered: _answered,
               onSelect: _selectAnswer,
             ),
-          'result' => _ResultView(result: _result!, selectedIndex: _selectedIndex, participantId: widget.participantId),
+          'result' => _ResultView(result: _result!, onNext: _requestNext),
+          'personal_finished' => _PersonalFinishedView(personalFinished: _personalFinished!),
           'finished' => _FinishedView(finished: _finished!, participantId: widget.participantId, onLeave: _leave),
           _ => const SizedBox.shrink(),
         },
       ],
     );
   }
+}
+
+String _formatTime(int seconds) {
+  final safeSeconds = seconds < 0 ? 0 : seconds;
+  final m = safeSeconds ~/ 60;
+  final s = safeSeconds % 60;
+  return '$m:${s.toString().padLeft(2, '0')}';
 }
 
 class _WaitingView extends StatelessWidget {
@@ -235,13 +227,16 @@ class _QuestionView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Sual ${(question['index'] as int) + 1}/${question['total']}',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Sual ${(question['index'] as int) + 1}/${question['total']}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text('⏱ ${_formatTime(remainingSeconds)}', style: Theme.of(context).textTheme.titleMedium),
+          ],
         ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(value: remainingSeconds / _kQuestionTimeoutSeconds),
         const SizedBox(height: 16),
         Text(
           question['question'] as String,
@@ -276,23 +271,17 @@ class _QuestionView extends StatelessWidget {
 }
 
 class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result, required this.selectedIndex, required this.participantId});
+  const _ResultView({required this.result, required this.onNext});
 
   final Map<String, dynamic> result;
-  final int? selectedIndex;
-  final int participantId;
+  final VoidCallback onNext;
 
   static const _letters = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   Widget build(BuildContext context) {
     final correctIndex = result['correct_index'] as int;
-    final wasCorrect = selectedIndex == correctIndex;
-    final leaderboard = (result['leaderboard'] as List).cast<Map<String, dynamic>>();
-    final ownRow = leaderboard.cast<Map<String, dynamic>?>().firstWhere(
-          (row) => row!['participant_id'] == participantId,
-          orElse: () => null,
-        );
+    final isCorrect = result['is_correct'] as bool;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -302,9 +291,9 @@ class _ResultView extends StatelessWidget {
           curve: Curves.elasticOut,
           builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
           child: Text(
-            selectedIndex == null ? 'Cavab vermədiniz' : (wasCorrect ? 'Düzgün! 🎉' : 'Səhv'),
+            isCorrect ? 'Düzgün! 🎉' : 'Səhv',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: selectedIndex == null ? null : (wasCorrect ? Colors.green : Colors.red),
+                  color: isCorrect ? Colors.green : Colors.red,
                 ),
           ),
         ),
@@ -313,10 +302,41 @@ class _ResultView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(result['explanation'] as String, textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        if (ownRow != null)
-          Text('Sizin sıranız: ${leaderboard.indexOf(ownRow) + 1} — ${ownRow['score']} xal')
-        else
-          const Text('Cavabınız qeydə alındı (liderlik lövhəsinin ilk 5-i arasında deyilsiniz).'),
+        FilledButton(
+          onPressed: onNext,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            child: Text('Növbəti sual', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PersonalFinishedView extends StatelessWidget {
+  const _PersonalFinishedView({required this.personalFinished});
+
+  final Map<String, dynamic> personalFinished;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Bitirdiniz! ${personalFinished['correct_count']}/${personalFinished['total_questions']} düzgün',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 24),
+        const CircularProgressIndicator(),
+        const SizedBox(height: 16),
+        Text(
+          'Digər iştirakçılar hələ davam edir, gözləyin…',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       ],
     );
   }

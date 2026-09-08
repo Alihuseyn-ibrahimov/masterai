@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../config.dart';
@@ -6,19 +8,15 @@ import '../../models/live_session.dart';
 import '../../models/question_set.dart';
 import 'host_report_screen.dart';
 
-/// Host konsolunun canlı ekranı — gözləmə otağı, sual göstərimi, nəticə
-/// və bitmə vəziyyətlərinin HAMISINI bir WS bağlantısı üzərində idarə
-/// edir (bax dizayn sənədi, Ekran 2-4).
+/// Host konsolunun canlı ekranı — gözləmə otağı, fərdi templi irəliləmə
+/// izləməsi və bitmə vəziyyətinin HAMISINI bir WS bağlantısı üzərində
+/// idarə edir (bax dizayn sənədi, Ekran 2-4).
 ///
-/// **Bilinən Faza-1 sadələşdirməsi:** `result` hadisəsi (düzgün cavab
-/// açıqlanması) və növbəti sualın broadcast-ı backend-də EYNİ
-/// `advance_question` çağırışında ardıcıl baş verir (bax
-/// `server/live_session_runner.py`, mövcud `quiz_runner.py` naxışının
-/// təkrarı) — müəllim nəticə ekranında "dayanıb müzakirə etmək" üçün
-/// ayrıca vaxt qazana bilmir, `result` demək olar ki dərhal növbəti
-/// `question`/`finished` ilə əvəzlənir. Bu, Faza-2+ üçün mümkün
-/// təkmilləşdirmədir (ayrıca "aç"/"davam et" addımları), hazırkı MVP-nin
-/// əhatəsində deyil.
+/// **Fərdi tempo modeli** (bax `.planning/2026-09-08-masterai-live-session-
+/// pacing/`): müəllim sessiyanı başladanda ÜMUMİ bir vaxt büdcəsi təyin
+/// edir, hər tələbə öz sürəti ilə öz "Növbəti sual" düyməsi ilə irəliləyir
+/// — host artıq paylaşılan bir "cari sual" görmür, yalnız hər kəsin FƏRDİ
+/// tərəqqisini (neçə sual bitirib) və ÜMUMİ qalan vaxtı canlı izləyir.
 class HostSessionScreen extends StatefulWidget {
   const HostSessionScreen({
     super.key,
@@ -38,12 +36,13 @@ class HostSessionScreen extends StatefulWidget {
 class _HostSessionScreenState extends State<HostSessionScreen> {
   late final LiveHostSocket _socket;
 
-  String _phase = 'waiting'; // waiting | question | result | finished
-  final List<String> _participants = [];
-  Map<String, dynamic>? _question;
-  int _answeredCount = 0;
-  int _totalParticipants = 0;
-  Map<String, dynamic>? _result;
+  String _phase = 'waiting'; // waiting | active | finished
+  final Map<int, String> _participantNames = {};
+  final Map<int, int> _participantProgress = {};
+  int _durationSeconds = 0;
+  int _totalQuestions = 0;
+  int _remainingSeconds = 0;
+  Timer? _tickTimer;
   Map<String, dynamic>? _finished;
   bool _disconnected = false;
 
@@ -65,6 +64,7 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
 
   @override
   void dispose() {
+    _tickTimer?.cancel();
     _socket.dispose();
     super.dispose();
   }
@@ -73,40 +73,49 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
     switch (event['type']) {
       case 'state':
         final rows = (event['participants'] as List).cast<Map<String, dynamic>>();
-        setState(() => _participants
-          ..clear()
-          ..addAll(rows.map((p) => p['display_name'] as String)));
+        setState(() {
+          _participantNames.clear();
+          for (final p in rows) {
+            _participantNames[p['id'] as int] = p['display_name'] as String;
+          }
+        });
         break;
       case 'participant_joined':
-        setState(() => _participants.add(event['display_name'] as String));
+        setState(() => _participantNames[event['participant_id'] as int] = event['display_name'] as String);
         break;
-      case 'question':
+      case 'started':
         setState(() {
-          _phase = 'question';
-          _question = event;
-          _answeredCount = 0;
-          _totalParticipants = _participants.length;
+          _phase = 'active';
+          _durationSeconds = event['duration_seconds'] as int;
+          _totalQuestions = event['total_questions'] as int;
+          _remainingSeconds = _durationSeconds;
         });
+        _startTicking();
         break;
-      case 'answer_progress':
+      case 'participant_progress':
         setState(() {
-          _answeredCount = event['answered_count'] as int;
-          _totalParticipants = event['total_participants'] as int;
-        });
-        break;
-      case 'result':
-        setState(() {
-          _phase = 'result';
-          _result = event;
+          _participantProgress[event['participant_id'] as int] = event['answered_count'] as int;
         });
         break;
       case 'finished':
+        _tickTimer?.cancel();
         setState(() {
           _phase = 'finished';
           _finished = event;
         });
         break;
     }
+  }
+
+  void _startTicking() {
+    _tickTimer?.cancel();
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 0) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _remainingSeconds -= 1);
+    });
   }
 
   @override
@@ -130,18 +139,16 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
       case 'waiting':
         return _WaitingView(
           pin: widget.session.pin,
-          participants: _participants,
-          onStart: _socket.sendStart,
+          participants: _participantNames.values.toList(),
+          onStart: (durationSeconds) => _socket.sendStart(durationSeconds: durationSeconds),
         );
-      case 'question':
-        return _QuestionView(
-          question: _question!,
-          answeredCount: _answeredCount,
-          totalParticipants: _totalParticipants,
-          onNext: _socket.sendNext,
+      case 'active':
+        return _ActiveView(
+          remainingSeconds: _remainingSeconds,
+          totalQuestions: _totalQuestions,
+          participantNames: _participantNames,
+          participantProgress: _participantProgress,
         );
-      case 'result':
-        return _ResultView(result: _result!);
       case 'finished':
         return _FinishedView(
           finished: _finished!,
@@ -155,12 +162,20 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
   }
 }
 
-class _WaitingView extends StatelessWidget {
+class _WaitingView extends StatefulWidget {
   const _WaitingView({required this.pin, required this.participants, required this.onStart});
 
   final String pin;
   final List<String> participants;
-  final VoidCallback onStart;
+  final ValueChanged<int> onStart;
+
+  @override
+  State<_WaitingView> createState() => _WaitingViewState();
+}
+
+class _WaitingViewState extends State<_WaitingView> {
+  static const _durationOptions = [1, 3, 5, 10];
+  int _selectedMinutes = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -170,27 +185,40 @@ class _WaitingView extends StatelessWidget {
         Text('Sinif bu kodu daxil etsin', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         Text(
-          pin,
+          widget.pin,
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 letterSpacing: 8,
               ),
         ),
         const SizedBox(height: 24),
-        Text('Qoşulanlar: ${participants.length}', style: Theme.of(context).textTheme.titleMedium),
+        Text('Qoşulanlar: ${widget.participants.length}', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         SizedBox(
-          height: 160,
-          child: participants.isEmpty
+          height: 120,
+          child: widget.participants.isEmpty
               ? const Center(child: Text('Hələ heç kim qoşulmayıb…'))
               : ListView(
                   shrinkWrap: true,
-                  children: participants.map((name) => Chip(label: Text(name))).toList(),
+                  children: widget.participants.map((name) => Chip(label: Text(name))).toList(),
                 ),
         ),
         const SizedBox(height: 24),
+        Text('Ümumi vaxt limiti', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: _durationOptions
+              .map((minutes) => ChoiceChip(
+                    label: Text('$minutes dəqiqə'),
+                    selected: _selectedMinutes == minutes,
+                    onSelected: (_) => setState(() => _selectedMinutes = minutes),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 24),
         FilledButton(
-          onPressed: participants.isEmpty ? null : onStart,
+          onPressed: widget.participants.isEmpty ? null : () => widget.onStart(_selectedMinutes * 60),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             child: Text('Başla', style: TextStyle(fontSize: 18)),
@@ -201,75 +229,52 @@ class _WaitingView extends StatelessWidget {
   }
 }
 
-class _QuestionView extends StatelessWidget {
-  const _QuestionView({
-    required this.question,
-    required this.answeredCount,
-    required this.totalParticipants,
-    required this.onNext,
+class _ActiveView extends StatelessWidget {
+  const _ActiveView({
+    required this.remainingSeconds,
+    required this.totalQuestions,
+    required this.participantNames,
+    required this.participantProgress,
   });
 
-  final Map<String, dynamic> question;
-  final int answeredCount;
-  final int totalParticipants;
-  final VoidCallback onNext;
+  final int remainingSeconds;
+  final int totalQuestions;
+  final Map<int, String> participantNames;
+  final Map<int, int> participantProgress;
 
-  static const _letters = ['A', 'B', 'C', 'D', 'E'];
-
-  @override
-  Widget build(BuildContext context) {
-    final options = (question['options'] as List).cast<String>();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Sual ${(question['index'] as int) + 1}/${question['total']}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          question['question'] as String,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 24),
-        ...List.generate(
-          options.length,
-          (i) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text('${_letters[i]}) ${options[i]}', style: Theme.of(context).textTheme.bodyLarge),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text('Cavab verənlər: $answeredCount/$totalParticipants'),
-        const SizedBox(height: 16),
-        FilledButton(onPressed: onNext, child: const Text('Növbəti sual')),
-      ],
-    );
+  String _formatTime(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
-}
-
-class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result});
-
-  final Map<String, dynamic> result;
-
-  static const _letters = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   Widget build(BuildContext context) {
-    final correctIndex = result['correct_index'] as int;
-    final leaderboard = (result['leaderboard'] as List).cast<Map<String, dynamic>>();
+    final entries = participantNames.entries.toList()
+      ..sort((a, b) => (participantProgress[b.key] ?? 0).compareTo(participantProgress[a.key] ?? 0));
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Düzgün cavab: ${_letters[correctIndex]}', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        Text(result['explanation'] as String, textAlign: TextAlign.center),
+        Text('Qalan vaxt', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          _formatTime(remainingSeconds),
+          style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 24),
-        Text('Liderlik lövhəsi', style: Theme.of(context).textTheme.titleMedium),
-        ...leaderboard.map(
-          (row) => Text('${row['display_name']} — ${row['score']}'),
+        Text('Hər kəs öz sürəti ilə davam edir', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 240,
+          child: ListView(
+            shrinkWrap: true,
+            children: entries
+                .map((e) => ListTile(
+                      title: Text(e.value),
+                      trailing: Text('${participantProgress[e.key] ?? 0}/$totalQuestions'),
+                    ))
+                .toList(),
+          ),
         ),
       ],
     );

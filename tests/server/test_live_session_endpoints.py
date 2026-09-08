@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from pipeline.models import MCQQuestion
 from server.app import app, get_live_session_store, get_question_set_store, get_token_secret, get_user_store
 from server.auth import create_token
-from server.live_session_runner import join_session, record_answer, start_session
+from server.live_session_runner import join_session, record_answer, request_next, start_session
 from server.live_session_store import LiveSessionStore
 from server.question_set_store import QuestionSetStore
 from server.user_store import UserStore
@@ -75,6 +75,9 @@ class _NoopConnectionManager:
     async def broadcast_players(self, session_id, message):
         pass
 
+    async def send_to_player(self, session_id, participant_id, message):
+        pass
+
 
 class TestGetReport:
     def test_requires_auth(self, env):
@@ -114,6 +117,12 @@ class TestGetReport:
         await start_session(session["id"], session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager)
         await record_answer(
             session["id"], participant["id"], 0, chosen_index=0,
+            session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager,
+        )
+        # tək sual, tək iştirakçı — öz "Növbəti"si sessiyanı fərdi tempo
+        # modelində bitirir (bax `request_next`, avtomatik irəliləmə YOXDUR)
+        await request_next(
+            session["id"], participant["id"],
             session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager,
         )
 

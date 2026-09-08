@@ -4,10 +4,14 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// `WS /ws/live/{pin}/host` sarğısı. `ChatSocket`-dən fərqli olaraq
-/// hadisə növləri az və sadədir (`state`/`participant_joined`/`question`/
-/// `answer_progress`/`result`/`finished`) — sealed model əvəzinə xam
+/// hadisə növləri az və sadədir (`state`/`participant_joined`/`started`/
+/// `participant_progress`/`finished`) — sealed model əvəzinə xam
 /// `Map<String, dynamic>` axını kifayətdir, UI `event['type']`-ə görə
-/// seçim edir.
+/// seçim edir. Fərdi templi modeldə (bax `.planning/2026-09-08-masterai-
+/// live-session-pacing/`) host artıq paylaşılan `question`/`result`
+/// hadisələrini ALMIR — hər tələbə öz sualını/nəticəsini birbaşa özü
+/// görür, host yalnız hər kəsin FƏRDİ tərəqqisini (`participant_progress`)
+/// izləyir.
 ///
 /// Eyni bilinən risk `ChatSocket`-də olduğu kimi keçərlidir: token query
 /// param-dadır (bax `masterai/CLAUDE.md`, "Bilinən risklər").
@@ -51,12 +55,12 @@ class LiveHostSocket {
     _eventsController.add(event);
   }
 
-  void sendStart() {
-    _channel?.sink.add(jsonEncode({'action': 'start'}));
-  }
-
-  void sendNext() {
-    _channel?.sink.add(jsonEncode({'action': 'next'}));
+  /// `durationSeconds` — sessiyanın ÜMUMİ vaxt büdcəsi (bax dizayn qərarı,
+  /// `.planning/2026-09-08-masterai-live-session-pacing/`). Müəllimin
+  /// mənual "Növbəti sual" ("next" action) artıq YOXDUR — hər tələbə öz
+  /// sürəti ilə özü irəliləyir.
+  void sendStart({required int durationSeconds}) {
+    _channel?.sink.add(jsonEncode({'action': 'start', 'duration_seconds': durationSeconds}));
   }
 
   Future<void> dispose() async {

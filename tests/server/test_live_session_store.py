@@ -179,6 +179,39 @@ def test_compute_scores_includes_zero_score_participants(store):
     assert scores == {p1["id"]: 2, p2["id"]: 0}
 
 
+def test_start_sets_active_status_duration_and_started_at(store):
+    session = store.create_session(question_set_id=1)
+    updated = store.start(session["id"], 180)
+
+    assert updated["status"] == "active"
+    assert updated["duration_seconds"] == 180
+    assert updated["started_at"] is not None
+    assert store.get(session["id"]) == updated
+
+
+def test_count_answers_by_participant(store):
+    session = store.create_session(question_set_id=1)
+    p1 = store.add_participant(session["id"], "Əli")
+    p2 = store.add_participant(session["id"], "Vəli")
+    store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
+    store.record_answer(session["id"], p1["id"], 1, chosen_index=1, is_correct=False)
+    store.record_answer(session["id"], p2["id"], 0, chosen_index=2, is_correct=False)
+
+    assert store.count_answers_by_participant(session["id"], p1["id"]) == 2
+    assert store.count_answers_by_participant(session["id"], p2["id"]) == 1
+
+
+def test_list_answers_for_participant_ordered_by_question_index(store):
+    session = store.create_session(question_set_id=1)
+    participant = store.add_participant(session["id"], "Əli")
+    store.record_answer(session["id"], participant["id"], 1, chosen_index=1, is_correct=False)
+    store.record_answer(session["id"], participant["id"], 0, chosen_index=0, is_correct=True)
+
+    answers = store.list_answers_for_participant(session["id"], participant["id"])
+    assert [a["question_index"] for a in answers] == [0, 1]
+    assert answers[0]["is_correct"] is True
+
+
 def test_compute_scores_does_not_leak_across_sessions(store):
     s1 = store.create_session(question_set_id=1)
     s2 = store.create_session(question_set_id=2)

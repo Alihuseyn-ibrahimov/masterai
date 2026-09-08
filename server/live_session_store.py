@@ -43,6 +43,13 @@ class LiveSessionStore:
                     created_at              TEXT NOT NULL
                 );
 
+                -- `duration_seconds`/`started_at`: fərdi templi canlı sessiya
+                -- (bax `.planning/2026-09-08-masterai-live-session-pacing/`)
+                -- — sual-üzrə paylaşılan `current_question_index` artıq
+                -- irəliləmə üçün istifadə OLUNMUR (hər iştirakçının öz
+                -- indeksi cavab sayından törəyir), yalnız BİR ÜMUMİ
+                -- sessiya-səviyyəli vaxt limiti üçün bu iki sütun əlavə edilib.
+
                 CREATE TABLE IF NOT EXISTS live_participants (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id   INTEGER NOT NULL,
@@ -67,6 +74,18 @@ class LiveSessionStore:
                 )
             except sqlite3.OperationalError:
                 pass  # sütun artıq var (mövcud DB) — bax `user_store.py`-nin eyni naxışı
+            try:
+                self._conn.execute(
+                    "ALTER TABLE live_sessions ADD COLUMN duration_seconds INTEGER"
+                )
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._conn.execute(
+                    "ALTER TABLE live_sessions ADD COLUMN started_at TEXT"
+                )
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
 
     # ---- sessiyalar ------------------------------------------------
@@ -99,7 +118,8 @@ class LiveSessionStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, question_set_id, pin, status, current_question_index, "
-                "report_json, created_at FROM live_sessions WHERE id = ?",
+                "report_json, created_at, duration_seconds, started_at "
+                "FROM live_sessions WHERE id = ?",
                 (session_id,),
             )
             row = cur.fetchone()
@@ -111,12 +131,25 @@ class LiveSessionStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, question_set_id, pin, status, current_question_index, "
-                "report_json, created_at FROM live_sessions "
+                "report_json, created_at, duration_seconds, started_at FROM live_sessions "
                 "WHERE pin = ? AND status != 'finished' ORDER BY id DESC LIMIT 1",
                 (pin,),
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+    def start(self, session_id: int, duration_seconds: int) -> dict:
+        """Sessiyanı 'active' edir, ümumi vaxt büdcəsini (saniyə) və
+        başlama anını qeyd edir — bax `.planning/2026-09-08-masterai-live-
+        session-pacing/`, fərdi templi model bunun üzərində qurulur."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE live_sessions SET status = 'active', duration_seconds = ?, "
+                "started_at = ? WHERE id = ?",
+                (duration_seconds, _utc_now_iso(), session_id),
+            )
+            self._conn.commit()
+            return self.get(session_id)
 
     def set_status(self, session_id: int, status: str) -> None:
         with self._lock:
@@ -223,6 +256,30 @@ class LiveSessionStore:
             data = dict(row)
             data["is_correct"] = bool(data["is_correct"])
             return data
+
+    def count_answers_by_participant(self, session_id: int, participant_id: int) -> int:
+        """Bu iştirakçının artıq verdiyi cavabların sayı — fərdi templi
+        modeldə bu, onun CARİ sual indeksinə bərabərdir (cavabsız irəliləmə
+        mümkün olmadığı üçün ayrıca "current_index" sütunu lazım deyil)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT COUNT(*) FROM live_answers WHERE session_id = ? AND participant_id = ?",
+                (session_id, participant_id),
+            )
+            return cur.fetchone()[0]
+
+    def list_answers_for_participant(self, session_id: int, participant_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, session_id, participant_id, question_index, chosen_index, "
+                "is_correct, answered_at FROM live_answers "
+                "WHERE session_id = ? AND participant_id = ? ORDER BY question_index",
+                (session_id, participant_id),
+            )
+            rows = [dict(row) for row in cur.fetchall()]
+            for row in rows:
+                row["is_correct"] = bool(row["is_correct"])
+            return rows
 
     def list_answers_for_question(self, session_id: int, question_index: int) -> list[dict]:
         with self._lock:

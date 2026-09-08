@@ -28,17 +28,18 @@ from .homework_store import AttemptAlreadyCompleted, HomeworkStore
 from .homework_store import NotCurrentQuestion as HomeworkNotCurrentQuestion
 from .live_connection_manager import LiveConnectionManager
 from .live_session_runner import AlreadyAnswered as LiveAlreadyAnswered
-from .live_session_runner import DEFAULT_QUESTION_TIMEOUT_SECONDS as LIVE_QUESTION_TIMEOUT_SECONDS
+from .live_session_runner import DEFAULT_SESSION_DURATION_SECONDS
 from .live_session_runner import LiveSessionError
 from .live_session_runner import NotCurrentQuestion as LiveNotCurrentQuestion
 from .live_session_runner import SessionNotFound as LiveSessionNotFound
 from .live_session_runner import SessionNotJoinable as LiveSessionNotJoinable
-from .live_session_runner import advance_question as advance_live_question
-from .live_session_runner import check_timeout as check_live_timeout
+from .live_session_runner import SessionTimeExpired as LiveSessionTimeExpired
 from .live_session_runner import compute_report as compute_live_report
 from .live_session_runner import join_session as join_live_session
 from .live_session_runner import record_answer as record_live_answer
+from .live_session_runner import request_next as request_next_live_question
 from .live_session_runner import start_session as start_live_session
+from .live_session_runner import watch_session_duration as watch_live_session_duration
 from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
@@ -1066,8 +1067,8 @@ def get_live_session_report(
     if session["report_json"]:
         report = json.loads(session["report_json"])
     else:
-        # Ehtiyat yolu — normalda `advance_question` sessiya bitəndə
-        # hesabatı artıq hesablayıb keşləyib (bax live_session_runner.py).
+        # Ehtiyat yolu — normalda `_finish_session_if_ready` sessiya
+        # bitəndə hesabatı artıq hesablayıb keşləyib (bax live_session_runner.py).
         report = compute_live_report(
             session_id, session_store=live_sessions, question_set_store=question_sets
         )
@@ -1456,23 +1457,24 @@ def answer_homework_question(
     )
 
 
-def _schedule_live_timeout(
+def _schedule_live_duration_watch(
     session_id: int,
-    expected_index: int,
+    duration_seconds: float,
     *,
     session_store: LiveSessionStore,
     question_set_store: QuestionSetStore,
     connection_manager: LiveConnectionManager,
 ) -> None:
-    """Bax `_schedule_timeout` — eyni naxış, canlı sessiya üçün."""
+    """Sessiya başlayanda BİR DƏFƏLİK planlaşdırılır — ümumi vaxt büdcəsi
+    bitəndə sessiyanı zorla bitirir (bax `live_session_runner.
+    watch_session_duration`, fərdi templi modeldə sual-üzrə timeout YOXDUR)."""
     task = asyncio.create_task(
-        check_live_timeout(
+        watch_live_session_duration(
             session_id,
-            expected_index,
+            duration_seconds,
             session_store=session_store,
             question_set_store=question_set_store,
             connection_manager=connection_manager,
-            timeout_seconds=LIVE_QUESTION_TIMEOUT_SECONDS,
         )
     )
     app.state.active_live_timeouts[session_id] = task
@@ -1531,9 +1533,13 @@ async def live_host_websocket(
             action = data.get("action")
 
             if action == "start":
+                duration_seconds = data.get("duration_seconds")
+                if not isinstance(duration_seconds, int) or duration_seconds <= 0:
+                    duration_seconds = DEFAULT_SESSION_DURATION_SECONDS
                 try:
                     await start_live_session(
                         session["id"],
+                        duration_seconds,
                         session_store=live_sessions,
                         question_set_store=question_sets,
                         connection_manager=manager,
@@ -1541,31 +1547,11 @@ async def live_host_websocket(
                 except LiveSessionError as exc:
                     await websocket.send_json({"type": "error", "detail": str(exc)})
                     continue
-                _schedule_live_timeout(
-                    session["id"], 0,
+                _schedule_live_duration_watch(
+                    session["id"], duration_seconds,
                     session_store=live_sessions, question_set_store=question_sets,
                     connection_manager=manager,
                 )
-
-            elif action == "next":
-                before = live_sessions.get(session["id"])
-                updated = await advance_live_question(
-                    session["id"],
-                    session_store=live_sessions,
-                    question_set_store=question_sets,
-                    connection_manager=manager,
-                )
-                if (
-                    updated is not None
-                    and updated["status"] == "active"
-                    and before is not None
-                    and updated["current_question_index"] != before["current_question_index"]
-                ):
-                    _schedule_live_timeout(
-                        session["id"], updated["current_question_index"],
-                        session_store=live_sessions, question_set_store=question_sets,
-                        connection_manager=manager,
-                    )
 
             else:
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
@@ -1635,8 +1621,19 @@ async def live_play_websocket(
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
                 continue
 
-            if not isinstance(data, dict) or data.get("type") != "answer":
+            if not isinstance(data, dict) or data.get("type") not in ("answer", "next"):
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+                continue
+
+            if data.get("type") == "next":
+                try:
+                    await request_next_live_question(
+                        session["id"], participant["id"],
+                        session_store=live_sessions, question_set_store=question_sets,
+                        connection_manager=manager,
+                    )
+                except LiveSessionError as exc:
+                    await websocket.send_json({"type": "error", "detail": str(exc)})
                 continue
 
             question_index = data.get("question_index")
@@ -1651,7 +1648,7 @@ async def live_play_websocket(
                     session_store=live_sessions, question_set_store=question_sets,
                     connection_manager=manager,
                 )
-            except (LiveNotCurrentQuestion, LiveAlreadyAnswered, LiveSessionError) as exc:
+            except (LiveNotCurrentQuestion, LiveAlreadyAnswered, LiveSessionTimeExpired, LiveSessionError) as exc:
                 await websocket.send_json({"type": "error", "detail": str(exc)})
     except WebSocketDisconnect:
         pass

@@ -79,6 +79,13 @@ class LivePlaySocket {
     }));
   }
 
+  /// Fərdi templi model — tələbə öz "Növbəti sual" düyməsinə basanda
+  /// göndərilir (bax `server/live_session_runner.py`, `request_next`).
+  /// Avtomatik/vaxt-əsaslı keçid YOXDUR.
+  void sendNext() {
+    _channel?.sink.add(jsonEncode({'type': 'next'}));
+  }
+
   Future<void> dispose() async {
     await _subscription?.cancel();
     await _channel?.sink.close();

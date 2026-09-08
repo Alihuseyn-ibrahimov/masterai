@@ -3,15 +3,14 @@ import json
 import pytest
 
 from server.live_session_runner import (
-    AlreadyAnswered,
     LiveSessionError,
     NotCurrentQuestion,
     SessionNotFound,
-    SessionNotJoinable,
-    advance_question,
+    SessionTimeExpired,
     compute_report,
     join_session,
     record_answer,
+    request_next,
     start_session,
 )
 from server.live_session_store import LiveSessionStore
@@ -22,12 +21,16 @@ class FakeConnectionManager:
     def __init__(self):
         self.host_sent: list[tuple[int, dict]] = []
         self.player_sent: list[tuple[int, dict]] = []
+        self.direct_sent: list[tuple[int, int, dict]] = []
 
     async def broadcast_host(self, session_id: int, message: dict) -> None:
         self.host_sent.append((session_id, message))
 
     async def broadcast_players(self, session_id: int, message: dict) -> None:
         self.player_sent.append((session_id, message))
+
+    async def send_to_player(self, session_id: int, participant_id: int, message: dict) -> None:
+        self.direct_sent.append((session_id, participant_id, message))
 
 
 @pytest.fixture
@@ -72,6 +75,10 @@ def _kwargs(env, **overrides):
     return base
 
 
+def _direct_messages(env, participant_id):
+    return [m for _, pid, m in env["manager"].direct_sent if pid == participant_id]
+
+
 class TestJoinSession:
     @pytest.mark.asyncio
     async def test_join_creates_participant_and_notifies_host(self, env):
@@ -104,38 +111,43 @@ class TestJoinSession:
     @pytest.mark.asyncio
     async def test_raises_when_session_already_active(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        await start_session(session["id"], **_kwargs(env))
-        with pytest.raises(SessionNotJoinable):
+        await start_session(session["id"], 180, **_kwargs(env))
+        with pytest.raises(LiveSessionError):
             await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
 
 
 class TestStartSession:
     @pytest.mark.asyncio
-    async def test_broadcasts_first_question_to_host_and_players(self, env):
+    async def test_broadcasts_started_to_host_and_first_question_to_players(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        updated = await start_session(session["id"], **_kwargs(env))
+        updated = await start_session(session["id"], 180, **_kwargs(env))
 
         assert updated["status"] == "active"
+        assert updated["duration_seconds"] == 180
+        assert updated["started_at"] is not None
+
         assert len(env["manager"].host_sent) == 1
-        assert len(env["manager"].player_sent) == 1
         host_payload = env["manager"].host_sent[0][1]
+        assert host_payload == {"type": "started", "duration_seconds": 180, "total_questions": 2}
+
+        assert len(env["manager"].player_sent) == 1
         player_payload = env["manager"].player_sent[0][1]
-        assert host_payload["type"] == "question"
-        assert host_payload["question"] == "Sual 1?"
-        assert "correct_index" not in host_payload
-        assert player_payload == host_payload
+        assert player_payload["type"] == "question"
+        assert player_payload["question"] == "Sual 1?"
+        assert "correct_index" not in player_payload
+        assert player_payload["remaining_seconds"] == pytest.approx(180, abs=1)
 
     @pytest.mark.asyncio
     async def test_raises_for_unknown_session(self, env):
         with pytest.raises(SessionNotFound):
-            await start_session(999, **_kwargs(env))
+            await start_session(999, 180, **_kwargs(env))
 
     @pytest.mark.asyncio
     async def test_raises_when_already_started(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
         with pytest.raises(LiveSessionError):
-            await start_session(session["id"], **_kwargs(env))
+            await start_session(session["id"], 180, **_kwargs(env))
 
     @pytest.mark.asyncio
     async def test_raises_when_question_set_empty(self, env):
@@ -146,18 +158,42 @@ class TestStartSession:
         env["question_sets"].mark_ready(empty_qs["id"])
         session = env["sessions"].create_session(empty_qs["id"])
         with pytest.raises(LiveSessionError):
-            await start_session(session["id"], **_kwargs(env))
+            await start_session(session["id"], 180, **_kwargs(env))
 
 
 class TestRecordAnswer:
     @pytest.mark.asyncio
-    async def test_computes_correctness(self, env):
+    async def test_computes_correctness_and_sends_result_only_to_answerer(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
 
         answer = await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
         assert answer["is_correct"] is True
+
+        p1_messages = _direct_messages(env, p1["id"])
+        assert len(p1_messages) == 1
+        assert p1_messages[0]["type"] == "result"
+        assert p1_messages[0]["is_correct"] is True
+        assert p1_messages[0]["correct_index"] == 0
+        assert p1_messages[0]["explanation"] == "izah 1"
+
+        # p2 hələ cavablamayıb — heç bir "result" almamalıdır (broadcast YOXDUR)
+        assert _direct_messages(env, p2["id"]) == []
+        assert [m for _, m in env["manager"].player_sent if m["type"] == "result"] == []
+
+    @pytest.mark.asyncio
+    async def test_notifies_host_of_this_participants_progress(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+
+        progress = [m for _, m in env["manager"].host_sent if m["type"] == "participant_progress"]
+        assert progress == [
+            {"type": "participant_progress", "participant_id": p1["id"], "answered_count": 1, "total_questions": 2}
+        ]
 
     @pytest.mark.asyncio
     async def test_raises_for_no_active_session(self, env):
@@ -166,55 +202,95 @@ class TestRecordAnswer:
             await record_answer(session["id"], 1, 0, chosen_index=0, **_kwargs(env))
 
     @pytest.mark.asyncio
-    async def test_raises_for_stale_question_index(self, env):
+    async def test_raises_when_question_index_does_not_match_own_progress(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        await start_session(session["id"], **_kwargs(env))
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
         with pytest.raises(NotCurrentQuestion):
-            await record_answer(session["id"], 1, 1, chosen_index=0, **_kwargs(env))
+            await record_answer(session["id"], p1["id"], 1, chosen_index=0, **_kwargs(env))
 
     @pytest.mark.asyncio
-    async def test_raises_for_duplicate_answer(self, env):
-        session = env["sessions"].create_session(env["question_set_id"])
-        await start_session(session["id"], **_kwargs(env))
-        await record_answer(session["id"], 1, 0, chosen_index=0, **_kwargs(env))
-        with pytest.raises(AlreadyAnswered):
-            await record_answer(session["id"], 1, 0, chosen_index=1, **_kwargs(env))
-
-    @pytest.mark.asyncio
-    async def test_all_participants_answered_triggers_immediate_advance(self, env):
+    async def test_participants_progress_independently(self, env):
+        """Fərdi tempo — p1 hər ikisini cavablaya bilər, p2 hələ 0-cıda
+        qalsa da bu, p1-in irəliləməsinə mane olmur (köhnə sinxron model
+        ləğv olunub)."""
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
         _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
-        # hələ p2 cavablamayıb — irəliləmə olmamalıdır
-        result_events = [m for _, m in env["manager"].player_sent if m["type"] == "result"]
-        assert result_events == []
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+        # p1 artıq 1-ci sualdadır, p2 hələ 0-cıda — hər ikisi öz sürəti ilə davam edə bilməlidir
+        answer = await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))
+        assert answer["is_correct"] is True
+        # p2 hələ 0-cı sualı cavablaya bilməlidir (heç kim onu qabaqlamayıb)
+        answer2 = await record_answer(session["id"], p2["id"], 0, chosen_index=0, **_kwargs(env))
+        assert answer2["is_correct"] is True
 
-        await record_answer(session["id"], p2["id"], 0, chosen_index=1, **_kwargs(env))
-        # indi hamı cavablayıb — result + növbəti sual gəlməlidir
-        types = [m["type"] for _, m in env["manager"].player_sent]
-        assert types == ["question", "result", "question"]
-        assert env["manager"].player_sent[2][1]["question"] == "Sual 2?"
-
-        updated_session = env["sessions"].get(session["id"])
-        assert updated_session["current_question_index"] == 1
-        assert updated_session["status"] == "active"
-
-
-class TestAdvanceQuestion:
     @pytest.mark.asyncio
-    async def test_last_question_finishes_with_leaderboard(self, env):
+    async def test_raises_session_time_expired(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 0, **_kwargs(env))  # 0 saniyəlik büdcə — dərhal bitmiş sayılır
+
+        with pytest.raises(SessionTimeExpired):
+            await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+
+
+class TestRequestNext:
+    @pytest.mark.asyncio
+    async def test_sends_own_next_question(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+
+        messages = _direct_messages(env, p1["id"])
+        question_messages = [m for m in messages if m["type"] == "question"]
+        assert len(question_messages) == 1
+        assert question_messages[0]["index"] == 1
+        assert question_messages[0]["question"] == "Sual 2?"
+
+    @pytest.mark.asyncio
+    async def test_early_finisher_sees_personal_result_immediately_without_full_leaderboard(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
         _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
-        await record_answer(session["id"], p2["id"], 0, chosen_index=1, **_kwargs(env))
+        await request_next(session["id"], p1["id"], **_kwargs(env))
         await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))
+        # p1 bütün sualları bitirdi, p2 hələ heç birini cavablamayıb
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+
+        personal = [m for m in _direct_messages(env, p1["id"]) if m["type"] == "personal_finished"]
+        assert personal == [
+            {"type": "personal_finished", "correct_count": 2, "answered_count": 2, "total_questions": 2}
+        ]
+        # sessiya HƏLƏ bitməyib (p2 davam edir) — tam "finished" broadcast YOXDUR
+        assert [m for _, m in env["manager"].player_sent if m["type"] == "finished"] == []
+        assert env["sessions"].get(session["id"])["status"] == "active"
+
+    @pytest.mark.asyncio
+    async def test_session_finishes_with_full_leaderboard_when_all_participants_done(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
+
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))
+        await request_next(session["id"], p1["id"], **_kwargs(env))  # p1 fərdi bitir, sessiya hələ bitmir
+
+        await record_answer(session["id"], p2["id"], 0, chosen_index=1, **_kwargs(env))
+        await request_next(session["id"], p2["id"], **_kwargs(env))
         await record_answer(session["id"], p2["id"], 1, chosen_index=1, **_kwargs(env))
+        await request_next(session["id"], p2["id"], **_kwargs(env))  # indi HAMI bitirdi
 
         finished_frames = [m for _, m in env["manager"].player_sent if m["type"] == "finished"]
         assert len(finished_frames) == 1
@@ -222,29 +298,26 @@ class TestAdvanceQuestion:
         leaderboard = {row["participant_id"]: row["score"] for row in finished_frames[0]["leaderboard"]}
         assert leaderboard == {p1["id"]: 2, p2["id"]: 1}
 
-        updated_session = env["sessions"].get(session["id"])
-        assert updated_session["status"] == "finished"
+        assert env["sessions"].get(session["id"])["status"] == "finished"
+        assert env["sessions"].get(session["id"])["report_json"] is not None
 
     @pytest.mark.asyncio
-    async def test_is_idempotent_no_op_when_no_active_session(self, env):
+    async def test_time_expired_forces_finish_regardless_of_progress(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        result = await advance_question(session["id"], **_kwargs(env))
-        assert result is None
-        assert env["manager"].host_sent == []
-        assert env["manager"].player_sent == []
+        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 0, **_kwargs(env))  # dərhal bitmiş sayılır
+
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+
+        assert env["sessions"].get(session["id"])["status"] == "finished"
+        finished_frames = [m for _, m in env["manager"].player_sent if m["type"] == "finished"]
+        assert len(finished_frames) == 1
 
     @pytest.mark.asyncio
-    async def test_expected_index_guards_against_double_advance(self, env):
+    async def test_raises_for_no_active_session(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        await start_session(session["id"], **_kwargs(env))
-        # 0-cı sual üçün irəliləmə (müəllimin "Növbəti sual"ı)
-        await advance_question(session["id"], expected_index=0, **_kwargs(env))
-        sent_count_before = len(env["manager"].player_sent)
-
-        # gecikmiş timeout HƏLƏ DƏ 0-cı indeksi gözləyir — artıq keçilib, no-op
-        result = await advance_question(session["id"], expected_index=0, **_kwargs(env))
-        assert result is None
-        assert len(env["manager"].player_sent) == sent_count_before
+        with pytest.raises(LiveSessionError):
+            await request_next(session["id"], 1, **_kwargs(env))
 
 
 class TestComputeReport:
@@ -253,10 +326,12 @@ class TestComputeReport:
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
         _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))  # düzgün
         await record_answer(session["id"], p2["id"], 0, chosen_index=1, **_kwargs(env))  # səhv
+        await request_next(session["id"], p1["id"], **_kwargs(env))
+        await request_next(session["id"], p2["id"], **_kwargs(env))
         await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))  # düzgün
         await record_answer(session["id"], p2["id"], 1, chosen_index=1, **_kwargs(env))  # düzgün
 
@@ -275,7 +350,7 @@ class TestComputeReport:
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
         _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
         _, p3 = await join_session(session["pin"], "Səbinə", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
 
         # 0-cı sual (correct_index=0): p1 düzgün, p2 və p3 eyni səhv variantı (2) seçir
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
@@ -295,7 +370,7 @@ class TestComputeReport:
     async def test_most_common_wrong_index_is_none_when_no_wrong_answers(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
 
         report = compute_report(session["id"], session_store=env["sessions"], question_set_store=env["question_sets"])
@@ -305,10 +380,12 @@ class TestComputeReport:
     async def test_session_finish_caches_report_json(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        await start_session(session["id"], **_kwargs(env))
+        await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+        await request_next(session["id"], p1["id"], **_kwargs(env))
         await record_answer(session["id"], p1["id"], 1, chosen_index=1, **_kwargs(env))
+        await request_next(session["id"], p1["id"], **_kwargs(env))
 
         finished = env["sessions"].get(session["id"])
         assert finished["status"] == "finished"
