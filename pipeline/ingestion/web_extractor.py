@@ -68,6 +68,12 @@ def _download_js_rendered(url: str) -> str:
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
+    # Kiçik VPS-lərdə (az RAM) `/dev/shm` adətən çox kiçikdir (real
+    # production-da tapılıb — "session not created: DevToolsActivePort
+    # file doesn't exist") — Chrome-u `/tmp`-a keçirir, paylaşılan
+    # yaddaş məhdudiyyətindən asılı olmur.
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     driver = webdriver.Chrome(options=options)
     try:
         driver.get(url)
