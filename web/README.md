@@ -11,13 +11,30 @@ ilə eyni yanaşma.
 
 ```
 web/
+  index.html         # açılış səhifəsi (SEO, OG, JSON-LD)
+  mexfilik.html      # məxfilik siyasəti
+  sertler.html       # istifadə şərtləri
+  giris.html         # daxil ol
+  qeydiyyat.html     # hesab yarat
+  qosul.html         # PIN ilə qoşulma (hesabsız) + canlı sessiya
+  chatlar.html       # çat siyahısı
+  chat.html?id=N     # çat + quiz (WebSocket)
+  tapsiriqlar.html   # ev tapşırıqları siyahısı
+  tapsiriq.html?id=N # tapşırığın həlli
+  tarixce.html       # nəticə tarixçəsi
+  nailiyyetler.html  # nişanlar
+  profil.html        # hesab, görünüş, çıxış
+  muellim.html       # sual bankları + material yükləmə
+  suallar.html?id=N  # sual redaktəsi
+  sessiyalar.html    # canlı sessiya (host)
+  hesabatlar.html    # ev tapşırığı təyini + hesabatlar
+  manifest.json  robots.txt  sitemap.xml
   assets/
-    css/
-      tokens.css       # YEGANƏ rəng/ölçü mənbəyi
-      base.css         # reset, tipoqrafika, layout
-      components.css   # kart, düymə, nişan, sahə, hal ekranları
-    js/                # (Faza 2+) API client-i və ekran məntiqi
-    gallery.html       # bütün komponentlər bir səhifədə
+    css/  tokens.css · base.css · components.css · landing.css
+    js/   config · api · socket · chat-socket · chat-item · chat-view
+          live · nav · page-shell · auth-page · subjects · badges
+    gallery.html  icon.svg  og-banner.svg
+  tests/            # JS vahid testləri (node --test, npm YOX)
 ```
 
 ## Səhifələri açmaq — LOKAL SERVER MƏCBURİDİR

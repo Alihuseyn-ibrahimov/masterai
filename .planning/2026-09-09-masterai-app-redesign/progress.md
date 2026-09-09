@@ -164,3 +164,46 @@ istifadəçi mətni `textContent` ilə qoyulur, `innerHTML` işlədilmir.
 
 **Növbəti:** Faza 4 — naviqasiya çərçivəsi + marşrutlar, yaxud müəllim
 konsolu (istifadəçinin seçimi).
+
+### Faza 5-9 TAMAMLANDI (avtonom iş, istifadəçi yatarkən)
+
+**Faza 5 — bütün ekranlar real məzmunla:**
+muellim.html (material yükləmə + bank siyahısı, 10 san avtomatik
+yenilənmə), suallar.html (redaktə/silmə), sessiyalar.html (PIN, vaxt
+büdcəsi, iştirakçı tərəqqisi), qosul.html (hesabsız PIN qoşulması),
+tapsiriqlar.html + tapsiriq.html (ev tapşırığının həlli), tarixce.html,
+nailiyyetler.html, hesabatlar.html.
+
+Yenidən qoşulma məntiqi `socket.js` bazasına çıxarıldı — çat, host və
+oyunçu soketləri onu paylaşır. Refaktordan sonra mövcud testlərin
+hamısı keçdi.
+
+**Faza 6-7 — açılış səhifəsi + SEO/PWA:**
+Statik HTML landing (hero → nə edir → necə işləyir → kimə lazımdır →
+FAQ → CTA), OG/Twitter/JSON-LD, robots.txt, sitemap.xml, PWA manifest,
+məxfilik və istifadə şərtləri.
+
+Məxfilik siyasətində ən vacib bənd açıq yazıldı: material mətni sual
+hazırlamaq üçün xarici LLM provayderlərinə göndərilir. Hər iki hüquqi
+səhifədə "sahibkarın nəzərdən keçirməsi lazımdır" xəbərdarlığı var.
+
+**Faza 9 hazırlığı — nginx + deploy:**
+Statik sayt və API eyni domeni paylaşacaq; ayırma nginx-də yol kökünə
+görədir. İki gizli risk testlə bağlandı:
+1. Backend-ə yeni üst səviyyəli endpoint əlavə edilib nginx siyahısına
+   yazılmasa, istifadəçi 404 alar (yalnız production-da görünərdi).
+2. nginx-də REGEX location prefiks location-dan üstündür — `ws` regex
+   siyahısına düşsə WebSocket upgrade başlıqları itər və handshake
+   SÜKUTLA sınar.
+
+`deploy_web.ps1` saas_core-un test qapısı naxışını təkrarlayır, üstəlik
+disk yoxlaması var (bu VPS-də disk dolması əvvəllər dörd servisi riskə
+atıb).
+
+**Yekun yoxlama:** 17 səhifənin hamısı real Chromium-da JS xətası
+olmadan yüklənir (`check_pages_in_browser.py`).
+
+750 pytest + 106 JS testi keçir.
+
+**İstifadəçini gözləyən işlər:** DNS qeydi, nginx quraşdırılması,
+certbot, ilk deploy, real backend-lə uc-uca sınaq.
