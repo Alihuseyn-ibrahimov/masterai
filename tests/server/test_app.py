@@ -183,3 +183,24 @@ class TestLoggingConfiguration:
 
         assert logging.getLogger("httpx").level == logging.WARNING
         assert logging.getLogger("selenium").level == logging.WARNING
+
+    def test_configuration_logs_its_own_proof_line(self, monkeypatch, caplog):
+        """Real VPS-də tapıldı: restartdan sonra jurnalda yalnız
+        gunicorn-un öz INFO mesajları görünürdü (o, onsuz da INFO-da
+        idi) — bizim konfiqurasiyanın işlədiyini TƏSDİQLƏYƏN heç nə yox
+        idi. İndi konfiqurasiya özü bir sətir yazır ki, hər restart
+        özünü sübut etsin."""
+        import logging
+
+        from server.app import _configure_logging
+
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        root = logging.getLogger()
+        original_level = root.level
+        try:
+            root.setLevel(logging.WARNING)
+            with caplog.at_level(logging.INFO, logger="server.app"):
+                _configure_logging()
+            assert "logging_configured level=INFO" in caplog.text
+        finally:
+            root.setLevel(original_level)

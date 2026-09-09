@@ -41,6 +41,12 @@ def _configure_logging() -> None:
     root.setLevel(level)
     for name in _NOISY_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
+    # Bu sətir konfiqurasiyanın ÖZÜNÜN sübutudur: real VPS-də jurnalda
+    # yalnız gunicorn-un öz INFO mesajları görünürdü (o, onsuz da INFO-da
+    # idi) və bizim konfiqurasiyanın işlədiyini göstərən heç nə yox idi.
+    # İndi hər restart öz sübutunu jurnala yazır — formatı da bizimdir
+    # (`ad mesaj`), gunicorn-un `[pid] [INFO]` formatından fərqlənir.
+    logger.info("logging_configured level=%s", level)
 
 
 _configure_logging()
