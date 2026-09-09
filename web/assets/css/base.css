@@ -101,6 +101,15 @@ li { list-style: none; }
   gap: var(--space-4);
 }
 
+/* Tam ekran hündürlüyündə mərkəzləşmiş məzmun — giriş/qeydiyyat
+ * kimi tək kartlı səhifələr üçün. */
+.page-centered {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+}
+
 .text-muted { color: var(--color-text-muted); }
 .text-faint { color: var(--color-text-faint); }
 .text-sm    { font-size: var(--text-sm); }

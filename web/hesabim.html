@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hesabım — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<div class="container stack stack--loose">
+  <header id="pageHeader"></header>
+
+  <div class="notice notice--info">
+    <span>🚧</span>
+    <span>Bu səhifə müvəqqətidir (Faza 2). Məqsədi giriş axınının real backend-lə
+    işlədiyini sübut etməkdir — tam ekran Faza 3-də gələcək.</span>
+  </div>
+
+  <section>
+    <div class="section-header"><h1>Çatlar</h1></div>
+    <div id="content"></div>
+  </section>
+</div>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { loadInto, renderHeader, requireLogin } from './assets/js/page-shell.js';
+
+  if (requireLogin()) {
+    renderHeader(document.getElementById('pageHeader'));
+    loadInto(
+      document.getElementById('content'),
+      () => request('/chats'),
+      (container, items) => {
+        container.innerHTML = '';
+        if (!Array.isArray(items) || items.length === 0) {
+          container.innerHTML = '<div class="state"><div class="state__icon">📚</div>'
+            + '<div class="state__title">Hələ heç nə yoxdur</div>'
+            + '<div class="state__text">Burada məlumat görünəcək.</div></div>';
+          return;
+        }
+        const list = document.createElement('div');
+        list.className = 'grid';
+        for (const item of items) {
+          const card = document.createElement('div');
+          card.className = 'card';
+          const title = document.createElement('h4');
+          title.textContent = item.name || item.title || ('#' + item.id);
+          const meta = document.createElement('p');
+          meta.className = 'text-muted text-sm';
+          meta.textContent = 'ID: ' + item.id;
+          card.append(title, meta);
+          list.append(card);
+        }
+        container.append(list);
+      },
+    );
+  }
+</script>
+</body>
+</html>

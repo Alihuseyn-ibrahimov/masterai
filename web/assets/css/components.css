@@ -227,3 +227,17 @@
 .notice--success { background: var(--color-success-soft); color: var(--color-success); }
 .notice--warning { background: var(--color-warning-soft); color: var(--color-warning); }
 .notice--danger  { background: var(--color-danger-soft);  color: var(--color-danger); }
+
+/* ---- Brend ---- */
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.brand:hover { text-decoration: none; }
+.brand__accent { color: var(--color-primary); }

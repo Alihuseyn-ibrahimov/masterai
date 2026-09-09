@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qeydiyyat — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<main class="page-centered">
+  <div class="stack stack--loose" style="width: var(--width-form)">
+
+    <div class="stack stack--tight" style="text-align: center">
+      <span class="brand">Master<span class="brand__accent">AI</span></span>
+      <p class="text-muted text-sm">İmtahana hazırlıq — dərsdən test, dostlarla birgə</p>
+    </div>
+
+    <div class="card stack">
+      <h1 style="font-size: var(--text-xl)">Qeydiyyat</h1>
+
+      <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+      <form class="stack" id="registerForm" novalidate>
+        <div class="field">
+          <label class="field__label" for="displayName">Ad, soyad</label>
+          <input class="field__input" id="displayName" name="displayName" type="text"
+                 autocomplete="name" required maxlength="100" placeholder="Əli Məmmədov">
+        </div>
+        <div class="field">
+          <label class="field__label" for="email">E-poçt</label>
+          <input class="field__input" id="email" name="email" type="email"
+                 autocomplete="email" required placeholder="ad@nümunə.az">
+        </div>
+        <div class="field">
+          <label class="field__label" for="password">Şifrə</label>
+          <input class="field__input" id="password" name="password" type="password"
+                 autocomplete="new-password" required minlength="8">
+          <!-- Backend `RegisterRequest.password` min 8 simvol tələb edir
+               (server/models.py) — istifadəçi bunu ƏVVƏLCƏDƏN bilməlidir,
+               422 xətasından sonra yox. -->
+          <span class="text-xs text-muted">Ən azı 8 simvol</span>
+        </div>
+        <button class="btn btn--primary btn--block" type="submit" id="submitBtn">Hesab yarat</button>
+      </form>
+    </div>
+
+    <p class="text-sm text-muted" style="text-align: center">
+      Hesabınız var? <a href="giris.html">Daxil olun</a>
+    </p>
+
+  </div>
+</main>
+
+<script type="module">
+  import { register } from './assets/js/api.js';
+  import { redirectIfAlreadyLoggedIn, wireAuthForm } from './assets/js/auth-page.js';
+
+  if (!redirectIfAlreadyLoggedIn()) {
+    wireAuthForm({
+      form: document.getElementById('registerForm'),
+      errorBox: document.getElementById('errorBox'),
+      submitButton: document.getElementById('submitBtn'),
+      submit: (data) => register(data.email, data.password, data.displayName),
+    });
+  }
+</script>
+</body>
+</html>

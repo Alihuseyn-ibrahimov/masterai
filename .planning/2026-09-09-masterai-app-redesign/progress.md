@@ -98,3 +98,36 @@ Bütün dəst: **540 test keçir** (əvvəlki 507 + 33 yeni).
 
 **Növbəti:** Faza 2 — API client-i (`assets/js/api.js`) + giriş/qeydiyyat
 səhifələri, mövcud JWT backend-inə qarşı.
+
+### Faza 2 TAMAMLANDI — API client-i + auth səhifələri
+
+`web/assets/js/api.js` mövcud JWT backend-inə qarşı işləyir (backend
+DƏYİŞMƏYİB). `config.js` backend ünvanlarının tək mənbəyidir — Faza 9-da
+API subdomenə köçəndə yalnız o fayl dəyişəcək.
+
+Səhifələr: `giris.html`, `qeydiyyat.html` + müvəqqəti `hesabim.html` /
+`muellim.html` (giriş axınının real backend-lə işlədiyini sübut etmək
+üçün; Faza 3-də əvəzlənəcək).
+
+**Veb-first keçidinin ilk konkret qazancı:** frontend məntiqini İNDİ
+ÖZÜM icra edə bilirəm. Flutter kodunu bu mühitdə ümumiyyətlə işə salmaq
+mümkün deyildi (SDK yoxdur) — hər şey istifadəçinin kompüterində
+yoxlanılırdı. Node 22 mövcuddur, `node --test` npm quraşdırma tələb
+etmir.
+
+Yazılarkən qarşısı alınan real problemlər:
+
+- **FastAPI 422 `detail` SİYAHIDIR** (obyekt deyil) — birbaşa göstərsək
+  istifadəçi "[object Object]" görərdi
+- **`localStorage` ata bilər** (Safari gizli rejimi, kuki bloklanması) —
+  yaddaş ehtiyatı əlavə olundu, tətbiq sınmır
+- **Şəbəkə xətası ilə HTTP xətası fərqləndirilir** (`status=0`) —
+  Flutter tərəfində geniş `catch (_)` CORS problemini gizlətmişdi
+- **nginx 502 gövdəsi HTML olur** — `response.json()` atır, idarə edilir
+- **Sınıq linklər** — test `index.html` və `qosul.html`-a olan linkləri
+  tutdu (o səhifələr hələ yoxdur), linklər çıxarıldı
+
+Testlər: 574 pytest (əvvəlki 541 + 33) + 18 JS testi. Endpoint müqaviləsi
+testi mutasiya ilə yoxlanıldı (`/auth/loginn` → sındı).
+
+**Növbəti:** Faza 3 — çat siyahısı və çat ekranı (WebSocket).
