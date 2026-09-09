@@ -35,6 +35,49 @@ def _extract_without_cleaning(html: str) -> str:
         web_extractor._remove_strikethrough = original
 
 
+# Real diaqnostikada tapıldı: e-qanun səhifələrinin sonunda qanunun
+# DƏYİŞİKLİK TARİXÇƏSİ var — "... nömrəli Qanunu ilə ... sözləri
+# çıxarılmışdır" tipli annotasiyalar. Bunlar qanunun MƏZMUNU deyil,
+# biblioqrafik qeydlərdir, üstəlik ləğv edilmiş ifadələri xətt
+# ÇƏKİLMƏDƏN sitat gətirdiyi üçün xətt-təmizləməsindən yan keçir.
+# Aşağıdakı işarələr sayta yox, Azərbaycan qanunvericilik mətnlərinin
+# standart ifadələrinə əsaslanır.
+_HISTORY_MARKERS = (
+    "nömrəli azərbaycan respublikasının qanunu",
+    "sözləri çıxarılmışdır",
+    "sözlər çıxarılmışdır",
+    "redaksiyada verilmişdir",
+    "qüvvədən düşmüş hesab edilmişdir",
+    "istifadə olunmuş mənbə sənədlərinin siyahısı",
+    "qanunvericilik toplusu",
+    "rəsmi internet saytı",
+)
+
+
+def _measure_amendment_history(text: str) -> None:
+    """Dəyişiklik tarixçəsi annotasiyalarının həcmini ölçür."""
+    lines = text.split("\n")
+    history_chars = sum(
+        len(line) for line in lines if any(m in line.lower() for m in _HISTORY_MARKERS)
+    )
+    history_lines = sum(
+        1 for line in lines if any(m in line.lower() for m in _HISTORY_MARKERS)
+    )
+    total = len(text) or 1
+
+    print("\n--- Dəyişiklik tarixçəsi (qanunun məzmunu DEYİL) ---")
+    print(f"  Belə sətir sayı:     {history_lines} / {len(lines)}")
+    print(f"  Tutduğu simvol:      {history_chars} ({history_chars * 100 // total}% mətnin)")
+
+    heading = "İSTİFADƏ OLUNMUŞ MƏNBƏ SƏNƏDLƏRİNİN SİYAHISI"
+    where = text.upper().find(heading.upper())
+    if where >= 0:
+        print(f"  \"{heading}\" başlığı {where}-ci simvoldadır,")
+        print(f"  ondan sonra {total - where} simvol var ({(total - where) * 100 // total}% mətnin).")
+    else:
+        print(f"  \"{heading}\" başlığı tapılmadı.")
+
+
 def main() -> None:
     url = sys.argv[1] if len(sys.argv) > 1 else "https://e-qanun.az/framework/4481"
     url = web_extractor._normalize_url(url)
@@ -128,6 +171,8 @@ def main() -> None:
             break
 
     print(f"\nYekun: yoxlanan {checked} ifadədən {truly_leaked} ədədi HƏQİQƏTƏN silinməyib.")
+
+    _measure_amendment_history(clean)
 
 
 if __name__ == "__main__":
