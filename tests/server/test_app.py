@@ -112,3 +112,74 @@ class TestCors:
         )
         assert r.status_code == 200
         assert r.headers["access-control-allow-origin"] == "*"
+
+
+class TestLoggingConfiguration:
+    """Real production-da tapılıb: `llm_ok provider=...` (INFO) heç vaxt
+    jurnalda görünmürdü, çünki logging konfiqurasiyası yox idi və root
+    logger WARNING-də qalırdı — hansı LLM provayderin cavab verdiyini
+    öyrənmək mümkün deyildi."""
+
+    def test_configures_root_logger_at_info_by_default(self, monkeypatch):
+        import logging
+
+        from server.app import _configure_logging
+
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        root = logging.getLogger()
+        original_level = root.level
+        try:
+            root.setLevel(logging.WARNING)
+            _configure_logging()
+            assert root.level == logging.INFO
+        finally:
+            root.setLevel(original_level)
+
+    def test_log_level_env_var_overrides_default(self, monkeypatch):
+        import logging
+
+        from server.app import _configure_logging
+
+        monkeypatch.setenv("LOG_LEVEL", "WARNING")
+        root = logging.getLogger()
+        original_level = root.level
+        try:
+            _configure_logging()
+            assert root.level == logging.WARNING
+        finally:
+            root.setLevel(original_level)
+
+    def test_provider_info_log_is_emitted_after_configuration(self, monkeypatch, caplog):
+        """Əsl sınaq: konfiqurasiyadan sonra `llm_ok` HƏQİQƏTƏN yazılır."""
+        import logging
+
+        from pipeline.providers import complete_with_fallback_detail
+        from server.app import _configure_logging
+
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        root = logging.getLogger()
+        original_level = root.level
+        try:
+            root.setLevel(logging.WARNING)
+            _configure_logging()
+            with caplog.at_level(logging.INFO, logger="masterai.pipeline.providers"):
+                complete_with_fallback_detail(
+                    "sistem", "sual", ["groq"], {"groq": lambda s, u: "cavab"}
+                )
+            assert "llm_ok provider=groq" in caplog.text
+        finally:
+            root.setLevel(original_level)
+
+    def test_noisy_third_party_loggers_are_quieted(self, monkeypatch):
+        """INFO-nu açmaq httpx/selenium kimi kitabxanaların hər sorğusunu
+        jurnala tökməməlidir — əks halda VPS-in onsuz da dolu diski
+        jurnalla dolar (bax masterai/CLAUDE.md, disk hadisəsi)."""
+        import logging
+
+        from server.app import _configure_logging
+
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        _configure_logging()
+
+        assert logging.getLogger("httpx").level == logging.WARNING
+        assert logging.getLogger("selenium").level == logging.WARNING

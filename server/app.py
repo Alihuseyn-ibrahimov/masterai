@@ -16,6 +16,34 @@ from datetime import datetime
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# Real production-da tapılıb: `llm_ok provider=...` (INFO) heç vaxt
+# jurnala düşmürdü, çünki layihədə heç bir yerdə logging konfiqurasiyası
+# yox idi — Python-un root logger-i defolt olaraq WARNING-dədir, gunicorn
+# da yalnız öz `gunicorn.*` logger-lərini qurur. Nəticədə hansı LLM
+# provayderin cavab verdiyini jurnaldan öyrənmək MÜMKÜN DEYİLDİ (yalnız
+# uğursuzluqlar görünürdü). Bu, layihədə ikinci dəfə eyni növ "səssiz
+# jurnal" problemidir (bax `_process_material`-a `logger.exception`
+# əlavəsi) — ona görə konfiqurasiya tətbiqin özündə, açıq şəkildə edilir.
+_NOISY_LOGGERS = ("httpx", "httpcore", "urllib3", "selenium", "anthropic", "groq", "PIL")
+
+
+def _configure_logging() -> None:
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        root.addHandler(handler)
+    # Səviyyə handler-dən ASILI OLMAYARAQ təyin edilir: handler mövcud
+    # olsa belə (gunicorn/uvicorn qura bilər) səviyyə WARNING qalarsa
+    # INFO yenə itərdi.
+    root.setLevel(level)
+    for name in _NOISY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+_configure_logging()
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
