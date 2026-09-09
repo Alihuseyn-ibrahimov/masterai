@@ -4,6 +4,11 @@ Sandbox-dan e-qanun.az-a çıxış yoxdur, ona görə xəttin real səhifədə
 HANSI üsulla verildiyi yalnız VPS-də yoxlana bilər. Bu skript güman
 etmir — brauzerin özündən soruşur və nəticəni RƏQƏMLƏ göstərir.
 
+DİQQƏT (bu skriptin ilk versiyasındakı ölçmə səhvi): `_extract_text()`
+ÖZÜ də xətt-çəkilmiş teqləri silir, ona görə "təmizləmədən əvvəl"
+vəziyyəti almaq üçün `_remove_strikethrough` müvəqqəti SÖNDÜRÜLMƏLİDİR.
+Əks halda eyni iki təmizlənmiş mətn müqayisə olunur və fərq ~0 çıxır.
+
 İşlətmək (VPS-də):
     cd /opt/pr-agent/repo/masterai
     .venv/bin/python deploy/diagnostics/check_strikethrough.py https://e-qanun.az/framework/4481
@@ -17,6 +22,17 @@ from pipeline.ingestion import web_extractor  # noqa: E402
 
 _SAMPLE_LIMIT = 8
 _SNIPPET_LIMIT = 120
+_FIND_SAMPLES = 3
+
+
+def _extract_without_cleaning(html: str) -> str:
+    """`_extract_text`-i xətt-təmizləməsi SÖNDÜRÜLMÜŞ halda işlədir."""
+    original = web_extractor._remove_strikethrough
+    web_extractor._remove_strikethrough = lambda soup: None
+    try:
+        return web_extractor._extract_text(html)
+    finally:
+        web_extractor._remove_strikethrough = original
 
 
 def main() -> None:
@@ -37,7 +53,6 @@ def main() -> None:
         driver.get(url)
         web_extractor._wait_for_page_ready(driver)
 
-        # Silməzdən ƏVVƏL: xətt-çəkilmiş elementlərin mətnini topla.
         samples = driver.execute_script(
             """
             const found = [];
@@ -51,30 +66,49 @@ def main() -> None:
             return found;
             """
         )
-        html_before = driver.page_source
-        text_before = web_extractor._extract_text(html_before)
-
-        removed = driver.execute_script(web_extractor._REMOVE_LINE_THROUGH_JS)
-        text_after = web_extractor._extract_text(driver.page_source)
+        html = driver.page_source
     finally:
         driver.quit()
 
+    dirty = _extract_without_cleaning(html)
+    clean = web_extractor._extract_text(html)
+
     print(f"Xətt-çəkilmiş element sayı: {len(samples)}")
-    print(f"Silinən element sayı:       {removed}")
-    print(f"Mətn uzunluğu (əvvəl):      {len(text_before)} simvol")
-    print(f"Mətn uzunluğu (sonra):      {len(text_after)} simvol")
-    print(f"Çıxarılan:                  {len(text_before) - len(text_after)} simvol\n")
+    print(f"Mətn — təmizləmə OLMADAN:   {len(dirty)} simvol")
+    print(f"Mətn — təmizləmə İLƏ:       {len(clean)} simvol")
+    print(f"ÇIXARILAN (əsas göstərici): {len(dirty) - len(clean)} simvol\n")
 
     if not samples:
         print("DİQQƏT: heç bir xətt-çəkilmiş element tapılmadı.")
         print("Deməli sayt ləğv edilmiş müddəaları BAŞQA üsulla göstərir")
-        print("(məs. rəng, ayrıca qeyd, kursiv) — aşağıdakı nümunələrə bax.")
+        print("(məs. rəng, ayrıca qeyd, kursiv).")
         return
 
     print(f"İlk {min(_SAMPLE_LIMIT, len(samples))} nümunə:")
     for tag_name, class_name, text in samples[:_SAMPLE_LIMIT]:
         snippet = " ".join(text.split())[:_SNIPPET_LIMIT]
         print(f"  <{tag_name.lower()} class={class_name!r}>: {snippet}")
+
+    # Əsl sınaq: ləğv edilmiş konkret ifadələr TƏMİZ mətndə qalıbmı?
+    print("\nLəğv edilmiş ifadələrin təmiz mətndə yoxlanışı:")
+    checked = 0
+    leaked = 0
+    for _tag_name, _class_name, text in samples:
+        phrase = " ".join(text.split()).strip(" ,.;:")
+        if len(phrase) < 25:  # çox qısa parça təsadüfən başqa yerdə ola bilər
+            continue
+        in_dirty = phrase in " ".join(dirty.split())
+        in_clean = phrase in " ".join(clean.split())
+        status = "SIZIB (hələ də var!)" if in_clean else "təmizlənib ✓"
+        if not in_dirty:
+            status += "  [qeyd: təmizlənməmiş mətndə də yox idi]"
+        print(f"  {status}: {phrase[:_SNIPPET_LIMIT]}")
+        leaked += int(in_clean)
+        checked += 1
+        if checked >= _FIND_SAMPLES:
+            break
+
+    print(f"\nYekun: yoxlanan {checked} ifadədən {leaked} ədədi hələ də mətndədir.")
 
 
 if __name__ == "__main__":
