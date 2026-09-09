@@ -11,8 +11,16 @@ from pipeline.models import MaterialSource, RawMaterial
 # boş/natamam mətnə səbəb olur (real production-da tapılıb, bax
 # masterai/CLAUDE.md). `_wait_for_page_ready` bunu universal şəkildə
 # (konkret sayt strukturuna bağlı olmadan) gözləyir.
-_JS_READY_TIMEOUT_SECONDS = 10.0
-_JS_POLL_INTERVAL_SECONDS = 0.5
+_JS_READY_TIMEOUT_SECONDS = 25.0
+_JS_POLL_INTERVAL_SECONDS = 1.0
+# Real testdə (e-qanun.az) tapılıb: bəzi SPA-lar ƏVVƏLCƏ kiçik bir
+# "qabıq" (başlıq/status/düymə) göstərir, əsl sənəd mətni isə bir qədər
+# GECİKMƏ ilə (ayrıca API sorğusu) gəlir — "ardıcıl 2 ölçmə dəyişmirsə
+# sabitdir" qaydası bu qabığı səhvən "hazır" kimi qəbul edirdi. İndi
+# sabitlik YALNIZ mətn bu minimum uzunluğa çatdıqdan SONRA (VƏ bir neçə
+# ardıcıl ölçmədə dəyişmirsə) elan olunur.
+_JS_STABLE_READS_REQUIRED = 3
+_JS_MIN_CONTENT_LENGTH = 300
 
 # Bu həddən az mətn statik HTML-in əsasən JS ilə doldurulduğuna işarədir —
 # belə hallarda Selenium ilə render olunmuş səhifəyə keçilir.
@@ -39,10 +47,11 @@ def _download_static(url: str) -> str:
 def _wait_for_page_ready(driver) -> None:
     """İki mərhələli, konkret sayt strukturuna bağlı OLMAYAN gözləmə:
     (1) brauzerin öz `document.readyState`-i, (2) body mətninin
-    sabitləşməsi — ardıcıl 2 ölçmədə uzunluq dəyişməzsə, SPA-nın data
+    sabitləşməsi — ardıcıl `_JS_STABLE_READS_REQUIRED` ölçmədə uzunluq
+    dəyişməzsə VƏ mətn `_JS_MIN_CONTENT_LENGTH`-ə çatıbsa, SPA-nın data
     fetch-inin bitdiyi qəbul edilir. Maksimum `_JS_READY_TIMEOUT_SECONDS`
-    sonra, hələ dəyişirsə belə, olan vəziyyət qəbul edilir (sonsuz
-    gözləmənin qarşısını almaq üçün)."""
+    sonra, hələ dəyişirsə/kifayət qədər uzun olmasa belə, olan vəziyyət
+    qəbul edilir (sonsuz gözləmənin qarşısını almaq üçün)."""
     from selenium.webdriver.common.by import By
 
     deadline = time.monotonic() + _JS_READY_TIMEOUT_SECONDS
@@ -53,10 +62,15 @@ def _wait_for_page_ready(driver) -> None:
         time.sleep(_JS_POLL_INTERVAL_SECONDS)
 
     previous_length = None
+    stable_count = 0
     while time.monotonic() < deadline:
         current_length = len(driver.find_element(By.TAG_NAME, "body").text)
         if previous_length is not None and current_length == previous_length:
-            return
+            stable_count += 1
+            if stable_count >= _JS_STABLE_READS_REQUIRED and current_length >= _JS_MIN_CONTENT_LENGTH:
+                return
+        else:
+            stable_count = 0
         previous_length = current_length
         time.sleep(_JS_POLL_INTERVAL_SECONDS)
 
@@ -142,6 +156,17 @@ def extract(source: MaterialSource) -> RawMaterial:
                 f"Sayt JS-rendering ilə də yüklənmədi: {source.location} ({exc})"
             ) from exc
         text = _extract_text(html)
+        # Real testdə tapılıb: JS-render bəzən yalnız kiçik bir "qabıq"
+        # (başlıq/status/düymə) qaytarır, əsl sənəd mətni heç yüklənmir —
+        # bu, aşağıdakı `not text.strip()` yoxlamasından keçir (boş DEYİL,
+        # sadəcə çox qısadır) və nəticədə keyfiyyətsiz materialdan sual
+        # generasiya olunur. Eyni minimum uzunluq həddi burada da tələb
+        # olunur ki, belə hallar aydın xəta kimi RƏDD edilsin.
+        if len(text) < _MIN_STATIC_TEXT_LENGTH:
+            raise IngestionError(
+                f"Sayt JS-rendering ilə yükləndi, amma kifayət qədər mətn "
+                f"tapılmadı ({len(text)} simvol): {source.location}"
+            )
 
     if not text.strip():
         raise IngestionError(f"Saytdan mətn çıxarıla bilmədi: {source.location}")

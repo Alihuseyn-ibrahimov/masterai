@@ -139,6 +139,25 @@ def test_raises_when_both_static_and_js_yield_no_text(monkeypatch):
         web_extractor.extract(source)
 
 
+def test_raises_when_js_rendered_page_yields_only_a_short_ui_shell(monkeypatch):
+    """Real testdə tapılıb (e-qanun.az): JS-render bəzən yalnız kiçik bir
+    "qabıq" (başlıq/status/düymə, ~50-60 simvol) qaytarır, əsl sənəd mətni
+    heç yüklənmir — bu boş DEYİL, ona görə köhnə `not text.strip()`
+    yoxlaması bunu keçirdi. Aydın xəta atılmalıdır, keyfiyyətsiz
+    materialdan sual generasiya olunmamalıdır."""
+    monkeypatch.setattr(web_extractor, "_download_static", lambda url: "<html><body></body></html>")
+    monkeypatch.setattr(
+        web_extractor,
+        "_download_js_rendered",
+        lambda url: "<html><body><p>926-IQ - Dövlət qulluğu haqqında</p>"
+        "<span>Qüvvədədir</span><button>Yüklə</button></body></html>",
+    )
+
+    source = MaterialSource(kind="link", location="https://e-qanun.az/framework/4481")
+    with pytest.raises(IngestionError, match="kifayət qədər mətn"):
+        web_extractor.extract(source)
+
+
 class _FakeElement:
     def __init__(self, text: str):
         self.text = text
@@ -171,17 +190,34 @@ class TestWaitForPageReady:
     def test_returns_once_ready_state_complete_and_body_text_stabilizes(self, monkeypatch):
         monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 2.0)
         monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+        stable_text = "JS ile render olunan metn. " * 15  # > _JS_MIN_CONTENT_LENGTH (300)
         driver = _FakeDriver(
             ready_states=["loading", "loading", "complete"],
-            body_texts=["JS ile render olunan metn"] * 5,
+            body_texts=[stable_text] * (web_extractor._JS_STABLE_READS_REQUIRED + 2),
         )
 
         web_extractor._wait_for_page_ready(driver)
 
         assert driver.script_calls == 3
-        # readyState=='complete' olan kimi, mətn 2 ardıcıl oxunuşda
-        # dəyişməzsə dərhal qayıdır — 5 dəfə oxumur.
-        assert driver.body_calls == 2
+        # readyState=='complete' olan kimi, mətn `_JS_STABLE_READS_REQUIRED`
+        # ardıcıl oxunuşda dəyişməzsə (VƏ kifayət qədər uzundursa) dərhal
+        # qayıdır — bütün body_texts siyahısını oxumur.
+        assert driver.body_calls == web_extractor._JS_STABLE_READS_REQUIRED + 1
+
+    def test_does_not_stop_early_on_a_short_stable_shell(self, monkeypatch):
+        """Real testdə tapılıb (e-qanun.az): səhifə ƏVVƏLCƏ kiçik, sabit bir
+        "qabıq" göstərir (başlıq/status/düymə), əsl mətn SONRA gəlir — qısa
+        mətn sabit qalsa belə, `_JS_MIN_CONTENT_LENGTH`-ə çatmayınca "hazır"
+        elan edilməməlidir."""
+        monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+        short_shell_text = "926-IQ - Dövlət qulluğu haqqında Qüvvədədir Yüklə"  # < 300
+        driver = _FakeDriver(ready_states=["complete"], body_texts=[short_shell_text])
+
+        web_extractor._wait_for_page_ready(driver)
+
+        # Timeout-a qədər davamlı oxumağa çalışıb (erkən qayıtmayıb).
+        assert driver.body_calls > web_extractor._JS_STABLE_READS_REQUIRED
 
     def test_gives_up_after_timeout_when_text_never_stabilizes(self, monkeypatch):
         monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 0.05)
@@ -190,7 +226,7 @@ class TestWaitForPageReady:
         class _EverGrowingDriver(_FakeDriver):
             def find_element(self, by, value):
                 self.body_calls += 1
-                return _FakeElement("x" * self.body_calls)  # HƏR oxunuşda fərqli uzunluq
+                return _FakeElement("x" * self.body_calls * 100)  # HƏR oxunuşda fərqli uzunluq
 
         driver = _EverGrowingDriver(ready_states=["complete"], body_texts=[])
 
@@ -208,8 +244,9 @@ def test_download_js_rendered_waits_for_ready_then_returns_page_source(monkeypat
 
     class _FakeChromeDriver(_FakeDriver):
         def __init__(self, **_kwargs):
-            super().__init__(ready_states=["complete"], body_texts=["sabit metn"] * 3)
-            self.page_source = "<html><body>sabit metn</body></html>"
+            stable_text = "sabit metn. " * 30  # > _JS_MIN_CONTENT_LENGTH (300)
+            super().__init__(ready_states=["complete"], body_texts=[stable_text] * 6)
+            self.page_source = f"<html><body>{stable_text}</body></html>"
             self.got_url = None
 
         def get(self, url):
