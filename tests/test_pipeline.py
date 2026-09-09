@@ -110,6 +110,40 @@ def test_generate_quiz_accepts_fewer_than_target_when_material_is_short(monkeypa
     assert result.requested_question_count == 20
 
 
+class TestSelectChunks:
+    """Real production-da tapılıb (e-qanun.az, 389 min simvol → 65 chunk):
+    10 sual üçün 65 API çağırışı Groq-un rate limitini (8000 token/dəqiqə)
+    aşırdı və emal ilişib qalırdı. İstənilən sual sayına görə lazım olan
+    qədər chunk seçilməlidir."""
+
+    def test_keeps_all_chunks_when_document_is_small(self):
+        chunks = [f"chunk {i}" for i in range(5)]
+        assert pipeline_module._select_chunks(chunks, target_question_count=10) == chunks
+
+    def test_caps_chunk_count_for_large_documents(self):
+        chunks = [f"chunk {i}" for i in range(65)]
+
+        selected = pipeline_module._select_chunks(chunks, target_question_count=10)
+
+        assert len(selected) == 10 * pipeline_module._CHUNKS_PER_QUESTION_BUFFER
+        assert len(selected) < len(chunks)
+
+    def test_selection_is_spread_across_the_whole_document(self):
+        """Yalnız ilk N chunk götürülsə, suallar sənədin yalnız girişindən
+        çıxardı — seçim sənəd boyu paylanmalıdır."""
+        chunks = [f"chunk {i}" for i in range(100)]
+
+        selected = pipeline_module._select_chunks(chunks, target_question_count=5)
+
+        assert selected[0] == "chunk 0"
+        assert selected[-1] != "chunk 9"  # sadəcə ilk 10-dan seçilməyib
+        assert chunks.index(selected[-1]) > len(chunks) // 2
+
+    def test_never_returns_empty_for_tiny_targets(self):
+        chunks = [f"chunk {i}" for i in range(50)]
+        assert len(pipeline_module._select_chunks(chunks, target_question_count=0)) >= 1
+
+
 def test_ingestion_error_propagates_unwrapped(monkeypatch):
     def boom(source):
         raise IngestionError("sınıq fayl")

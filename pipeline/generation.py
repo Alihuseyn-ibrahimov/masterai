@@ -34,6 +34,14 @@ _RETRY_REMINDER = (
 )
 
 
+# Real production-da tapılıb: `.batch()` defolt olaraq BÜTÜN chunk-ları
+# eyni anda göndərir — Groq-un pulsuz tarif limiti (8000 token/dəqiqə)
+# dərhal aşılır, hər chunk 429 alır və emal dəqiqələrlə ilişib qalır.
+# Az sayda eyni-anda sorğu limitin bərpasına imkan verir (fon prosesində
+# işlədiyi üçün bir qədər yavaş olması qəbul ediləndir).
+_MAX_CONCURRENCY = 2
+
+
 class _MCQBatch(BaseModel):
     questions: list[MCQQuestion]
 
@@ -94,6 +102,7 @@ def generate_for_chunks(
 
     first_pass = chain.batch(
         [_make_input(c, questions_per_chunk) for c in chunks],
+        config={"max_concurrency": _MAX_CONCURRENCY},
         return_exceptions=True,
     )
 
@@ -109,6 +118,7 @@ def generate_for_chunks(
     if retry_indices:
         retry_pass = chain.batch(
             [_make_input(chunks[i], questions_per_chunk, retry=True) for i in retry_indices],
+            config={"max_concurrency": _MAX_CONCURRENCY},
             return_exceptions=True,
         )
         for result in retry_pass:
