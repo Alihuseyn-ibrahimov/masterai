@@ -89,26 +89,45 @@ def main() -> None:
         snippet = " ".join(text.split())[:_SNIPPET_LIMIT]
         print(f"  <{tag_name.lower()} class={class_name!r}>: {snippet}")
 
-    # Əsl sınaq: ləğv edilmiş konkret ifadələr TƏMİZ mətndə qalıbmı?
-    print("\nLəğv edilmiş ifadələrin təmiz mətndə yoxlanışı:")
+    # Əsl sınaq: ləğv edilmiş ifadə təmiz mətndə qalıbsa, bu İKİ tamam
+    # fərqli şeyi ifadə edə bilər və onları yalnız TƏKRAR SAYI ayırır:
+    #   dirty=2 → clean=1  : xətt-çəkilmiş nüsxə silinib, sənədin başqa
+    #                        yerindəki (xətt çəkilməmiş) nüsxə qalıb — DÜZGÜN
+    #   dirty=1 → clean=1  : silinməyib — kodda boşluq var
+    normalized_dirty = " ".join(dirty.split())
+    normalized_clean = " ".join(clean.split())
+
+    print("\nLəğv edilmiş ifadələrin təkrar sayı (təmizləmədən əvvəl → sonra):")
     checked = 0
-    leaked = 0
+    truly_leaked = 0
     for _tag_name, _class_name, text in samples:
         phrase = " ".join(text.split()).strip(" ,.;:")
-        if len(phrase) < 25:  # çox qısa parça təsadüfən başqa yerdə ola bilər
+        if len(phrase) < 25:  # qısa parça təsadüfən başqa yerdə ola bilər
             continue
-        in_dirty = phrase in " ".join(dirty.split())
-        in_clean = phrase in " ".join(clean.split())
-        status = "SIZIB (hələ də var!)" if in_clean else "təmizlənib ✓"
-        if not in_dirty:
-            status += "  [qeyd: təmizlənməmiş mətndə də yox idi]"
-        print(f"  {status}: {phrase[:_SNIPPET_LIMIT]}")
-        leaked += int(in_clean)
+        before = normalized_dirty.count(phrase)
+        after = normalized_clean.count(phrase)
+
+        if after == 0:
+            verdict = "tam təmizləndi ✓"
+        elif before > after:
+            verdict = f"xətt-çəkilmiş nüsxə silindi ✓ (qalan {after} nüsxə xətsizdir)"
+        else:
+            verdict = "SİLİNMƏYİB ✗ — kodda boşluq"
+            truly_leaked += 1
+
+        print(f"\n  {before} → {after}  {verdict}")
+        print(f"    ifadə: {phrase[:_SNIPPET_LIMIT]}")
+
+        if after:
+            where = normalized_clean.find(phrase)
+            context = normalized_clean[max(0, where - 200) : where + len(phrase) + 200]
+            print(f"    qalan nüsxənin ətrafı: ...{context}...")
+
         checked += 1
         if checked >= _FIND_SAMPLES:
             break
 
-    print(f"\nYekun: yoxlanan {checked} ifadədən {leaked} ədədi hələ də mətndədir.")
+    print(f"\nYekun: yoxlanan {checked} ifadədən {truly_leaked} ədədi HƏQİQƏTƏN silinməyib.")
 
 
 if __name__ == "__main__":
