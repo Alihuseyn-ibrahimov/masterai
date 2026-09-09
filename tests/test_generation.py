@@ -1,6 +1,6 @@
 import json
 
-from pipeline.generation import generate_for_chunks
+from pipeline.generation import _PROMPT, _RETRY_REMINDER, _make_input, generate_for_chunks
 
 _VALID_QUESTION = {
     "question": "Azərbaycanın paytaxtı hansıdır?",
@@ -19,6 +19,23 @@ def _completers_always_valid(n_per_call: int = 2):
         return _valid_batch_json(n_per_call)
 
     return {"groq": completer}
+
+
+def test_retry_reminder_is_outside_the_material_fence():
+    """Real testdə tapılıb: retry xəbərdarlığı əvvəllər "Material:" bölməsinin
+    İÇİNƏ yazılırdı — AI bunu materialın bir hissəsi kimi oxuyub ÖZ HAQQINDA
+    sual düzəldirdi (məs. "Which phrase warns about the previous answer
+    format?"). Xəbərdarlıq İNDİ material fence-indən (`---`) KƏNARDA
+    olmalıdır."""
+    chunk_text = "Konstitusiyanın 94-cü maddəsi haqqında mətn."
+    rendered = _PROMPT.format(**_make_input(chunk_text, 3, retry=True))
+
+    material_section = rendered.split("---")[1]
+    assert _RETRY_REMINDER.strip() not in material_section
+    assert chunk_text in material_section
+
+    after_material = rendered.split("---")[2]
+    assert _RETRY_REMINDER.strip() in after_material
 
 
 def test_generates_questions_for_each_chunk():

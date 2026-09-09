@@ -29,8 +29,8 @@ SYSTEM_PROMPT = (
 )
 
 _RETRY_REMINDER = (
-    "\n\nDİQQƏT: əvvəlki cavabın tələb olunan JSON sxeminə uyğun deyildi. "
-    "Bu dəfə YALNIZ etibarlı JSON qaytar, əlavə mətn və ya izah yazma."
+    "DİQQƏT: əvvəlki cavabın tələb olunan JSON sxeminə uyğun deyildi. "
+    "Bu dəfə YALNIZ etibarlı JSON qaytar, əlavə mətn və ya izah yazma.\n\n"
 )
 
 
@@ -44,7 +44,7 @@ _PROMPT = PromptTemplate.from_template(
     "Aşağıdakı dərs materialından {n} ədəd çoxseçimli (MCQ) test sualı hazırla.\n"
     "Hər sualın tam 5 variantı olmalıdır, yalnız biri düzgün, hər sualın öz "
     "izahı olmalıdır.\n\n"
-    "Material:\n---\n{chunk}\n---\n\n{format_instructions}"
+    "Material:\n---\n{chunk}\n---\n\n{retry_note}{format_instructions}"
 )
 
 
@@ -60,10 +60,16 @@ def _build_chain(completers: dict[str, Completer], order: list[str]):
 
 
 def _make_input(chunk: str, questions_per_chunk: int, *, retry: bool = False) -> dict:
-    text = chunk + _RETRY_REMINDER if retry else chunk
+    # Real testdə tapılıb: retry xəbərdarlığı əvvəllər `chunk`-a (yəni
+    # "Material:" bölməsinin İÇİNƏ) əlavə olunurdu — AI onu materialın
+    # bir hissəsi kimi oxuyub ÖZ HAQQINDA sual düzəldirdi (məs. "Which
+    # phrase warns about the previous answer format?"). İndi ayrıca
+    # `retry_note` dəyişəni ilə "Material:" bloкundan KƏNARDA, təlimat
+    # hissəsində yerləşir.
     return {
-        "chunk": text,
+        "chunk": chunk,
         "n": questions_per_chunk,
+        "retry_note": _RETRY_REMINDER if retry else "",
         "format_instructions": _parser.get_format_instructions(),
     }
 
