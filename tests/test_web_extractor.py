@@ -335,3 +335,126 @@ def test_extract_normalizes_scheme_less_location_for_js_fallback(monkeypatch):
     web_extractor.extract(source)
 
     assert requested["url"] == "https://e-qanun.az/framework/4481"
+
+
+class TestStrikethroughRemoval:
+    """Real production-da tapılıb (e-qanun.az, "Dövlət qulluğu haqqında"
+    qanun): qanun mətnlərində LƏĞV EDİLMİŞ (qüvvədən düşmüş) müddəalar
+    silinmir, üstündən XƏTT ÇƏKİLƏRƏK saxlanılır — hüquqi sənəd
+    ənənəsidir. Biz bu mətni adi məzmun kimi oxuyub AI-yə verirdik,
+    AI də artıq QÜVVƏDƏ OLMAYAN müddəanı "düzgün cavab" kimi işlədirdi
+    (real sessiyada 2-ci sual). Belə mətn materialdan TAM ÇIXARILMALIDIR:
+    yanlış cavab yaratmaqdansa, o mövzuda ümumiyyətlə sual olmasın."""
+
+    def test_removes_s_strike_and_del_tags(self):
+        html = (
+            "<html><body>"
+            "<p>Dövlət qulluğu qanunla tənzimlənir.</p>"
+            "<p><s>Ləğv edilmiş birinci müddəa.</s></p>"
+            "<p><strike>Ləğv edilmiş ikinci müddəa.</strike></p>"
+            "<p><del>Ləğv edilmiş üçüncü müddəa.</del></p>"
+            "</body></html>"
+        )
+
+        text = web_extractor._extract_text(html)
+
+        assert "Dövlət qulluğu qanunla tənzimlənir" in text
+        assert "Ləğv edilmiş birinci" not in text
+        assert "Ləğv edilmiş ikinci" not in text
+        assert "Ləğv edilmiş üçüncü" not in text
+
+    def test_removes_elements_with_inline_line_through_style(self):
+        html = (
+            "<html><body>"
+            "<p>Qüvvədə olan müddəa.</p>"
+            '<p style="text-decoration: line-through">Ləğv edilmiş müddəa.</p>'
+            "</body></html>"
+        )
+
+        text = web_extractor._extract_text(html)
+
+        assert "Qüvvədə olan müddəa" in text
+        assert "Ləğv edilmiş müddəa" not in text
+
+    def test_removes_elements_whose_css_class_declares_line_through(self):
+        """Saytlar xətti adətən inline yox, sinif ilə verir — səhifənin
+        ÖZ `<style>` bloku oxunub hansı siniflərin `line-through` təyin
+        etdiyi tapılmalıdır (sayta xas sinif adı KODA YAZILMIR)."""
+        html = (
+            "<html><head><style>"
+            ".legacy, .repealed { color: gray; text-decoration: line-through; }"
+            ".normal { color: black; }"
+            "</style></head><body>"
+            '<p class="normal">Qüvvədə olan müddəa.</p>'
+            '<p class="repealed">Ləğv edilmiş müddəa.</p>'
+            '<p class="legacy">Köhnə redaksiya.</p>'
+            "</body></html>"
+        )
+
+        text = web_extractor._extract_text(html)
+
+        assert "Qüvvədə olan müddəa" in text
+        assert "Ləğv edilmiş müddəa" not in text
+        assert "Köhnə redaksiya" not in text
+
+    def test_keeps_content_when_stylesheet_has_no_line_through(self):
+        """Reqressiya qoruyucusu: `<style>` bloku olan hər sayt
+        zərərsizləşdirilməməlidir."""
+        html = (
+            "<html><head><style>.a { color: red; }</style></head><body>"
+            '<p class="a">Qüvvədə olan müddəa.</p>'
+            "</body></html>"
+        )
+
+        assert "Qüvvədə olan müddəa" in web_extractor._extract_text(html)
+
+    def test_strikethrough_removal_does_not_touch_surrounding_sentence(self):
+        """Cümlə içindəki xətt-çəkilmiş söz silinsə də, cümlənin qalanı
+        qalmalıdır — yalnız həmin element çıxarılır."""
+        html = (
+            "<html><body><p>Maddə 5. Dövlət qulluqçusu "
+            "<s>otuz</s> qırx yaşınadək xidmət edir.</p></body></html>"
+        )
+
+        text = web_extractor._extract_text(html)
+
+        assert "Maddə 5." in text
+        assert "qırx yaşınadək" in text
+        assert "otuz" not in text
+
+
+def test_download_js_rendered_strips_line_through_via_computed_style(monkeypatch):
+    """JS-render olunan saytlarda xətt CSS sinfi/xarici stil faylı ilə
+    verilə bilər — HTML-ə baxmaqla tapmaq mümkün deyil. Brauzerin ÖZÜ
+    `getComputedStyle` ilə soruşulur, beləliklə xəttin necə tətbiq
+    edildiyinin heç bir əhəmiyyəti qalmır."""
+    monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 2.0)
+    monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+
+    executed: list[str] = []
+
+    class _RecordingDriver(_FakeDriver):
+        def __init__(self, **_kwargs):
+            stable_text = "sabit metn. " * 30
+            super().__init__(ready_states=["complete"], body_texts=[stable_text] * 6)
+            self.page_source = f"<html><body>{stable_text}</body></html>"
+
+        def execute_script(self, script: str):
+            executed.append(script)
+            if "readyState" in script:
+                return "complete"
+            return 0  # silinmiş element sayı
+
+        def get(self, url):
+            pass
+
+        def quit(self):
+            pass
+
+    import selenium.webdriver as real_webdriver
+
+    monkeypatch.setattr(real_webdriver, "Chrome", _RecordingDriver)
+
+    web_extractor._download_js_rendered("https://example.az/spa")
+
+    assert any("line-through" in script for script in executed)

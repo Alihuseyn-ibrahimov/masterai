@@ -1,3 +1,4 @@
+import logging
 import re
 import time
 
@@ -6,6 +7,8 @@ from bs4 import BeautifulSoup
 
 from pipeline.ingestion.errors import IngestionError
 from pipeline.models import MaterialSource, RawMaterial
+
+logger = logging.getLogger("masterai.pipeline.web_extractor")
 
 # JS-render olunan (SPA/React/Angular) saytlarda məzmun səhifə açılandan
 # BİR NEÇƏ SANİYƏ sonra DOM-a əlavə olunur — dərhal `page_source` oxumaq
@@ -92,6 +95,30 @@ def _wait_for_page_ready(driver) -> None:
         time.sleep(_JS_POLL_INTERVAL_SECONDS)
 
 
+# Real production-da tapılıb (e-qanun.az, "Dövlət qulluğu haqqında"):
+# hüquqi mətnlərdə LƏĞV EDİLMİŞ müddəalar silinmir, üstündən xətt
+# çəkilərək saxlanılır — AI isə bunu qüvvədə olan müddəa kimi oxuyub
+# yanlış "düzgün cavab" düzəldirdi. Xəttin necə verildiyi (teq, inline
+# stil, sinif, xarici CSS faylı) HTML-ə baxmaqla həmişə bilinmir, ona
+# görə brauzerin özündən `getComputedStyle` ilə soruşulur — bu, sayta
+# xas heç bir fərziyyə tələb etmir.
+# `<html>`/`<body>` qəsdən kənarda saxlanılır: nəzəri olaraq xətt bütöv
+# konteynerə verilsə, bütün səhifəni silmək olmaz.
+_REMOVE_LINE_THROUGH_JS = """
+const doomed = [];
+for (const el of document.body.querySelectorAll('*')) {
+  const style = window.getComputedStyle(el);
+  const decoration = style.textDecorationLine || style.textDecoration || '';
+  if (decoration.includes('line-through')) {
+    doomed.push(el);
+  }
+}
+for (const el of doomed) {
+  el.remove();
+}
+return doomed.length;
+"""
+
 def _download_js_rendered(url: str) -> str:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -109,6 +136,9 @@ def _download_js_rendered(url: str) -> str:
     try:
         driver.get(url)
         _wait_for_page_ready(driver)
+        removed = driver.execute_script(_REMOVE_LINE_THROUGH_JS)
+        if removed:
+            logger.info("line_through_removed count=%s url=%s", removed, url)
         return driver.page_source
     finally:
         driver.quit()
@@ -126,8 +156,49 @@ def _download_js_rendered(url: str) -> str:
 _CONTENT_TAGS = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "td", "th", "blockquote"]
 
 
+# Statik (JS-siz) HTML üçün eyni qorunma — brauzer olmadığından
+# `getComputedStyle` mümkün deyil, ona görə xəttin üç adi verilmə üsulu
+# ayrıca tutulur: (1) semantik teqlər, (2) `style` atributu, (3)
+# səhifənin ÖZ `<style>` blokunda `line-through` təyin edən sinif adları
+# (sinif adları koda yazılmır, hər səhifədən oxunur).
+_STRIKETHROUGH_TAGS = ["s", "strike", "del"]
+_LINE_THROUGH_CSS_CLASS_RE = re.compile(r"\.([A-Za-z_][A-Za-z0-9_-]*)")
+
+
+def _line_through_class_names(soup) -> set[str]:
+    names: set[str] = set()
+    for style_tag in soup.find_all("style"):
+        css = style_tag.get_text()
+        for rule in css.split("}"):
+            if "line-through" not in rule.lower():
+                continue
+            selector = rule.rsplit("{", 1)[0]
+            names.update(_LINE_THROUGH_CSS_CLASS_RE.findall(selector))
+    return names
+
+
+def _remove_strikethrough(soup) -> None:
+    """Ləğv edilmiş (üstündən xətt çəkilmiş) müddəaları sənəddən çıxarır."""
+    struck_classes = _line_through_class_names(soup)
+
+    for tag in soup(_STRIKETHROUGH_TAGS):
+        tag.decompose()
+
+    for tag in soup.find_all(style=True):
+        if "line-through" in tag["style"].lower():
+            tag.decompose()
+
+    if struck_classes:
+        for tag in soup.find_all(class_=True):
+            if struck_classes.intersection(tag.get("class", [])):
+                tag.decompose()
+
+
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
+    # `<style>` bloklarından xətt-siniflərini ÖYRƏNMƏK üçün bu addım
+    # stil teqlərinin silinməsindən ƏVVƏL gəlməlidir.
+    _remove_strikethrough(soup)
     for tag in soup(["script", "style", "nav", "footer", "header", "button", "aside", "form"]):
         tag.decompose()
     # `<main>`/`<article>` (HTML5-in semantik "əsas məzmun" konvensiyası)
