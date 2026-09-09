@@ -1,0 +1,15 @@
+{
+  "name": "MasterAI — imtahan hazırlığı",
+  "short_name": "MasterAI",
+  "description": "Dərs materialından AI test sualları, sinifdə birgə həll",
+  "lang": "az",
+  "start_url": "./giris.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#2F6FED",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

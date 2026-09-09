@@ -213,3 +213,88 @@ def test_pages_referenced_from_javascript_exist(path: Path):
     Belə link brauzerdə yalnız klikləyəndə 404 verir."""
     missing = [ref for ref in _js_page_refs(path) if not (WEB / ref).exists()]
     assert not missing, f"{path.name}: JS-də göstərilən səhifə yoxdur: {sorted(missing)}"
+
+
+# Axtarış motoruna açıq səhifələr: `noindex` daşımayanlar. Giriş və
+# qeydiyyat ictimaidir, amma qəsdən `noindex`-dədir — onların axtarışda
+# görünməsinin mənası yoxdur.
+INDEXABLE_PAGES = [
+    p for p in PAGES if 'content="noindex"' not in p.read_text(encoding="utf-8")
+]
+
+
+def test_indexable_pages_were_found():
+    assert INDEXABLE_PAGES, "indeksləşdiriləcək səhifə tapılmadı"
+
+
+class TestSeoAndSharing:
+    """MediaPulse-da hazır olan, MasterAI-də tamamilə YOX olan qat.
+    Xüsusilə Open Graph: müəllimlər sessiya/qoşulma linkini qrup
+    çatlarında paylaşır — önizləməsiz çılpaq link etibarsız görünür."""
+
+    def test_landing_declares_canonical_and_description(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        assert 'rel="canonical"' in html
+        assert 'name="description"' in html
+
+    def test_landing_has_open_graph_and_twitter_cards(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        for tag in ('og:title', 'og:description', 'og:image', 'og:url', 'og:type'):
+            assert f'property="{tag}"' in html, f"{tag} yoxdur"
+        assert 'name="twitter:card"' in html
+
+    def test_landing_has_structured_data(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        assert 'application/ld+json' in html
+        assert '"EducationalApplication"' in html
+
+    def test_landing_links_the_pwa_manifest(self):
+        assert 'rel="manifest"' in (WEB / "index.html").read_text(encoding="utf-8")
+
+    def test_manifest_is_valid_json_with_required_fields(self):
+        import json
+
+        manifest = json.loads((WEB / "manifest.json").read_text(encoding="utf-8"))
+        for key in ("name", "short_name", "start_url", "display", "theme_color", "icons"):
+            assert key in manifest, f"manifest.json-da {key} yoxdur"
+        assert manifest["icons"], "ikon siyahısı boşdur"
+        for icon in manifest["icons"]:
+            assert (WEB / icon["src"]).exists(), f"ikon faylı yoxdur: {icon['src']}"
+
+    def test_manifest_start_url_exists(self):
+        import json
+
+        manifest = json.loads((WEB / "manifest.json").read_text(encoding="utf-8"))
+        start = manifest["start_url"].lstrip("./")
+        assert (WEB / start).exists(), f"start_url mövcud deyil: {start}"
+
+    def test_og_image_file_exists(self):
+        assert (WEB / "assets" / "og-banner.svg").exists()
+
+    @pytest.mark.parametrize("page", INDEXABLE_PAGES, ids=lambda p: p.name)
+    def test_indexable_pages_carry_search_metadata(self, page: Path):
+        """Axtarışa açıq hər səhifədə təsvir və kanonik ünvan olmalıdır —
+        onsuz Google nəticədə təsadüfi mətn parçası göstərir və eyni
+        səhifənin bir neçə variantını ayrı sayır.
+
+        Qeyd: giriş/qeydiyyat səhifələri ictimaidir, amma QƏSDƏN
+        `noindex` daşıyır — onlar bura düşmür."""
+        html = page.read_text(encoding="utf-8")
+        assert 'name="description"' in html, f"{page.name}: description yoxdur"
+        assert 'rel="canonical"' in html, f"{page.name}: canonical yoxdur"
+
+    def test_robots_txt_blocks_every_private_page(self):
+        robots = (WEB / "robots.txt").read_text(encoding="utf-8")
+        private = [p.name for p in PAGES if 'content="noindex"' in p.read_text(encoding="utf-8")]
+        missing = [name for name in private if f"Disallow: /{name}" not in robots]
+        assert not missing, f"robots.txt-də bağlanmayan şəxsi səhifə: {sorted(missing)}"
+
+    def test_sitemap_lists_only_existing_public_pages(self):
+        sitemap = (WEB / "sitemap.xml").read_text(encoding="utf-8")
+        listed = re.findall(r"<loc>https://masterai\.prdostu\.com/([^<]*)</loc>", sitemap)
+        missing = [name for name in listed if name and not (WEB / name).exists()]
+        assert not missing, f"sitemap-də olmayan səhifə: {missing}"
+        # Şəxsi səhifə sitemap-ə düşməməlidir.
+        private = {p.name for p in PAGES if 'content="noindex"' in p.read_text(encoding="utf-8")}
+        leaked = [name for name in listed if name in private]
+        assert not leaked, f"sitemap-də şəxsi səhifə: {leaked}"

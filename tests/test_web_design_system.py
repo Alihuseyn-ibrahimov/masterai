@@ -23,7 +23,7 @@ import pytest
 CSS_DIR = Path(__file__).resolve().parent.parent / "web" / "assets" / "css"
 TOKENS = CSS_DIR / "tokens.css"
 # `tokens.css`-dən BAŞQA bütün stil faylları bu qaydalara tabedir.
-DEPENDENT_CSS = [CSS_DIR / "base.css", CSS_DIR / "components.css"]
+DEPENDENT_CSS = [CSS_DIR / "base.css", CSS_DIR / "components.css", CSS_DIR / "landing.css"]
 
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 _HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")

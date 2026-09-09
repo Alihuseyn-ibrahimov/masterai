@@ -1,0 +1,89 @@
+/* Açılış səhifəsi — yalnız `index.html` və hüquqi səhifələr üçün.
+ * Tətbiq səhifələri bu faylı yükləmir (lazımsız yük olmasın).
+ * Yalnız `tokens.css` dəyişənlərindən istifadə edir. */
+
+.landing-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--app-bar-height);
+  padding: 0 var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-16) 0 var(--space-12);
+  text-align: center;
+}
+.hero__title {
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+}
+.hero__lead {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  max-width: var(--width-prose);
+  margin: 0 auto;
+}
+.hero__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* Addım nömrəsi — "necə işləyir" bölməsi üçün. */
+.step__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-weight: var(--weight-black);
+}
+
+.faq {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) 0;
+}
+.faq summary {
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+  list-style: none;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: '+';
+  float: inline-end;
+  color: var(--color-text-muted);
+}
+.faq[open] summary::after { content: '−'; }
+.faq p {
+  padding-top: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.landing-footer {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-8) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 768px) {
+  .hero { padding: var(--space-8) 0 var(--space-6); }
+  .hero__title { font-size: var(--text-2xl); }
+  .hero__lead { font-size: var(--text-base); }
+}
