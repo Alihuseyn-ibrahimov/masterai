@@ -113,10 +113,18 @@ def _claude_completer(model: str) -> Completer:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
     def complete(system: str, user: str) -> str:
+        # `temperature` QƏSDƏN yoxdur: Claude Sonnet 5 / Opus 5 və 4.7+
+        # ailəsində sampling parametrləri (temperature/top_p/top_k) tam
+        # silinib — SDK bu arqumenti artıq qəbul etmir ("unexpected keyword
+        # argument", real VPS testində tapılıb). `AI_TEMPERATURE` yalnız
+        # Groq/Ollama üçün qalır.
+        # `max_tokens` 2048-dən qaldırıldı: hər chunk üçün bir neçə MCQ
+        # (5 variant + izah, Azərbaycan dilində) 2048-ə sığmaya bilər,
+        # kəsilmə isə sxem xətası → əlavə retry deməkdir. Faktiki xərc
+        # yalnız istehsal olunan tokenlərə görədir, tavan artımı bahalaşdırmır.
         resp = client.messages.create(
             model=model,
-            max_tokens=2048,
-            temperature=AI_TEMPERATURE,
+            max_tokens=8192,
             system=system,
             messages=[{"role": "user", "content": user}],
         )
