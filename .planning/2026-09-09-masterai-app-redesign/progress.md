@@ -131,3 +131,36 @@ Testlər: 574 pytest (əvvəlki 541 + 33) + 18 JS testi. Endpoint müqaviləsi
 testi mutasiya ilə yoxlanıldı (`/auth/loginn` → sındı).
 
 **Növbəti:** Faza 3 — çat siyahısı və çat ekranı (WebSocket).
+
+### Faza 3 TAMAMLANDI — çat siyahısı + çat (WebSocket)
+
+Backend protokolu `server/app.py` və `server/quiz_runner.py`-dən oxundu,
+güman edilmədi. Ən incə yer: **eyni məntiqi element iki fərqli formada
+gəlir** — tarixçədə `content` JSON SƏTRİDİR, canlı hadisədə sahələr ən
+üst səviyyədədir və id `message_id` adlanır. Üstəlik `quiz_finished`
+tarixçədə `kind:"system"` kimi saxlanılır, əsl növ JSON-un içindədir.
+`chat-item.js` hər ikisini tək şəklə çevirir; test bunu birbaşa
+yoxlayır ("EYNİ element tarixçədən və canlıdan eyni şəklə gəlir").
+
+Flutter-in üç sənədləşmiş məhdudiyyəti düzəldildi:
+
+| Flutter-də | İndi |
+|---|---|
+| WebSocket avtomatik yenidən qoşulma YOX idi | Eksponensial gözləmə + jitter; fatal kodlarda (4401/4403/4404) qəsdən dayanır |
+| Adlar "İstifadəçi #3" kimi görünürdü | `GET /chats/{id}/members` ilə real adlar |
+| Cavablanmış sual kartı aktiv qalırdı | `answeredQuestionIds` ilə bloklanır |
+
+Yenidən qoşulma dedupe tələb edir: qoşulan kimi server tarixçəni TƏKRAR
+göndərir. `upsertItem` eyni `id`-li elementi əvəz edir.
+
+Testdə tapılan real səhv: `computeBackoffDelay` üst həddi 10% aşırdı
+(30s əvəzinə 33s) — jitter yalnız eksponensial hissəyə tətbiq olunurdu.
+Hədd son nəticəyə keçirildi.
+
+Təhlükəsizlik: çat məzmununu başqa istifadəçilər yazır, ona görə bütün
+istifadəçi mətni `textContent` ilə qoyulur, `innerHTML` işlədilmir.
+
+581 pytest + 62 JS testi keçir.
+
+**Növbəti:** Faza 4 — naviqasiya çərçivəsi + marşrutlar, yaxud müəllim
+konsolu (istifadəçinin seçimi).

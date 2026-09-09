@@ -11,7 +11,7 @@ import { getUser, isLoggedIn } from './api.js';
 export function homePathForCurrentUser() {
   const user = getUser();
   if (user && user.is_teacher) return 'muellim.html';
-  return 'hesabim.html';
+  return 'chatlar.html';
 }
 
 /** Auth səhifəsinə ARTIQ daxil olmuş istifadəçi düşərsə, formanı

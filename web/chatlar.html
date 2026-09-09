@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çatlar — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<div class="container stack stack--loose">
+  <header id="pageHeader"></header>
+
+  <section>
+    <div class="section-header">
+      <h1>Çatlar</h1>
+      <span class="section-header__hint">Qrup çatında dostlarla birgə test həll edin</span>
+    </div>
+    <div id="content"></div>
+  </section>
+
+  <section class="grid" style="--grid-min: 280px">
+    <div class="card stack">
+      <h4>Yeni qrup çatı</h4>
+      <div class="notice notice--danger" id="createError" role="alert" hidden></div>
+      <form class="stack stack--tight" id="createForm">
+        <div class="field">
+          <label class="field__label" for="chatName">Çatın adı</label>
+          <input class="field__input" id="chatName" name="name" required maxlength="100"
+                 placeholder="Məsələn: Qanunvericilik qrupu">
+        </div>
+        <button class="btn btn--primary" type="submit" id="createBtn">Yarat</button>
+      </form>
+    </div>
+
+    <div class="card stack">
+      <h4>Mövcud çata qoşul</h4>
+      <p class="text-sm text-muted">Çat ID-si çat sətrinin altında göstərilir.</p>
+      <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
+      <form class="stack stack--tight" id="joinForm">
+        <div class="field">
+          <label class="field__label" for="chatId">Çat ID</label>
+          <input class="field__input" id="chatId" name="chatId" inputmode="numeric"
+                 required placeholder="12">
+        </div>
+        <button class="btn btn--secondary" type="submit" id="joinBtn">Qoşul</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { loadInto, renderHeader, requireLogin } from './assets/js/page-shell.js';
+
+  if (requireLogin()) {
+    renderHeader(document.getElementById('pageHeader'));
+
+    const content = document.getElementById('content');
+
+    function renderChats(container, chats) {
+      container.innerHTML = '';
+      if (!chats.length) {
+        const state = document.createElement('div');
+        state.className = 'state';
+        state.innerHTML = '<div class="state__icon">💬</div>'
+          + '<div class="state__title">Hələ çatınız yoxdur</div>';
+        const hint = document.createElement('div');
+        hint.className = 'state__text';
+        hint.textContent = 'Aşağıdan yeni qrup çatı yaradın və ya müəlliminizin verdiyi ID ilə qoşulun.';
+        state.append(hint);
+        container.append(state);
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const chat of chats) {
+        const card = document.createElement('a');
+        card.className = 'card card--interactive stack stack--tight';
+        card.href = `chat.html?id=${encodeURIComponent(chat.id)}`;
+        const title = document.createElement('h4');
+        // Qəsdən textContent — çatın adını istifadəçi yazır.
+        title.textContent = chat.name || (chat.kind === 'direct' ? 'Şəxsi çat' : 'Adsız çat');
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `ID: ${chat.id}`;
+        card.append(title, meta);
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    const reload = () => loadInto(content, () => request('/chats'), renderChats);
+    reload();
+
+    function wire(formId, buttonId, errorId, submit) {
+      const form = document.getElementById(formId);
+      const button = document.getElementById(buttonId);
+      const errorBox = document.getElementById(errorId);
+      const idle = button.textContent;
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorBox.hidden = true;
+        button.disabled = true;
+        button.textContent = 'Gözləyin…';
+        try {
+          await submit(Object.fromEntries(new FormData(form).entries()));
+          form.reset();
+          reload();
+        } catch (error) {
+          errorBox.textContent = error.message;
+          errorBox.hidden = false;
+        } finally {
+          button.disabled = false;
+          button.textContent = idle;
+        }
+      });
+    }
+
+    wire('createForm', 'createBtn', 'createError', (data) =>
+      request('/chats', { method: 'POST', body: { kind: 'group', name: data.name } }));
+
+    wire('joinForm', 'joinBtn', 'joinError', (data) => {
+      const id = Number(data.chatId);
+      if (!Number.isInteger(id) || id <= 0) {
+        // Serverə mənasız sorğu göndərməkdənsə dərhal aydın mesaj.
+        throw new Error('Çat ID-si rəqəm olmalıdır.');
+      }
+      return request(`/chats/${id}/join`, { method: 'POST' });
+    });
+  }
+</script>
+</body>
+</html>

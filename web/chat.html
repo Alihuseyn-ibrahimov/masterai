@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Çat — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<style>
+  /* Mesaj axını uzun olur — daxili sürüşmə ilə yazma sahəsi həmişə
+     görünən qalır. Yalnız bu səhifəyə aiddir, ona görə burada. */
+  #messages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: var(--space-1);
+  }
+</style>
+</head>
+<body>
+<div class="container stack stack--loose">
+  <header id="pageHeader"></header>
+
+  <section class="stack">
+    <div class="section-header">
+      <h1 id="chatTitle">Çat</h1>
+      <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+    <div id="messages" aria-live="polite"></div>
+
+    <form class="row" id="sendForm">
+      <label class="sr-only" for="messageInput">Mesaj</label>
+      <input class="field__input" id="messageInput" name="content" autocomplete="off"
+             placeholder="Mesaj yazın…" style="flex: 1">
+      <button class="btn btn--primary" type="submit" id="sendBtn">Göndər</button>
+    </form>
+  </section>
+
+  <p><a href="chatlar.html">← Çatlara qayıt</a></p>
+</div>
+
+<script type="module">
+  import { getToken, getUser, request } from './assets/js/api.js';
+  import { ChatSocket } from './assets/js/chat-socket.js';
+  import { upsertItem } from './assets/js/chat-item.js';
+  import { buildNameLookup, renderItems } from './assets/js/chat-view.js';
+  import { renderHeader, requireLogin } from './assets/js/page-shell.js';
+
+  const STATUS_LABELS = {
+    connecting: ['Qoşulur…', 'badge badge--neutral'],
+    open: ['Bağlıdır', 'badge badge--success'],
+    reconnecting: ['Yenidən qoşulur…', 'badge badge--warning'],
+    closed: ['Bağlantı yoxdur', 'badge badge--danger'],
+  };
+
+  if (requireLogin()) {
+    renderHeader(document.getElementById('pageHeader'));
+
+    const chatId = Number(new URLSearchParams(window.location.search).get('id'));
+    const errorBox = document.getElementById('errorBox');
+    const messages = document.getElementById('messages');
+    const statusBadge = document.getElementById('connStatus');
+
+    function showError(text) {
+      errorBox.textContent = text;
+      errorBox.hidden = false;
+    }
+
+    if (!Number.isInteger(chatId) || chatId <= 0) {
+      showError('Çat ünvanı düzgün deyil. Çatlar siyahısından seçin.');
+      statusBadge.hidden = true;
+    } else {
+      const user = getUser() || {};
+      let items = [];
+      let context = { lookup: new Map(), userId: user.id, onAnswer: () => {} };
+
+      function repaint() {
+        const atBottom = messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 40;
+        renderItems(messages, items, context);
+        // Yeni mesaj gələndə aşağı sürüşdür — AMMA istifadəçi yuxarı
+        // baxırsa yerini oğurlamaq olmaz.
+        if (atBottom) messages.scrollTop = messages.scrollHeight;
+      }
+
+      // Üzv adları ayrıca gəlir; alınmasa çat YENƏ DƏ işləməlidir
+      // (adlar "İstifadəçi #N" kimi görünər).
+      request(`/chats/${chatId}/members`)
+        .then((members) => {
+          context = { ...context, lookup: buildNameLookup(members) };
+          repaint();
+        })
+        .catch(() => {});
+
+      request('/chats')
+        .then((chats) => {
+          const chat = (chats || []).find((c) => c.id === chatId);
+          if (chat) document.getElementById('chatTitle').textContent = chat.name || 'Çat';
+        })
+        .catch(() => {});
+
+      const socket = new ChatSocket({
+        chatId,
+        token: getToken(),
+        onHistory: (history) => { items = history; repaint(); },
+        onItem: (item) => { items = upsertItem(items, item); repaint(); },
+        onServerError: showError,
+        onStatus: (status) => {
+          const [label, className] = STATUS_LABELS[status] || STATUS_LABELS.closed;
+          statusBadge.textContent = label;
+          statusBadge.className = className;
+          if (status === 'closed') {
+            showError('Bağlantı bağlandı. Səhifəni yeniləyin və ya çatlara qayıdın.');
+          }
+        },
+      });
+
+      context.onAnswer = (questionId, chosenIndex) => {
+        if (!socket.sendAnswer(questionId, chosenIndex)) {
+          showError('Bağlantı hazır deyil — cavab göndərilmədi, bir azdan cəhd edin.');
+        }
+      };
+
+      socket.connect();
+
+      document.getElementById('sendForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const input = document.getElementById('messageInput');
+        const content = input.value.trim();
+        if (!content) return;
+        if (socket.sendText(content)) {
+          input.value = '';
+          errorBox.hidden = true;
+        } else {
+          showError('Bağlantı hazır deyil — mesaj göndərilmədi.');
+        }
+      });
+
+      window.addEventListener('beforeunload', () => socket.close());
+    }
+  }
+</script>
+</body>
+</html>
