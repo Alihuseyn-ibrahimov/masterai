@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tapşırıq — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1>Ev tapşırığı</h1>
+      <a class="btn btn--ghost btn--sm" href="tapsiriqlar.html">← Tapşırıqlar</a>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div id="loading"><div class="state"><div class="spinner"></div>
+      <div class="state__text">Yüklənir…</div></div></div>
+
+    <div class="card stack" id="questionCard" hidden>
+      <div class="row row--between">
+        <span class="badge badge--info" id="counter">Sual</span>
+        <span class="text-sm text-muted" id="scoreLabel"></span>
+      </div>
+      <h3 id="questionText"></h3>
+      <div class="stack stack--tight" id="options"></div>
+    </div>
+
+    <div class="card stack" id="feedbackCard" hidden>
+      <span class="badge" id="feedbackBadge"></span>
+      <p id="correctText"></p>
+      <p class="text-sm text-muted" id="explanationText"></p>
+      <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
+    </div>
+
+    <div class="card stack" id="doneCard" hidden style="text-align: center">
+      <div class="state__icon">✅</div>
+      <h3>Tapşırıq tamamlandı</h3>
+      <p id="finalScore"></p>
+      <a class="btn btn--secondary" href="tapsiriqlar.html">Tapşırıqlara qayıt</a>
+    </div>
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+
+  const LETTERS = 'ABCDE';
+
+  if (requireLogin()) {
+    mountShell();
+
+    const assignmentId = Number(new URLSearchParams(window.location.search).get('id'));
+    const errorBox = document.getElementById('errorBox');
+    const loading = document.getElementById('loading');
+    const cards = {
+      question: document.getElementById('questionCard'),
+      feedback: document.getElementById('feedbackCard'),
+      done: document.getElementById('doneCard'),
+    };
+
+    const show = (name) => {
+      loading.hidden = true;
+      for (const [key, card] of Object.entries(cards)) card.hidden = key !== name;
+    };
+    const showError = (text) => {
+      loading.hidden = true;
+      errorBox.textContent = text;
+      errorBox.hidden = false;
+    };
+
+    let attemptId = null;
+    let score = 0;
+    let pendingQuestion = null;
+
+    function renderQuestion(question) {
+      document.getElementById('counter').textContent =
+        `Sual ${question.index + 1}/${question.total}`;
+      document.getElementById('scoreLabel').textContent = `${score} düzgün`;
+      document.getElementById('questionText').textContent = question.question;
+
+      const options = document.getElementById('options');
+      options.innerHTML = '';
+      (question.options || []).forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'btn btn--secondary btn--block';
+        button.type = 'button';
+        button.style.justifyContent = 'flex-start';
+        button.textContent = `${LETTERS[index] || index + 1}. ${option}`;
+        button.addEventListener('click', () => submitAnswer(question.index, index, options));
+        options.append(button);
+      });
+      show('question');
+    }
+
+    function renderFeedback(result) {
+      const badge = document.getElementById('feedbackBadge');
+      badge.className = result.is_correct ? 'badge badge--success' : 'badge badge--danger';
+      badge.textContent = result.is_correct ? 'Düzgün' : 'Səhv';
+      document.getElementById('correctText').textContent =
+        `Düzgün cavab: ${LETTERS[result.correct_index] ?? '—'}`;
+      document.getElementById('explanationText').textContent = result.explanation || '';
+
+      pendingQuestion = result.next_question;
+      // `next_question === null` — bu, sonuncu sual idi (bax
+      // `HomeworkAnswerResult`, models.py).
+      document.getElementById('nextBtn').textContent =
+        pendingQuestion ? 'Növbəti sual' : 'Nəticəni gör';
+      show('feedback');
+    }
+
+    async function submitAnswer(questionIndex, chosenIndex, optionsContainer) {
+      // İkiqat toxunuş serverdə "artıq cavablanıb" xətası verir və
+      // istifadəçi səbəbini anlamır.
+      for (const button of optionsContainer.children) button.disabled = true;
+      try {
+        const result = await request(`/homework/attempts/${attemptId}/answer`, {
+          method: 'POST',
+          body: { question_index: questionIndex, chosen_index: chosenIndex },
+        });
+        if (result.is_correct) score += 1;
+        renderFeedback(result);
+      } catch (error) {
+        showError(error.message);
+        for (const button of optionsContainer.children) button.disabled = false;
+      }
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (pendingQuestion) {
+        renderQuestion(pendingQuestion);
+        pendingQuestion = null;
+      } else {
+        document.getElementById('finalScore').textContent = `${score} düzgün cavab`;
+        show('done');
+      }
+    });
+
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      showError('Tapşırıq ünvanı düzgün deyil.');
+    } else {
+      request(`/homework/assignments/${assignmentId}/start`, { method: 'POST' })
+        .then((state) => {
+          attemptId = state.attempt_id;
+          score = state.score || 0;
+          if (!state.question) {
+            // Cəhd artıq tamamlanıb — göstəriləcək sual yoxdur.
+            document.getElementById('finalScore').textContent = `${score} düzgün cavab`;
+            show('done');
+            return;
+          }
+          renderQuestion(state.question);
+        })
+        .catch((error) => showError(error.message));
+    }
+  }
+</script>
+</body>
+</html>

@@ -16,23 +16,73 @@
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
+
   <section>
-    <div class="section-header"><h1>Nailiyyətlər</h1></div>
-    <div class="card">
-      <div class="state">
-        <div class="state__icon">🏆</div>
-        <div class="state__title">Bu ekran hazırlanır</div>
-        <div class="state__text">Qazandığınız nişanlar burada görünəcək. Backend hazırdır (GET /badges/me), ekran Faza 5-də gələcək.</div>
-      </div>
+    <div class="section-header">
+      <h1>Nailiyyətlərim</h1>
+      <a class="btn btn--ghost btn--sm" href="tarixce.html">← Tarixçə</a>
     </div>
+    <div id="content"></div>
   </section>
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  if (requireLogin()) mountShell();
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { sortBadges } from './assets/js/badges.js';
+
+  if (requireLogin()) {
+    mountShell();
+
+    function renderBadges(container, rows) {
+      container.innerHTML = '';
+      const badges = sortBadges(rows);
+      const earned = badges.filter((badge) => badge.earned).length;
+
+      const summary = document.createElement('p');
+      summary.className = 'text-sm text-muted';
+      summary.textContent = `${earned}/${badges.length} nişan qazanılıb`;
+      container.append(summary);
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      grid.style.setProperty('--grid-min', '220px');
+      for (const badge of badges) {
+        const card = document.createElement('div');
+        card.className = 'card stack stack--tight';
+        // Qazanılmamış nişan sönük görünür — amma GİZLƏNMİR, çünki
+        // meyar özü motivasiyadır.
+        if (!badge.earned) card.style.opacity = '0.55';
+
+        const icon = document.createElement('div');
+        icon.className = 'state__icon';
+        icon.textContent = badge.icon;
+        const title = document.createElement('h4');
+        title.textContent = badge.label;
+        const criteria = document.createElement('p');
+        criteria.className = 'text-sm text-muted';
+        criteria.textContent = badge.criteria;
+        card.append(icon, title, criteria);
+
+        const status = document.createElement('span');
+        if (badge.earned) {
+          status.className = 'badge badge--success';
+          status.textContent = badge.earnedAt
+            ? `Qazanıldı · ${String(badge.earnedAt).slice(0, 10)}` : 'Qazanıldı';
+        } else {
+          status.className = 'badge badge--neutral';
+          status.textContent = 'Hələ yox';
+        }
+        card.append(status);
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    loadInto(document.getElementById('content'), () => request('/badges/me'), renderBadges);
+  }
 </script>
 </body>
 </html>

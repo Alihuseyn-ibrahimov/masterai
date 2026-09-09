@@ -16,23 +16,82 @@
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
+
   <section>
-    <div class="section-header"><h1>Tarixçə</h1></div>
-    <div class="card">
-      <div class="state">
-        <div class="state__icon">📊</div>
-        <div class="state__title">Bu ekran hazırlanır</div>
-        <div class="state__text">Canlı sessiya və ev tapşırığı nəticələriniz vahid siyahıda burada olacaq. Backend hazırdır (GET /history/me), ekran Faza 5-də gələcək.</div>
-      </div>
+    <div class="section-header">
+      <h1>Mənim tarixçəm</h1>
+      <a class="btn btn--ghost btn--sm" href="nailiyyetler.html">🏆 Nailiyyətlər</a>
     </div>
+    <div id="content"></div>
   </section>
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  if (requireLogin()) mountShell();
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+
+  if (requireLogin()) {
+    mountShell();
+
+    function renderHistory(container, entries) {
+      container.innerHTML = '';
+      if (!entries.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon">📊</div>'
+          + '<div class="state__title">Hələ nəticəniz yoxdur</div>'
+          + '<div class="state__text">Canlı sessiyada və ya ev tapşırığında iştirak edin.</div></div>';
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'stack stack--tight';
+      // Ən yenilər yuxarıda.
+      for (const entry of [...entries].sort((a, b) => String(b.date).localeCompare(String(a.date)))) {
+        const card = document.createElement('div');
+        card.className = 'card card--subject stack stack--tight';
+        card.style.setProperty('--subject', subjectColorVar(entry.subject));
+
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const title = document.createElement('h4');
+        title.textContent = entry.title;
+        const kind = document.createElement('span');
+        kind.className = entry.kind === 'live' ? 'badge badge--info' : 'badge badge--neutral';
+        kind.textContent = entry.kind === 'live' ? 'Canlı sessiya' : 'Ev tapşırığı';
+        head.append(title, kind);
+
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `${subjectLabel(entry.subject)} · ${String(entry.date).slice(0, 10)}`;
+
+        const score = document.createElement('div');
+        score.className = 'stack stack--tight';
+        const scoreRow = document.createElement('div');
+        scoreRow.className = 'row row--between';
+        const scoreText = document.createElement('span');
+        scoreText.className = 'text-sm';
+        scoreText.textContent = `${entry.score}/${entry.total_questions} düzgün`;
+        scoreRow.append(scoreText);
+        const bar = document.createElement('div');
+        bar.className = 'progress';
+        const fill = document.createElement('div');
+        fill.className = 'progress__fill';
+        const percent = entry.total_questions > 0
+          ? Math.round((entry.score / entry.total_questions) * 100) : 0;
+        fill.style.setProperty('--progress', `${percent}%`);
+        fill.style.setProperty('--subject', subjectColorVar(entry.subject));
+        bar.append(fill);
+        score.append(scoreRow, bar);
+
+        card.append(head, meta, score);
+        list.append(card);
+      }
+      container.append(list);
+    }
+
+    loadInto(document.getElementById('content'), () => request('/history/me'), renderHistory);
+  }
 </script>
 </body>
 </html>

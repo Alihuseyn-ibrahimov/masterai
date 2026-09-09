@@ -16,23 +16,201 @@
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
-  <section>
-    <div class="section-header"><h1>Hesabatlar</h1></div>
-    <div class="card">
-      <div class="state">
-        <div class="state__icon">📈</div>
-        <div class="state__title">Bu ekran hazırlanır</div>
-        <div class="state__text">Tapşırıq və sessiya hesabatları burada olacaq. Backend hazırdır (GET /homework/assignments), ekran Faza 5-də gələcək.</div>
+
+  <section class="stack">
+    <div class="section-header">
+      <h1>Ev tapşırıqları</h1>
+      <span class="section-header__hint">Çat seçin — həmin çatdakı tapşırıqlar və nəticələr</span>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+
+    <div class="card stack">
+      <div class="field">
+        <label class="field__label" for="chatSelect">Çat</label>
+        <select class="field__select" id="chatSelect"></select>
       </div>
     </div>
   </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Yeni tapşırıq</h2></div>
+    <div class="card stack">
+      <form class="stack" id="assignForm">
+        <div class="grid" style="--grid-min: 220px">
+          <div class="field">
+            <label class="field__label" for="questionSetSelect">Sual bankı</label>
+            <select class="field__select" id="questionSetSelect" required></select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="dueDate">Son tarix</label>
+            <input class="field__input" id="dueDate" type="date" required>
+          </div>
+        </div>
+        <button class="btn btn--primary" type="submit" id="assignBtn">Təyin et</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Təyin edilmiş tapşırıqlar</h2></div>
+    <div id="content"></div>
+  </section>
+
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  if (requireLogin()) mountShell();
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+
+  const STATUS_BADGE = {
+    'tamamlanıb': 'badge badge--success',
+    'davam edir': 'badge badge--warning',
+    'gözləyir': 'badge badge--neutral',
+  };
+
+  if (requireLogin()) {
+    mountShell();
+
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const chatSelect = document.getElementById('chatSelect');
+    const questionSetSelect = document.getElementById('questionSetSelect');
+    const content = document.getElementById('content');
+
+    function flash(box, text) {
+      box.textContent = text;
+      box.hidden = false;
+      setTimeout(() => { box.hidden = true; }, 4000);
+    }
+
+    function renderReportInto(container, assignment) {
+      loadInto(
+        container,
+        () => request(`/homework/assignments/${assignment.id}/report`),
+        (target, rows) => {
+          target.innerHTML = '';
+          if (!rows.length) {
+            target.innerHTML = '<p class="text-sm text-muted">Bu çatda üzv yoxdur.</p>';
+            return;
+          }
+          const list = document.createElement('div');
+          list.className = 'stack stack--tight';
+          for (const row of rows) {
+            const line = document.createElement('div');
+            line.className = 'row row--between';
+            const name = document.createElement('span');
+            name.className = 'text-sm';
+            name.textContent = row.display_name;
+            const status = document.createElement('span');
+            status.className = STATUS_BADGE[row.status] || 'badge badge--neutral';
+            status.textContent = row.score != null
+              ? `${row.status} · ${row.score}` : row.status;
+            line.append(name, status);
+            list.append(line);
+          }
+          target.append(list);
+        },
+      );
+    }
+
+    function renderAssignments(container, assignments) {
+      container.innerHTML = '';
+      if (!assignments.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon">📈</div>'
+          + '<div class="state__title">Bu çatda tapşırıq yoxdur</div>'
+          + '<div class="state__text">Yuxarıdan yeni tapşırıq təyin edin.</div></div>';
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'stack';
+      for (const assignment of [...assignments].sort((a, b) => b.id - a.id)) {
+        const card = document.createElement('div');
+        card.className = 'card stack stack--tight';
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const title = document.createElement('h4');
+        title.textContent = `Tapşırıq #${assignment.id}`;
+        const progress = document.createElement('span');
+        progress.className = 'badge badge--info';
+        progress.textContent =
+          `${assignment.completed_count}/${assignment.total_members} tamamlayıb`;
+        head.append(title, progress);
+
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `Son tarix: ${assignment.due_date}`;
+
+        const report = document.createElement('div');
+        card.append(head, meta, report);
+        renderReportInto(report, assignment);
+        list.append(card);
+      }
+      container.append(list);
+    }
+
+    function reloadAssignments() {
+      const chatId = Number(chatSelect.value);
+      if (!Number.isInteger(chatId) || chatId <= 0) {
+        content.innerHTML = '<p class="text-sm text-muted">Çat seçin.</p>';
+        return;
+      }
+      loadInto(content, () => request(`/homework/assignments?chat_id=${chatId}`), renderAssignments);
+    }
+
+    Promise.all([request('/chats'), request('/live/question-sets')])
+      .then(([chats, sets]) => {
+        for (const chat of chats) {
+          const option = document.createElement('option');
+          option.value = String(chat.id);
+          option.textContent = chat.name || `Çat #${chat.id}`;
+          chatSelect.append(option);
+        }
+        // Yalnız HAZIR banklar təyin edilə bilər — backend yarımçıq
+        // bankı 400 ilə rədd edir.
+        for (const set of sets.filter((s) => s.status === 'ready')) {
+          const option = document.createElement('option');
+          option.value = String(set.id);
+          option.textContent = set.title;
+          questionSetSelect.append(option);
+        }
+        if (!chats.length) {
+          content.innerHTML = '<div class="state"><div class="state__icon">💬</div>'
+            + '<div class="state__title">Çatınız yoxdur</div>'
+            + '<div class="state__text">Tapşırıq təyin etmək üçün əvvəlcə qrup çatına üzv olun.</div></div>';
+          return;
+        }
+        reloadAssignments();
+      })
+      .catch((error) => flash(errorBox, error.message));
+
+    chatSelect.addEventListener('change', reloadAssignments);
+
+    document.getElementById('assignForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = document.getElementById('assignBtn');
+      button.disabled = true;
+      try {
+        await request('/homework/assignments', {
+          method: 'POST',
+          body: {
+            chat_id: Number(chatSelect.value),
+            question_set_id: Number(questionSetSelect.value),
+            due_date: document.getElementById('dueDate').value,
+          },
+        });
+        flash(okBox, 'Tapşırıq təyin edildi.');
+        reloadAssignments();
+      } catch (error) {
+        flash(errorBox, error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
 </script>
 </body>
 </html>

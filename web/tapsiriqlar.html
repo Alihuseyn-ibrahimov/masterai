@@ -16,23 +16,89 @@
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
+
   <section>
-    <div class="section-header"><h1>Tapşırıqlar</h1></div>
-    <div class="card">
-      <div class="state">
-        <div class="state__icon">📝</div>
-        <div class="state__title">Bu ekran hazırlanır</div>
-        <div class="state__text">Müəlliminizin təyin etdiyi ev tapşırıqları burada görünəcək — öz sürətinizlə həll edəcəksiniz. Backend hazırdır (GET /homework/my-assignments), ekran Faza 5-də gələcək.</div>
-      </div>
+    <div class="section-header">
+      <h1>Tapşırıqlarım</h1>
+      <span class="section-header__hint">Öz sürətinizlə həll edin — vaxt limiti yoxdur</span>
     </div>
+    <div id="content"></div>
   </section>
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  if (requireLogin()) mountShell();
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+
+  const STATUS_BADGE = {
+    'tamamlanıb': 'badge badge--success',
+    'davam edir': 'badge badge--warning',
+    'gözləyir': 'badge badge--neutral',
+  };
+
+  if (requireLogin()) {
+    mountShell();
+
+    function renderAssignments(container, assignments) {
+      container.innerHTML = '';
+      if (!assignments.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon">📝</div>'
+          + '<div class="state__title">Tapşırıq yoxdur</div>'
+          + '<div class="state__text">Müəlliminiz tapşırıq təyin edəndə burada görünəcək.</div></div>';
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      // Bitməmişlər əvvəldə — tələbənin işi olanlar yuxarıda olmalıdır.
+      const ordered = [...assignments].sort((a, b) => {
+        const done = (x) => (x.status === 'tamamlanıb' ? 1 : 0);
+        return done(a) - done(b);
+      });
+      for (const assignment of ordered) {
+        const card = document.createElement('div');
+        card.className = 'card card--subject stack stack--tight';
+        card.style.setProperty('--subject', subjectColorVar(assignment.subject));
+
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const title = document.createElement('h4');
+        title.textContent = assignment.title;
+        const status = document.createElement('span');
+        status.className = STATUS_BADGE[assignment.status] || 'badge badge--neutral';
+        status.textContent = assignment.status;
+        head.append(title, status);
+
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `${subjectLabel(assignment.subject)} · son tarix: ${assignment.due_date}`;
+        card.append(head, meta);
+
+        if (assignment.status === 'tamamlanıb' && assignment.score != null) {
+          const score = document.createElement('p');
+          score.className = 'text-sm';
+          score.textContent = `Nəticə: ${assignment.score} düzgün`;
+          card.append(score);
+        } else {
+          const link = document.createElement('a');
+          link.className = 'btn btn--primary btn--sm';
+          link.href = `tapsiriq.html?id=${encodeURIComponent(assignment.assignment_id)}`;
+          link.textContent = assignment.status === 'davam edir' ? 'Davam et' : 'Başla';
+          card.append(link);
+        }
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    loadInto(
+      document.getElementById('content'),
+      () => request('/homework/my-assignments'),
+      renderAssignments,
+    );
+  }
 </script>
 </body>
 </html>
