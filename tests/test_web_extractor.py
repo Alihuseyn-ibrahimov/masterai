@@ -55,6 +55,29 @@ def test_extract_text_prefers_main_tag_content_over_surrounding_ui_chrome():
     assert "Yüklə" not in text
 
 
+def test_extract_text_ignores_bare_div_span_ui_labels_not_inside_main():
+    """Real testdə (e-qanun.az) tapılıb: status/tab etiketləri (məs.
+    "Qüvvədədir") `<main>` DAXİLİNDƏ, sadə `<div>`/`<span>` kimi ola bilər
+    (SPA bütün alət panelini məzmunla EYNİ konteynerdə saxlayır) — `<main>`
+    süzgəci təkbaşına kifayət etmir, məzmun YALNIZ `<p>`/başlıq/siyahı kimi
+    teqlərdən toplanmalıdır."""
+    html = (
+        "<html><body><main>"
+        "<div>Mətn</div><div>Şəkil</div><span>Qüvvədədir</span><button>Yüklə</button>"
+        "<h1>Dövlət qulluğu haqqında</h1>"
+        "<p>" + "Bu qanun dövlət qulluğunun əsaslarını müəyyən edir. " * 5 + "</p>"
+        "</main></body></html>"
+    )
+
+    text = web_extractor._extract_text(html)
+
+    assert "Dövlət qulluğu haqqında" in text
+    assert "dövlət qulluğunun əsaslarını" in text
+    assert "Qüvvədədir" not in text
+    assert "Yüklə" not in text
+    assert "Mətn" not in text.split("\n")
+
+
 def test_extract_text_strips_header_button_aside_form():
     html = (
         "<html><body>"

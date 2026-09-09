@@ -83,18 +83,41 @@ def _download_js_rendered(url: str) -> str:
         driver.quit()
 
 
+# Real testdə (e-qanun.az) tapılıb: tab/status/düymə mətnləri (məs.
+# "Qüvvədədir", "Yüklə") adətən sadə `<div>`/`<span>` daxilindədir —
+# nə `<nav>`/`<header>` kimi tag-lə, nə də `<main>` xaricində olması ilə
+# fərqlənir (SPA-lar bütün UI-ni, alət panelini DAXİL, `<main>`-ə qoya
+# bilər). Əsl sənəd mətni demək olar HƏMİŞƏ paraqraf/başlıq/siyahı
+# teqlərindədir (`<p>`, `<li>`, `<h1-6>`, cədvəl xanaları) — UI
+# etiketləri isə adətən bunlarda DEYİL. Ona görə YALNIZ bu teqlərdən
+# mətn toplamaq, minimal (yeni asılılıq tələb etməyən) boilerplate-
+# təmizləmə həllidir.
+_CONTENT_TAGS = ["p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "td", "th", "blockquote"]
+
+
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "footer", "header", "button", "aside", "form"]):
         tag.decompose()
-    # Real testdə tapılıb (e-qanun.az): JS-render olunan saytların tab/
-    # düymə/status mətnləri (məs. "Mətn/Şəkil/Versiyalar", "Qüvvədədir",
-    # "Yüklə") adətən `<nav>`/`<header>` DEYİL, sadə `<div>`/`<button>`
-    # elementləridir — bunlar yuxarıdakı tag siyahısı ilə tutulmaya bilər.
     # `<main>`/`<article>` (HTML5-in semantik "əsas məzmun" konvensiyası)
-    # varsa, YALNIZ ondan mətn çıxarmaq bu cür UI "qabığını" kənarda qoyur.
+    # varsa, ondan başlamaq axtarış sahəsini daralda bilər (məs. yan
+    # panel kənarda qalır) — amma əsas süzgəc aşağıdakı məzmun-teq
+    # filtridir.
     main = soup.find("main") or soup.find("article")
     root = main if main is not None else soup
+
+    content_blocks = [
+        block.get_text(" ", strip=True)
+        for block in root.find_all(_CONTENT_TAGS)
+        if block.get_text(strip=True)
+    ]
+    content_text = "\n".join(content_blocks)
+    if len(content_text) >= _MIN_STATIC_TEXT_LENGTH:
+        return content_text
+
+    # Ehtiyat yolu — sayt mətni semantik teqlərdə saxlamırsa (pis
+    # markup), köhnə "hər şeyi oxu" davranışına geri qayıt ki, material
+    # tamamilə itməsin.
     return root.get_text(separator="\n", strip=True)
 
 
