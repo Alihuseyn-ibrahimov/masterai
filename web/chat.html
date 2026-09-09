@@ -26,8 +26,8 @@
 </style>
 </head>
 <body>
-<div class="container stack stack--loose">
-  <header id="pageHeader"></header>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
 
   <section class="stack">
     <div class="section-header">
@@ -50,12 +50,14 @@
   <p><a href="chatlar.html">← Çatlara qayıt</a></p>
 </div>
 
+<nav id="bottomNav"></nav>
+
 <script type="module">
   import { getToken, getUser, request } from './assets/js/api.js';
   import { ChatSocket } from './assets/js/chat-socket.js';
   import { upsertItem } from './assets/js/chat-item.js';
   import { buildNameLookup, renderItems } from './assets/js/chat-view.js';
-  import { renderHeader, requireLogin } from './assets/js/page-shell.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
 
   const STATUS_LABELS = {
     connecting: ['Qoşulur…', 'badge badge--neutral'],
@@ -65,7 +67,7 @@
   };
 
   if (requireLogin()) {
-    renderHeader(document.getElementById('pageHeader'));
+    mountShell();
 
     const chatId = Number(new URLSearchParams(window.location.search).get('id'));
     const errorBox = document.getElementById('errorBox');

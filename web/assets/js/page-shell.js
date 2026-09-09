@@ -2,7 +2,7 @@
  * Faza 4-də tam naviqasiya çərçivəsi bunun üzərinə gələcək. */
 
 import { ApiError, clearSession, getUser, isLoggedIn } from './api.js';
-import { homePathForCurrentUser } from './auth-page.js';
+import { renderNavigation } from './nav.js';
 
 /** Tokensiz istifadəçini giriş səhifəsinə göndərir. `replace` işlədilir
  *  ki, geri düyməsi qorunan səhifəyə qaytarmasın. */
@@ -19,41 +19,24 @@ export function logout() {
   window.location.replace('giris.html');
 }
 
-/** Baş başlığı doldurur: brend + istifadəçi adı + çıxış düyməsi. */
-export function renderHeader(container) {
-  const user = getUser();
-  const name = user && user.display_name ? user.display_name : 'İstifadəçi';
-  const initial = name.trim().charAt(0).toUpperCase() || '?';
-
-  container.innerHTML = '';
-  container.className = 'row row--between';
-
-  const brand = document.createElement('a');
-  brand.className = 'brand';
-  // `index.html` (açılış səhifəsi) Faza 6-da gələcək — hələlik brend
-  // istifadəçinin öz başlanğıc səhifəsinə qayıdır.
-  brand.href = homePathForCurrentUser();
-  brand.innerHTML = 'Master<span class="brand__accent">AI</span>';
-
-  const right = document.createElement('div');
-  right.className = 'row';
-
-  const avatar = document.createElement('span');
-  avatar.className = 'avatar';
-  avatar.textContent = initial;
-
-  const label = document.createElement('span');
-  label.className = 'text-sm';
-  label.textContent = name;
-
-  const button = document.createElement('button');
-  button.className = 'btn btn--secondary btn--sm';
-  button.type = 'button';
-  button.textContent = 'Çıxış';
-  button.addEventListener('click', logout);
-
-  right.append(avatar, label, button);
-  container.append(brand, right);
+/**
+ * Səhifənin naviqasiya qabığını qurur: üst zolaq (geniş ekran) +
+ * alt panel (mobil). Hər qorunan səhifə bunu çağırır.
+ *
+ * Qabıq DOM-un `#appBar` və `#bottomNav` elementlərini gözləyir —
+ * onlar hər səhifədə eyni adla olmalıdır.
+ */
+export function mountShell() {
+  const bar = document.getElementById('appBar');
+  const bottom = document.getElementById('bottomNav');
+  if (!bar || !bottom) return;
+  renderNavigation({
+    bar,
+    bottom,
+    user: getUser(),
+    pathname: window.location.pathname,
+    onLogout: logout,
+  });
 }
 
 /** Siyahı yükləmənin ÜÇ halını (yüklənir / xəta / məzmun) bir yerdə

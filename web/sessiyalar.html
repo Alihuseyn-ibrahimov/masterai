@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sessiyalar — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+  <section>
+    <div class="section-header"><h1>Sessiyalar</h1></div>
+    <div class="card">
+      <div class="state">
+        <div class="state__icon">🎯</div>
+        <div class="state__title">Bu ekran hazırlanır</div>
+        <div class="state__text">Canlı sinif sessiyası yaratmaq və PIN paylaşmaq buradan olacaq. Backend hazırdır (POST /live/sessions), ekran Faza 5-də gələcək.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  if (requireLogin()) mountShell();
+</script>
+</body>
+</html>

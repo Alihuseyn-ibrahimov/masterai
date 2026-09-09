@@ -48,6 +48,15 @@ li { list-style: none; }
   border-radius: var(--radius-sm);
 }
 
+/* `hidden` atributu HƏMİŞƏ gizlətməlidir.
+ *
+ * Real render testində tapıldı: brauzerin öz `[hidden] { display: none }`
+ * qaydası ilə bizim `.notice { display: flex }` qaydasının spesifikliyi
+ * eynidir, sonra gələn qalib gəlir — nəticədə `hidden` xəta qutuları
+ * BOŞ QIRMIZI ZOLAQ kimi hər səhifədə görünürdü. Yalnız brauzerdə
+ * baxanda üzə çıxan növ səhvdir. */
+[hidden] { display: none !important; }
+
 /* Yalnız ekran oxuyucu üçün — vizual olaraq gizli, oxunur. */
 .sr-only {
   position: absolute;

@@ -159,6 +159,10 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  /* Dar ekranda izah başlığın YANINDA sıxılıb pis sarılırdı (real
+   * render testində görüldü) — sarılmağa icazə verilir ki, öz sətrinə
+   * düşsün. */
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
@@ -241,3 +245,92 @@
 }
 .brand:hover { text-decoration: none; }
 .brand__accent { color: var(--color-primary); }
+
+/* ---- Naviqasiya çərçivəsi ----
+ * İki ölçü, bir struktur: geniş ekranda üst zolaqda üfüqi linklər,
+ * dar ekranda ALT naviqasiya paneli (əsl mobil tətbiq hissi).
+ * mediapulse üst zolaq + hamburger işlədir; burada alt panel seçildi,
+ * çünki tələbələr telefonda bir əllə istifadə edir. */
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--app-bar-height);
+  padding: 0 var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-nav { display: flex; gap: var(--space-1); }
+
+.app-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.app-nav__link:hover { background: var(--color-surface-alt); text-decoration: none; }
+
+/* Cari səhifə — rəngdən ƏLAVƏ fon da verilir: yalnız rənglə fərq
+ * rəng korluğu olan istifadəçilər üçün kifayət deyil. */
+.app-nav__link[aria-current="page"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.bottom-nav { display: none; }
+
+.app-bar__user { display: flex; align-items: center; gap: var(--space-2); }
+
+@media (max-width: 768px) {
+  /* Dar ekranda üst zolaqda yalnız brend + istifadəçi qalır,
+   * bölmələr aşağı köçür. */
+  .app-nav { display: none; }
+
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    /* iPhone-un aşağı "home" zolağı düymələri örtməsin. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-nav__link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    height: var(--bottom-nav-height);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    text-decoration: none;
+  }
+  .bottom-nav__link:hover { text-decoration: none; }
+  .bottom-nav__link[aria-current="page"] {
+    color: var(--color-primary);
+    font-weight: var(--weight-semibold);
+  }
+  .bottom-nav__icon { font-size: var(--text-lg); line-height: 1; }
+
+  /* Məzmun alt panelin ARXASINDA qalmamalıdır. */
+  .app-shell { padding-bottom: calc(var(--bottom-nav-height) + var(--space-6)); }
+}

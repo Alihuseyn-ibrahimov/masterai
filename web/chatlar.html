@@ -14,8 +14,8 @@
 <link rel="stylesheet" href="assets/css/components.css">
 </head>
 <body>
-<div class="container stack stack--loose">
-  <header id="pageHeader"></header>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
 
   <section>
     <div class="section-header">
@@ -55,12 +55,14 @@
   </section>
 </div>
 
+<nav id="bottomNav"></nav>
+
 <script type="module">
   import { request } from './assets/js/api.js';
-  import { loadInto, renderHeader, requireLogin } from './assets/js/page-shell.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
 
   if (requireLogin()) {
-    renderHeader(document.getElementById('pageHeader'));
+    mountShell();
 
     const content = document.getElementById('content');
 

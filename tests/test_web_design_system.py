@@ -144,3 +144,25 @@ class TestDarkMode:
         assert "prefers-color-scheme: dark" in css
         # Əl ilə "işıqlı" seçimi sistem seçimini üstələməlidir.
         assert ':root:not([data-theme="light"])' in css
+
+
+class TestHiddenAttribute:
+    """Real render testində tapılan səhvin reqressiya qoruyucusu.
+
+    `display` təyin edən hər komponent sinfi brauzerin `[hidden]`
+    qaydasını sükutla üstələyir (spesifiklik eyni, sonrakı qalib gəlir).
+    Nəticə: `hidden` elementlər GÖRÜNÜR — bizim halda boş qırmızı xəta
+    zolaqları hər səhifədə. Testlə tutulmurdu, çünki HTML düzgün idi.
+    """
+
+    def test_base_css_forces_hidden_elements_to_stay_hidden(self):
+        css = _read(CSS_DIR / "base.css")
+        assert re.search(r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important", css), (
+            "base.css-də `[hidden] { display: none !important }` qaydası yoxdur"
+        )
+
+    def test_components_that_set_display_exist(self):
+        """Qoruyucu: display təyin edən komponent qalmayıbsa yuxarıdakı
+        test mənasızlaşır."""
+        css = _read(CSS_DIR / "components.css")
+        assert "display: flex" in css or "display: grid" in css

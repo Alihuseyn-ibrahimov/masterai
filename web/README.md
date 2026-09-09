@@ -20,11 +20,26 @@ web/
     gallery.html       # bütün komponentlər bir səhifədə
 ```
 
-## Dizayn sistemini görmək
+## Səhifələri açmaq — LOKAL SERVER MƏCBURİDİR
 
-`web/assets/gallery.html` faylına **iki dəfə klikləyin** — brauzerdə
-açılır, server lazım deyil. Sağ yuxarıdakı düymə tünd/işıqlı rejimi
-yoxlayır.
+Fayla iki dəfə klikləmək (`file://`) **İŞLƏMİR**: brauzer ES modullarını
+CORS səbəbi ilə bloklayır (real Chromium testində təsdiqləndi —
+"Access to script ... has been blocked by CORS policy"). Səhifə açılır,
+amma boş qalır.
+
+Windows-da:
+
+```powershell
+cd "C:\Users\Alihuseyn Ibrahimov\PycharmProjects\Quantum\masterai\web"
+py -m http.server 8123
+```
+
+Sonra brauzerdə: `http://localhost:8123/giris.html`
+
+Dayandırmaq: terminalda `Ctrl+C`.
+
+**İstisna:** `assets/gallery.html` (dizayn sistemi) JavaScript modulu
+işlətmir — ona iki dəfə kliklə də baxmaq olar.
 
 ## Pozulmaz qayda
 

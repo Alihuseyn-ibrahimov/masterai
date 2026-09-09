@@ -127,3 +127,62 @@ class TestSharedConventions:
             if re.search(r"#[0-9a-fA-F]{3,8}\b", line) and "theme-color" not in line
         ]
         assert not offenders, f"{page.name}: markup-da birbaşa rəng: {offenders}"
+
+
+class TestNavigationShell:
+    """Naviqasiya bölmələri ilə fayl sistemi arasındakı əlaqə.
+
+    `nav.js`-ə yeni bölmə əlavə edib səhifəni yaratmağı unutmaq çox
+    asandır — nəticədə istifadəçi menyudan 404-ə düşür. Bu, brauzerdə
+    yalnız klikləyəndə görünür.
+    """
+
+    NAV_JS = WEB / "assets" / "js" / "nav.js"
+    _HREF_RE = re.compile(r"href:\s*'([^']+)'")
+    _MATCH_RE = re.compile(r"matches:\s*\[([^\]]*)\]")
+
+    def _destination_hrefs(self) -> set[str]:
+        return set(self._HREF_RE.findall(self.NAV_JS.read_text(encoding="utf-8")))
+
+    def _matched_pages(self) -> set[str]:
+        pages: set[str] = set()
+        for group in self._MATCH_RE.findall(self.NAV_JS.read_text(encoding="utf-8")):
+            pages.update(re.findall(r"'([^']+)'", group))
+        return pages
+
+    def test_destinations_were_found(self):
+        assert len(self._destination_hrefs()) >= 4, "nav.js oxunmadı — regex sınıb ola bilər"
+
+    def test_every_navigation_destination_has_a_page(self):
+        missing = [href for href in self._destination_hrefs() if not (WEB / href).exists()]
+        assert not missing, f"naviqasiyada var, faylı yoxdur: {sorted(missing)}"
+
+    def test_every_matched_page_exists(self):
+        """`matches` siyahısındakı səhifələr də mövcud olmalıdır — orada
+        detal səhifələri (məs. `chat.html`) sadalanır."""
+        missing = [page for page in self._matched_pages() if not (WEB / page).exists()]
+        assert not missing, f"`matches`-də var, faylı yoxdur: {sorted(missing)}"
+
+
+PROTECTED_PAGES = [p for p in PAGES if "requireLogin" in p.read_text(encoding="utf-8")]
+
+
+def test_protected_pages_were_found():
+    assert PROTECTED_PAGES, "qorunan səhifə tapılmadı — testlər mənasız olardı"
+
+
+@pytest.mark.parametrize("page", PROTECTED_PAGES, ids=lambda p: p.name)
+class TestShellContainers:
+    """Qabıq `#appBar` və `#bottomNav` elementlərini gözləyir. Biri
+    yoxdursa naviqasiya SÜKUTLA göstərilmir (`mountShell` erkən qayıdır)
+    — səhifə işləyir, amma istifadəçi heç yerə keçə bilmir."""
+
+    def test_page_has_both_shell_containers(self, page: Path):
+        ids = _parse(page).ids
+        assert "appBar" in ids, f"{page.name}: #appBar yoxdur"
+        assert "bottomNav" in ids, f"{page.name}: #bottomNav yoxdur"
+
+    def test_page_mounts_the_shell(self, page: Path):
+        assert "mountShell()" in page.read_text(encoding="utf-8"), (
+            f"{page.name}: mountShell() çağırılmır"
+        )

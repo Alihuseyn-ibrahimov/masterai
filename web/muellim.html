@@ -14,13 +14,13 @@
 <link rel="stylesheet" href="assets/css/components.css">
 </head>
 <body>
-<div class="container stack stack--loose">
-  <header id="pageHeader"></header>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
 
   <div class="notice notice--info">
     <span>🚧</span>
-    <span>Bu səhifə müvəqqətidir (Faza 2). Məqsədi giriş axınının real backend-lə
-    işlədiyini sübut etməkdir — tam ekran Faza 3-də gələcək.</span>
+    <span>Bu səhifə hələ tamamlanmayıb: sual banklarının siyahısı görünür, amma
+    material yükləmə, sual redaktəsi və sessiya başlatma Faza 5-də gələcək.</span>
   </div>
 
   <section>
@@ -29,12 +29,14 @@
   </section>
 </div>
 
+<nav id="bottomNav"></nav>
+
 <script type="module">
   import { request } from './assets/js/api.js';
-  import { loadInto, renderHeader, requireLogin } from './assets/js/page-shell.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
 
   if (requireLogin()) {
-    renderHeader(document.getElementById('pageHeader'));
+    mountShell();
     loadInto(
       document.getElementById('content'),
       () => request('/live/question-sets'),

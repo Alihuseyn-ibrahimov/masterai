@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profil — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section>
+    <div class="section-header"><h1>Profil</h1></div>
+    <div class="card stack">
+      <div class="row">
+        <span class="avatar avatar--lg" id="avatar">?</span>
+        <div class="stack stack--tight">
+          <h3 id="displayName">—</h3>
+          <span class="text-sm text-muted" id="email">—</span>
+          <div class="row" id="roles"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Görünüş</h2></div>
+    <div class="card stack">
+      <p class="text-sm text-muted">
+        Defolt olaraq cihazınızın seçimi tətbiq olunur. Aşağıdan əl ilə dəyişə bilərsiniz.
+      </p>
+      <div class="row">
+        <button class="btn btn--secondary btn--sm" data-theme-choice="light">İşıqlı</button>
+        <button class="btn btn--secondary btn--sm" data-theme-choice="dark">Tünd</button>
+        <button class="btn btn--ghost btn--sm" data-theme-choice="system">Cihaza uyğun</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="studentExtras" hidden>
+    <div class="section-header"><h2>Daha çox</h2></div>
+    <div class="grid" style="--grid-min: 220px">
+      <a class="card card--interactive stack stack--tight" href="nailiyyetler.html">
+        <h4>🏆 Nailiyyətlər</h4>
+        <p class="text-sm text-muted">Qazandığınız nişanlar</p>
+      </a>
+      <a class="card card--interactive stack stack--tight" href="tarixce.html">
+        <h4>📊 Tarixçə</h4>
+        <p class="text-sm text-muted">Keçmiş nəticələriniz</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <div class="card stack">
+      <h4>Hesabdan çıxış</h4>
+      <p class="text-sm text-muted">Bu cihazda saxlanmış sessiya silinəcək.</p>
+      <button class="btn btn--danger" type="button" id="logoutBtn">Çıxış et</button>
+    </div>
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getUser } from './assets/js/api.js';
+  import { logout, mountShell, requireLogin } from './assets/js/page-shell.js';
+
+  const THEME_KEY = 'masterai-theme';
+
+  function applyStoredTheme() {
+    // Yaddaş bloklanmış brauzerlərdə (Safari gizli rejimi) atır —
+    // görünüş seçimi tətbiqi sındırmamalıdır.
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch { /* cihaz seçimi qalır */ }
+  }
+
+  function chooseTheme(choice) {
+    try {
+      if (choice === 'system') {
+        localStorage.removeItem(THEME_KEY);
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        localStorage.setItem(THEME_KEY, choice);
+        document.documentElement.setAttribute('data-theme', choice);
+      }
+    } catch {
+      // Yaddaş yoxdursa seçim yalnız bu sekmə üçün tətbiq olunur.
+      if (choice === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', choice);
+    }
+  }
+
+  applyStoredTheme();
+
+  if (requireLogin()) {
+    mountShell();
+
+    const user = getUser() || {};
+    const name = user.display_name || 'İstifadəçi';
+    document.getElementById('displayName').textContent = name;
+    document.getElementById('email').textContent = user.email || '';
+    document.getElementById('avatar').textContent = name.trim().charAt(0).toUpperCase() || '?';
+
+    const roles = document.getElementById('roles');
+    if (user.is_teacher) {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge--info';
+      badge.textContent = 'Müəllim';
+      roles.append(badge);
+    }
+    if (user.is_admin) {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge--warning';
+      badge.textContent = 'Admin';
+      roles.append(badge);
+    }
+    if (!user.is_teacher) {
+      document.getElementById('studentExtras').hidden = false;
+    }
+
+    for (const button of document.querySelectorAll('[data-theme-choice]')) {
+      button.addEventListener('click', () => chooseTheme(button.dataset.themeChoice));
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+  }
+</script>
+</body>
+</html>
