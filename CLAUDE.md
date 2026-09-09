@@ -36,7 +36,8 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | AI Quiz Orkestrasiyası (Faza B) | Növbəli sual axını (`chat_quiz_sessions`), 45san timeout+erkən keçid, `POST /quiz/start`, WS "answer" tipi, xal | ✅ Tamamlandı (34 test) |
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
-| Flutter app (`app/`) | MVP nüvəsi: qeydiyyat/giriş, çat siyahısı+mesajlaşma (WS), material yükləmə, quiz həlli. Dostluq UI-ı yoxdur (yalnız qrup çatı) | ✅ Tam uc-uca real mühitdə təsdiqlənib (`analyze`+`test`+`run`, real Android emulyator, real backend) — bax `app/README.md` |
+| ~~Flutter app (`app/`)~~ | **ARXİV — əvəzlənib** (2026-09-09). Release imzalama açarı yoxdur, Play Store-a dərc olunmayıb → real tələbəyə çatmaq yolu YOX idi. Kod silinməyib | 🗄️ Arxiv, bax `app/README.md` |
+| **Veb sayt (`web/`)** | Statik HTML+CSS+vanilla JS, build addımı YOXDUR. Bütün 17 səhifə: açılış, auth, çat+quiz, ev tapşırıqları, tarixçə, nişanlar, müəllim konsolu, canlı sessiya, PIN qoşulması, hüquqi səhifələr | ✅ Kod hazır, real backend-lə uc-uca sınaq gözlənilir |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
 | Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
@@ -224,6 +225,64 @@ generasiyası, canlı sessiya, hesabat HAMISI işlədi. Yol boyu VPS-in
 Chrome/disk/swap infrastrukturu da düzəldildi (bax aşağı "Dərs: VPS-də
 Chrome/Selenium quraşdırma"). Ətraflı bax
 `.planning/2026-09-08-masterai-ingestion-question-count/progress.md`.
+
+
+## Veb-first keçidi (2026-09-09) — ƏSAS ARXİTEKTURA DƏYİŞİKLİYİ
+
+Flutter tətbiqi arxivləşdirildi, yerini statik veb sayt tutdu.
+
+**Həlledici səbəb:** Flutter app-ın release imzalama açarı yox idi və
+Play Store-a heç vaxt dərc olunmamışdı — yəni **real tələbəyə çatmaq
+yolu YOX idi**, bütün testlər tərtibatçının öz emulyatorunda olmuşdu.
+Sayt isə link paylaşılan an işləyir. İkinci arqument: plan onsuz da 21
+ekranın hamısını yenidən yazmağı nəzərdə tuturdu, ona görə keçidin
+əlavə xərci azdır.
+
+**Backend TOXUNULMADI** — `server/` və `pipeline/` dəyişmədi.
+
+### Texniki qaydalar
+
+- **Build addımı yoxdur.** npm, bundler, Flutter SDK — heç biri.
+  Fayllar olduğu kimi nginx tərəfindən verilir (`saas_core` naxışı).
+- **`tokens.css` yeganə rəng/ölçü mənbəyidir.** Digər CSS fayllarında
+  birbaşa hex rəng və ya ölçü yazılmır. `tests/test_web_design_system.py`
+  bunu avtomatik yoxlayır.
+- **İstifadəçi mətni HEÇ VAXT `innerHTML`-ə verilmir**, yalnız
+  `textContent` — çat məzmununu başqa istifadəçilər yazır.
+- **Lokal yoxlama üçün server MƏCBURİDİR:** `file://` ilə ES modulları
+  brauzer tərəfindən CORS səbəbi ilə bloklanır (real Chromium testi ilə
+  təsdiqləndi). `py -m http.server 8123`.
+
+### Bu keçidin gətirdiyi qazanc: frontend indi bu mühitdə icra olunur
+
+Flutter kodunu bu sandbox-da işə salmaq MÜMKÜN DEYİLDİ (SDK yoxdur) —
+hər şey istifadəçinin kompüterində yoxlanılırdı. İndi Node 22 ilə JS
+testləri, Chromium ilə real render yoxlaması burada aparılır. Bu, dərhal
+bir neçə bug tapdı, o cümlədən:
+
+- **`hidden` atributu işləmirdi:** `.notice { display: flex }` brauzerin
+  `[hidden] { display: none }` qaydası ilə eyni spesifiklikdədir və
+  sonra gəldiyi üçün qalib gəlirdi. Nəticədə boş qırmızı xəta zolaqları
+  HƏR səhifədə görünürdü. Nə HTML, nə CSS testi bunu tuta bilməzdi.
+
+### nginx-də iki gizli tələ (testlə bağlanıb)
+
+1. **Yol kökü siyahısı:** statik sayt və API eyni domeni paylaşır.
+   Backend-ə yeni ÜST SƏVİYYƏLİ endpoint əlavə edilib
+   `deploy/nginx-masterai.conf`-dakı siyahıya yazılmasa, nginx onu
+   statik fayl kimi axtarar → 404. `tests/test_nginx_routes.py`.
+2. **Regex location prefiksdən üstündür:** `ws` API regex siyahısına
+   salınsa `/ws/` bloku heç vaxt işə düşməz, `Upgrade` başlıqları
+   ötürülməz və WebSocket handshake-i SÜKUTLA sınar (adi 200 kimi
+   görünər).
+
+### Diaqnostika alətləri
+
+```bash
+.venv/bin/python -m http.server 8123 --bind 127.0.0.1 --directory web &
+.venv/bin/python deploy/diagnostics/check_pages_in_browser.py   # JS xətaları
+.venv/bin/python deploy/diagnostics/screenshot_pages.py          # görünüş
+```
 
 ## Giriş formatları (pipeline)
 
