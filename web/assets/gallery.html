@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MasterAI — dizayn sistemi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+<div class="container stack stack--loose">
+
+  <header class="row row--between">
+    <div>
+      <h1>MasterAI dizayn sistemi</h1>
+      <p class="text-muted">Faza 1 — bütün komponentlər bir səhifədə. Bu səhifə build tələb etmir: fayla iki dəfə klikləyin.</p>
+    </div>
+    <button class="btn btn--secondary" id="themeToggle">Tünd/işıqlı</button>
+  </header>
+
+  <section>
+    <div class="section-header"><h2>Tipoqrafika</h2><span class="section-header__hint">Nunito başlıq, Inter mətn</span></div>
+    <div class="card stack">
+      <h1>Başlıq 1 — Dövlət qulluğu</h1>
+      <h2>Başlıq 2 — Qanunvericilik əsasları</h2>
+      <h3>Başlıq 3 — Maddə 20.1</h3>
+      <h4>Başlıq 4 — Şərh</h4>
+      <p>Adi mətn. Azərbaycan hərfləri yoxlanışı: <strong>Ə ə İ ı Ö ö Ü ü Ğ ğ Ç ç Ş ş</strong></p>
+      <p class="text-muted text-sm">Sönük mətn — köməkçi izahlar üçün.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Düymələr</h2></div>
+    <div class="card stack">
+      <div class="row">
+        <button class="btn btn--primary">Əsas</button>
+        <button class="btn btn--secondary">İkinci</button>
+        <button class="btn btn--ghost">Kölgəli</button>
+        <button class="btn btn--danger">Sil</button>
+        <button class="btn btn--primary" disabled>Deaktiv</button>
+      </div>
+      <div class="row">
+        <button class="btn btn--primary btn--sm">Kiçik</button>
+        <button class="btn btn--primary">Normal</button>
+        <button class="btn btn--primary btn--lg">Böyük</button>
+      </div>
+      <button class="btn btn--primary btn--block">Tam enli — mobil formalar üçün</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Nişanlar və fənn çipləri</h2></div>
+    <div class="card stack">
+      <div class="row">
+        <span class="badge badge--success">Hazırdır</span>
+        <span class="badge badge--warning">Hazırlanır</span>
+        <span class="badge badge--danger">Uğursuz oldu</span>
+        <span class="badge badge--info">Yeni</span>
+        <span class="badge badge--neutral">Qaralama</span>
+      </div>
+      <div class="row">
+        <span class="chip-subject" style="--subject: var(--subject-mentiq)">Məntiq</span>
+        <span class="chip-subject" style="--subject: var(--subject-informatika)">İnformatika</span>
+        <span class="chip-subject" style="--subject: var(--subject-dunyagorusu)">Dünyagörüşü</span>
+        <span class="chip-subject" style="--subject: var(--subject-azerbaycan-dili)">Azərbaycan dili</span>
+        <span class="chip-subject" style="--subject: var(--subject-qanunvericilik)">Qanunvericilik</span>
+        <span class="chip-subject" style="--subject: var(--subject-xarici-dil)">Xarici dil</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Kartlar</h2><span class="section-header__hint">Ayırıcı kölgə yox, incə kənar xətti</span></div>
+    <div class="grid">
+      <div class="card card--subject" style="--subject: var(--subject-qanunvericilik)">
+        <div class="row row--between">
+          <h4>Dövlət qulluğu haqqında</h4>
+          <span class="badge badge--success">Hazırdır</span>
+        </div>
+        <p class="text-muted text-sm">10 sual · Qanunvericilik</p>
+      </div>
+      <div class="card card--subject" style="--subject: var(--subject-mentiq)">
+        <div class="row row--between">
+          <h4>Məntiqi ardıcıllıqlar</h4>
+          <span class="badge badge--warning">Hazırlanır</span>
+        </div>
+        <p class="text-muted text-sm">Emal olunur…</p>
+      </div>
+      <div class="card card--interactive">
+        <h4>Klikləyən kart</h4>
+        <p class="text-muted text-sm">Kursoru üzərinə gətirin — kənar xətti güclənir.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Statistika</h2><span class="section-header__hint">Geniş ekranda 4, mobildə 2 sütun</span></div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric__value">24</div><div class="metric__label">Sual bankı</div></div>
+      <div class="metric"><div class="metric__value">7</div><div class="metric__label">Aktiv sessiya</div></div>
+      <div class="metric"><div class="metric__value">86%</div><div class="metric__label">Orta nəticə</div></div>
+      <div class="metric"><div class="metric__value">142</div><div class="metric__label">Tələbə</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Tərəqqi</h2></div>
+    <div class="card stack">
+      <div class="stack stack--tight">
+        <div class="row row--between"><span class="text-sm">Qanunvericilik</span><span class="text-sm text-muted">8/10</span></div>
+        <div class="progress"><div class="progress__fill" style="--progress: 80%; --subject: var(--subject-qanunvericilik)"></div></div>
+      </div>
+      <div class="stack stack--tight">
+        <div class="row row--between"><span class="text-sm">Məntiq</span><span class="text-sm text-muted">3/10</span></div>
+        <div class="progress"><div class="progress__fill" style="--progress: 30%; --subject: var(--subject-mentiq)"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Form sahələri</h2></div>
+    <div class="card stack" style="max-width: var(--width-form)">
+      <div class="field">
+        <label class="field__label" for="g-email">E-poçt</label>
+        <input class="field__input" id="g-email" type="email" placeholder="ad@nümunə.az">
+      </div>
+      <div class="field field--invalid">
+        <label class="field__label" for="g-pin">Sessiya PIN-i</label>
+        <input class="field__input" id="g-pin" value="12" inputmode="numeric">
+        <span class="field__error">PIN 6 rəqəmdən ibarət olmalıdır.</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="g-subject">Fənn</label>
+        <select class="field__select" id="g-subject">
+          <option>Qanunvericilik</option><option>Məntiq</option><option>İnformatika</option>
+        </select>
+      </div>
+      <button class="btn btn--primary btn--block">Davam et</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Xəbərdarlıqlar</h2></div>
+    <div class="stack stack--tight">
+      <div class="notice notice--info"><span>ℹ️</span><span>Material emal olunur, bu 2-3 dəqiqə çəkə bilər.</span></div>
+      <div class="notice notice--success"><span>✅</span><span>Material hazırdır! 10 sual yaradıldı.</span></div>
+      <div class="notice notice--warning"><span>⚠️</span><span>Material qısa idi, tələb olunandan az sual alındı.</span></div>
+      <div class="notice notice--danger"><span>⛔</span><span>Sayt yüklənmədi — linki yoxlayın.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Üç məcburi hal</h2><span class="section-header__hint">Hər siyahı üçün: yüklənir / boş / xəta</span></div>
+    <div class="grid" style="--grid-min: 280px">
+      <div class="card"><div class="state"><div class="spinner"></div><div class="state__text">Yüklənir…</div></div></div>
+      <div class="card"><div class="state">
+        <div class="state__icon">📚</div>
+        <div class="state__title">Hələ sual bankı yoxdur</div>
+        <div class="state__text">Dərs materialı (PDF, şəkil və ya link) yükləyin — AI ondan test sualları hazırlayacaq.</div>
+        <button class="btn btn--primary">Material yüklə</button>
+      </div></div>
+      <div class="card"><div class="state">
+        <div class="state__icon">⚠️</div>
+        <div class="state__title">Yüklənmədi</div>
+        <div class="state__text">Bağlantı xətası baş verdi.</div>
+        <button class="btn btn--secondary">Təkrar cəhd et</button>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header"><h2>Skelet və avatar</h2></div>
+    <div class="card stack">
+      <div class="row">
+        <span class="avatar">AI</span>
+        <span class="avatar avatar--lg">Ə</span>
+      </div>
+      <div class="stack stack--tight">
+        <div class="skeleton" style="height: var(--space-4); width: 60%"></div>
+        <div class="skeleton" style="height: var(--space-4); width: 90%"></div>
+        <div class="skeleton" style="height: var(--space-4); width: 40%"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script>
+  // Tünd/işıqlı keçid — sistem seçimini üstələyir, seçim yadda qalır.
+  const root = document.documentElement;
+  const saved = localStorage.getItem('masterai-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const isDark = root.getAttribute('data-theme') === 'dark'
+      || (!root.hasAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    const next = isDark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('masterai-theme', next);
+  });
+</script>
+</body>
+</html>

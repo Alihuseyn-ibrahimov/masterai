@@ -1,0 +1,187 @@
+/* MasterAI — dizayn tokenləri.
+ *
+ * Bu fayl layihənin YEGANƏ rəng/ölçü mənbəyidir. Heç bir başqa CSS
+ * faylında birbaşa hex rəng və ya piksel ölçüsü yazılmır — yalnız
+ * `var(--...)`. Bu intizam mediapulse.az-dan götürülüb (orada da bütün
+ * sayt `--navy`/`--accent`/`--surface` dəyişənləri üzərində qurulub) və
+ * `tests/test_web_design_system.py` ilə avtomatik yoxlanılır.
+ *
+ * Rəng palitrası Flutter tətbiqindən KÖÇÜRÜLÜB ki, davamlılıq itməsin:
+ * toxum rəngi #2F6FED, 6 fənn aksenti `app_subject_colors.dart`-dan.
+ */
+
+:root {
+  /* ---- Brend ---- */
+  --color-primary:            #2F6FED;
+  --color-primary-hover:      #2358C7;
+  --color-primary-soft:       #E8F0FE;
+  --color-on-primary:         #FFFFFF;
+
+  /* ---- Səth və mətn ----
+   * Quizlet/Brilliant tərzi: ağ kartlar açıq boz fonda, ayırıcı KÖLGƏ
+   * yox, incə KƏNAR XƏTTİdir. Kölgə yalnız üzən elementlərdə. */
+  --color-bg:                 #F7F8FA;
+  --color-surface:            #FFFFFF;
+  --color-surface-alt:        #F1F3F7;
+  --color-border:             #E3E7EE;
+  --color-border-strong:      #C9D0DC;
+  --color-text:               #12151C;
+  --color-text-muted:         #5B6472;
+  --color-text-faint:         #8A93A3;
+
+  /* ---- Semantik ----
+   * Hər biri cütlükdür: açıq fon + tünd mətn (mediapulse nişan naxışı). */
+  --color-success:            #1E7A4B;
+  --color-success-soft:       #DCF5E7;
+  --color-warning:            #8A5A00;
+  --color-warning-soft:       #FDF0D2;
+  --color-danger:             #B3261E;
+  --color-danger-soft:        #FCE4E2;
+  --color-info:               #1F5FA8;
+  --color-info-soft:          #E3EFFB;
+
+  /* ---- Fənn aksentləri (app_subject_colors.dart ilə eyni) ----
+   * YALNIZ məzmunu işarələmək üçün: fənn nişanı, tərəqqi zolağı, kart
+   * kənarı. Düymə rəngi kimi İŞLƏDİLMİR — əks halda tətbiq alabəzək
+   * görünür (bax dizayn speci, 3-cü bölmə). */
+  --subject-mentiq:           #7C4DFF;
+  --subject-informatika:      #00897B;
+  --subject-dunyagorusu:      #EF6C00;
+  --subject-azerbaycan-dili:  #2E7D32;
+  --subject-qanunvericilik:   #C62828;
+  --subject-xarici-dil:       #1565C0;
+
+  /* ---- Boşluq: 4-lük şkala ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radius ---- */
+  --radius-sm:    8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-full: 999px;
+
+  /* ---- Kölgə (az işlədilir) ---- */
+  --shadow-raised:  0 1px 3px rgba(18, 21, 28, .07);
+  --shadow-overlay: 0 8px 28px rgba(18, 21, 28, .16);
+
+  /* ---- Tipoqrafika ----
+   * Nunito (başlıq) + Inter (mətn) Flutter tətbiqindən saxlanılıb —
+   * bu cütlük real mühitdə Azərbaycan hərfləri (Ə/ə) ilə artıq
+   * yoxlanılıb. Fallback zənciri sistem şriftlərinə enir ki, Google
+   * Fonts yüklənməsə də hərflər "boş qutu" kimi görünməsin. */
+  --font-heading: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-body:    'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-base: 16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  36px;
+  --text-4xl:  46px;
+
+  --leading-tight:  1.2;
+  --leading-normal: 1.55;
+
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    800;
+
+  /* ---- Ölçülər ----
+   * 1200px mediapulse-un 1280-indən bir qədər dardır: MasterAI mətn və
+   * sual oxutdurur, çox geniş sətir oxunaqlığı pozur. */
+  --grid-min:         240px;   /* .grid-in defolt minimum sütun eni */
+  --textarea-min:      96px;   /* çoxsətirli sahənin minimum hündürlüyü */
+  --width-container: 1200px;
+  --width-prose:      720px;
+  --width-form:       420px;
+
+  /* ---- Hərəkət ---- */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --easing: cubic-bezier(.2, 0, .2, 1);
+}
+
+/* Tünd rejim — sistem seçimi. `[data-theme]` əl ilə keçid üçün
+ * saxlanılır (istifadəçi seçimi sistem seçimini üstələyir). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-primary:       #7EA6F8;
+    --color-primary-hover: #9CBCFA;
+    --color-primary-soft:  #1B2A45;
+    --color-on-primary:    #0B1020;
+
+    --color-bg:            #0F1116;
+    --color-surface:       #171A21;
+    --color-surface-alt:   #1E222B;
+    --color-border:        #2A2F3A;
+    --color-border-strong: #3C4350;
+    --color-text:          #EDEFF3;
+    --color-text-muted:    #A2ABBA;
+    --color-text-faint:    #79828F;
+
+    --color-success:      #7FD6A6;
+    --color-success-soft: #14301F;
+    --color-warning:      #F0C674;
+    --color-warning-soft: #33270B;
+    --color-danger:       #F2A9A3;
+    --color-danger-soft:  #371614;
+    --color-info:         #9BC4F2;
+    --color-info-soft:    #12253C;
+
+    --subject-mentiq:          #B39DFF;
+    --subject-informatika:     #64D8CB;
+    --subject-dunyagorusu:     #FFB74D;
+    --subject-azerbaycan-dili: #81C784;
+    --subject-qanunvericilik:  #EF9A9A;
+    --subject-xarici-dil:      #90CAF9;
+
+    --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
+    --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);
+  }
+}
+
+[data-theme="dark"] {
+  --color-primary:       #7EA6F8;
+  --color-primary-hover: #9CBCFA;
+  --color-primary-soft:  #1B2A45;
+  --color-on-primary:    #0B1020;
+
+  --color-bg:            #0F1116;
+  --color-surface:       #171A21;
+  --color-surface-alt:   #1E222B;
+  --color-border:        #2A2F3A;
+  --color-border-strong: #3C4350;
+  --color-text:          #EDEFF3;
+  --color-text-muted:    #A2ABBA;
+  --color-text-faint:    #79828F;
+
+  --color-success:      #7FD6A6;
+  --color-success-soft: #14301F;
+  --color-warning:      #F0C674;
+  --color-warning-soft: #33270B;
+  --color-danger:       #F2A9A3;
+  --color-danger-soft:  #371614;
+  --color-info:         #9BC4F2;
+  --color-info-soft:    #12253C;
+
+  --subject-mentiq:          #B39DFF;
+  --subject-informatika:     #64D8CB;
+  --subject-dunyagorusu:     #FFB74D;
+  --subject-azerbaycan-dili: #81C784;
+  --subject-qanunvericilik:  #EF9A9A;
+  --subject-xarici-dil:      #90CAF9;
+
+  --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);
+}

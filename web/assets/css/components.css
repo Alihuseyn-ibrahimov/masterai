@@ -1,0 +1,229 @@
+/* MasterAI — komponent kitabxanası.
+ * Flutter tətbiqində paylaşılan komponent qovluğu YOX idi — 21 ekran öz
+ * düymə/kartını ayrıca qururdu, vizual uyğunsuzluğun kök səbəbi bu idi.
+ * Burada hər komponent BİR dəfə təyin olunur.
+ * Yalnız `tokens.css` dəyişənlərindən istifadə edir. */
+
+/* ---- Kart ---- */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+.card--flat        { background: var(--color-surface-alt); border-color: transparent; }
+.card--interactive { cursor: pointer; transition: border-color var(--motion-fast) var(--easing); }
+.card--interactive:hover { border-color: var(--color-border-strong); }
+
+/* Fənn rəngi kartın SOL kənarında — məzmunu işarələyir, doldurmur.
+ * İşlədilməsi: <div class="card card--subject" style="--subject: var(--subject-mentiq)"> */
+.card--subject { border-left: 3px solid var(--subject, var(--color-primary)); }
+
+/* ---- Düymə ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--motion-fast) var(--easing),
+              border-color var(--motion-fast) var(--easing);
+}
+.btn:hover { text-decoration: none; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+
+.btn--primary       { background: var(--color-primary); color: var(--color-on-primary); }
+.btn--primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+
+.btn--secondary     { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border-strong); }
+.btn--secondary:hover:not(:disabled) { background: var(--color-surface-alt); }
+
+.btn--ghost         { background: transparent; color: var(--color-primary); }
+.btn--ghost:hover:not(:disabled) { background: var(--color-primary-soft); }
+
+.btn--danger        { background: var(--color-danger); color: var(--color-on-primary); }
+
+.btn--sm    { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+.btn--lg    { padding: var(--space-4) var(--space-8); font-size: var(--text-lg); }
+.btn--block { width: 100%; }
+
+/* ---- Nişan (badge) — mediapulse naxışı: açıq fon + tünd mətn ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.badge--success { background: var(--color-success-soft); color: var(--color-success); }
+.badge--warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.badge--danger  { background: var(--color-danger-soft);  color: var(--color-danger); }
+.badge--info    { background: var(--color-info-soft);    color: var(--color-info); }
+.badge--neutral { background: var(--color-surface-alt);  color: var(--color-text-muted); }
+
+/* Fənn çipi — rəng `--subject` ilə ötürülür. */
+.chip-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--subject, var(--color-primary));
+  border-radius: var(--radius-full);
+  color: var(--subject, var(--color-primary));
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+/* ---- Form sahələri ---- */
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+}
+
+.field__input,
+.field__select,
+.field__textarea {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  transition: border-color var(--motion-fast) var(--easing);
+}
+.field__input:focus,
+.field__select:focus,
+.field__textarea:focus { border-color: var(--color-primary); }
+
+.field__input::placeholder { color: var(--color-text-faint); }
+.field__textarea { min-height: var(--textarea-min); resize: vertical; }
+
+.field__error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+.field--invalid .field__input { border-color: var(--color-danger); }
+
+/* ---- Statistika xanası ---- */
+.metric {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+.metric__value {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+}
+.metric__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+/* ---- Tərəqqi zolağı ---- */
+.progress {
+  height: var(--space-2);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  width: var(--progress, 0%);
+  background: var(--subject, var(--color-primary));
+  border-radius: var(--radius-full);
+  transition: width var(--motion-base) var(--easing);
+}
+
+/* ---- Bölmə başlığı ---- */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.section-header__hint { font-size: var(--text-sm); color: var(--color-text-muted); }
+
+/* ---- Üç məcburi hal: boş / xəta / yüklənir ----
+ * Flutter tətbiqində bunların çoxu sadə mətn idi. Hər siyahı üçün
+ * üçü də olmalıdır (bax dizayn speci). */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+}
+.state__icon  { font-size: var(--text-4xl); line-height: 1; }
+.state__title { font-family: var(--font-heading); font-size: var(--text-lg); font-weight: var(--weight-bold); }
+.state__text  { color: var(--color-text-muted); max-width: var(--width-form); }
+
+/* Yüklənmə dairəsi — `currentColor` işlədir ki, hər kontekstdə uyğun
+ * rəngdə olsun. */
+.spinner {
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Skelet — məzmun yüklənərkən yerini tutur (boş ekran sıçrayışının
+ * qarşısını alır). */
+.skeleton {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .5; } }
+
+/* ---- Avatar ---- */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+}
+.avatar--lg { width: var(--space-12); height: var(--space-12); font-size: var(--text-lg); }
+
+/* ---- Xəbərdarlıq lövhəsi ---- */
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.notice--info    { background: var(--color-info-soft);    color: var(--color-info); }
+.notice--success { background: var(--color-success-soft); color: var(--color-success); }
+.notice--warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.notice--danger  { background: var(--color-danger-soft);  color: var(--color-danger); }

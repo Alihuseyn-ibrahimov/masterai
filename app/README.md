@@ -1,4 +1,21 @@
-# MasterAI — Flutter App (MVP nüvəsi)
+# MasterAI — Flutter App (ARXİV — əvəzlənib)
+
+> **⚠️ Bu tətbiq artıq inkişaf etdirilmir.** 2026-09-09-da veb-first
+> arxitekturaya keçildi (`masterai/web/`). Kod SİLİNMİR — gələcəkdə
+> native mobil tətbiq lazım olsa, işlək baza kimi qalır.
+>
+> **Keçidin səbəbi (bir cümlə):** bu tətbiqin release imzalama açarı
+> yoxdur və Play Store-a heç vaxt dərc olunmayıb — yəni real tələbəyə
+> çatmaq üçün paylanma yolu YOXDUR; sayt isə link paylaşılan an işləyir.
+> Üstəlik planın Faza 5-i onsuz da 21 ekranın hamısını yenidən yazmağı
+> nəzərdə tuturdu, ona görə keçidin əlavə xərci azdır.
+>
+> Tam müqayisə və qərar: `.planning/2026-09-09-masterai-app-redesign/progress.md`
+>
+> **Backend TOXUNULMAYIB** — `server/` və `pipeline/` dəyişmədi.
+
+---
+
 
 Dövlət qulluğu/magistratura imtahanına hazırlaşanlar üçün: dərs materialı
 yüklə → AI test sualları çıxarsın → dostlarla (qrup çatında) birgə canlı
