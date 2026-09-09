@@ -139,3 +139,83 @@ DilDostu-nun DEPLOY.md-sindəki xəbərdarlığa bənzər risk: yeni endpoint/mo
 - **Ollama fallback VPS-də quraşdırılmayıb** — `DEFAULT_ORDER`-in üçüncü
   həlqəsi (`groq→claude→ollama`) yalnız `OLLAMA_HOST` əlçatan olanda işləyir;
   Groq+Claude adətən kifayətdir, əlavə quraşdırma tələb olunmur
+
+
+---
+
+# Veb sayt (2026-09-09-dan) — statik HTML
+
+Flutter tətbiqi arxivləşdirildi, yerini statik veb sayt tutdu
+(`masterai/web/`). Səbəb və müqayisə: `.planning/2026-09-09-masterai-app-redesign/`.
+
+## Ünvan quruluşu
+
+| Ünvan | Nə verir |
+|---|---|
+| `masterai.prdostu.com/` | Statik sayt (açılış səhifəsi + tətbiq səhifələri) |
+| `masterai.prdostu.com/auth/...`, `/chats`, `/live/...` və s. | API (keçid dövrü üçün, nginx yol-kökünə görə ayırır) |
+| `masterai.prdostu.com/ws/...` | WebSocket |
+| `api.masterai.prdostu.com/` | Yalnız API (gələcək əsas ünvan) |
+
+**Niyə API hər iki adda:** mövcud n8n workflow-u və köhnə client-lər kök
+domenə müraciət edir. Kök domendəki API yolları KEÇİD tədbiridir.
+
+**nginx-də kritik incəlik:** regex `location` prefiks `location`-dan
+ÜSTÜNDÜR. `ws` API regex siyahısına salınsa `/ws/` bloku heç vaxt işə
+düşməz və `Upgrade` başlıqları ötürülməz — WebSocket sükutla sınar.
+`tests/test_nginx_routes.py` bunu qoruyur.
+
+## İlk quraşdırma (bir dəfəlik)
+
+```bash
+# 1. DNS (Cloudflare): api.masterai → <SERVER_IP> (A qeydi)
+
+# 2. Statik qovluq
+ssh root@<SERVER_IP> "mkdir -p /opt/masterai-web"
+
+# 3. nginx konfiqurasiyası
+scp masterai/deploy/nginx-masterai.conf root@<SERVER_IP>:/etc/nginx/sites-available/masterai
+ssh root@<SERVER_IP> "ln -sf /etc/nginx/sites-available/masterai /etc/nginx/sites-enabled/masterai && nginx -t"
+
+# 4. Sertifikat (hər iki ad)
+ssh root@<SERVER_IP> "certbot --nginx -d masterai.prdostu.com -d api.masterai.prdostu.com"
+
+# 5. İlk fayl köçürməsi — AŞAĞIDAKI SKRİPTLƏ
+```
+
+## Hər dəfəki deploy
+
+```powershell
+cd masterai
+powershell -ExecutionPolicy Bypass -File deploy\deploy_web.ps1
+```
+
+Skript `saas_core/deploy.ps1`-in **test qapısı** naxışını təkrarlayır:
+
+1. `pytest` — keçməsə server TOXUNULMUR
+2. `node --test` (Node varsa)
+3. **`df` yoxlaması** — disk ≥98% olsa dayanır
+4. `scp` ilə `web/` → `/opt/masterai-web/` (test qovluğu silinir)
+5. `nginx -t` + `reload`
+6. Canlı ünvandan healthcheck (sayt 200, API 200)
+
+**Disk yoxlaması məcburidir:** bu VPS-də disk dolması əvvəllər
+masterai-ni çökdürüb və `masternr1` (aktiv pilot) daxil dörd servisi
+riskə atıb (bax `masterai/CLAUDE.md`, "Dərs: real deploy tələləri",
+bənd 6).
+
+## Build addımı yoxdur
+
+npm, bundler, Flutter SDK — heç biri lazım deyil. Fayllar olduğu kimi
+verilir. Bu, `saas_core` (mediapulse.az) ilə eyni yanaşmadır.
+
+## Lokal yoxlama
+
+`file://` ilə açmaq İŞLƏMİR — brauzer ES modullarını CORS səbəbi ilə
+bloklayır (real Chromium testi ilə təsdiqləndi). Lokal server lazımdır:
+
+```powershell
+cd masterai\web
+py -m http.server 8123
+# brauzerdə: http://localhost:8123/
+```
