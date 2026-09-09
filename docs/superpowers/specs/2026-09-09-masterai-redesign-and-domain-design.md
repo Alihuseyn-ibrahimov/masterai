@@ -179,3 +179,106 @@ köçürməzdən əvvəl `df -h /` MƏCBURİDİR.
 | 21 ekranın köçürülməsi reqressiya yaradır | İşləyən funksiyalar sınır | Hər fazada `flutter analyze` + `flutter test`, ekran qrupları üzrə addım-addım |
 | `go_router` mövcud `Navigator.push` axını ilə toqquşur | Naviqasiya sınır | Faza 4-də hamısı BİR DƏFƏYƏ köçürülür, qarışıq vəziyyət saxlanılmır |
 | Dizayn işi backend problemlərini kölgədə qoyur | İngestion keyfiyyəti yarımçıq qalır | Sual bankı keyfiyyət yoxlaması ayrıca izlənilir (bax `progress.md`) |
+
+---
+
+## 7. MediaPulse (mediapulse.az) təcrübəsindən götürülənlər
+
+İstifadəçinin təklifi ilə `saas_core/` (mediapulse.az — real, işləyən,
+dövlət müştərisi olan sayt) araşdırıldı. Orada həll edilmiş problemlərin
+çoxu MasterAI-də hələ ÜMUMİYYƏTLƏ yoxdur.
+
+### 7.1 Ən vacib tapıntı — açılış səhifəsi Flutter-də OLMAMALIDIR
+
+MediaPulse-un açılış səhifəsi (`templates/landing.html`) **server
+tərəfində render olunan adi HTML**-dir. Onun SEO-su, Google-da
+görünməsi və link önizləmələri məhz buna görə işləyir.
+
+Flutter web bunu edə BİLMİR: məzmun HTML mənbəyində yox, JavaScript
+tərəfindən canvas/DOM-a çəkilir. Google botu boş səhifə görür, Telegram/
+WhatsApp link önizləməsi isə bütün tətbiq üçün TƏK bir meta dəsti ala
+bilər. Üstəlik ilk yüklənmə ağırdır (CanvasKit ~2 MB).
+
+**Nəticə — planın 6-cı fazası dəyişir:**
+
+```
+masterai.prdostu.com/          → statik HTML açılış səhifəsi (SEO, sürətli)
+masterai.prdostu.com/app/...   → Flutter web tətbiqi
+api.masterai.prdostu.com       → FastAPI backend
+```
+
+Bu, MediaPulse-un artıq işlədiyi sxemin eynisidir (landing ayrı, tətbiq
+`/dashboard/`-da).
+
+### 7.2 MasterAI-də tamamilə YOX olan, MediaPulse-da HAZIR olanlar
+
+| Nə | MediaPulse | MasterAI | Niyə lazımdır |
+|---|---|---|---|
+| SEO meta (title/description/canonical) | ✅ | ❌ | Google-da tapılmaq |
+| Open Graph + Twitter Card | ✅ | ❌ | **Tələbələr PIN linkini WhatsApp/Telegram-da paylaşır** — önizləməsiz link etibarsız görünür |
+| JSON-LD strukturlaşdırılmış data | ✅ | ❌ | Google zəngin nəticələr |
+| `robots.txt` + `sitemap.xml` | ✅ | ❌ | İndeksləşmə idarəsi (şəxsi səhifələr bağlanır) |
+| PWA `manifest.json` + service worker | ✅ | ❌ | Telefona "quraşdırıla bilən" tətbiq hissi |
+| `og-banner` şəkli | ✅ | ❌ | Link önizləmə şəkli |
+| Məxfilik/şərtlər səhifələri | ✅ | ❌ | Real məhsul üçün şərtdir |
+| Testlə qorunan deploy skripti | ✅ | ❌ | Sınıq kodun serverə çıxmaması |
+
+Open Graph MasterAI üçün MediaPulse-dan da vacibdir: canlı sessiya PIN
+linki qrup çatlarında paylaşılır.
+
+### 7.3 Dizayn sistemi — eyni intizam, öz palitrası
+
+MediaPulse CSS dəyişənləri ilə işləyir (`--navy`, `--accent`, `--text`,
+`--muted`, `--border`, `--surface`) və bütün sayt yalnız onlardan istifadə
+edir. MasterAI-nin Dart tokenləri (Faza 1) eyni intizamın Flutter
+qarşılığıdır.
+
+Palitra KOPYALANMIR — MasterAI-nin öz toxum rəngi (`#2F6FED`) və 6 fənn
+rəngi var, MediaPulse isə xəbər/PR məhsuludur (tünd navy, ciddi-korporativ).
+Götürülən şey rəng dəyərləri yox, **qaydadır**: heç bir ekranda birbaşa
+rəng/ölçü yazılmır.
+
+MediaPulse-dan birbaşa götürülən konkret naxışlar:
+- Kart: ağ fon, 10-12 radius, çox yumşaq kölgə
+- Statistika şəbəkəsi: geniş ekranda 4 sütun → mobildə 2
+- Nişan (badge): açıq fon + tünd mətn cütlüyü (qırmızı/sarı/yaşıl)
+- Sıxılma nöqtəsi 768px, məzmun maksimum eni ~1280px
+- Rola görə dəyişən naviqasiya + mobil hamburger menyu
+
+### 7.4 Açılış səhifəsinin bölmə strukturu (MediaPulse-dan uyğunlaşdırılır)
+
+MediaPulse: hero → 6 üstünlük → necə işləyir → (məhsula xas 2 bölmə) →
+qiymət → demo → FAQ → CTA.
+
+MasterAI üçün: hero → nə edir (3-4 üstünlük) → necə işləyir (3 addım:
+material yüklə → AI sual çıxarır → sinif birgə həll edir) → müəllim üçün /
+tələbə üçün → tez-tez verilən suallar → CTA (Qeydiyyat / PIN ilə qoşul).
+
+**Qeyd:** MediaPulse-un açılış məzmunu bazadan gəlir (`lc.` dəyişənləri,
+admin panelindən redaktə olunur). MasterAI üçün bu ARTIQDIR — məzmun
+statik HTML-də saxlanılır, dəyişiklik nadir olacaq.
+
+### 7.5 Deploy — testlə qorunan skript
+
+`deploy.ps1`-in ən dəyərli hissəsi **test qapısıdır**: lokal testlər
+keçməsə server ÜMUMİYYƏTLƏ toxunulmur. MasterAI-nin veb deploy skripti
+eyni ardıcıllığı təkrarlayacaq:
+
+```
+flutter analyze → flutter test → pytest → df -h yoxlaması
+   → flutter build web → scp → nginx reload → healthcheck
+```
+
+Digər götürülən qaydalar: baza faylı heç vaxt köçürülmür; deploy sonu
+canlı ünvana healthcheck; `scp` ilə köçürülən fayl `md5sum` ilə yoxlanılır.
+
+### 7.6 İnfrastruktur — eyni VPS, artıq bilinən şərtlər
+
+MediaPulse və MasterAI **eyni VPS-i** (`<SERVER_IP>`) və eyni
+Cloudflare hesabını paylaşır. Yəni:
+
+- DNS qeydi əlavə etmək artıq bilinən prosesdir (Cloudflare)
+- nginx + certbot naxışı artıq iki dəfə tətbiq olunub
+- **Risk artır:** bu VPS-də dörd servis var (mediapulse, masterai,
+  masternr1, n8n) və disk 97.4% doludur. Statik faylların köçürülməsi
+  MediaPulse-un da işini riskə atır — `df -h /` hər dəfə məcburidir.

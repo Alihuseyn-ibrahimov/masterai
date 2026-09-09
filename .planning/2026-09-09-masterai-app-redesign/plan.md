@@ -83,22 +83,58 @@ reqressiyanı tapılmaz edər.
 
 ---
 
-## Faza 6 — Marketinq açılış səhifəsi (`/`)
+## Faza 6 — Açılış səhifəsi: STATİK HTML (Flutter-də DEYİL)
 
-**Nə:** məhsulu izah edən səhifə (nə edir, kimə lazımdır, necə işləyir,
-"Daxil ol"/"Qeydiyyat"/"PIN ilə qoşul"). İstifadəçinin seçimi.
+**Dəyişiklik səbəbi:** MediaPulse araşdırması göstərdi ki, onun açılış
+səhifəsi server-render HTML-dir və SEO/link önizləməsi məhz buna görə
+işləyir. Flutter web bunu edə bilmir — Google botu boş səhifə görür.
+
+**Nə:** `masterai/web/landing/` — asılılıqsız HTML+CSS:
+`index.html`, `mexfilik.html`, `sertler.html`, `robots.txt`,
+`sitemap.xml`, `og-banner.svg`, `manifest.json`.
+
+Bölmələr: hero → nə edir → necə işləyir (3 addım) → müəllim/tələbə →
+FAQ → CTA (Qeydiyyat / PIN ilə qoşul).
+
+**Yeni ünvan quruluşu:**
+
+```
+masterai.prdostu.com/          → statik açılış səhifəsi
+masterai.prdostu.com/app/...   → Flutter web tətbiqi
+api.masterai.prdostu.com       → FastAPI backend
+```
+
+Bu, Faza 4-ə də toxunur: `go_router`-in bazası `/app` olur
+(`flutter build web --base-href /app/`).
+
+**Bitmə şərti:** səhifə mənbəyində (`view-source:`) mətn GÖRÜNÜR;
+`curl` ilə çəkiləndə məzmun var; OG meta teqləri tam.
 
 ---
 
-## Faza 7 — Responsiv cilalama
+## Faza 7 — SEO / PWA / sosial paket
 
-**Nə:** maksimum məzmun genişliyi (geniş ekranda mətn sonsuz uzanmır),
-klaviatura naviqasiyası, fokus göstəriciləri, hover halları, `<title>`
-və favicon.
+MediaPulse-da hazır, MasterAI-də **tamamilə yoxdur**:
+
+- Open Graph + Twitter Card (tələbələr PIN linkini WhatsApp/Telegram-da
+  paylaşır — önizləməsiz link etibarsız görünür; MasterAI üçün bu,
+  MediaPulse-dan da vacibdir)
+- JSON-LD (`SoftwareApplication`/`EducationalApplication`)
+- `robots.txt` (şəxsi yollar bağlanır) + `sitemap.xml`
+- PWA `manifest.json` + service worker (telefona quraşdırıla bilən)
+- Məxfilik / istifadə şərtləri səhifələri
+- `og-banner` şəkli (1200×630)
 
 ---
 
-## Faza 8 — Domen (`api.masterai.prdostu.com` + statik sayt)
+## Faza 8 — Responsiv cilalama
+
+Maksimum məzmun genişliyi (~1280px, MediaPulse ilə eyni), 768px sıxılma
+nöqtəsi, klaviatura naviqasiyası, fokus göstəriciləri, hover halları.
+
+---
+
+## Faza 9 — Domen (`api.masterai.prdostu.com` + statik sayt)
 
 Bu faza **istifadəçi tərəfindən VPS-də** aparılır, mən əmrləri və
 konfiqurasiyanı hazırlayıram.
@@ -107,12 +143,22 @@ konfiqurasiyanı hazırlayıram.
 2. nginx: mövcud fayl iki server blokuna bölünür
 3. `certbot --nginx -d api.masterai.prdostu.com`
 4. `config.dart` yenilənir → yeni mobil/veb build
-5. Windows-da `flutter build web --release` → `scp` ilə VPS-ə
-   (**əvvəlcə `df -h /`** — disk 97.4% doludur)
+5. Windows-da `flutter build web --release --base-href /app/`
+   → `scp` ilə VPS-ə (**əvvəlcə `df -h /`** — disk 97.4% doludur)
 6. n8n workflow-un `/admin/stats` URL-i yenilənir
 7. `DEPLOY.md` yenilənir
 
-**Qeyd:** bu faza texniki olaraq 1-7-dən ASILI DEYİL — istifadəçi
+### Deploy skripti — `deploy/deploy_web.ps1`
+
+`saas_core`-un `deploy.ps1`-indən götürülən **test qapısı** naxışı:
+testlər keçməsə server ÜMUMİYYƏTLƏ toxunulmur.
+
+```
+flutter analyze → flutter test → pytest → df -h yoxlaması
+   → flutter build web → scp → nginx reload → healthcheck
+```
+
+**Qeyd:** bu faza texniki olaraq 1-8-dən ASILI DEYİL — istifadəçi
 istəsə istənilən vaxt paralel apara bilər.
 
 ---

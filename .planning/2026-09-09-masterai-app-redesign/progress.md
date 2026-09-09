@@ -27,3 +27,24 @@ göndərə bilər.
 - Başlanğıc: əvvəl skelet (marşrutlar + naviqasiya + dizayn sistemi)
 
 **Növbəti:** Faza 1 (dizayn sistemi tokenləri).
+
+## 2026-09-09 — MediaPulse təcrübəsinin araşdırılması
+
+İstifadəçinin təklifi ilə `saas_core/` (mediapulse.az) araşdırıldı.
+Planı DƏYİŞƏN bir tapıntı oldu:
+
+**Açılış səhifəsi Flutter-də olmamalıdır.** MediaPulse-un landing-i
+server-render HTML-dir; SEO və link önizləməsi məhz buna görə işləyir.
+Flutter web məzmunu canvas/DOM-a çəkdiyi üçün Google botu boş səhifə
+görür. Yeni quruluş: `/` statik HTML, `/app/` Flutter, `api.` backend.
+
+MediaPulse-da hazır, MasterAI-də tamamilə yox olanlar: SEO meta,
+Open Graph/Twitter Card, JSON-LD, robots.txt, sitemap.xml, PWA
+manifest + service worker, og-banner, məxfilik/şərtlər səhifələri,
+testlə qorunan deploy skripti.
+
+Open Graph MasterAI üçün MediaPulse-dan da vacibdir — canlı sessiya
+PIN linki qrup çatlarında paylaşılır, önizləməsiz link etibarsız
+görünür.
+
+Plan 8 fazadan 9-a çıxdı (SEO/PWA paketi ayrıca faza oldu).
