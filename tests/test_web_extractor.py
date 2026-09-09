@@ -263,3 +263,75 @@ def test_download_js_rendered_waits_for_ready_then_returns_page_source(monkeypat
 
     assert "sabit metn" in html
     assert quit_calls == [True]
+
+
+class TestNormalizeUrl:
+    """Real production-da tapılıb: müəllim host konsoluna linki
+    `e-qanun.az/framework/4481` kimi (sxemsiz) yazdı — `requests` bunu
+    "Invalid URL ...: No scheme supplied" ilə rədd etdi və material
+    "Uğursuz oldu" statusuna düşdü. Brauzerə ünvan yazanda heç kim
+    `https://` yazmır; bu, istifadəçi səhvi deyil, bizim qəbul
+    etməli olduğumuz normal giriş formasıdır."""
+
+    def test_adds_https_to_scheme_less_url(self):
+        assert (
+            web_extractor._normalize_url("e-qanun.az/framework/4481")
+            == "https://e-qanun.az/framework/4481"
+        )
+
+    def test_keeps_existing_https_scheme(self):
+        assert (
+            web_extractor._normalize_url("https://e-qanun.az/framework/4481")
+            == "https://e-qanun.az/framework/4481"
+        )
+
+    def test_keeps_existing_http_scheme_untouched(self):
+        """`http://` qəsdən `https://`-ə ÇEVRİLMİR — bəzi saytlar yalnız
+        HTTP-də işləyir, istifadəçinin açıq seçimi pozulmamalıdır."""
+        assert web_extractor._normalize_url("http://example.az/ders") == "http://example.az/ders"
+
+    def test_strips_surrounding_whitespace(self):
+        """Kopyala-yapışdır zamanı boşluq/sətir sonu asanlıqla düşür."""
+        assert web_extractor._normalize_url("  e-qanun.az/framework/4481\n") == (
+            "https://e-qanun.az/framework/4481"
+        )
+
+    def test_adds_https_to_www_prefixed_url(self):
+        assert web_extractor._normalize_url("www.example.az") == "https://www.example.az"
+
+
+def test_extract_normalizes_scheme_less_location_before_download(monkeypatch):
+    """`extract()` sxemsiz linki HƏM statik yükləməyə, HƏM də nəticə
+    metadatasına normallaşdırılmış formada ötürməlidir."""
+    requested = {}
+
+    def fake_download(url):
+        requested["url"] = url
+        return "<html><body><p>" + "Qanunun mətni buradadır. " * 20 + "</p></body></html>"
+
+    monkeypatch.setattr(web_extractor, "_download_static", fake_download)
+
+    source = MaterialSource(kind="link", location="e-qanun.az/framework/4481")
+    raw = web_extractor.extract(source)
+
+    assert requested["url"] == "https://e-qanun.az/framework/4481"
+    assert raw.metadata["url"] == "https://e-qanun.az/framework/4481"
+
+
+def test_extract_normalizes_scheme_less_location_for_js_fallback(monkeypatch):
+    """JS-render ehtiyat yolu da eyni normallaşdırılmış URL-i almalıdır —
+    əks halda statik yol düzəlir, Selenium yolu isə sınıq qalır."""
+    requested = {}
+
+    monkeypatch.setattr(web_extractor, "_download_static", lambda url: "<html><body></body></html>")
+
+    def fake_js(url):
+        requested["url"] = url
+        return "<html><body><p>" + "JS ile gelen qanun metni. " * 20 + "</p></body></html>"
+
+    monkeypatch.setattr(web_extractor, "_download_js_rendered", fake_js)
+
+    source = MaterialSource(kind="link", location="e-qanun.az/framework/4481")
+    web_extractor.extract(source)
+
+    assert requested["url"] == "https://e-qanun.az/framework/4481"

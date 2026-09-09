@@ -1,3 +1,4 @@
+import re
 import time
 
 import requests
@@ -36,6 +37,22 @@ _BROWSER_HEADERS = {
         "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
     )
 }
+
+
+# Real production-da tapılıb: müəllim linki brauzerdəki kimi, sxemsiz
+# (`e-qanun.az/framework/4481`) yazır — `requests` bunu "No scheme
+# supplied" ilə rədd edir və material "Uğursuz oldu" statusuna düşür.
+# Sxemi olan linklərə (`http://` daxil) TOXUNULMUR.
+_URL_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://")
+
+
+def _normalize_url(url: str) -> str:
+    """Sxemsiz ünvana `https://` əlavə edir, artıq sxemi olanı olduğu
+    kimi saxlayır. Kopyala-yapışdır boşluqları da təmizlənir."""
+    url = url.strip()
+    if _URL_SCHEME_RE.match(url):
+        return url
+    return f"https://{url}"
 
 
 def _download_static(url: str) -> str:
@@ -136,24 +153,26 @@ def _extract_text(html: str) -> str:
 
 
 def extract(source: MaterialSource) -> RawMaterial:
+    url = _normalize_url(source.location)
+
     try:
-        html = _download_static(source.location)
+        html = _download_static(url)
     except Exception as exc:
         # `{exc}` bilərəkdən mesaja daxil edilir — əvvəllər əsl səbəb
         # (məs. Selenium/Chrome xətası) heç yerdə görünmürdü, yalnız
         # `from exc` ilə traceback-ə zəncirlənirdi, amma bunu heç kim
         # loglamırdı (bax `server/app.py`, `_process_material`-a
         # `logger.exception` əlavəsi) — istifadəçi/loqlarda dərhal görünsün.
-        raise IngestionError(f"Sayt yüklənmədi: {source.location} ({exc})") from exc
+        raise IngestionError(f"Sayt yüklənmədi: {url} ({exc})") from exc
 
     text = _extract_text(html)
 
     if len(text) < _MIN_STATIC_TEXT_LENGTH:
         try:
-            html = _download_js_rendered(source.location)
+            html = _download_js_rendered(url)
         except Exception as exc:
             raise IngestionError(
-                f"Sayt JS-rendering ilə də yüklənmədi: {source.location} ({exc})"
+                f"Sayt JS-rendering ilə də yüklənmədi: {url} ({exc})"
             ) from exc
         text = _extract_text(html)
         # Real testdə tapılıb: JS-render bəzən yalnız kiçik bir "qabıq"
@@ -165,10 +184,10 @@ def extract(source: MaterialSource) -> RawMaterial:
         if len(text) < _MIN_STATIC_TEXT_LENGTH:
             raise IngestionError(
                 f"Sayt JS-rendering ilə yükləndi, amma kifayət qədər mətn "
-                f"tapılmadı ({len(text)} simvol): {source.location}"
+                f"tapılmadı ({len(text)} simvol): {url}"
             )
 
     if not text.strip():
-        raise IngestionError(f"Saytdan mətn çıxarıla bilmədi: {source.location}")
+        raise IngestionError(f"Saytdan mətn çıxarıla bilmədi: {url}")
 
-    return RawMaterial(text=text, metadata={"url": source.location})
+    return RawMaterial(text=text, metadata={"url": url})
