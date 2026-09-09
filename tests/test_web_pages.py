@@ -186,3 +186,30 @@ class TestShellContainers:
         assert "mountShell()" in page.read_text(encoding="utf-8"), (
             f"{page.name}: mountShell() çağırılmır"
         )
+
+
+# JS-də hərfi yazılmış səhifə adları: `x.href = `suallar.html?id=...`` və
+# `window.location.replace('giris.html')` kimi. Dəyişəndən gələn ünvanlar
+# (məs. `node.href = destination.href`) burada tutula bilmir — onlar
+# `nav.js` testləri ilə örtülür.
+_JS_PAGE_REF_RE = re.compile(r"""(?:href\s*=\s*|location\.(?:replace|assign)\s*\(\s*)['"`]([A-Za-z0-9_\-]+\.html)""")
+
+
+def _js_page_refs(path: Path) -> set[str]:
+    return set(_JS_PAGE_REF_RE.findall(path.read_text(encoding="utf-8")))
+
+
+SCRIPTED_FILES = PAGES + sorted((WEB / "assets" / "js").glob("*.js"))
+
+
+def test_scripted_files_were_found():
+    assert len(SCRIPTED_FILES) > len(PAGES), "JS faylları tapılmadı"
+
+
+@pytest.mark.parametrize("path", SCRIPTED_FILES, ids=lambda p: p.name)
+def test_pages_referenced_from_javascript_exist(path: Path):
+    """Real boşluq idi: `muellim.html` JS ilə `suallar.html`-a link
+    yaradırdı, HTML atributu olmadığı üçün link testi onu GÖRMÜRDÜ.
+    Belə link brauzerdə yalnız klikləyəndə 404 verir."""
+    missing = [ref for ref in _js_page_refs(path) if not (WEB / ref).exists()]
+    assert not missing, f"{path.name}: JS-də göstərilən səhifə yoxdur: {sorted(missing)}"

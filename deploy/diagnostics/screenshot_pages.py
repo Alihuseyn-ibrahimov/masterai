@@ -34,7 +34,9 @@ with sync_playwright() as p:
     browser = p.chromium.launch(executable_path="/opt/pw-browsers/chromium-1194/chrome-linux/chrome")
     for label, (width, height) in VIEWPORTS.items():
         for page_name, is_teacher in [("chatlar.html", "false"), ("profil.html", "false"),
-                                      ("muellim.html", "true"), ("tapsiriqlar.html", "false")]:
+                                      ("muellim.html", "true"), ("suallar.html?id=1", "true"),
+                                      ("sessiyalar.html", "true"), ("qosul.html", "false"),
+                                      ("giris.html", "false"), ("tapsiriqlar.html", "false")]:
             context = browser.new_context(viewport={"width": width, "height": height})
             context.add_init_script(SEED % is_teacher)
             # Şəbəkə sorğularını kəs — canlı backend-ə toxunmuruq.
@@ -45,7 +47,7 @@ with sync_playwright() as p:
             page.on("pageerror", lambda e: errors.append(f"PAGEERROR: {e}"))
             page.goto(f"http://127.0.0.1:8123/{page_name}")
             page.wait_for_timeout(900)
-            name = f"{label}-{page_name.replace('.html','')}"
+            name = f"{label}-{page_name.replace('.html','').replace('?','-').replace('=','')}"
             page.screenshot(path=str(OUT / f"{name}.png"), full_page=(label == "desktop"))
             real = [e for e in errors if "prdostu.com" not in e and "Failed to load" not in e]
             print(f"{name}: {'XƏTA -> ' + str(real[:2]) if real else 'təmiz'}")

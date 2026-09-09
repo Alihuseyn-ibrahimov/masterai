@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suallar — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1 id="setTitle">Suallar</h1>
+      <a class="btn btn--ghost btn--sm" href="muellim.html">← Sual bankları</a>
+    </div>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+    <div id="content"></div>
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectLabel } from './assets/js/subjects.js';
+
+  const LETTERS = 'ABCDE';
+
+  if (requireLogin()) {
+    mountShell();
+
+    const setId = Number(new URLSearchParams(window.location.search).get('id'));
+    const content = document.getElementById('content');
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+
+    function flash(box, text) {
+      box.textContent = text;
+      box.hidden = false;
+      setTimeout(() => { box.hidden = true; }, 4000);
+    }
+
+    if (!Number.isInteger(setId) || setId <= 0) {
+      errorBox.textContent = 'Sual bankı ünvanı düzgün deyil.';
+      errorBox.hidden = false;
+    } else {
+      request(`/live/question-sets/${setId}`)
+        .then((set) => {
+          document.getElementById('setTitle').textContent = set.title;
+          const hint = document.createElement('span');
+          hint.className = 'section-header__hint';
+          hint.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
+          document.getElementById('setTitle').after(hint);
+        })
+        .catch(() => {});
+
+      function buildQuestionCard(question, index, reload) {
+        const card = document.createElement('form');
+        card.className = 'card stack';
+
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        head.append(Object.assign(document.createElement('h4'), { textContent: `Sual ${index + 1}` }));
+        card.append(head);
+
+        const questionField = document.createElement('div');
+        questionField.className = 'field';
+        const questionLabel = document.createElement('label');
+        questionLabel.className = 'field__label';
+        questionLabel.htmlFor = `q-${question.id}`;
+        questionLabel.textContent = 'Sual mətni';
+        const questionInput = document.createElement('textarea');
+        questionInput.className = 'field__textarea';
+        questionInput.id = `q-${question.id}`;
+        questionInput.value = question.question;
+        questionField.append(questionLabel, questionInput);
+        card.append(questionField);
+
+        const optionInputs = [];
+        // Backend TAM 5 variant tələb edir (`UpdateQuestionRequest`,
+        // min_length=max_length=5) — sahə sayı sabitdir.
+        for (let i = 0; i < 5; i += 1) {
+          const field = document.createElement('div');
+          field.className = 'field';
+          const label = document.createElement('label');
+          label.className = 'field__label';
+          label.htmlFor = `q-${question.id}-o-${i}`;
+          label.textContent = `Variant ${LETTERS[i]}`;
+          const input = document.createElement('input');
+          input.className = 'field__input';
+          input.id = `q-${question.id}-o-${i}`;
+          input.value = question.options[i] || '';
+          field.append(label, input);
+          card.append(field);
+          optionInputs.push(input);
+        }
+
+        const correctField = document.createElement('div');
+        correctField.className = 'field';
+        const correctLabel = document.createElement('label');
+        correctLabel.className = 'field__label';
+        correctLabel.htmlFor = `q-${question.id}-correct`;
+        correctLabel.textContent = 'Düzgün cavab';
+        const correctSelect = document.createElement('select');
+        correctSelect.className = 'field__select';
+        correctSelect.id = `q-${question.id}-correct`;
+        for (let i = 0; i < 5; i += 1) {
+          const option = document.createElement('option');
+          option.value = String(i);
+          option.textContent = LETTERS[i];
+          if (i === question.correct_index) option.selected = true;
+          correctSelect.append(option);
+        }
+        correctField.append(correctLabel, correctSelect);
+        card.append(correctField);
+
+        const explanationField = document.createElement('div');
+        explanationField.className = 'field';
+        const explanationLabel = document.createElement('label');
+        explanationLabel.className = 'field__label';
+        explanationLabel.htmlFor = `q-${question.id}-exp`;
+        explanationLabel.textContent = 'İzah';
+        const explanationInput = document.createElement('textarea');
+        explanationInput.className = 'field__textarea';
+        explanationInput.id = `q-${question.id}-exp`;
+        explanationInput.value = question.explanation || '';
+        explanationField.append(explanationLabel, explanationInput);
+        card.append(explanationField);
+
+        const actions = document.createElement('div');
+        actions.className = 'row';
+        const save = document.createElement('button');
+        save.className = 'btn btn--primary btn--sm';
+        save.type = 'submit';
+        save.textContent = 'Yadda saxla';
+        const remove = document.createElement('button');
+        remove.className = 'btn btn--danger btn--sm';
+        remove.type = 'button';
+        remove.textContent = 'Sil';
+        actions.append(save, remove);
+        card.append(actions);
+
+        card.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          save.disabled = true;
+          try {
+            await request(`/live/questions/${question.id}`, {
+              method: 'PATCH',
+              body: {
+                question: questionInput.value,
+                options: optionInputs.map((input) => input.value),
+                correct_index: Number(correctSelect.value),
+                explanation: explanationInput.value,
+              },
+            });
+            flash(okBox, `Sual ${index + 1} yadda saxlanıldı.`);
+          } catch (error) {
+            flash(errorBox, error.message);
+          } finally {
+            save.disabled = false;
+          }
+        });
+
+        remove.addEventListener('click', async () => {
+          // Silinmə geri qaytarıla bilmir — təsdiq soruşulur.
+          if (!window.confirm(`Sual ${index + 1} silinsin?`)) return;
+          remove.disabled = true;
+          try {
+            await request(`/live/questions/${question.id}`, { method: 'DELETE' });
+            flash(okBox, `Sual ${index + 1} silindi.`);
+            reload();
+          } catch (error) {
+            flash(errorBox, error.message);
+            remove.disabled = false;
+          }
+        });
+
+        return card;
+      }
+
+      function renderQuestions(container, questions) {
+        container.innerHTML = '';
+        if (!questions.length) {
+          container.innerHTML = '<div class="state"><div class="state__icon">📝</div>'
+            + '<div class="state__title">Bu bankda sual yoxdur</div></div>';
+          return;
+        }
+        const list = document.createElement('div');
+        list.className = 'stack';
+        questions.forEach((question, index) => {
+          list.append(buildQuestionCard(question, index, reload));
+        });
+        container.append(list);
+      }
+
+      const reload = () => loadInto(
+        content,
+        () => request(`/live/question-sets/${setId}/questions`),
+        renderQuestions,
+      );
+      reload();
+    }
+  }
+</script>
+</body>
+</html>

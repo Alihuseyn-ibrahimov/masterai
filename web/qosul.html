@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIN ilə qoşul — MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<main class="page-centered">
+  <div class="stack stack--loose" style="width: var(--width-form)">
+
+    <div class="stack stack--tight" style="text-align: center">
+      <span class="brand">Master<span class="brand__accent">AI</span></span>
+      <p class="text-muted text-sm">Müəlliminizin verdiyi PIN ilə qoşulun — hesab lazım deyil</p>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+    <!-- 1. Qoşulma -->
+    <div class="card stack" id="joinCard">
+      <form class="stack" id="joinForm" novalidate>
+        <div class="field">
+          <label class="field__label" for="pin">Sessiya PIN-i</label>
+          <input class="field__input" id="pin" name="pin" inputmode="numeric"
+                 autocomplete="off" required placeholder="123456">
+        </div>
+        <div class="field">
+          <label class="field__label" for="displayName">Adınız</label>
+          <input class="field__input" id="displayName" name="displayName"
+                 autocomplete="name" required maxlength="60" placeholder="Əli">
+        </div>
+        <button class="btn btn--primary btn--block" type="submit" id="joinBtn">Qoşul</button>
+      </form>
+    </div>
+
+    <!-- 2. Gözləmə -->
+    <div class="card stack" id="waitCard" hidden style="text-align: center">
+      <div class="spinner" style="margin: 0 auto"></div>
+      <h3>Qoşuldunuz</h3>
+      <p class="text-sm text-muted">Müəllim sessiyanı başladanda suallar görünəcək.</p>
+    </div>
+
+    <!-- 3. Sual -->
+    <div class="card stack" id="questionCard" hidden>
+      <div class="row row--between">
+        <span class="badge badge--info" id="questionCounter">Sual</span>
+        <span class="badge badge--neutral" id="countdown">—</span>
+      </div>
+      <h3 id="questionText"></h3>
+      <div class="stack stack--tight" id="options"></div>
+    </div>
+
+    <!-- 4. Nəticə -->
+    <div class="card stack" id="resultCard" hidden>
+      <span class="badge" id="resultBadge"></span>
+      <p id="correctText"></p>
+      <p class="text-sm text-muted" id="explanationText"></p>
+      <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
+    </div>
+
+    <!-- 5. Şəxsi bitiş -->
+    <div class="card stack" id="personalCard" hidden style="text-align: center">
+      <div class="state__icon">✅</div>
+      <h3>Siz bitirdiniz</h3>
+      <p id="personalScore"></p>
+      <p class="text-sm text-muted">Sessiya bitəndə ümumi nəticələr görünəcək.</p>
+    </div>
+
+    <!-- 6. Sessiya bitdi -->
+    <div class="card stack" id="finishedCard" hidden>
+      <h3>Sessiya bitdi</h3>
+      <div id="leaderboard"></div>
+    </div>
+
+    <p class="text-sm text-muted" style="text-align: center">
+      <a href="giris.html">Hesabınızla daxil olun</a> — nəticələriniz tarixçənizə yazılsın
+    </p>
+
+  </div>
+</main>
+
+<script type="module">
+  import { getToken } from './assets/js/api.js';
+  import { LivePlaySocket, formatCountdown } from './assets/js/live.js';
+
+  const errorBox = document.getElementById('errorBox');
+  const cards = {
+    join: document.getElementById('joinCard'),
+    wait: document.getElementById('waitCard'),
+    question: document.getElementById('questionCard'),
+    result: document.getElementById('resultCard'),
+    personal: document.getElementById('personalCard'),
+    finished: document.getElementById('finishedCard'),
+  };
+
+  function show(name) {
+    for (const [key, card] of Object.entries(cards)) card.hidden = key !== name;
+  }
+
+  function showError(text) {
+    errorBox.textContent = text;
+    errorBox.hidden = false;
+  }
+
+  let socket = null;
+  let currentIndex = 0;
+  let countdownTimer = null;
+  let remainingSeconds = 0;
+
+  function tick() {
+    remainingSeconds -= 1;
+    document.getElementById('countdown').textContent = formatCountdown(remainingSeconds);
+    if (remainingSeconds <= 0 && countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  function renderQuestion(data) {
+    currentIndex = data.index;
+    document.getElementById('questionCounter').textContent = `Sual ${data.index + 1}/${data.total}`;
+    document.getElementById('questionText').textContent = data.question;
+
+    if (typeof data.remaining_seconds === 'number') {
+      remainingSeconds = Math.max(0, Math.round(data.remaining_seconds));
+      document.getElementById('countdown').textContent = formatCountdown(remainingSeconds);
+      if (!countdownTimer) countdownTimer = setInterval(tick, 1000);
+    }
+
+    const options = document.getElementById('options');
+    options.innerHTML = '';
+    (data.options || []).forEach((option, index) => {
+      const button = document.createElement('button');
+      button.className = 'btn btn--secondary btn--block';
+      button.type = 'button';
+      button.style.justifyContent = 'flex-start';
+      button.textContent = `${'ABCDE'[index] || index + 1}. ${option}`;
+      button.addEventListener('click', () => {
+        // İkiqat toxunuşun qarşısını al — server ikinci cavabı xəta ilə
+        // rədd edir və istifadəçi səbəbini anlamır.
+        for (const other of options.children) other.disabled = true;
+        if (!socket.answer(currentIndex, index)) {
+          showError('Bağlantı hazır deyil — cavab göndərilmədi.');
+          for (const other of options.children) other.disabled = false;
+        }
+      });
+      options.append(button);
+    });
+    show('question');
+  }
+
+  function renderResult(data) {
+    const badge = document.getElementById('resultBadge');
+    badge.className = data.is_correct ? 'badge badge--success' : 'badge badge--danger';
+    badge.textContent = data.is_correct ? 'Düzgün' : 'Səhv';
+    document.getElementById('correctText').textContent =
+      `Düzgün cavab: ${'ABCDE'[data.correct_index] ?? '—'}`;
+    document.getElementById('explanationText').textContent = data.explanation || '';
+    show('result');
+  }
+
+  function renderLeaderboard(rows) {
+    const container = document.getElementById('leaderboard');
+    container.innerHTML = '';
+    if (!rows || !rows.length) {
+      container.innerHTML = '<p class="text-sm text-muted">Nəticə yoxdur.</p>';
+      return;
+    }
+    const list = document.createElement('div');
+    list.className = 'stack stack--tight';
+    rows.forEach((row, index) => {
+      const line = document.createElement('div');
+      line.className = 'row row--between';
+      const name = document.createElement('span');
+      name.className = 'text-sm';
+      name.textContent = `${index + 1}. ${row.display_name || `İştirakçı #${row.participant_id}`}`;
+      const score = document.createElement('span');
+      score.className = 'text-sm';
+      score.textContent = `${row.correct_count ?? row.score ?? 0} düzgün`;
+      line.append(name, score);
+      list.append(line);
+    });
+    container.append(list);
+  }
+
+  document.getElementById('joinForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    errorBox.hidden = true;
+
+    const pin = document.getElementById('pin').value.trim();
+    const displayName = document.getElementById('displayName').value.trim();
+    if (!pin || !displayName) {
+      showError('PIN və ad yazılmalıdır.');
+      return;
+    }
+
+    const joinBtn = document.getElementById('joinBtn');
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Qoşulur…';
+
+    socket = new LivePlaySocket({
+      pin,
+      displayName,
+      // Daxil olmuş istifadəçinin tokeni KÖNÜLLÜ göndərilir — nəticə
+      // tarixçəyə yazılsın deyə. Hesabsız qoşulma da tam işləkdir.
+      token: getToken() || '',
+      onStatus: (status) => {
+        if (status === 'closed') {
+          joinBtn.disabled = false;
+          joinBtn.textContent = 'Qoşul';
+          if (cards.join.hidden === false) {
+            showError('Qoşulmaq alınmadı — PIN-i yoxlayın və ya sessiya artıq başlayıb.');
+          } else {
+            showError('Bağlantı bağlandı.');
+          }
+        }
+      },
+      onMessage: (data) => {
+        if (data.type === 'joined') { show('wait'); return; }
+        if (data.type === 'question') { renderQuestion(data); return; }
+        if (data.type === 'result') { renderResult(data); return; }
+        if (data.type === 'personal_finished') {
+          document.getElementById('personalScore').textContent =
+            `${data.correct_count}/${data.total_questions} düzgün cavab`;
+          show('personal');
+          return;
+        }
+        if (data.type === 'finished') {
+          if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+          renderLeaderboard(data.leaderboard);
+          show('finished');
+          return;
+        }
+        if (data.type === 'error') showError(data.detail || 'Xəta');
+      },
+    });
+    socket.connect();
+  });
+
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (!socket.next()) showError('Bağlantı hazır deyil — bir azdan cəhd edin.');
+  });
+
+  window.addEventListener('beforeunload', () => { if (socket) socket.close(); });
+</script>
+</body>
+</html>

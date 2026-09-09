@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Müəllim konsolu — MasterAI</title>
+<title>Sual bankları — MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,53 +17,251 @@
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
-  <div class="notice notice--info">
-    <span>🚧</span>
-    <span>Bu səhifə hələ tamamlanmayıb: sual banklarının siyahısı görünür, amma
-    material yükləmə, sual redaktəsi və sessiya başlatma Faza 5-də gələcək.</span>
-  </div>
+  <section>
+    <div class="section-header">
+      <h1>Yeni sual bankı</h1>
+      <span class="section-header__hint">Material yükləyin — AI ondan test sualları hazırlasın</span>
+    </div>
+
+    <div class="card stack">
+      <div class="notice notice--danger" id="createError" role="alert" hidden></div>
+      <div class="notice notice--success" id="createOk" role="status" hidden></div>
+
+      <form class="stack" id="createForm">
+        <div class="grid" style="--grid-min: 220px">
+          <div class="field">
+            <label class="field__label" for="title">Başlıq</label>
+            <input class="field__input" id="title" name="title" required maxlength="120"
+                   placeholder="Dövlət qulluğu haqqında qanun">
+          </div>
+          <div class="field">
+            <label class="field__label" for="subject">Fənn</label>
+            <select class="field__select" id="subject" name="subject" required></select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="questionCount">Neçə sual?</label>
+            <!-- min/maks backend-in yoxlaması ilə eynidir
+                 (`_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`, app.py) —
+                 uyğunsuzluq testlə tutulur. -->
+            <input class="field__input" id="questionCount" name="question_count" type="number"
+                   min="3" max="30" value="10" required>
+          </div>
+          <div class="field">
+            <label class="field__label" for="kind">Material növü</label>
+            <select class="field__select" id="kind" name="kind" required>
+              <option value="link">Sayt linki</option>
+              <option value="pdf">PDF fayl</option>
+              <option value="image">Şəkil</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field" id="linkField">
+          <label class="field__label" for="location">Sayt linki</label>
+          <input class="field__input" id="location" name="location"
+                 placeholder="e-qanun.az/framework/4481">
+          <span class="text-xs text-muted">
+            <code>https://</code> yazmasanız da olar — özü əlavə olunur.
+          </span>
+        </div>
+
+        <div class="field" id="fileField" hidden>
+          <label class="field__label" for="file">Fayl</label>
+          <input class="field__input" id="file" name="file" type="file">
+          <span class="text-xs text-muted">Ən çox 20 MB.</span>
+        </div>
+
+        <button class="btn btn--primary" type="submit" id="createBtn">Yarat</button>
+        <p class="text-xs text-muted">
+          Emal 1-3 dəqiqə çəkir. Siyahı hər 10 saniyədən bir özü yenilənir.
+        </p>
+      </form>
+    </div>
+  </section>
 
   <section>
-    <div class="section-header"><h1>Sual bankları</h1></div>
+    <div class="section-header">
+      <h2>Sual bankları</h2>
+      <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
+    </div>
     <div id="content"></div>
   </section>
+
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { request } from './assets/js/api.js';
+  import { API_BASE_URL, MAX_UPLOAD_BYTES } from './assets/js/config.js';
+  import { ApiError, extractErrorMessage, getToken, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { SUBJECTS, statusBadge, subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+
+  const POLL_INTERVAL_MS = 10000;
 
   if (requireLogin()) {
     mountShell();
-    loadInto(
-      document.getElementById('content'),
-      () => request('/live/question-sets'),
-      (container, items) => {
-        container.innerHTML = '';
-        if (!Array.isArray(items) || items.length === 0) {
-          container.innerHTML = '<div class="state"><div class="state__icon">📚</div>'
-            + '<div class="state__title">Hələ heç nə yoxdur</div>'
-            + '<div class="state__text">Burada məlumat görünəcək.</div></div>';
-          return;
+
+    const subjectSelect = document.getElementById('subject');
+    for (const subject of SUBJECTS) {
+      const option = document.createElement('option');
+      option.value = subject.key;
+      option.textContent = subject.label;
+      subjectSelect.append(option);
+    }
+
+    const kindSelect = document.getElementById('kind');
+    const linkField = document.getElementById('linkField');
+    const fileField = document.getElementById('fileField');
+    kindSelect.addEventListener('change', () => {
+      const isLink = kindSelect.value === 'link';
+      linkField.hidden = !isLink;
+      fileField.hidden = isLink;
+    });
+
+    const content = document.getElementById('content');
+
+    function renderSets(container, sets) {
+      container.innerHTML = '';
+      if (!sets.length) {
+        const state = document.createElement('div');
+        state.className = 'state';
+        state.innerHTML = '<div class="state__icon">📚</div>'
+          + '<div class="state__title">Hələ sual bankı yoxdur</div>';
+        const hint = document.createElement('div');
+        hint.className = 'state__text';
+        hint.textContent = 'Yuxarıdan material yükləyin — AI ondan suallar hazırlayacaq.';
+        state.append(hint);
+        container.append(state);
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      // Ən yenilər yuxarıda — müəllim adətən indicə yaratdığını axtarır.
+      for (const set of [...sets].sort((a, b) => b.id - a.id)) {
+        const card = document.createElement('div');
+        card.className = 'card card--subject stack stack--tight';
+        card.style.setProperty('--subject', subjectColorVar(set.subject));
+
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const title = document.createElement('h4');
+        title.textContent = set.title;
+        const badge = statusBadge(set.status);
+        const status = document.createElement('span');
+        status.className = badge.className;
+        status.textContent = badge.label;
+        head.append(title, status);
+
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
+
+        card.append(head, meta);
+
+        if (set.status === 'failed' && set.error) {
+          const error = document.createElement('p');
+          error.className = 'text-xs';
+          error.style.color = 'var(--color-danger)';
+          error.textContent = set.error;
+          card.append(error);
         }
-        const list = document.createElement('div');
-        list.className = 'grid';
-        for (const item of items) {
-          const card = document.createElement('div');
-          card.className = 'card';
-          const title = document.createElement('h4');
-          title.textContent = item.name || item.title || ('#' + item.id);
-          const meta = document.createElement('p');
-          meta.className = 'text-muted text-sm';
-          meta.textContent = 'ID: ' + item.id;
-          card.append(title, meta);
-          list.append(card);
+
+        if (set.status === 'ready') {
+          const actions = document.createElement('div');
+          actions.className = 'row';
+          const questions = document.createElement('a');
+          questions.className = 'btn btn--secondary btn--sm';
+          questions.href = `suallar.html?id=${encodeURIComponent(set.id)}`;
+          questions.textContent = 'Suallara bax';
+          const session = document.createElement('a');
+          session.className = 'btn btn--primary btn--sm';
+          session.href = `sessiyalar.html?questionSetId=${encodeURIComponent(set.id)}`;
+          session.textContent = 'Sessiya başlat';
+          actions.append(questions, session);
+          card.append(actions);
         }
-        container.append(list);
-      },
-    );
+
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    const reload = () => loadInto(content, () => request('/live/question-sets'), renderSets);
+    reload();
+    document.getElementById('refreshBtn').addEventListener('click', reload);
+
+    // Emal fonda gedir — siyahı özü yenilənməsə müəllim səhifəni əl ilə
+    // təzələməli olur və "ilişib qalıb?" sualı yaranır.
+    setInterval(() => {
+      if (!document.hidden) reload();
+    }, POLL_INTERVAL_MS);
+
+    const form = document.getElementById('createForm');
+    const createBtn = document.getElementById('createBtn');
+    const createError = document.getElementById('createError');
+    const createOk = document.getElementById('createOk');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      createError.hidden = true;
+      createOk.hidden = true;
+
+      const kind = kindSelect.value;
+      const fileInput = document.getElementById('file');
+      const file = fileInput.files && fileInput.files[0];
+
+      if (kind !== 'link' && !file) {
+        createError.textContent = 'Fayl seçilməyib.';
+        createError.hidden = false;
+        return;
+      }
+      if (file && file.size > MAX_UPLOAD_BYTES) {
+        // Serverə 20 MB-dan böyük fayl göndərib 413 gözləməkdənsə
+        // dərhal aydın mesaj.
+        createError.textContent = 'Fayl 20 MB-dan böyükdür.';
+        createError.hidden = false;
+        return;
+      }
+
+      const body = new FormData();
+      body.append('subject', subjectSelect.value);
+      body.append('title', document.getElementById('title').value);
+      body.append('kind', kind);
+      body.append('question_count', document.getElementById('questionCount').value);
+      if (kind === 'link') body.append('location', document.getElementById('location').value);
+      else body.append('file', file);
+
+      createBtn.disabled = true;
+      createBtn.textContent = 'Göndərilir…';
+      try {
+        // `multipart/form-data` üçün `api.js`-in JSON sarğısı uyğun
+        // deyil — `Content-Type` başlığını brauzer özü (sərhəd
+        // parametri ilə birlikdə) qoymalıdır.
+        const response = await fetch(`${API_BASE_URL}/live/question-sets`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body,
+        });
+        let payload = null;
+        try { payload = await response.json(); } catch { payload = null; }
+        if (!response.ok) {
+          throw new ApiError(extractErrorMessage(response.status, payload), response.status);
+        }
+        form.reset();
+        kindSelect.dispatchEvent(new Event('change'));
+        createOk.textContent = 'Material qəbul edildi. Emal bitəndə statusu "Hazırdır" olacaq.';
+        createOk.hidden = false;
+        reload();
+      } catch (error) {
+        createError.textContent = error.message || 'Xəta baş verdi.';
+        createError.hidden = false;
+      } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Yarat';
+      }
+    });
   }
 </script>
 </body>

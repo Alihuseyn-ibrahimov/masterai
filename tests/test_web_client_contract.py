@@ -71,3 +71,42 @@ class TestJavaScriptUnitTests:
             "JS testləri uğursuz oldu:\n" + result.stdout[-4000:] + result.stderr[-2000:]
         )
         assert "# fail 0" in result.stdout
+
+
+class TestSubjectCatalogContract:
+    """`subjects.js` iki ayrı mənbə ilə uzlaşmalıdır: backend-in fənn
+    siyahısı və dizayn tokenlərindəki rənglər. Biri dəyişib digəri
+    dəyişməsə, fənn ya seçilə bilmir, ya rəngsiz görünür — hər ikisi
+    sükutla baş verir."""
+
+    SUBJECTS_JS = WEB / "assets" / "js" / "subjects.js"
+    STORE_PY = ROOT / "server" / "question_set_store.py"
+    TOKENS_CSS = WEB / "assets" / "css" / "tokens.css"
+
+    def _js_subjects(self) -> list[tuple[str, str]]:
+        text = self.SUBJECTS_JS.read_text(encoding="utf-8")
+        return re.findall(r"key:\s*'([^']+)'.*?cssVar:\s*'([^']+)'", text)
+
+    def _backend_subjects(self) -> list[str]:
+        text = self.STORE_PY.read_text(encoding="utf-8")
+        block = re.search(r"SUBJECTS\s*=\s*\(([^)]*)\)", text)
+        assert block, "question_set_store.py-də SUBJECTS tapılmadı"
+        return re.findall(r'"([^"]+)"', block.group(1))
+
+    def test_js_and_backend_subject_keys_match(self):
+        assert [key for key, _ in self._js_subjects()] == self._backend_subjects()
+
+    def test_every_subject_has_a_defined_color_token(self):
+        tokens = self.TOKENS_CSS.read_text(encoding="utf-8")
+        missing = [css_var for _, css_var in self._js_subjects() if f"{css_var}:" not in tokens]
+        assert not missing, f"tokens.css-də təyin olunmayan fənn rəngi: {missing}"
+
+    def test_question_count_limits_match_the_backend(self):
+        """Formadakı min/maks sual sayı backend-in yoxlaması ilə üst-üstə
+        düşməlidir — əks halda istifadəçi 400 xətası alır."""
+        app_py = (ROOT / "server" / "app.py").read_text(encoding="utf-8")
+        minimum = int(re.search(r"_MIN_QUESTION_COUNT\s*=\s*(\d+)", app_py).group(1))
+        maximum = int(re.search(r"_MAX_QUESTION_COUNT\s*=\s*(\d+)", app_py).group(1))
+        html = (WEB / "muellim.html").read_text(encoding="utf-8")
+        assert f'min="{minimum}"' in html, f"formada min={minimum} yoxdur"
+        assert f'max="{maximum}"' in html, f"formada max={maximum} yoxdur"

@@ -12,27 +12,329 @@
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/components.css">
+<style>
+  /* PIN sinifdə uzaqdan oxunmalıdır — ekrana proyeksiya edilir. */
+  .pin {
+    font-family: var(--font-heading);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-black);
+    letter-spacing: var(--space-2);
+    color: var(--color-primary);
+  }
+</style>
 </head>
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
-  <section>
-    <div class="section-header"><h1>Sessiyalar</h1></div>
-    <div class="card">
-      <div class="state">
-        <div class="state__icon">🎯</div>
-        <div class="state__title">Bu ekran hazırlanır</div>
-        <div class="state__text">Canlı sinif sessiyası yaratmaq və PIN paylaşmaq buradan olacaq. Backend hazırdır (POST /live/sessions), ekran Faza 5-də gələcək.</div>
+
+  <section class="stack" id="pickSection">
+    <div class="section-header">
+      <h1>Canlı sessiya</h1>
+      <span class="section-header__hint">Hazır sual bankı seçin — tələbələr PIN ilə qoşulacaq</span>
+    </div>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div id="setList"></div>
+  </section>
+
+  <section class="stack" id="sessionSection" hidden>
+    <div class="section-header">
+      <h1 id="sessionTitle">Sessiya</h1>
+      <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+    </div>
+
+    <div class="card stack" style="text-align: center">
+      <p class="text-sm text-muted">Tələbələr bu PIN ilə qoşulur</p>
+      <div class="pin" id="pinValue">——————</div>
+      <p class="text-sm text-muted" id="joinHint"></p>
+    </div>
+
+    <div class="card stack" id="startCard">
+      <h4>Vaxt büdcəsi</h4>
+      <p class="text-sm text-muted">
+        Bütün sessiya üçün ümumi vaxtdır. Hər tələbə öz sürəti ilə irəliləyir.
+      </p>
+      <div class="row" id="durationChoices"></div>
+      <button class="btn btn--primary btn--lg" type="button" id="startBtn" disabled>
+        Sessiyanı başlat
+      </button>
+      <p class="text-xs text-muted" id="startHint">Ən azı bir iştirakçı gözlənilir.</p>
+    </div>
+
+    <div class="card stack" id="runningCard" hidden>
+      <div class="row row--between">
+        <h4>Gedişat</h4>
+        <span class="badge badge--info" id="countdown">—</span>
       </div>
+      <div id="participants"></div>
+    </div>
+
+    <div class="card stack" id="finishedCard" hidden>
+      <h4>Sessiya bitdi</h4>
+      <div id="leaderboard"></div>
     </div>
   </section>
+
 </div>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  if (requireLogin()) mountShell();
+  import { getToken, request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { statusBadge, subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import {
+    DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
+  } from './assets/js/live.js';
+
+  const STATUS_LABELS = {
+    connecting: ['Qoşulur…', 'badge badge--neutral'],
+    open: ['Bağlıdır', 'badge badge--success'],
+    reconnecting: ['Yenidən qoşulur…', 'badge badge--warning'],
+    closed: ['Bağlantı yoxdur', 'badge badge--danger'],
+  };
+
+  if (requireLogin()) {
+    mountShell();
+
+    const errorBox = document.getElementById('errorBox');
+    const showError = (text) => { errorBox.textContent = text; errorBox.hidden = false; };
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedSetId = Number(params.get('questionSetId'));
+
+    /* ---- Sual bankı seçimi ---- */
+
+    function renderSets(container, sets) {
+      const ready = sets.filter((set) => set.status === 'ready');
+      container.innerHTML = '';
+      if (!ready.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon">📚</div>'
+          + '<div class="state__title">Hazır sual bankı yoxdur</div>'
+          + '<div class="state__text">Əvvəlcə "Sual bankları" bölməsindən material yükləyin.</div></div>';
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const set of ready.sort((a, b) => b.id - a.id)) {
+        const card = document.createElement('div');
+        card.className = 'card card--subject stack stack--tight';
+        card.style.setProperty('--subject', subjectColorVar(set.subject));
+        const title = document.createElement('h4');
+        title.textContent = set.title;
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
+        const button = document.createElement('button');
+        button.className = 'btn btn--primary btn--sm';
+        button.type = 'button';
+        button.textContent = 'Sessiya yarat';
+        button.addEventListener('click', () => startSession(set));
+        card.append(title, meta, button);
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    const setList = document.getElementById('setList');
+    loadInto(setList, () => request('/live/question-sets'), (container, sets) => {
+      renderSets(container, sets);
+      if (Number.isInteger(requestedSetId) && requestedSetId > 0) {
+        const requested = sets.find((set) => set.id === requestedSetId);
+        // Müəllim "Sessiya başlat" düyməsindən gəlibsə, əl ilə yenidən
+        // seçməsinə ehtiyac yoxdur.
+        if (requested && requested.status === 'ready') startSession(requested);
+        else if (requested) showError(`"${requested.title}" hələ hazır deyil (${statusBadge(requested.status).label}).`);
+      }
+    });
+
+    /* ---- Sessiya ---- */
+
+    let socket = null;
+    let totalQuestions = 0;
+    let participants = [];
+    const progressById = new Map();
+    let countdownTimer = null;
+    let remainingSeconds = 0;
+
+    const sessionSection = document.getElementById('sessionSection');
+    const pickSection = document.getElementById('pickSection');
+    const startBtn = document.getElementById('startBtn');
+    const startCard = document.getElementById('startCard');
+    const runningCard = document.getElementById('runningCard');
+    const finishedCard = document.getElementById('finishedCard');
+    const statusBadgeEl = document.getElementById('connStatus');
+    const countdownEl = document.getElementById('countdown');
+
+    let selectedMinutes = 3;
+    const choices = document.getElementById('durationChoices');
+    for (const minutes of DURATION_CHOICES_MINUTES) {
+      const button = document.createElement('button');
+      button.className = minutes === selectedMinutes ? 'btn btn--primary btn--sm' : 'btn btn--secondary btn--sm';
+      button.type = 'button';
+      button.textContent = `${minutes} dəq`;
+      button.addEventListener('click', () => {
+        selectedMinutes = minutes;
+        for (const other of choices.children) {
+          other.className = other === button ? 'btn btn--primary btn--sm' : 'btn btn--secondary btn--sm';
+        }
+      });
+      choices.append(button);
+    }
+
+    function renderParticipants() {
+      const container = document.getElementById('participants');
+      container.innerHTML = '';
+      const rows = participantRows(participants, progressById, totalQuestions);
+      if (!rows.length) {
+        container.innerHTML = '<p class="text-sm text-muted">Hələ heç kim qoşulmayıb.</p>';
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'stack stack--tight';
+      for (const row of rows) {
+        const item = document.createElement('div');
+        item.className = 'stack stack--tight';
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const name = document.createElement('span');
+        name.className = 'text-sm';
+        name.textContent = row.name;
+        const count = document.createElement('span');
+        count.className = row.finished ? 'badge badge--success' : 'text-sm text-muted';
+        count.textContent = row.finished ? 'Bitirdi' : `${row.answered}/${row.total}`;
+        head.append(name, count);
+        const bar = document.createElement('div');
+        bar.className = 'progress';
+        const fill = document.createElement('div');
+        fill.className = 'progress__fill';
+        fill.style.setProperty('--progress', `${row.percent}%`);
+        bar.append(fill);
+        item.append(head, bar);
+        list.append(item);
+      }
+      container.append(list);
+    }
+
+    function renderLeaderboard(rows) {
+      const container = document.getElementById('leaderboard');
+      container.innerHTML = '';
+      if (!rows || !rows.length) {
+        container.innerHTML = '<p class="text-sm text-muted">Nəticə yoxdur.</p>';
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'stack stack--tight';
+      rows.forEach((row, index) => {
+        const line = document.createElement('div');
+        line.className = 'row row--between';
+        const name = document.createElement('span');
+        name.className = 'text-sm';
+        name.textContent = `${index + 1}. ${row.display_name || `İştirakçı #${row.participant_id}`}`;
+        const score = document.createElement('span');
+        score.className = 'text-sm';
+        score.textContent = `${row.correct_count ?? row.score ?? 0} düzgün`;
+        line.append(name, score);
+        list.append(line);
+      });
+      container.append(list);
+    }
+
+    function tickCountdown() {
+      remainingSeconds -= 1;
+      countdownEl.textContent = formatCountdown(remainingSeconds);
+      if (remainingSeconds <= 0 && countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }
+
+    async function startSession(set) {
+      pickSection.hidden = true;
+      sessionSection.hidden = false;
+      document.getElementById('sessionTitle').textContent = set.title;
+      totalQuestions = set.question_count;
+
+      let session;
+      try {
+        session = await request('/live/sessions', {
+          method: 'POST', body: { question_set_id: set.id },
+        });
+      } catch (error) {
+        sessionSection.hidden = true;
+        pickSection.hidden = false;
+        showError(error.message);
+        return;
+      }
+
+      document.getElementById('pinValue').textContent = session.pin;
+      document.getElementById('joinHint').textContent =
+        'Tələbələr saytda "PIN ilə qoşul" səhifəsindən bu nömrəni yazır.';
+
+      socket = new LiveHostSocket({
+        pin: session.pin,
+        token: getToken(),
+        onStatus: (status) => {
+          const [label, className] = STATUS_LABELS[status] || STATUS_LABELS.closed;
+          statusBadgeEl.textContent = label;
+          statusBadgeEl.className = className;
+        },
+        onMessage: (data) => {
+          if (data.type === 'state') {
+            participants = data.participants || [];
+            startBtn.disabled = participants.length === 0;
+            document.getElementById('startHint').textContent = participants.length
+              ? `${participants.length} iştirakçı gözləyir.`
+              : 'Ən azı bir iştirakçı gözlənilir.';
+            renderParticipants();
+            return;
+          }
+          if (data.type === 'participant_joined') {
+            participants = participants.concat([
+              { id: data.participant_id, display_name: data.display_name },
+            ]);
+            startBtn.disabled = false;
+            document.getElementById('startHint').textContent = `${data.count} iştirakçı gözləyir.`;
+            renderParticipants();
+            return;
+          }
+          if (data.type === 'started') {
+            totalQuestions = data.total_questions || totalQuestions;
+            remainingSeconds = data.duration_seconds || 0;
+            startCard.hidden = true;
+            runningCard.hidden = false;
+            countdownEl.textContent = formatCountdown(remainingSeconds);
+            countdownTimer = setInterval(tickCountdown, 1000);
+            renderParticipants();
+            return;
+          }
+          if (data.type === 'participant_progress') {
+            progressById.set(data.participant_id, data.answered_count);
+            totalQuestions = data.total_questions || totalQuestions;
+            renderParticipants();
+            return;
+          }
+          if (data.type === 'finished') {
+            if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+            runningCard.hidden = true;
+            startCard.hidden = true;
+            finishedCard.hidden = false;
+            renderLeaderboard(data.leaderboard);
+            return;
+          }
+          if (data.type === 'error') showError(data.detail || 'Xəta');
+        },
+      });
+      socket.connect();
+
+      startBtn.addEventListener('click', () => {
+        if (!socket.start(selectedMinutes * 60)) {
+          showError('Bağlantı hazır deyil — bir azdan cəhd edin.');
+        }
+      });
+    }
+
+    window.addEventListener('beforeunload', () => { if (socket) socket.close(); });
+  }
 </script>
 </body>
 </html>
