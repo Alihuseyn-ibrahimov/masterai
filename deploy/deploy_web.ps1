@@ -47,12 +47,28 @@ if (-not $PYTHON) {
 Write-Host "Python: $PYTHON" -ForegroundColor DarkGray
 
 # ── 2. Test qapısı ───────────────────────────────────────────────────
-Write-Host "Backend + veb testleri isledilir..." -ForegroundColor Cyan
+# YALNIZ veb testleri isledilir — bu skript statik HTML/CSS/JS kocurur,
+# backend-e TOXUNMUR. Hemin dord fayl yalniz standart kitabxana + pytest
+# teleb edir (metn analizi), yeni Windows-da agir backend muhiti
+# (langchain, selenium, pytesseract...) qurmaga ehtiyac yoxdur.
+#
+# Backend test desti (750 test) ayrica, her commit-de sandbox-da ve
+# VPS-de islenir — bura daxil edilmemesi onun atlandigi anlamina gelmir.
+$WEB_TESTS = @(
+    "tests\test_web_pages.py",
+    "tests\test_web_design_system.py",
+    "tests\test_web_client_contract.py",
+    "tests\test_nginx_routes.py"
+)
+Write-Host "Veb testleri isledilir..." -ForegroundColor Cyan
 Push-Location $LOCAL
-& $PYTHON -m pytest -q
+& $PYTHON -m pytest -q @WEB_TESTS
 $testExit = $LASTEXITCODE
 Pop-Location
-if ($testExit -ne 0) { Fail "pytest ugursuz oldu - deploy DAYANDIRILDI" }
+if ($testExit -ne 0) {
+    Fail ("Veb testleri ugursuz oldu - deploy DAYANDIRILDI.`n" +
+          "pytest tapilmadisa: & '$PYTHON' -m pip install pytest")
+}
 
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "JavaScript testleri isledilir..." -ForegroundColor Cyan
