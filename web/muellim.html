@@ -17,28 +17,20 @@
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
-  <!-- SIRA QƏSDƏN BELƏDİR: müəllim adətən MÖVCUD bankı işlətmək üçün
-       gəlir (sessiya başlat, sualları yoxla), yeni bank yaratmaq isə
-       nadir hadisədir. Əvvəl forma yuxarıda idi, yəni tez-tez edilən iş
-       aşağıda qalırdı. -->
+  <!-- SIRA: yaratma ƏN YUXARIDADIR.
+       Bunu istifadəçi düzəltdi: real pilotda müəllim yeni sual bankını
+       TEZ-TEZ yaradır. Mən əksini güman etmişdim («adətən mövcud bankı
+       işlədir») və formanı aşağı salmışdım; real istifadə naxışını
+       bilən istifadəçidir, fərziyyə mənim idi.
+
+       Açılış mexanizmi saxlanılır, amma DEFOLT AÇIQDIR: bir klik də
+       tez-tez edilən işə əlavə maneədir. Bankları nəzərdən keçirərkən
+       yığmaq istəyən müəllim onu bağlaya bilər. -->
   <section>
     <div class="section-header">
       <h1>Sual bankları</h1>
-      <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
     </div>
-    <p class="banks-summary" id="summary" role="status"></p>
-    <!-- İş xülasəsi: müəllimin dərhal görməli olduğu iki fakt. Üç böyük
-         rəqəm kartı QƏSDƏN yoxdur; burada rəqəm yox, VƏZİYYƏT və ona
-         aparan keçid göstərilir. Data yoxdursa panel ÜMUMİYYƏTLƏ
-         göstərilmir (boş qutu məlumat vermir). -->
-    <div class="brief" id="brief" hidden></div>
-    <div id="content"></div>
-  </section>
-
-  <!-- Yaratma forması açılışa yığılıb (tərəqqi ilə açılma). Siyahı
-       boşdursa skript onu ÖZÜ açır: boş ekran hərəkətə dəvətdir. -->
-  <section>
-    <details class="disclosure" id="createPanel">
+    <details class="disclosure" id="createPanel" open>
       <summary class="disclosure__summary">
         <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-upload"></use></svg>
         Yeni sual bankı yarat
@@ -98,6 +90,21 @@
       </form>
       </div>
     </details>
+  </section>
+
+
+  <section>
+    <div class="section-header">
+      <h2>Mövcud banklar</h2>
+      <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
+    </div>
+    <p class="banks-summary" id="summary" role="status"></p>
+    <!-- İş xülasəsi: müəllimin dərhal görməli olduğu iki fakt. Üç böyük
+         rəqəm kartı QƏSDƏN yoxdur; burada rəqəm yox, VƏZİYYƏT və ona
+         aparan keçid göstərilir. Data yoxdursa panel ÜMUMİYYƏTLƏ
+         göstərilmir (boş qutu məlumat vermir). -->
+    <div class="brief" id="brief" hidden></div>
+    <div id="content"></div>
   </section>
 
 </div>
@@ -240,9 +247,6 @@
     function renderSets(container, sets) {
       container.innerHTML = '';
       renderSummary(sets);
-      // Boş ekran hərəkətə dəvətdir: forma özü açılır ki, ilk dəfə
-      // girən müəllim nə edəcəyini axtarmasın.
-      if (!sets.length) createPanel.open = true;
       if (!sets.length) {
         const state = document.createElement('div');
         state.className = 'state';
