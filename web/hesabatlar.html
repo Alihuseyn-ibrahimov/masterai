@@ -65,6 +65,7 @@
 <script type="module">
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { homeworkProgressBadge } from './assets/js/subjects.js';
 
   const STATUS_BADGE = {
     'tamamlanıb': 'badge badge--success',
@@ -133,11 +134,16 @@
         const head = document.createElement('div');
         head.className = 'row row--between';
         const title = document.createElement('h4');
-        title.textContent = `Tapşırıq #${assignment.id}`;
+        /* «Tapşırıq #5» sistem nömrəsidir; müəllim onu tanımır. Sual
+           bankının adı isə onun özünün yazdığı addır. */
+        title.textContent = questionSetTitles.get(assignment.question_set_id)
+          || `Tapşırıq #${assignment.id}`;
+        const progressBadge = homeworkProgressBadge(
+          assignment.completed_count, assignment.total_members,
+        );
         const progress = document.createElement('span');
-        progress.className = 'badge badge--info';
-        progress.textContent =
-          `${assignment.completed_count}/${assignment.total_members} tamamlayıb`;
+        progress.className = progressBadge.className;
+        progress.textContent = progressBadge.label;
         head.append(title, progress);
 
         const meta = document.createElement('p');
@@ -161,8 +167,14 @@
       loadInto(content, () => request(`/homework/assignments?chat_id=${chatId}`), renderAssignments);
     }
 
+    /* Tapşırıq kartında sual bankının ADINI göstərmək üçün id→ad
+       xəritəsi. Səhifə onsuz da `/live/question-sets`-i seçici üçün
+       yükləyir, ona görə əlavə sorğu lazım deyil. */
+    const questionSetTitles = new Map();
+
     Promise.all([request('/chats'), request('/live/question-sets')])
       .then(([chats, sets]) => {
+        for (const set of sets) questionSetTitles.set(set.id, set.title);
         for (const chat of chats) {
           const option = document.createElement('option');
           option.value = String(chat.id);

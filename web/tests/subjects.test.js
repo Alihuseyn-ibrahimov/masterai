@@ -1,7 +1,13 @@
-import { test, describe } from 'node:test';
+import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SUBJECTS, statusBadge, subjectColorVar, subjectLabel } from '../assets/js/subjects.js';
+import {
+  SUBJECTS,
+  homeworkProgressBadge,
+  statusBadge,
+  subjectColorVar,
+  subjectLabel,
+} from '../assets/js/subjects.js';
 
 describe('fənn kataloqu', () => {
   test('backend-dəki altı fənn var', () => {
@@ -43,5 +49,24 @@ describe('statusBadge', () => {
     // sessiya başlatmağa aparardı.
     assert.match(statusBadge('nese').className, /warning/);
     assert.match(statusBadge(undefined).className, /warning/);
+  });
+});
+
+describe('homeworkProgressBadge', () => {
+  it('hamı tamamlayıbsa uğur rəngi', () => {
+    assert.match(homeworkProgressBadge(9, 9).className, /success/);
+  });
+
+  it('heç kim başlamayıbsa neytral', () => {
+    assert.match(homeworkProgressBadge(0, 18).className, /neutral/);
+  });
+
+  it('qismən tamamlanıbsa məlumat rəngi', () => {
+    assert.match(homeworkProgressBadge(6, 18).className, /info/);
+  });
+
+  it('üzv yoxdursa sıfıra bölmə olmur', () => {
+    const badge = homeworkProgressBadge(0, 0);
+    assert.ok(badge.label.length > 0);
   });
 });

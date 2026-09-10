@@ -33,3 +33,27 @@ export function statusBadge(status) {
   if (status === 'failed') return { className: 'badge badge--danger', label: 'Uğursuz oldu' };
   return { className: 'badge badge--warning', label: 'Hazırlanır…' };
 }
+
+
+/* ---- Ev tapşırığı tərəqqisi ----
+ * Tələbənin STATUS mətni backend-dən onsuz da Azərbaycanca gəlir
+ * (`Literal["gözləyir", "davam edir", "tamamlanıb"]`), ona görə orada
+ * tərcüməyə ehtiyac yoxdur.
+ *
+ * Burada həll olunan başqa problemdir: sinif üzrə tərəqqi nişanı hər
+ * halda EYNİ mavi rəngdə idi, yəni 9/9 ilə 6/18 gözlə fərqlənmirdi, ona görə
+ * müəllim geridə qalan sinfi tarayıb tapa bilmirdi.
+ */
+
+/**
+ * Bütün sinif üzrə tərəqqi. Rəng vəziyyəti bildirir ki, müəllim
+ * siyahını gözlə tarayıb geridə qalanı tapa bilsin; əvvəl hamısı eyni
+ * mavi idi və 9/9 ilə 6/18 fərqlənmirdi.
+ */
+export function homeworkProgressBadge(completed, total) {
+  const label = `${completed}/${total} tamamlayıb`;
+  if (!total) return { className: 'badge badge--neutral', label: 'Üzv yoxdur' };
+  if (completed >= total) return { className: 'badge badge--success', label };
+  if (completed === 0) return { className: 'badge badge--neutral', label };
+  return { className: 'badge badge--info', label };
+}
