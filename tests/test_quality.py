@@ -151,3 +151,24 @@ class TestSeverity:
         report = audit_questions([q(options=["Bir", "Bir", "İki", "Üç", "Dörd"])])
         finding = next(f for f in report.findings if f.code == "tekrar_variant")
         assert finding.severity is Severity.HIGH
+
+
+class TestAggregateAcrossSets:
+    """`--all` rejimi: bir çağırışda bütün hazır dəstləri yoxlayır.
+    İnsan vaxtı sərf etmədən ümumi mənzərəni verir."""
+
+    def test_counts_are_summed_across_sets(self):
+        from pipeline.quality import aggregate_findings
+        set_a = audit_questions([q(question="Bu sənəd hansı tarixdə dərc edilmişdir?")])
+        set_b = audit_questions([q(question="Neçənci ildə qəbul edilmişdir?")])
+        totals = aggregate_findings({1: set_a, 2: set_b})
+        assert totals["metadata_sual"] == 2
+
+    def test_sets_without_findings_do_not_appear(self):
+        from pipeline.quality import aggregate_findings
+        totals = aggregate_findings({1: audit_questions([q()])})
+        assert totals == {}
+
+    def test_empty_input_gives_empty_totals(self):
+        from pipeline.quality import aggregate_findings
+        assert aggregate_findings({}) == {}

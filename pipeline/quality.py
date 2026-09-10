@@ -242,3 +242,17 @@ def audit_questions(questions: list[MCQQuestion]) -> QualityReport:
         findings=findings,
         review_order=review_order,
     )
+
+
+def aggregate_findings(reports: dict[int, QualityReport]) -> dict[str, int]:
+    """Bir neçə dəstin tapıntılarını koda görə cəmləyir.
+
+    Məqsəd: 94 sualın hamısında hansı problemin NEÇƏ dəfə təkrarlandığını
+    görmək. Bir sualda təsadüf ola bilən naxış onlarla sualda sistemli
+    problem deməkdir — düzəlişi pipeline-da etmək lazım olduğunu göstərir.
+    """
+    totals: Counter[str] = Counter()
+    for report in reports.values():
+        for finding in report.findings:
+            totals[finding.code] += 1
+    return dict(totals)

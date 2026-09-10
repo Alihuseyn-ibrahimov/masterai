@@ -38,6 +38,21 @@ Aşağıdakı bölmələr (2-5) həmin skriptin nə etdiyini addım-addım izah 
 
 ## 2. Kod deploy (VPS-də, əl ilə)
 
+> **REAL VƏZİYYƏT (2026-09-10-da serverdən yoxlanılıb).** Aşağıdakı
+> `/opt/masterai` yolu şablondur, canlı serverdə İSTİFADƏ OLUNMUR.
+> `systemctl show masterai` nə deyir:
+>
+> ```
+> WorkingDirectory=/opt/pr-agent/repo/masterai
+> ExecStart=/opt/pr-agent/repo/masterai/.venv/bin/gunicorn ...
+> ```
+>
+> Yəni kod `/opt/pr-agent/repo` checkout-unun içindədir. `/opt/masterai`
+> qovluğu ÜMUMİYYƏTLƏ mövcud deyil. Bu uyğunsuzluq bir dəfə artıq vaxt
+> itkisinə səbəb olub — sənədə baxıb yanlış yol verilib. Yolu buradan
+> yox, HƏMİŞƏ `systemctl show masterai -p WorkingDirectory` ilə
+> serverin özündən öyrən.
+
 ```bash
 cd /opt/masterai            # (repo artıq /opt/masterai-dadırsa)
 python3 -m venv .venv
@@ -119,7 +134,7 @@ Qeydiyyat+giriş+material yükləmə üçün real HTTP axını (`.planning/2026-
 
 ## Yeniləmə (növbəti dəfə)
 
-`/opt/masterai` VPS-də git repo checkout-udursa:
+Canlı serverdə checkout `/opt/pr-agent/repo`-dadır (yuxarıdakı qeydə bax):
 
 ```bash
 cd /opt/pr-agent/repo && git pull
@@ -219,3 +234,23 @@ cd masterai\web
 py -m http.server 8123
 # brauzerdə: http://localhost:8123/
 ```
+
+
+## Sual keyfiyyətinin yoxlanması
+
+Canlı bazadakı sual dəstini insan yoxlaması üçün vərəqə çevirir. Yalnız
+OXUYUR — servisə toxunmur, restart tələb etmir.
+
+```bash
+cd /opt/pr-agent/repo/masterai
+.venv/bin/python -m pipeline.audit --list
+.venv/bin/python -m pipeline.audit --set 3 --out /tmp/yoxlama.txt
+```
+
+Baza yolu defolt olaraq `WorkingDirectory`-yə nisbi (`question_sets.db`)
+götürülür; başqa yerdədirsə `--db` ilə göstər.
+
+**Alətin sərhədi:** cavabın faktiki olaraq doğru olduğunu deyə BİLMİR —
+onu yalnız mənbə materialını oxuyan insan təsdiqləyə bilər. Alət yalnız
+obyektiv şübhə əlamətlərini sayır və hansı sualdan başlamaq lazım
+olduğunu göstərir. Bax `pipeline/quality.py` modul qeydi.
