@@ -24,6 +24,11 @@
     </div>
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
     <div class="notice notice--success" id="okBox" role="status" hidden></div>
+
+    <!-- Keyfiyyət paneli. Data gəlməsə ÜMUMİYYƏTLƏ göstərilmir: audit
+         köməkçi məlumatdır, sualların redaktəsini bloklamamalıdır. -->
+    <div class="audit" id="audit" hidden></div>
+
     <div id="content"></div>
   </section>
 
@@ -35,6 +40,11 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectLabel } from './assets/js/subjects.js';
+  import {
+    REVIEW_ORDER, SOURCE_ORDER,
+    findingsByQuestion, orderedIndexes, setWideFindings,
+    severityBadge, suspiciousCount,
+  } from './assets/js/question-review.js';
 
   const LETTERS = 'ABCDE';
 
@@ -45,6 +55,7 @@
     const content = document.getElementById('content');
     const errorBox = document.getElementById('errorBox');
     const okBox = document.getElementById('okBox');
+    const auditBox = document.getElementById('audit');
 
     function flash(box, text) {
       box.textContent = text;
@@ -66,56 +77,198 @@
         })
         .catch(() => {});
 
-      function buildQuestionCard(question, index, reload) {
-        const card = document.createElement('form');
-        card.className = 'card stack';
+      /* ---- Keyfiyyət auditi ----
+         Ekranın ƏSAS DƏYİŞİKLİYİ budur. Əvvəl səhifə 30 sualın hamısını
+         açıq forma kimi düzürdü: müəllim sualı OXUYA bilmirdi, çünki
+         mətn textarea-nın içində idi, və hansından başlamalı olduğunu
+         bilmirdi. İndi suallar OXUNAQLI kart kimi göstərilir, redaktə
+         yalnız tələb olunanda açılır, sıra isə auditə görə qurula bilir. */
+
+      let quality = null;      // `GET .../quality` cavabı, uğursuz olsa `null`
+      let questions = [];
+      let order = SOURCE_ORDER;
+
+      function auditLine(text, className) {
+        const line = document.createElement('p');
+        line.className = className;
+        line.textContent = text;
+        return line;
+      }
+
+      function renderAudit() {
+        auditBox.innerHTML = '';
+        if (!quality || !questions.length) { auditBox.hidden = true; return; }
+        auditBox.hidden = false;
+
+        const suspicious = suspiciousCount(quality.findings);
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        const summary = document.createElement('strong');
+        summary.textContent = suspicious
+          ? `${questions.length} sualdan ${suspicious}-i şübhəlidir`
+          : `${questions.length} sualda şübhə əlaməti tapılmadı`;
+        head.append(summary);
+
+        // Sıralama düyməsi yalnız şübhəli sual VARSA mənalıdır.
+        if (suspicious) {
+          const toggle = document.createElement('button');
+          toggle.className = 'btn btn--secondary btn--sm';
+          toggle.type = 'button';
+          toggle.textContent = order === REVIEW_ORDER ? 'Mənbə sırası' : 'Şübhəlidən başla';
+          toggle.addEventListener('click', () => {
+            order = order === REVIEW_ORDER ? SOURCE_ORDER : REVIEW_ORDER;
+            renderList();
+          });
+          head.append(toggle);
+        }
+        auditBox.append(head);
+
+        for (const finding of setWideFindings(quality.findings)) {
+          auditBox.append(auditLine(finding.message, 'text-sm audit__set-finding'));
+        }
+
+        /* Bu cümlə QƏSDƏN həmişə göstərilir. Audit cavabın DOĞRU
+           olduğunu yoxlaya bilmir (bax `pipeline/quality.py` modul
+           qeydi) - «tapıntı yoxdur» sualın təsdiqlənməsi kimi
+           anlaşılsa, alət faydadan çox zərər verər. */
+        auditBox.append(auditLine(
+          'Audit yalnız şübhə əlamətlərini sayır - cavabın doğruluğunu yoxlaya bilmir.',
+          'text-xs text-muted',
+        ));
+      }
+
+      function loadQuality() {
+        return request(`/live/question-sets/${setId}/quality`)
+          .then((report) => { quality = report; })
+          .catch(() => { quality = null; });   // audit səhifəni bloklamır
+      }
+
+      /* ---- Bir sualın kartı ---- */
+
+      function optionRow(text, letter, isCorrect) {
+        const row = document.createElement('div');
+        row.className = isCorrect ? 'option option--correct' : 'option';
+        const mark = document.createElement('span');
+        mark.className = 'option__letter';
+        mark.textContent = letter;
+        const body = document.createElement('span');
+        body.textContent = text;
+        row.append(mark, body);
+        if (isCorrect) {
+          // Rəngdən ƏLAVƏ mətn siqnalı: yalnız rəng kifayət deyil.
+          const tag = document.createElement('span');
+          tag.className = 'badge badge--success option__mark';
+          tag.textContent = 'Düzgün';
+          row.append(tag);
+        }
+        return row;
+      }
+
+      function buildCard(question, number, findings) {
+        const card = document.createElement('div');
+        card.className = 'card stack stack--tight qcard';
 
         const head = document.createElement('div');
         head.className = 'row row--between';
-        head.append(Object.assign(document.createElement('h4'), { textContent: `Sual ${index + 1}` }));
-        card.append(head);
+        const title = document.createElement('h4');
+        title.textContent = `Sual ${number}`;
+        const tools = document.createElement('div');
+        tools.className = 'row row--tight';
+        for (const finding of findings) {
+          const badge = severityBadge(finding.severity);
+          const chip = document.createElement('span');
+          chip.className = badge.className;
+          chip.textContent = badge.label;
+          chip.title = finding.message;
+          tools.append(chip);
+        }
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn--secondary btn--sm';
+        editBtn.type = 'button';
+        editBtn.textContent = 'Redaktə et';
+        tools.append(editBtn);
+        head.append(title, tools);
 
-        const questionField = document.createElement('div');
-        questionField.className = 'field';
-        const questionLabel = document.createElement('label');
-        questionLabel.className = 'field__label';
-        questionLabel.htmlFor = `q-${question.id}`;
-        questionLabel.textContent = 'Sual mətni';
+        const readBody = document.createElement('div');
+        readBody.className = 'stack stack--tight';
+        const text = document.createElement('p');
+        text.className = 'qcard__question';
+        text.textContent = question.question;
+        readBody.append(text);
+        for (let i = 0; i < question.options.length; i += 1) {
+          readBody.append(optionRow(question.options[i], LETTERS[i], i === question.correct_index));
+        }
+        if (question.explanation) {
+          const explanation = document.createElement('p');
+          explanation.className = 'text-sm text-muted';
+          explanation.textContent = `İzah: ${question.explanation}`;
+          readBody.append(explanation);
+        }
+
+        /* Tapıntı mətni kartın ÖZÜNDƏDİR, oxu gövdəsində yox: müəllim
+           redaktəni məhz tapıntını düzəltmək üçün açır - forma açılanda
+           problemin nə olduğu ekrandan yox olmamalıdır. */
+        const notes = document.createElement('div');
+        notes.className = 'stack stack--tight';
+        for (const finding of findings) {
+          const note = document.createElement('p');
+          note.className = 'text-sm qcard__finding';
+          note.textContent = finding.message;
+          notes.append(note);
+        }
+        // Boş div flex sətri kimi sayılır və artıq boşluq yaradır.
+        notes.hidden = findings.length === 0;
+
+        const editBody = buildEditForm(question, number, card);
+        editBody.hidden = true;
+
+        editBtn.addEventListener('click', () => {
+          const editing = editBody.hidden === false;
+          editBody.hidden = editing;
+          readBody.hidden = !editing;
+          editBtn.textContent = editing ? 'Redaktə et' : 'Yoxlamağa qayıt';
+        });
+
+        card.append(head, notes, readBody, editBody);
+        return card;
+      }
+
+      /* ---- Redaktə forması ----
+         Backend TAM 5 variant tələb edir (`UpdateQuestionRequest`,
+         min_length=max_length=5) - sahə sayı sabitdir. */
+
+      function labelledField(id, labelText, element) {
+        const field = document.createElement('div');
+        field.className = 'field';
+        const label = document.createElement('label');
+        label.className = 'field__label';
+        label.htmlFor = id;
+        label.textContent = labelText;
+        element.id = id;
+        field.append(label, element);
+        return field;
+      }
+
+      function buildEditForm(question, number, card) {
+        const form = document.createElement('form');
+        form.className = 'stack';
+
         const questionInput = document.createElement('textarea');
         questionInput.className = 'field__textarea';
-        questionInput.id = `q-${question.id}`;
         questionInput.value = question.question;
-        questionField.append(questionLabel, questionInput);
-        card.append(questionField);
+        form.append(labelledField(`q-${question.id}`, 'Sual mətni', questionInput));
 
         const optionInputs = [];
-        // Backend TAM 5 variant tələb edir (`UpdateQuestionRequest`,
-        // min_length=max_length=5) - sahə sayı sabitdir.
         for (let i = 0; i < 5; i += 1) {
-          const field = document.createElement('div');
-          field.className = 'field';
-          const label = document.createElement('label');
-          label.className = 'field__label';
-          label.htmlFor = `q-${question.id}-o-${i}`;
-          label.textContent = `Variant ${LETTERS[i]}`;
           const input = document.createElement('input');
           input.className = 'field__input';
-          input.id = `q-${question.id}-o-${i}`;
           input.value = question.options[i] || '';
-          field.append(label, input);
-          card.append(field);
+          form.append(labelledField(`q-${question.id}-o-${i}`, `Variant ${LETTERS[i]}`, input));
           optionInputs.push(input);
         }
 
-        const correctField = document.createElement('div');
-        correctField.className = 'field';
-        const correctLabel = document.createElement('label');
-        correctLabel.className = 'field__label';
-        correctLabel.htmlFor = `q-${question.id}-correct`;
-        correctLabel.textContent = 'Düzgün cavab';
         const correctSelect = document.createElement('select');
         correctSelect.className = 'field__select';
-        correctSelect.id = `q-${question.id}-correct`;
         for (let i = 0; i < 5; i += 1) {
           const option = document.createElement('option');
           option.value = String(i);
@@ -123,21 +276,12 @@
           if (i === question.correct_index) option.selected = true;
           correctSelect.append(option);
         }
-        correctField.append(correctLabel, correctSelect);
-        card.append(correctField);
+        form.append(labelledField(`q-${question.id}-correct`, 'Düzgün cavab', correctSelect));
 
-        const explanationField = document.createElement('div');
-        explanationField.className = 'field';
-        const explanationLabel = document.createElement('label');
-        explanationLabel.className = 'field__label';
-        explanationLabel.htmlFor = `q-${question.id}-exp`;
-        explanationLabel.textContent = 'İzah';
         const explanationInput = document.createElement('textarea');
         explanationInput.className = 'field__textarea';
-        explanationInput.id = `q-${question.id}-exp`;
         explanationInput.value = question.explanation || '';
-        explanationField.append(explanationLabel, explanationInput);
-        card.append(explanationField);
+        form.append(labelledField(`q-${question.id}-exp`, 'İzah', explanationInput));
 
         const actions = document.createElement('div');
         actions.className = 'row';
@@ -150,9 +294,23 @@
         remove.type = 'button';
         remove.textContent = 'Sil';
         actions.append(save, remove);
-        card.append(actions);
+        form.append(actions);
 
-        card.addEventListener('submit', async (event) => {
+        /* Nəticə kartın İÇİNDƏ göstərilir. Əvvəl yalnız səhifənin ən
+           yuxarısında görünürdü: 27-ci sualı saxlayan müəllim təsdiqi
+           heç vaxt görmürdü. */
+        const status = document.createElement('p');
+        status.className = 'text-sm';
+        status.hidden = true;
+        form.append(status);
+
+        function say(text, className) {
+          status.className = `text-sm ${className}`;
+          status.textContent = text;
+          status.hidden = false;
+        }
+
+        form.addEventListener('submit', async (event) => {
           event.preventDefault();
           save.disabled = true;
           try {
@@ -165,9 +323,13 @@
                 explanation: explanationInput.value,
               },
             });
-            flash(okBox, `Sual ${index + 1} yadda saxlanıldı.`);
+            say('Yadda saxlanıldı.', 'qcard__saved');
+            flash(okBox, `Sual ${number} yadda saxlanıldı.`);
+            // Audit dəyişmiş mətnə görə yenidən hesablanmalıdır, siyahı
+            // isə yeni məzmunu göstərməlidir.
+            await reload();
           } catch (error) {
-            flash(errorBox, error.message);
+            say(error.message, 'qcard__finding');
           } finally {
             save.disabled = false;
           }
@@ -175,42 +337,65 @@
 
         remove.addEventListener('click', async () => {
           // Silinmə geri qaytarıla bilmir - təsdiq soruşulur.
-          if (!window.confirm(`Sual ${index + 1} silinsin?`)) return;
+          if (!window.confirm(`Sual ${number} silinsin?`)) return;
           remove.disabled = true;
           try {
             await request(`/live/questions/${question.id}`, { method: 'DELETE' });
-            flash(okBox, `Sual ${index + 1} silindi.`);
-            reload();
+            flash(okBox, `Sual ${number} silindi.`);
+            card.remove();
+            await reload();
           } catch (error) {
-            flash(errorBox, error.message);
+            say(error.message, 'qcard__finding');
             remove.disabled = false;
           }
         });
 
-        return card;
+        return form;
       }
 
-      function renderQuestions(container, questions) {
-        container.innerHTML = '';
+      /* ---- Siyahı ---- */
+
+      function renderList() {
+        content.innerHTML = '';
+        renderAudit();
         if (!questions.length) {
-          container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
+          content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
             + '<div class="state__title">Bu bankda sual yoxdur</div></div>';
           return;
         }
+        const byQuestion = findingsByQuestion(quality && quality.findings);
         const list = document.createElement('div');
         list.className = 'stack';
-        questions.forEach((question, index) => {
-          list.append(buildQuestionCard(question, index, reload));
-        });
-        container.append(list);
+        // Nömrə HƏMİŞƏ mənbə sırasındandır (index+1) - sıralama
+        // dəyişəndə də «Sual 7» eyni sual qalmalıdır, əks halda müəllim
+        // müzakirədə səhv suala istinad edər.
+        for (const index of orderedIndexes(questions.length, quality && quality.review_order, order)) {
+          const number = index + 1;
+          list.append(buildCard(questions[index], number, byQuestion.get(number) || []));
+        }
+        content.append(list);
       }
 
-      const reload = () => loadInto(
+      async function reload() {
+        const [rows] = await Promise.all([
+          request(`/live/question-sets/${setId}/questions`),
+          loadQuality(),
+        ]);
+        questions = rows;
+        renderList();
+      }
+
+      loadInto(
         content,
-        () => request(`/live/question-sets/${setId}/questions`),
-        renderQuestions,
+        async () => {
+          const [rows] = await Promise.all([
+            request(`/live/question-sets/${setId}/questions`),
+            loadQuality(),
+          ]);
+          return rows;
+        },
+        (container, rows) => { questions = rows; renderList(); },
       );
-      reload();
     }
   }
 </script>

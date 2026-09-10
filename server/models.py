@@ -139,6 +139,33 @@ class UpdateQuestionRequest(BaseModel):
     explanation: str
 
 
+class QualityFinding(BaseModel):
+    """Auditin BİR şübhə əlaməti. `question_number` 1-dən başlayır və
+    `GET /live/question-sets/{id}/questions` cavabının SIRASI ilə eyni
+    olur; dəstin bütününə aid tapıntıda (məs. mövqe əyriliyi) `None`."""
+
+    code: str
+    # `pipeline.quality.Severity`-nin DƏYƏRİ (`yuksek`/`orta`/`asagi`),
+    # enum-un özü yox — client Python enum-unu oxuya bilmir.
+    severity: str
+    message: str
+    question_number: int | None
+
+
+class QuestionSetQuality(BaseModel):
+    """Sual bankının keyfiyyət auditi.
+
+    DİQQƏT — bunun nə OLMADIĞI vacibdir: audit cavabın faktiki olaraq
+    doğru olduğunu DEMİR (bax `pipeline/quality.py` modul qeydi).
+    Məqsəd müəllimi əvəz etmək yox, onun vaxtını ən şübhəli suala
+    yönəltməkdir."""
+
+    question_count: int
+    findings: list[QualityFinding]
+    # Sual nömrələri, ən şübhəlidən başlayaraq.
+    review_order: list[int]
+
+
 class CreateLiveSessionRequest(BaseModel):
     question_set_id: int
 

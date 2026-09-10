@@ -497,3 +497,29 @@
 .brief__label { font-size: var(--text-xs); color: var(--color-text-muted); }
 .brief__value { font-size: var(--text-base); text-wrap: pretty; }
 .brief__link { font-size: var(--text-sm); margin-top: var(--space-1); }
+
+/* ---- Sual yoxlama ekranı (`suallar.html`) ----
+ * Əvvəl bu ekran 30 sualı açıq forma kimi düzürdü: sual mətni
+ * textarea-nın içində olduğu üçün OXUNMURDU, müəllim isə hansından
+ * başlamalı olduğunu bilmirdi. İndi kart oxunaqlıdır, redaktə tələb
+ * olunanda açılır. */
+.audit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.audit__set-finding { color: var(--color-warning); text-wrap: pretty; }
+
+.qcard__question {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  text-wrap: pretty;
+}
+/* Tapıntı XƏBƏRDARLIQDIR, xəta deyil: sual səhv olmaya da bilər,
+ * sadəcə yoxlanmalıdır. Qırmızı rəng müəllimi yanlış yönləndirərdi. */
+.qcard__finding { color: var(--color-warning); text-wrap: pretty; }
+.qcard__saved   { color: var(--color-success); }

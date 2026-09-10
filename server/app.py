@@ -53,8 +53,9 @@ _configure_logging()
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from pipeline.models import MaterialSource
+from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
+from pipeline.quality import audit_questions
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
@@ -109,7 +110,9 @@ from .models import (
     LoginRequest,
     MaterialInfo,
     MyAssignmentInfo,
+    QualityFinding,
     QuestionSetInfo,
+    QuestionSetQuality,
     QuizSessionInfo,
     QuizStartRequest,
     RegisterRequest,
@@ -1020,6 +1023,54 @@ def list_live_questions(
     if question_sets.get(question_set_id) is None:
         raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
     return [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
+
+
+@app.get("/live/question-sets/{question_set_id}/quality", response_model=QuestionSetQuality)
+def question_set_quality(
+    question_set_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> QuestionSetQuality:
+    """Sual bankının keyfiyyət auditi — müəllimin hansı sualı ƏVVƏL
+    oxumalı olduğunu göstərmək üçün.
+
+    NİYƏ ENDPOINT LAZIMDIR: `pipeline/quality.py` alətini indiyədək
+    yalnız VPS-də əl ilə skript kimi işlədirdik. Müəllim terminala girə
+    bilmir — 30 sualı bərabər gözdən keçirməli olduğunu görüb praktikada
+    heç birini oxumur. Audit yalnız müəllimin GÖRDÜYÜ yerdə dəyər verir.
+
+    Sual nömrələri `GET .../questions` cavabının sırası ilə eynidir —
+    hər ikisi `list_questions`-un çıxışını işlədir."""
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Yalnız müəllim keyfiyyət auditinə baxa bilər")
+    if question_sets.get(question_set_id) is None:
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+
+    rows = question_sets.list_questions(question_set_id)
+    report = audit_questions([
+        MCQQuestion(
+            question=row["question"],
+            options=row["options"],
+            correct_index=row["correct_index"],
+            explanation=row["explanation"],
+        )
+        for row in rows
+    ])
+    return QuestionSetQuality(
+        question_count=report.question_count,
+        findings=[
+            QualityFinding(
+                code=finding.code,
+                # `.value` MƏCBURİDİR: enum-un özü JSON-a `Severity.HIGH`
+                # kimi düşərdi və client rəng seçə bilməzdi.
+                severity=finding.severity.value,
+                message=finding.message,
+                question_number=finding.question_number,
+            )
+            for finding in report.findings
+        ],
+        review_order=report.review_order,
+    )
 
 
 @app.patch("/live/questions/{question_id}", response_model=LiveQuestionInfo)
