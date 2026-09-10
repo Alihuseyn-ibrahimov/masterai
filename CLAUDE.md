@@ -385,6 +385,30 @@ sadə `Lock`).
    eyni səbəbdən masternr1 (aktiv pilot!) daxil bütün servislər risk
    altına düşür.
 
+## Təsdiq: Claude fallback-ı real emalda işləyir (2026-09-10)
+
+Günlərdir açıq qalan sual bağlandı. Canlı saytdan yaradılmış sual
+bankının emalında jurnal göstərdi:
+
+```
+3 llm_failed provider=groq
+3 llm_ok     provider=claude
+7 llm_ok     provider=groq
+```
+
+Groq 10 chunk-dan 3-ündə sındı və hər üçünü Claude götürdü.
+`llm_all_failed` YOXDUR — heç bir chunk itmədi. Yəni
+`complete_with_fallback` zənciri production-da real yüklə işləyir.
+
+**Bunu görmək üçün əvvəlcə jurnal konfiqurasiyası düzəldilməli idi**
+(bax aşağı): `llm_ok` INFO səviyyəsindədir və layihədə heç bir
+`logging.basicConfig` olmadığı üçün root logger WARNING-də qalırdı —
+uğursuzluqlar görünürdü, uğurlar YOX. Aylarla "Claude işləyirmi?"
+sualının cavabsız qalmasının səbəbi bu idi.
+
+Eyni emal veb tərəfin də uc-uca sübutu oldu: giriş → forma → multipart
+yükləmə → fon emalı → 10 saniyəlik avtomatik yenilənmə → "Hazırdır".
+
 ## Dərs: Selenium keşi diski yeyir (2026-09-10)
 
 Link ingestion (JS-render) işə düşəndən sonra `/root/.cache/selenium`
