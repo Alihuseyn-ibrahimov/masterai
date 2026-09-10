@@ -193,3 +193,33 @@ class TestAmendmentHistoryBlock:
         text = _extract_text(html)
         assert "Sahibkarlıq fəaliyyəti qadağandır." in text
         assert "IIQD" not in text
+
+
+class TestCleaningChainIsSingleSource:
+    """Diaqnostika zənciri əl ilə təkrar yazırdı və yeni addım ora
+    düşmədi — ölçü «heç nə silinmir» dedi, halbuki qayda işləyirdi.
+    İndi zəncir bir funksiyadadır."""
+
+    def test_the_chain_applies_both_rules(self):
+        from pipeline.ingestion.web_extractor import _clean_legal_text
+
+        history = "\n".join(
+            f"{i}. {i} fevral 2001-ci il tarixli {70 + i}-IIQD nömrəli"
+            for i in range(1, 6)
+        )
+        text = (
+            "Maddə 1. Hökm. (7 dekabr 2007-ci il tarixli 504-IIIQD nömrəli "
+            "Qanunla əlavə edilmişdir)\n" + history
+        )
+        result = _clean_legal_text(text)
+        assert "504" not in result, "mötərizəli qeyd silinmədi"
+        assert "IIQD" not in result, "tarixçə bloku silinmədi"
+        assert "Maddə 1. Hökm." in result
+
+    def test_extraction_uses_the_chain(self):
+        from pipeline.ingestion import web_extractor
+
+        source = inspect_source = __import__("inspect").getsource(web_extractor._extract_text)
+        assert "_clean_legal_text" in inspect_source, (
+            "_extract_text zənciri birbaşa çağırmalıdır"
+        )

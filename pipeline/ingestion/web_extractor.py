@@ -344,6 +344,17 @@ def _strip_amendment_history(text: str) -> str:
     return "\n".join(line for line, wanted in zip(lines, keep) if wanted)
 
 
+def _clean_legal_text(text: str) -> str:
+    """Hüquqi mətnin bütün təmizləmə addımları — YEGANƏ yer.
+
+    Diaqnostika da məhz bunu çağırır. Səbəb: əvvəl diaqnostika zənciri
+    ƏL İLƏ təkrar yazırdı və `_strip_amendment_history` əlavə olunanda
+    ora düşmədi — nəticədə ölçü «heç nə silinmir» dedi, halbuki qayda
+    işləyirdi. İki yerdə saxlanılan zəncir mütləq ayrılır.
+    """
+    return _strip_amendment_annotations(_strip_amendment_history(text))
+
+
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     # `<style>` bloklarından xətt-siniflərini ÖYRƏNMƏK üçün bu addım
@@ -365,14 +376,12 @@ def _extract_text(html: str) -> str:
     ]
     content_text = "\n".join(content_blocks)
     if len(content_text) >= _MIN_STATIC_TEXT_LENGTH:
-        return _strip_amendment_annotations(_strip_amendment_history(content_text))
+        return _clean_legal_text(content_text)
 
     # Ehtiyat yolu — sayt mətni semantik teqlərdə saxlamırsa (pis
     # markup), köhnə "hər şeyi oxu" davranışına geri qayıt ki, material
     # tamamilə itməsin.
-    return _strip_amendment_annotations(
-        _strip_amendment_history(root.get_text(separator="\n", strip=True))
-    )
+    return _clean_legal_text(root.get_text(separator="\n", strip=True))
 
 
 def extract(source: MaterialSource) -> RawMaterial:

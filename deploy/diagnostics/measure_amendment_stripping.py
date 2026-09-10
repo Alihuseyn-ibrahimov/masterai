@@ -83,7 +83,8 @@ def main(argv: list[str]) -> int:
         print("əvvəlcə Chrome problemini həll edin (check_chrome.py).")
         return 1
 
-    after = web_extractor._strip_amendment_annotations(before)
+    # Zəncir ƏL İLƏ təkrarlanmır — pipeline-ın öz funksiyası çağırılır.
+    after = web_extractor._clean_legal_text(before)
 
     hits_before = AMENDMENT_NUMBER_RE.findall(before)
     hits_after = AMENDMENT_NUMBER_RE.findall(after)
@@ -106,13 +107,17 @@ def main(argv: list[str]) -> int:
     print("SİLİNƏN QEYDLƏRDƏN NÜMUNƏLƏR (ilk 5)")
     print("=" * 68)
     shown = 0
+    removed_lines = set(before.splitlines()) - set(after.splitlines())
+    for line in list(removed_lines)[:5]:
+        print(f"  - {line[:150]}")
+        shown += 1
     for match in web_extractor._BRACKETED_RE.finditer(before):
+        if shown >= 5:
+            break
         if not web_extractor._looks_like_amendment_note(match.group(1)):
             continue
         print(f"  - {match.group(0)[:150]}")
         shown += 1
-        if shown >= 5:
-            break
     if shown == 0:
         print("  (heç nə silinmir — qayda bu səhifədə işləmir, bax aşağı)")
 
