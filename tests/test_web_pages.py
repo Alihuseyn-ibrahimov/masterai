@@ -409,3 +409,59 @@ class TestLandingLayoutVariety:
             streak = streak + 1 if 'class="grid"' in section else 0
             longest = max(longest, streak)
         assert longest < 3, f"{longest} ardıcıl kart şəbəkəsi bölməsi"
+
+
+class TestSelfHostedFonts:
+    """Şriftlər öz serverimizdədir, Google-dan yüklənmir.
+
+    İki səbəb: üçüncü tərəf sorğusu render-i bloklayır (brauzer testində
+    məhz o sorğu ERR_CONNECTION_RESET verirdi) və sayt Google-a çıxış
+    olmadan da düzgün görünməlidir. Link geri qayıtsa bu test tutur.
+    """
+
+    CSS = WEB / "assets" / "css" / "tokens.css"
+    _SRC_RE = re.compile(r"src:\s*url\('([^']+)'\)")
+
+    def test_no_page_loads_fonts_from_google(self):
+        offenders = [
+            page.name
+            for page in sorted(WEB.rglob("*.html"))
+            if "fonts.googleapis.com" in page.read_text(encoding="utf-8")
+            or "fonts.gstatic.com" in page.read_text(encoding="utf-8")
+        ]
+        assert not offenders, f"Google Fonts linki qayıdıb: {offenders}"
+
+    def test_font_faces_were_found(self):
+        """Qoruyucu: `@font-face` blokları silinsə aşağıdakı test
+        sükutla 'keçər'."""
+        assert len(self._SRC_RE.findall(self.CSS.read_text(encoding="utf-8"))) >= 4
+
+    def test_every_font_file_referenced_by_css_exists(self):
+        """Yoxsa hərflər sükutla fallback şriftlə çəkilir; brauzer xəta
+        vermir, sadəcə sayt başqa görünür."""
+        missing = [
+            ref
+            for ref in self._SRC_RE.findall(self.CSS.read_text(encoding="utf-8"))
+            if not (self.CSS.parent / ref).resolve().exists()
+        ]
+        assert not missing, f"mövcud olmayan şrift faylı: {missing}"
+
+    def test_latin_ext_subset_is_present_for_every_family(self):
+        """Azərbaycan hərfləri (Ə U+018F, ə U+0259, Ğ, İ, Ş) məhz
+        `latin-ext` alt-dəstindədir. Yalnız `latin` qalsa, başlıqlarda
+        Ə hərfi fallback şriftdən gələr və söz alabəzək görünər."""
+        refs = self._SRC_RE.findall(self.CSS.read_text(encoding="utf-8"))
+        families = {Path(ref).name.rsplit("-", 1)[0] for ref in refs}
+        for family in families:
+            assert any(f"{family}-ext" in ref or "latin-ext" in ref for ref in refs), (
+                f"{family}: latin-ext alt-dəsti yoxdur"
+            )
+
+
+@pytest.mark.parametrize("page", PAGES, ids=lambda p: p.name)
+def test_page_declares_a_favicon(page: Path):
+    """Nişan linki olmasa brauzer `/favicon.ico` istəyir və hər səhifə
+    yüklənişində 404 yaranır. Konsolda görünür, statik testdə yox."""
+    assert 'rel="icon"' in page.read_text(encoding="utf-8"), (
+        f"{page.name}: <link rel=\"icon\"> yoxdur"
+    )
