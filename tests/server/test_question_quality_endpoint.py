@@ -133,3 +133,27 @@ class TestReport:
 
         suspicious = next(f for f in body["findings"] if f["code"] == "tekrar_variant")
         assert listed[suspicious["question_number"] - 1]["question"] == _DUPLICATE_OPTION.question
+
+
+class TestMalformedRows:
+    """Yazma yolları (add/update) 5 variantı MƏCBUR EDİR, ona görə
+    qeyri-standart sətir normal axında yarana bilməz. Amma köhnə/əl ilə
+    dəyişdirilmiş data üçün endpoint 500 verməməlidir.
+
+    ƏSAS QƏRAR: belə halda BOŞ hesabat qaytarmaq OLMAZ - ekran «şübhə
+    əlaməti tapılmadı» yazar, yəni auditin işlədiyini SANDIRAR. Yalançı
+    arxayınlıq auditin heç olmamasından pisdir. Ona görə açıq xəta."""
+
+    def test_row_with_wrong_option_count_returns_409(self, env):
+        env["question_sets"].add_question(env["qs"]["id"], _CLEAN)
+        # Bazanı birbaşa korla (normal API bunu qəbul etməzdi).
+        row = env["question_sets"].list_questions(env["qs"]["id"])[0]
+        env["question_sets"]._conn.execute(
+            "UPDATE live_questions SET options = ? WHERE id = ?",
+            ('["A", "B"]', row["id"]),
+        )
+        env["question_sets"]._conn.commit()
+
+        r = env["client"].get(_url(env), headers=_auth(env["teacher"]))
+        assert r.status_code == 409
+        assert "audit" in r.json()["detail"].lower() or "sual" in r.json()["detail"].lower()

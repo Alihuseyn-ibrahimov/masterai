@@ -53,6 +53,8 @@ _configure_logging()
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from pydantic import ValidationError
+
 from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
@@ -1047,15 +1049,27 @@ def question_set_quality(
         raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
 
     rows = question_sets.list_questions(question_set_id)
-    report = audit_questions([
-        MCQQuestion(
-            question=row["question"],
-            options=row["options"],
-            correct_index=row["correct_index"],
-            explanation=row["explanation"],
-        )
-        for row in rows
-    ])
+    try:
+        questions = [
+            MCQQuestion(
+                question=row["question"],
+                options=row["options"],
+                correct_index=row["correct_index"],
+                explanation=row["explanation"],
+            )
+            for row in rows
+        ]
+    except ValidationError as error:
+        # Normal axında yarana bilməz (add/update hər ikisi 5 variantı
+        # məcbur edir), amma köhnə/əl ilə dəyişdirilmiş data mümkündür.
+        # BOŞ hesabat qaytarmaq OLMAZ: ekran «şübhə əlaməti tapılmadı»
+        # yazar və auditin işlədiyini sandırar. Yalançı arxayınlıq
+        # auditin heç olmamasından pisdir.
+        raise HTTPException(
+            status_code=409,
+            detail="Bu bankdakı sual formatı gözlənilən deyil - audit hesablana bilmir.",
+        ) from error
+    report = audit_questions(questions)
     return QuestionSetQuality(
         question_count=report.question_count,
         findings=[
