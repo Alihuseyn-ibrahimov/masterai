@@ -59,16 +59,30 @@ def main(argv: list[str]) -> int:
     url = web_extractor._normalize_url(argv[1])
 
     print(f"Endirilir: {url}")
+    # `extract()`-in ÖZ məntiqi təkrarlanır: qərar HTML uzunluğuna görə
+    # YOX, çıxarılan MƏTNİN uzunluğuna görə verilir.
+    #
+    # Əvvəlki versiyada HTML uzunluğuna baxırdım və nəticədə e-qanun
+    # səhifəsində cəmi 7 simvol mətnlə ölçü aparıldı — yəni ölçü heç
+    # baş tutmadı, amma çıxış "0% çıxarıldı" deyib uğurlu görünürdü.
     try:
         html = web_extractor._download_static(url)
-        if len(html) < 2000:
-            print("  statik cavab qısadır, JS ilə yüklənir...")
+        before = _text_without_stripping(html)
+        if len(before) < web_extractor._MIN_STATIC_TEXT_LENGTH:
+            print(f"  statik mətn qısadır ({len(before)} simvol), JS ilə yüklənir...")
             html = web_extractor._download_js_rendered(url)
+            before = _text_without_stripping(html)
     except Exception as exc:                                  # noqa: BLE001
         print(f"XƏTA: səhifə endirilmədi: {exc}")
         return 1
 
-    before = _text_without_stripping(html)
+    if len(before) < web_extractor._MIN_STATIC_TEXT_LENGTH:
+        print()
+        print(f"ÖLÇÜ APARILMADI: mətn cəmi {len(before)} simvoldur.")
+        print("Səhifə yüklənmirsə qaydanı yoxlamaq mümkün deyil —")
+        print("əvvəlcə Chrome problemini həll edin (check_chrome.py).")
+        return 1
+
     after = web_extractor._strip_amendment_annotations(before)
 
     hits_before = AMENDMENT_NUMBER_RE.findall(before)

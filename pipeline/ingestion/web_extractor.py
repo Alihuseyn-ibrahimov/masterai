@@ -120,20 +120,73 @@ for (const el of doomed) {
 return doomed.length;
 """
 
-def _download_js_rendered(url: str) -> str:
-    from selenium import webdriver
+# Chrome-un başlama parametrləri.
+#
+# Real produksiyada ölçülüb: 19 sual dəstindən 6-sı uğursuz olub və
+# onların 4-ü eyni səbəbdəndir — "session not created:
+# DevToolsActivePort file doesn't exist", yəni Chrome start zamanı ölür.
+# Server 512 MB RAM-lıdır (yaddaş 80%, swap 49%) və EYNİ URL bəzən
+# işləyir, bəzən yox — deməli səbəb daimi konfiqurasiya deyil, YADDAŞ
+# TƏZYİQİDİR.
+#
+# `--no-sandbox` və `--disable-dev-shm-usage` əvvəlki nasazlıqdan
+# qalıb və saxlanılır. Qalanları yaddaş iştahını azaldır.
+_CHROME_ARGUMENTS = (
+    "--headless=new",
+    "--no-sandbox",
+    # `/dev/shm` kiçik VPS-lərdə çox darısqaldır — Chrome `/tmp`-a keçir.
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-software-rasterizer",
+    # Qanun mətnindən sual qururuq; şəkillər HEÇ VAXT lazım deyil, amma
+    # dekodlanmaları yaddaşın böyük hissəsini yeyir. Ən təsirli bayraq.
+    "--blink-settings=imagesEnabled=false",
+    # Hər iframe üçün ayrıca renderer prosesi 512 MB-da dözülməzdir.
+    "--renderer-process-limit=1",
+    "--disable-features=site-per-process",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--window-size=1280,1024",
+)
+
+# Yaddaş təzyiqi dəyişkəndir (serverdə başqa servislər də var), ona görə
+# bir uğursuzluq son söz deyil. Az sayda cəhd + gözləmə: sonsuz təkrar
+# fon emalını dondurar.
+_CHROME_START_ATTEMPTS = 3
+_CHROME_RETRY_DELAY_SECONDS = 3.0
+
+
+def _chrome_arguments() -> tuple[str, ...]:
+    return _CHROME_ARGUMENTS
+
+
+def _start_driver(factory, sleeper=time.sleep):
+    """Chrome-u işə salır, uğursuz olsa gözləyib təkrar cəhd edir."""
     from selenium.webdriver.chrome.options import Options
 
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    # Kiçik VPS-lərdə (az RAM) `/dev/shm` adətən çox kiçikdir (real
-    # production-da tapılıb — "session not created: DevToolsActivePort
-    # file doesn't exist") — Chrome-u `/tmp`-a keçirir, paylaşılan
-    # yaddaş məhdudiyyətindən asılı olmur.
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    driver = webdriver.Chrome(options=options)
+    last_error: Exception | None = None
+    for attempt in range(1, _CHROME_START_ATTEMPTS + 1):
+        options = Options()
+        for argument in _chrome_arguments():
+            options.add_argument(argument)
+        try:
+            return factory(options=options)
+        except Exception as exc:                                # noqa: BLE001
+            last_error = exc
+            logger.warning(
+                "chrome_start_failed attempt=%s/%s error=%s",
+                attempt, _CHROME_START_ATTEMPTS, exc,
+            )
+            if attempt < _CHROME_START_ATTEMPTS:
+                sleeper(_CHROME_RETRY_DELAY_SECONDS * attempt)
+    assert last_error is not None
+    raise last_error
+
+
+def _download_js_rendered(url: str) -> str:
+    from selenium import webdriver
+
+    driver = _start_driver(webdriver.Chrome)
     try:
         driver.get(url)
         _wait_for_page_ready(driver)
