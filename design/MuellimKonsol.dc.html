@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: #F7F8FA; color: #12151C; }
+    a { color: #2F6FED; text-decoration: none; }
+    a:hover { color: #2358C7; }
+    h1, h2, h3, h4 { font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif; margin: 0; line-height: 1.2; }
+    p { margin: 0; }
+  </style>
+</helmet>
+
+<div style="min-height: 100%; background: #F7F8FA;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 32px; background: #FFFFFF; border-bottom: 1px solid #E3E7EE;">
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <span style="font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 800;">Master<span style="color: #2F6FED;">AI</span></span>
+      <div style="display: flex; gap: 4px;">
+        <span style="padding: 8px 12px; border-radius: 12px; background: #E8F0FE; color: #2F6FED; font-size: 14px; font-weight: 600;">Sual bankları</span>
+        <span style="padding: 8px 12px; border-radius: 12px; color: #5B6472; font-size: 14px; font-weight: 500;">Sessiyalar</span>
+        <span style="padding: 8px 12px; border-radius: 12px; color: #5B6472; font-size: 14px; font-weight: 500;">Hesabatlar</span>
+        <span style="padding: 8px 12px; border-radius: 12px; color: #5B6472; font-size: 14px; font-weight: 500;">Profil</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: #E8F0FE; color: #2F6FED; font-size: 14px; font-weight: 700;">N</span>
+      <span style="font-size: 14px; font-weight: 600; color: #12151C; padding: 8px 16px; border: 1px solid #C9D0DC; border-radius: 12px;">Çıxış</span>
+    </div>
+  </div>
+
+  <div style="max-width: 1200px; margin: 0 auto; padding: 32px;">
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 32px;">
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-radius: 16px;">
+        <span style="font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 800;">12</span>
+        <span style="font-size: 14px; color: #5B6472;">Sual bankı</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-radius: 16px;">
+        <span style="font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 800;">148</span>
+        <span style="font-size: 14px; color: #5B6472;">Hazır sual</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-radius: 16px;">
+        <span style="font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 800; color: #1E7A4B;">86%</span>
+        <span style="font-size: 14px; color: #5B6472;">Sinif orta nəticəsi</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-radius: 16px;">
+        <span style="font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 800;">27</span>
+        <span style="font-size: 14px; color: #5B6472;">Tələbə</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; align-items: start;">
+
+      <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <h2 style="font-size: 28px; font-weight: 700;">Sual bankları</h2>
+          <span style="font-size: 14px; color: #2F6FED; font-weight: 600;">Yenilə</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-left: 4px solid #C62828; border-radius: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700;">Dövlət qulluğu haqqında qanun</h3>
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 999px; background: #DCF5E7; color: #1E7A4B; font-size: 12px; font-weight: 600;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg>
+              Hazırdır
+            </span>
+          </div>
+          <span style="font-size: 14px; color: #5B6472;">Qanunvericilik · 10 sual · e-qanun.az</span>
+          <div style="display: flex; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 12px; border: 1px solid #C9D0DC; background: #FFFFFF; font-size: 14px; font-weight: 600;">Suallara bax</span>
+            <span style="display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 12px; background: #2F6FED; color: #FFFFFF; font-size: 14px; font-weight: 600;">Sessiya başlat</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FFFFFF; border: 1px solid #E3E7EE; border-left: 4px solid #7C4DFF; border-radius: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+            <h3 style="font-size: 18px; font-weight: 700;">Məntiqi ardıcıllıqlar</h3>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: #FDF0D2; color: #8A5A00; font-size: 12px; font-weight: 600;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="14 10"/></svg>
+              Hazırlanır
+            </span>
+          </div>
+          <span style="font-size: 14px; color: #5B6472;">Məntiq · emal olunur…</span>
+          <div style="height: 8px; border-radius: 999px; background: #F1F3F7; overflow: hidden;">
+            <div style="width: 55%; height: 100%; border-radius: 999px; background: #7C4DFF;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #FFFFFF; border: 1px solid #E3E7EE; border-radius: 16px;">
+        <h3 style="font-size: 18px; font-weight: 700;">Yeni sual bankı</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 14px; font-weight: 500; color: #5B6472;">Başlıq</span>
+          <div style="height: 44px; border: 1px solid #C9D0DC; border-radius: 12px; background: #FFFFFF; display: flex; align-items: center; padding: 0 12px; font-size: 16px; color: #8A93A3;">Qanun mətni</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 14px; font-weight: 500; color: #5B6472;">Fənn</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span style="padding: 6px 12px; border-radius: 999px; border: 1px solid #C62828; color: #C62828; font-size: 12px; font-weight: 600;">Qanunvericilik</span>
+            <span style="padding: 6px 12px; border-radius: 999px; border: 1px solid #E3E7EE; color: #5B6472; font-size: 12px; font-weight: 500;">Məntiq</span>
+            <span style="padding: 6px 12px; border-radius: 999px; border: 1px solid #E3E7EE; color: #5B6472; font-size: 12px; font-weight: 500;">İnformatika</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 14px; font-weight: 500; color: #5B6472;">Neçə sual?</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="flex-grow: 1; height: 8px; border-radius: 999px; background: #F1F3F7; overflow: hidden;">
+              <div style="width: 33%; height: 100%; border-radius: 999px; background: #2F6FED;"></div>
+            </div>
+            <span style="font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 800; min-width: 32px; text-align: right;">10</span>
+          </div>
+        </div>
+        <span style="display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 12px; background: #2F6FED; color: #FFFFFF; font-size: 16px; font-weight: 600;">Yarat</span>
+        <span style="font-size: 12px; color: #8A93A3; line-height: 1.55;">Emal 1–3 dəqiqə çəkir. Siyahı özü yenilənir.</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 1180, "title": "Açılış səhifəsi" },
+    { "file": "MuellimKonsol.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "Müəllim konsolu" },
+    { "file": "TelebeAna.dc.html", "x": 0, "y": 1320, "w": 390, "h": 844, "title": "Tələbə — ana ekran" },
+    { "file": "SualHell.dc.html", "x": 510, "y": 1320, "w": 390, "h": 844, "title": "Sual həlli" },
+    { "file": "Nailiyyetler.dc.html", "x": 1020, "y": 1320, "w": 390, "h": 844, "title": "Nailiyyətlər" }
+  ],
+  "annotations": [
+    { "id": "delta", "x": 0, "y": -200, "w": 700, "text": "Mövcud saytdan fərq (tokens.css dəyərləri eynidir):\n1. Emoji ikonlar → xətt-əsaslı SVG (ən böyük etibarlılıq fərqi)\n2. Fənn rəngi yalnız kənar xətti deyil — çip + tint + tərəqqi zolağı\n3. Tərəqqi halqaları: rəqəm əvəzinə vizual\n4. Cavab variantları 56px hündürlük, hərf nişanı ilə\n5. Düzgün/səhv halları rənglə İKİ dəfə işarələnir (fon + ikon)" },
+    { "id": "mobil", "x": 0, "y": 1220, "w": 700, "text": "Telefon ekranları 390×844. Saxta status zolağı və saxta klaviatura QƏSDƏN yoxdur — real cihazda onlar sistem tərəfindən çəkilir." }
+  ],
+  "launch": { "view": "canvas" }
+}
