@@ -21,10 +21,38 @@ function Fail($message) {
     exit 1
 }
 
-# ── 1. Test qapısı ───────────────────────────────────────────────────
+# ── 1. Python interpretatorunu tap ───────────────────────────────────
+# venv layihe kokunde de, masterai/ daxilinde de ola biler (real
+# muhitde masterai/.venv yox idi). Kor-korane bir yol yazmaq eveztne
+# hamisi yoxlanilir; tapilmasa aydin xeta verilir.
+$REPO_ROOT = Split-Path -Parent $LOCAL
+$PY_CANDIDATES = @(
+    "$LOCAL\.venv\Scripts\python.exe",
+    "$REPO_ROOT\.venv\Scripts\python.exe",
+    "$LOCAL\venv\Scripts\python.exe",
+    "$REPO_ROOT\venv\Scripts\python.exe"
+)
+$PYTHON = $null
+foreach ($candidate in $PY_CANDIDATES) {
+    if (Test-Path $candidate) { $PYTHON = $candidate; break }
+}
+if (-not $PYTHON) {
+    # Son care: sistemdeki `py` launcher (bax repo kokundeki CLAUDE.md —
+    # bu masinda `python` YOXDUR, yalniz `py` var).
+    if (Get-Command py -ErrorAction SilentlyContinue) { $PYTHON = "py" }
+}
+if (-not $PYTHON) {
+    Fail ("Python tapilmadi. Yoxlanilan yerler:`n  " + ($PY_CANDIDATES -join "`n  "))
+}
+Write-Host "Python: $PYTHON" -ForegroundColor DarkGray
+
+# ── 2. Test qapısı ───────────────────────────────────────────────────
 Write-Host "Backend + veb testleri isledilir..." -ForegroundColor Cyan
-& "$LOCAL\.venv\Scripts\python.exe" -m pytest -q
-if ($LASTEXITCODE -ne 0) { Fail "pytest ugursuz oldu - deploy DAYANDIRILDI" }
+Push-Location $LOCAL
+& $PYTHON -m pytest -q
+$testExit = $LASTEXITCODE
+Pop-Location
+if ($testExit -ne 0) { Fail "pytest ugursuz oldu - deploy DAYANDIRILDI" }
 
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "JavaScript testleri isledilir..." -ForegroundColor Cyan
@@ -34,7 +62,7 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node tapilmadi - JS testleri atlandi." -ForegroundColor Yellow
 }
 
-# ── 2. Disk yoxlamasi ────────────────────────────────────────────────
+# ── 3. Disk yoxlamasi ────────────────────────────────────────────────
 # Bu VPS-de disk dolmasi eweller masterai-ni COKDURUB ve masternr1
 # (aktiv pilot) daxil dord servisi riske atib. Kocurmeden EVVEL
 # yoxlamaq mecburidir (bax masterai/CLAUDE.md, "Ders: real deploy telelerи").
@@ -43,7 +71,7 @@ $usage = ssh -i $KEY $SERVER "df --output=pcent / | tail -1 | tr -dc '0-9'"
 Write-Host "  Disk istifadesi: $usage%"
 if ([int]$usage -ge 98) { Fail "Disk $usage% doludur - kocurme servisleri riske atar" }
 
-# ── 3. Kocurme ───────────────────────────────────────────────────────
+# ── 4. Kocurme ───────────────────────────────────────────────────────
 Write-Host "Fayller kocurulur..." -ForegroundColor Cyan
 # QEYD: joker (`web\*`) ISLEDILMIR — yolda bosluq olanda PowerShell onu
 # genislendirmir ve scp herfi `*` gorur. Butov qovlugu kocurmek
@@ -57,12 +85,12 @@ if ($LASTEXITCODE -ne 0) { Fail "scp ugursuz oldu" }
 ssh -i $KEY $SERVER "rm -rf ${REMOTE}.new/tests && rm -rf ${REMOTE}.old && (test -d $REMOTE && mv $REMOTE ${REMOTE}.old || true) && mv ${REMOTE}.new $REMOTE && rm -rf ${REMOTE}.old"
 if ($LASTEXITCODE -ne 0) { Fail "serverde evezleme ugursuz oldu" }
 
-# ── 4. nginx ─────────────────────────────────────────────────────────
+# ── 5. nginx ─────────────────────────────────────────────────────────
 Write-Host "nginx yoxlanilir ve yenilenir..." -ForegroundColor Cyan
 ssh -i $KEY $SERVER "nginx -t && systemctl reload nginx"
 if ($LASTEXITCODE -ne 0) { Fail "nginx konfiqurasiyasi sinliqdir - reload edilmedi" }
 
-# ── 5. Healthcheck ───────────────────────────────────────────────────
+# ── 6. Healthcheck ───────────────────────────────────────────────────
 # Deploy "ugurlu" sayilmir - canli unvandan TESDIQ olunmalidir.
 Write-Host "Canli unvan yoxlanilir..." -ForegroundColor Cyan
 $site = ssh -i $KEY $SERVER "curl -s -o /dev/null -w '%{http_code}' https://masterai.prdostu.com/"
