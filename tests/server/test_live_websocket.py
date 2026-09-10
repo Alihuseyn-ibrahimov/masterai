@@ -64,14 +64,23 @@ def _host_url(pin: str, user: dict) -> str:
 
 class TestHostWebSocket:
     def test_invalid_token_closes_connection(self, env):
-        with pytest.raises(Exception):
-            with env["client"].websocket_connect(f"/ws/live/{env['session']['pin']}/host?token=zibil") as ws:
-                ws.receive_json()
+        """Rədd SƏBƏBİ ilə olmalıdır: `accept()`-dən əvvəl bağlansa,
+        brauzerə 4401 yox, 1006 çatır və client sonsuz yenidən qoşulur
+        (real produksiyada baş verdi)."""
+        with env["client"].websocket_connect(
+            f"/ws/live/{env['session']['pin']}/host?token=zibil"
+        ) as ws:
+            payload = ws.receive_json()
+            closing = ws.receive()
+        assert closing.get("code") == 4401
+        assert payload["type"] == "error" and payload["detail"]
 
     def test_unknown_pin_closes_connection(self, env):
-        with pytest.raises(Exception):
-            with env["client"].websocket_connect(_host_url("000000", env["teacher"])) as ws:
-                ws.receive_json()
+        with env["client"].websocket_connect(_host_url("000000", env["teacher"])) as ws:
+            payload = ws.receive_json()
+            closing = ws.receive()
+        assert closing.get("code") == 4404
+        assert payload["type"] == "error" and payload["detail"]
 
     def test_valid_connection_receives_waiting_state(self, env):
         with env["client"].websocket_connect(_host_url(env["session"]["pin"], env["teacher"])) as ws:

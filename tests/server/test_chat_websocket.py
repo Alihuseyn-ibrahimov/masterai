@@ -59,22 +59,36 @@ def _ws_url(chat_id: int, token: str) -> str:
     return f"/ws/chat/{chat_id}?token={token}"
 
 
+def _rejection(client, url: str) -> tuple[dict, int]:
+    """Rədd edilən qoşulmadan səbəb mesajını və bağlanma kodunu oxuyur.
+
+    Əvvəl bu testlər sadəcə `pytest.raises(Exception)` yoxlayırdı, yəni
+    SINIQ davranışı təsdiqləyirdi: server `accept()`-dən əvvəl bağlayırdı
+    və brauzerə kod ÇATMIRDI (real ölçmə: brauzer 1006 görürdü, 4404
+    yox). Bax `tests/server/test_websocket_rejection_reason.py`.
+    """
+    with client.websocket_connect(url) as ws:
+        payload = ws.receive_json()
+        closing = ws.receive()
+    return payload, closing.get("code")
+
+
 def test_rejects_invalid_token(env):
-    with pytest.raises(Exception):
-        with env["client"].websocket_connect(_ws_url(env["chat_id"], "bu-token-deyil")):
-            pass
+    payload, code = _rejection(env["client"], _ws_url(env["chat_id"], "bu-token-deyil"))
+    assert code == 4401
+    assert payload["type"] == "error" and payload["detail"]
 
 
 def test_rejects_non_member(env):
-    with pytest.raises(Exception):
-        with env["client"].websocket_connect(_ws_url(env["chat_id"], _token(env["kenar"]["id"]))):
-            pass
+    payload, code = _rejection(env["client"], _ws_url(env["chat_id"], _token(env["kenar"]["id"])))
+    assert code == 4403
+    assert payload["type"] == "error" and payload["detail"]
 
 
 def test_rejects_unknown_chat(env):
-    with pytest.raises(Exception):
-        with env["client"].websocket_connect(_ws_url(999, _token(env["ali"]["id"]))):
-            pass
+    payload, code = _rejection(env["client"], _ws_url(999, _token(env["ali"]["id"])))
+    assert code == 4404
+    assert payload["type"] == "error" and payload["detail"]
 
 
 def test_sends_history_on_connect(env):

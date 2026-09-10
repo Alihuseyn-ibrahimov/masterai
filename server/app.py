@@ -1056,6 +1056,32 @@ def delete_live_question(
     question_sets.delete_question(question_id)
 
 
+async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> None:
+    """Qoşulmanı SƏBƏBİ ilə rədd edir.
+
+    NİYƏ ƏVVƏLCƏ `accept()`: `accept()`-dən əvvəl `close()` çağırsaq,
+    Starlette handshake-i rədd edir və brauzer HTTP 403 görür. Onda
+    `onclose`-a **1006** (anormal) gəlir, bizim 4401/4403/4404/4409
+    kodlarımız isə İTİR. Real brauzerdə ölçüldü (Chromium):
+
+        accept()-siz close(4404)       -> brauzer 1006 görür
+        accept() + mesaj + close(4404) -> brauzer 4404 görür
+
+    Kod itdiyi üçün client-in `FATAL_CLOSE_CODES` yoxlaması işə düşmür
+    və o, sonsuz yenidən qoşulur. Real produksiyada müəllimin canlı
+    sessiya konsolu məhz belə hər 30 saniyədən bir 403 alırdı.
+
+    Qoşulma qısa müddət qəbul edilir, amma HEÇ BİR məxfi məlumat
+    göndərilmir — yalnız səbəb mətni.
+    """
+    await websocket.accept()
+    try:
+        await websocket.send_json({"type": "error", "detail": detail})
+    except Exception:  # noqa: BLE001 - client artıq qaçıbsa əhəmiyyəti yoxdur
+        pass
+    await websocket.close(code=code)
+
+
 @app.websocket("/ws/chat/{chat_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -1073,20 +1099,20 @@ async def chat_websocket(
     try:
         user_id = verify_token(token, secret=secret)
     except InvalidToken:
-        await websocket.close(code=4401)
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
     user = users.get_by_id(user_id)
     if user is None:
-        await websocket.close(code=4401)
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
 
     chat = chats.get(chat_id)
     if chat is None:
-        await websocket.close(code=4404)
+        await _reject_websocket(websocket, 4404, "Bu çat tapılmadı.")
         return
     is_member = any(c["id"] == chat_id for c in chats.list_by_user(user_id))
     if not is_member:
-        await websocket.close(code=4403)
+        await _reject_websocket(websocket, 4403, "Bu çatın üzvü deyilsiniz.")
         return
 
     await websocket.accept()
@@ -1624,15 +1650,20 @@ async def live_host_websocket(
     try:
         user_id = verify_token(token, secret=secret)
     except InvalidToken:
-        await websocket.close(code=4401)
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
     if users.get_by_id(user_id) is None:
-        await websocket.close(code=4401)
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
 
     session = live_sessions.get_by_pin(pin)
     if session is None:
-        await websocket.close(code=4404)
+        # `get_by_pin` BİTMİŞ sessiyanı qaytarmır — ən çox rast gəlinən
+        # hal budur: müəllimin səhifəsi köhnəlib.
+        await _reject_websocket(
+            websocket, 4404,
+            "Bu sessiya artıq bitib və ya tapılmadı. Sessiyalar bölməsindən yenisini başladın.",
+        )
         return
 
     await websocket.accept()
