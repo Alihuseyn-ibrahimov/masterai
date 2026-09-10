@@ -25,7 +25,13 @@
     <div id="content"></div>
   </section>
 
-  <section class="grid" style="--grid-min: 280px">
+  <!-- AYRICA BÖLMƏ BAŞLIĞI: əvvəl bu iki forma çat kartları ilə eyni
+       şəbəkədə idi və siyahının davamı kimi oxunurdu. -->
+  <section class="stack">
+    <div class="section-header">
+      <h2>Yeni çat və ya qoşulma</h2>
+    </div>
+    <div class="grid" style="--grid-min: 280px">
     <div class="card stack">
       <h4>Yeni qrup çatı</h4>
       <div class="notice notice--danger" id="createError" role="alert" hidden></div>
@@ -41,7 +47,7 @@
 
     <div class="card stack">
       <h4>Mövcud çata qoşul</h4>
-      <p class="text-sm text-muted">Çat ID-si çat sətrinin altında göstərilir.</p>
+      <p class="text-sm text-muted">Qoşulma ID-si çat kartının altında yazılır.</p>
       <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
       <form class="stack stack--tight" id="joinForm">
         <div class="field">
@@ -52,6 +58,7 @@
         <button class="btn btn--secondary" type="submit" id="joinBtn">Qoşul</button>
       </form>
     </div>
+    </div>
   </section>
 </div>
 
@@ -60,6 +67,7 @@
 <script type="module">
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { createIcon } from './assets/js/icon.js';
 
   if (requireLogin()) {
     mountShell();
@@ -89,10 +97,17 @@
         const title = document.createElement('h4');
         // Qəsdən textContent - çatın adını istifadəçi yazır.
         title.textContent = chat.name || (chat.kind === 'direct' ? 'Şəxsi çat' : 'Adsız çat');
+        // Ox işarəsi kartın klikləndiyini bildirir: `card--interactive`
+        // yalnız hover-də sezilir, toxunma ekranında isə hover yoxdur.
+        const head = document.createElement('div');
+        head.className = 'row row--between';
+        head.append(title, createIcon('arrow-right'));
         const meta = document.createElement('p');
         meta.className = 'text-sm text-muted';
-        meta.textContent = `ID: ${chat.id}`;
-        card.append(title, meta);
+        // «ID» tək başına nə üçün lazım olduğunu demir; aşağıdakı
+        // «Mövcud çata qoşul» forması məhz bu rəqəmi istəyir.
+        meta.textContent = `Qoşulma ID-si: ${chat.id}`;
+        card.append(head, meta);
         grid.append(card);
       }
       container.append(grid);

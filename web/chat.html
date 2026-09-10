@@ -32,7 +32,13 @@
   <section class="stack">
     <div class="section-header">
       <h1 id="chatTitle">Çat</h1>
-      <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+      <!-- Geri linki başlıqdadır: bütün digər daxili səhifələrdə
+           (`suallar`, `tapsiriq`, `nailiyyetler`) eyni yerdədir, burada
+           isə səhifənin ən altında adi mətn linki kimi qalmışdı. -->
+      <div class="row row--tight">
+        <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+        <a class="btn btn--ghost btn--sm" href="chatlar.html">← Çatlar</a>
+      </div>
     </div>
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
@@ -47,7 +53,6 @@
     </form>
   </section>
 
-  <p><a href="chatlar.html">← Çatlara qayıt</a></p>
 </div>
 
 <nav id="bottomNav"></nav>
