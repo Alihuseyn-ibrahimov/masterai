@@ -470,3 +470,25 @@ def test_page_declares_a_favicon(page: Path):
     assert 'rel="icon"' in page.read_text(encoding="utf-8"), (
         f"{page.name}: <link rel=\"icon\"> yoxdur"
     )
+
+
+class TestMobileWidthDiscipline:
+    """Sabit `width` telefon ekranında üfüqi sürüşmə yaradır.
+
+    REAL BUG İDİ: `giris`/`qeydiyyat`/`qosul` səhifələri
+    `style="width: var(--width-form)"` (SABİT 420px) yazırdı. 390px-lik
+    telefonda səhifə üfüqi sürüşürdü - PIN ilə qoşulma ekranı isə məhz
+    telefonda işlədilir. Brauzer render-i tapdı; HTML testi tuta
+    bilməzdi, ona görə indi bu qayda yazılıb.
+    """
+
+    @pytest.mark.parametrize("page", PAGES, ids=lambda p: p.name)
+    def test_no_fixed_width_in_inline_style(self, page: Path):
+        offenders = [
+            line.strip()[:120]
+            for line in page.read_text(encoding="utf-8").splitlines()
+            if re.search(r'style="[^"]*(?<!max-)width:\s*var\(--width-', line)
+        ]
+        assert not offenders, (
+            f"{page.name}: sabit en tapıldı (`max-width` işlədin): {offenders}"
+        )

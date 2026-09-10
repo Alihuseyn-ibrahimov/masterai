@@ -16,7 +16,7 @@
 </head>
 <body>
 <main class="page-centered">
-  <div class="stack stack--loose" style="width: var(--width-form)">
+  <div class="stack stack--loose form-shell">
 
     <div class="stack stack--tight stack--center" style="text-align: center">
       <span class="brand">Master<span class="brand__accent">AI</span></span>
@@ -61,7 +61,13 @@
 
     <!-- 4. Nəticə -->
     <div class="card stack" id="resultCard" hidden>
-      <span class="badge" id="resultBadge"></span>
+      <!-- Nişan `row`-un içindədir: `stack` sütununda tək element bütün
+           eni tutur və rəngli zolağa çevrilir. -->
+      <div class="row"><span class="badge" id="resultBadge"></span></div>
+      <!-- Sual mətni təkrarlanır: izah suala istinad edir, sual isə
+           artıq ekrandan getmişdi. -->
+      <p class="text-sm text-muted" id="resultQuestion"></p>
+      <p id="chosenText" hidden></p>
       <p id="correctText"></p>
       <p class="text-sm text-muted" id="explanationText"></p>
       <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
@@ -91,6 +97,7 @@
 <script type="module">
   import { getToken } from './assets/js/api.js';
   import { LivePlaySocket, formatCountdown } from './assets/js/live.js';
+  import { answerFeedback } from './assets/js/answer-feedback.js';
 
   const errorBox = document.getElementById('errorBox');
   const cards = {
@@ -113,6 +120,10 @@
 
   let socket = null;
   let currentIndex = 0;
+  /* Nəticə kartı düzgün cavabın MƏTNİNİ göstərməlidir, amma server
+     yalnız indeks göndərir - variant mətnləri yalnız cari sualdadır. */
+  let currentQuestion = null;
+  let chosenIndex = null;
   let countdownTimer = null;
   let remainingSeconds = 0;
 
@@ -127,6 +138,8 @@
 
   function renderQuestion(data) {
     currentIndex = data.index;
+    currentQuestion = data;
+    chosenIndex = null;
     document.getElementById('questionCounter').textContent = `Sual ${data.index + 1}/${data.total}`;
     document.getElementById('questionText').textContent = data.question;
 
@@ -148,8 +161,10 @@
         // İkiqat toxunuşun qarşısını al - server ikinci cavabı xəta ilə
         // rədd edir və istifadəçi səbəbini anlamır.
         for (const other of options.children) other.disabled = true;
+        chosenIndex = index;
         if (!socket.answer(currentIndex, index)) {
           showError('Bağlantı hazır deyil - cavab göndərilmədi.');
+          chosenIndex = null;
           for (const other of options.children) other.disabled = false;
         }
       });
@@ -159,11 +174,21 @@
   }
 
   function renderResult(data) {
+    const feedback = answerFeedback({
+      options: currentQuestion && currentQuestion.options,
+      correctIndex: data.correct_index,
+      chosenIndex,
+      isCorrect: data.is_correct,
+    });
     const badge = document.getElementById('resultBadge');
-    badge.className = data.is_correct ? 'badge badge--success' : 'badge badge--danger';
-    badge.textContent = data.is_correct ? 'Düzgün' : 'Səhv';
-    document.getElementById('correctText').textContent =
-      `Düzgün cavab: ${'ABCDE'[data.correct_index] ?? '-'}`;
+    badge.className = feedback.badge.className;
+    badge.textContent = feedback.badge.label;
+    document.getElementById('resultQuestion').textContent =
+      currentQuestion ? currentQuestion.question : '';
+    const chosen = document.getElementById('chosenText');
+    chosen.textContent = feedback.chosenLine || '';
+    chosen.hidden = !feedback.chosenLine;
+    document.getElementById('correctText').textContent = feedback.correctLine;
     document.getElementById('explanationText').textContent = data.explanation || '';
     show('result');
   }

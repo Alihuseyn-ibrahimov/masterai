@@ -121,6 +121,17 @@ li { list-style: none; }
   padding: var(--space-4);
 }
 
+/* Giriş/qeydiyyat/PIN formasının qutusu.
+ *
+ * REAL BUG İDİ: səhifələr `style="width: var(--width-form)"` yazırdı,
+ * yəni SABİT 420px. 390px-lik telefonda (ən çox rast gəlinən ölçü)
+ * səhifə üfüqi sürüşürdü - PIN ilə qoşulma ekranı məhz telefonda
+ * işlədilir. `max-width` kiçik ekranda daralır, böyükdə isə eyni qalır. */
+.form-shell {
+  width: 100%;
+  max-width: var(--width-form);
+}
+
 .text-muted { color: var(--color-text-muted); }
 .text-faint { color: var(--color-text-faint); }
 .text-sm    { font-size: var(--text-sm); }

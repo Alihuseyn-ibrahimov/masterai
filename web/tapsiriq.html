@@ -32,12 +32,21 @@
         <span class="badge badge--info" id="counter">Sual</span>
         <span class="text-sm text-muted" id="scoreLabel"></span>
       </div>
+      <!-- Tərəqqi zolağı: «Sual 3/12» rəqəmdir, zolaq isə nə qədər
+           qaldığını bir baxışda göstərir. -->
+      <div class="progress"><div class="progress__fill" id="progressFill"></div></div>
       <h3 id="questionText"></h3>
       <div class="stack stack--tight" id="options"></div>
     </div>
 
     <div class="card stack" id="feedbackCard" hidden>
-      <span class="badge" id="feedbackBadge"></span>
+      <!-- Nişan `row`-un içindədir: `stack` sütununda tək element bütün
+           eni tutur və rəngli zolağa çevrilir. -->
+      <div class="row"><span class="badge" id="feedbackBadge"></span></div>
+      <!-- Sual mətni geri bildirimdə TƏKRARLANIR: izah suala istinad
+           edir, sual isə artıq ekrandan getmişdi. -->
+      <p class="text-sm text-muted" id="feedbackQuestion"></p>
+      <p id="chosenText" hidden></p>
       <p id="correctText"></p>
       <p class="text-sm text-muted" id="explanationText"></p>
       <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
@@ -58,6 +67,7 @@
 <script type="module">
   import { request } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
 
   const LETTERS = 'ABCDE';
 
@@ -86,10 +96,18 @@
     let attemptId = null;
     let score = 0;
     let pendingQuestion = null;
+    /* Geri bildirim kartı düzgün cavabın MƏTNİNİ göstərməlidir, amma
+       server yalnız indeks qaytarır (`HomeworkAnswerResult`) - variant
+       mətnləri yalnız burada, cari sualda var. */
+    let currentQuestion = null;
 
     function renderQuestion(question) {
+      currentQuestion = question;
       document.getElementById('counter').textContent =
         `Sual ${question.index + 1}/${question.total}`;
+      const percent = question.total > 0
+        ? Math.round((question.index / question.total) * 100) : 0;
+      document.getElementById('progressFill').style.setProperty('--progress', `${percent}%`);
       document.getElementById('scoreLabel').textContent = `${score} düzgün`;
       document.getElementById('questionText').textContent = question.question;
 
@@ -107,12 +125,22 @@
       show('question');
     }
 
-    function renderFeedback(result) {
+    function renderFeedback(result, chosenIndex) {
+      const feedback = answerFeedback({
+        options: currentQuestion && currentQuestion.options,
+        correctIndex: result.correct_index,
+        chosenIndex,
+        isCorrect: result.is_correct,
+      });
       const badge = document.getElementById('feedbackBadge');
-      badge.className = result.is_correct ? 'badge badge--success' : 'badge badge--danger';
-      badge.textContent = result.is_correct ? 'Düzgün' : 'Səhv';
-      document.getElementById('correctText').textContent =
-        `Düzgün cavab: ${LETTERS[result.correct_index] ?? '-'}`;
+      badge.className = feedback.badge.className;
+      badge.textContent = feedback.badge.label;
+      document.getElementById('feedbackQuestion').textContent =
+        currentQuestion ? currentQuestion.question : '';
+      const chosen = document.getElementById('chosenText');
+      chosen.textContent = feedback.chosenLine || '';
+      chosen.hidden = !feedback.chosenLine;
+      document.getElementById('correctText').textContent = feedback.correctLine;
       document.getElementById('explanationText').textContent = result.explanation || '';
 
       pendingQuestion = result.next_question;
@@ -133,7 +161,7 @@
           body: { question_index: questionIndex, chosen_index: chosenIndex },
         });
         if (result.is_correct) score += 1;
-        renderFeedback(result);
+        renderFeedback(result, chosenIndex);
       } catch (error) {
         showError(error.message);
         for (const button of optionsContainer.children) button.disabled = false;
@@ -145,10 +173,17 @@
         renderQuestion(pendingQuestion);
         pendingQuestion = null;
       } else {
-        document.getElementById('finalScore').textContent = `${score} düzgün cavab`;
-        show('done');
+        finishAttempt();
       }
     });
+
+    /* Yekun nəticənin MƏXRƏCİ: `total` sonuncu sualdan gəlir, çünki
+       cavab nəticəsi (`HomeworkAnswerResult`) onu daşımır. */
+    function finishAttempt(total) {
+      const questions = total ?? (currentQuestion && currentQuestion.total) ?? 0;
+      document.getElementById('finalScore').textContent = scoreLine(score, questions);
+      show('done');
+    }
 
     if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
       showError('Tapşırıq ünvanı düzgün deyil.');
@@ -158,9 +193,9 @@
           attemptId = state.attempt_id;
           score = state.score || 0;
           if (!state.question) {
-            // Cəhd artıq tamamlanıb - göstəriləcək sual yoxdur.
-            document.getElementById('finalScore').textContent = `${score} düzgün cavab`;
-            show('done');
+            // Cəhd artıq tamamlanıb - göstəriləcək sual yoxdur. Ümumi
+            // sual sayı da yoxdur, ona görə faiz uydurulmur.
+            finishAttempt(0);
             return;
           }
           renderQuestion(state.question);
