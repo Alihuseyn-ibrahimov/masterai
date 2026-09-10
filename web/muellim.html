@@ -108,7 +108,8 @@
   import { API_BASE_URL, MAX_UPLOAD_BYTES } from './assets/js/config.js';
   import { ApiError, extractErrorMessage, getToken, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { SUBJECTS, statusBadge, subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import { createBankCard } from './assets/js/bank-card.js';
+  import { SUBJECTS } from './assets/js/subjects.js';
 
   const POLL_INTERVAL_MS = 10000;
 
@@ -259,75 +260,31 @@
       grid.className = 'grid grid--banks';
       // Ən yenilər yuxarıda - müəllim adətən indicə yaratdığını axtarır.
       for (const set of [...sets].sort((a, b) => b.id - a.id)) {
-        const card = document.createElement('div');
-        card.className = 'card card--subject bank';
-        card.style.setProperty('--subject', subjectColorVar(set.subject));
-
-        const head = document.createElement('div');
-        head.className = 'bank__head';
-        const title = document.createElement('h4');
-        title.className = 'bank__title';
-        title.textContent = set.title;
-        const badge = statusBadge(set.status);
-        const status = document.createElement('span');
-        status.className = badge.className;
-        status.textContent = badge.label;
-        head.append(title, status);
-
-        const meta = document.createElement('p');
-        meta.className = 'bank__meta';
-        meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
-
-        card.append(head, meta);
+        const actions = [];
+        if (set.status === 'failed') {
+          /* Uğursuz bank ölü qutu olaraq qalmamalıdır. Yeni endpoint
+             LAZIM DEYİL: düymə yaratma formasını eyni məlumatla
+             doldurur. Real ölçmədə bankların 32%-i uğursuz olub və
+             səbəb çox vaxt keçicidir (serverdə Chrome-un yaddaş
+             darlığı), yəni təkrar cəhd işləyir. */
+          actions.push({ label: 'Yenidən cəhd et', onClick: () => refillCreateForm(set) });
+        }
+        if (set.status === 'ready') {
+          actions.push({ label: 'Suallara bax', href: `suallar.html?id=${encodeURIComponent(set.id)}` });
+          actions.push({
+            label: 'Sessiya başlat',
+            primary: true,
+            href: `sessiyalar.html?questionSetId=${encodeURIComponent(set.id)}`,
+          });
+        }
 
         /* «Hazırlanır» kartı əvvəl boş qutu idi. Müəllim nə qədər
-           gözləyəcəyini bilmirsə «ilişib qalıb?» sualı yaranır və
-           səhifəni təkrar-təkrar yeniləyir. Gözlənti açıq yazılır. */
-        if (set.status === 'processing') {
-          const wait = document.createElement('p');
-          wait.className = 'bank__meta';
-          wait.textContent = 'AI sualları hazırlayır, adətən 1-3 dəqiqə. Siyahı özü yenilənir.';
-          card.append(wait);
-        }
+           gözləyəcəyini bilmirsə «ilişib qalıb?» sualı yaranır. */
+        const note = set.status === 'processing'
+          ? 'AI sualları hazırlayır, adətən 1-3 dəqiqə. Siyahı özü yenilənir.'
+          : null;
 
-        const actions = document.createElement('div');
-        actions.className = 'bank__actions';
-
-        if (set.status === 'failed') {
-          if (set.error) {
-            const error = document.createElement('p');
-            error.className = 'bank__error';
-            error.textContent = set.error;
-            card.append(error);
-          }
-          /* Uğursuz bank ölü qutu olaraq qalmamalıdır. Yeni endpoint
-             LAZIM DEYİL: düymə sadəcə yaratma formasını eyni məlumatla
-             doldurur, müəllim yenidən göndərir. Real ölçmədə bankların
-             32%-i uğursuz olub və onların əksəriyyəti keçici səbəbdən
-             (serverdə Chrome-un yaddaş darlığı), yəni təkrar cəhd
-             çox vaxt işləyir. */
-          const again = document.createElement('button');
-          again.className = 'btn btn--secondary btn--sm';
-          again.type = 'button';
-          again.textContent = 'Yenidən cəhd et';
-          again.addEventListener('click', () => refillCreateForm(set));
-          actions.append(again);
-        }
-
-        if (set.status === 'ready') {
-          const questions = document.createElement('a');
-          questions.className = 'btn btn--secondary btn--sm';
-          questions.href = `suallar.html?id=${encodeURIComponent(set.id)}`;
-          questions.textContent = 'Suallara bax';
-          const session = document.createElement('a');
-          session.className = 'btn btn--primary btn--sm';
-          session.href = `sessiyalar.html?questionSetId=${encodeURIComponent(set.id)}`;
-          session.textContent = 'Sessiya başlat';
-          actions.append(questions, session);
-        }
-
-        if (actions.childElementCount) card.append(actions);
-        grid.append(card);
+        grid.append(createBankCard(set, { actions, note }));
       }
       container.append(grid);
     }

@@ -81,7 +81,8 @@
 <script type="module">
   import { getToken, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { statusBadge, subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import { createBankCard } from './assets/js/bank-card.js';
+  import { statusBadge } from './assets/js/subjects.js';
   import {
     DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
   } from './assets/js/live.js';
@@ -114,23 +115,15 @@
         return;
       }
       const grid = document.createElement('div');
-      grid.className = 'grid';
+      grid.className = 'grid grid--banks';
       for (const set of ready.sort((a, b) => b.id - a.id)) {
-        const card = document.createElement('div');
-        card.className = 'card card--subject stack stack--tight';
-        card.style.setProperty('--subject', subjectColorVar(set.subject));
-        const title = document.createElement('h4');
-        title.textContent = set.title;
-        const meta = document.createElement('p');
-        meta.className = 'text-sm text-muted';
-        meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
-        const button = document.createElement('button');
-        button.className = 'btn btn--primary btn--sm';
-        button.type = 'button';
-        button.textContent = 'Sessiya yarat';
-        button.addEventListener('click', () => startSession(set));
-        card.append(title, meta, button);
-        grid.append(card);
+        /* Kart tərifi `bank-card.js`-dədir: eyni obyekt konsolda və
+           burada EYNİ görünməlidir. Status nişanı gizlədilir, çünki bu
+           siyahıda onsuz da yalnız «hazır» banklar var. */
+        grid.append(createBankCard(set, {
+          showStatus: false,
+          actions: [{ label: 'Sessiya başlat', primary: true, onClick: () => startSession(set) }],
+        }));
       }
       container.append(grid);
     }
