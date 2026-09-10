@@ -297,6 +297,23 @@ def get_current_user(
     return user
 
 
+def get_current_teacher(user: dict = Depends(get_current_user)) -> dict:
+    """Müəllim əməliyyatları üçün qapı.
+
+    NİYƏ AYRICA ASILILIQ: bu yoxlama əvvəl hər endpoint-in içində əl ilə
+    yazılırdı və BEŞ yerdə unudulmuşdu (2026-09-10-da tapıldı) — istənilən
+    tələbə sual bankı yarada (yəni AI kvotamızı xərcləyə), bütün bankların
+    siyahısını görə və canlı sessiya aça bilirdi. Asılılıq kimi yazılanda
+    unudulması imzada görünür.
+
+    401 (giriş yoxdur) və 403 (müəllim deyil) QƏSDƏN fərqlidir: client
+    401-də istifadəçini giriş səhifəsinə yönəldir, 403-də yönəltməməlidir.
+    """
+    if not user["is_teacher"]:
+        raise HTTPException(status_code=403, detail="Bu əməliyyat yalnız müəllim üçündür")
+    return user
+
+
 def _user_info(user: dict) -> UserInfo:
     """DB sətrindən cavab modeli — `password_hash` qəsdən daxil edilmir."""
     return UserInfo(
@@ -879,7 +896,7 @@ async def create_question_set(
     location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     question_count: int = Form(default=10),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
     upload_dir: str = Depends(get_upload_dir),
@@ -933,7 +950,7 @@ async def create_question_set(
 @app.get("/live/question-sets/{question_set_id}", response_model=QuestionSetInfo)
 def get_question_set(
     question_set_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> QuestionSetInfo:
     question_set = question_sets.get(question_set_id)
@@ -945,7 +962,7 @@ def get_question_set(
 
 @app.get("/live/question-sets", response_model=list[QuestionSetInfo])
 def list_question_sets(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> list[QuestionSetInfo]:
     return [
@@ -956,7 +973,7 @@ def list_question_sets(
 
 @app.get("/live/teacher-summary", response_model=TeacherSummary)
 def teacher_summary(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     homework: HomeworkStore = Depends(get_homework_store),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
@@ -1013,15 +1030,13 @@ def teacher_summary(
 @app.get("/live/question-sets/{question_set_id}/questions", response_model=list[LiveQuestionInfo])
 def list_live_questions(
     question_set_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> list[LiveQuestionInfo]:
     """Sual bankının BÜTÜN sualları, düzgün cavab+izah DAXİL — yalnız
     müəllim redaktə ekranı üçün (bax Sual redaktə/təsdiq ekranı, Faza 5).
     Tələbələrə göndərilən oyun payload-u (`_question_payload`) bunu
     QƏSDƏN göstərmir."""
-    if not user["is_teacher"]:
-        raise HTTPException(status_code=403, detail="Yalnız müəllim suallara baxa bilər")
     if question_sets.get(question_set_id) is None:
         raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
     return [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
@@ -1030,7 +1045,7 @@ def list_live_questions(
 @app.get("/live/question-sets/{question_set_id}/quality", response_model=QuestionSetQuality)
 def question_set_quality(
     question_set_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> QuestionSetQuality:
     """Sual bankının keyfiyyət auditi — müəllimin hansı sualı ƏVVƏL
@@ -1043,8 +1058,6 @@ def question_set_quality(
 
     Sual nömrələri `GET .../questions` cavabının sırası ilə eynidir —
     hər ikisi `list_questions`-un çıxışını işlədir."""
-    if not user["is_teacher"]:
-        raise HTTPException(status_code=403, detail="Yalnız müəllim keyfiyyət auditinə baxa bilər")
     if question_sets.get(question_set_id) is None:
         raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
 
@@ -1091,11 +1104,9 @@ def question_set_quality(
 def update_live_question(
     question_id: int,
     req: UpdateQuestionRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> LiveQuestionInfo:
-    if not user["is_teacher"]:
-        raise HTTPException(status_code=403, detail="Yalnız müəllim sualı redaktə edə bilər")
     if question_sets.get_question(question_id) is None:
         raise HTTPException(status_code=404, detail="Sual tapılmadı")
     updated = question_sets.update_question(
@@ -1111,11 +1122,9 @@ def update_live_question(
 @app.delete("/live/questions/{question_id}", status_code=204)
 def delete_live_question(
     question_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> None:
-    if not user["is_teacher"]:
-        raise HTTPException(status_code=403, detail="Yalnız müəllim sualı silə bilər")
     if question_sets.get_question(question_id) is None:
         raise HTTPException(status_code=404, detail="Sual tapılmadı")
     question_sets.delete_question(question_id)
@@ -1259,7 +1268,7 @@ async def chat_websocket(
 @app.post("/live/sessions", response_model=LiveSessionInfo, status_code=201)
 def create_live_session(
     req: CreateLiveSessionRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
 ) -> LiveSessionInfo:
@@ -1275,7 +1284,7 @@ def create_live_session(
 @app.get("/live/sessions/{session_id}/report", response_model=LiveSessionReport)
 def get_live_session_report(
     session_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_teacher),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> LiveSessionReport:

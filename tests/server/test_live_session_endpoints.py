@@ -25,6 +25,12 @@ def env():
 
     client = TestClient(app)
     teacher = users.create("teacher@masternr1.az", "hash", "Müəllim")
+    # `set_teacher` MƏCBURİDİR: `/live/*` endpointləri artıq müəllim
+    # qapısından keçir (bax `get_current_teacher`). Əvvəl bu fixture
+    # «müəllim» adlı ADİ istifadəçi yaradırdı - qapının beş yerdə
+    # unudulmasının görünməməsinin səbəbi məhz bu idi.
+    users.set_teacher(teacher["id"], True)
+    teacher = users.get_by_id(teacher["id"])
 
     yield {"client": client, "question_sets": question_sets, "live_sessions": live_sessions, "teacher": teacher}
     app.dependency_overrides.clear()
