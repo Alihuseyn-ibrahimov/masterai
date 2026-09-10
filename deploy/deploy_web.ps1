@@ -44,13 +44,18 @@ Write-Host "  Disk istifadesi: $usage%"
 if ([int]$usage -ge 98) { Fail "Disk $usage% doludur - kocurme servisleri riske atar" }
 
 # ── 3. Kocurme ───────────────────────────────────────────────────────
-Write-Host "Fayllar kocurulur..." -ForegroundColor Cyan
-ssh -i $KEY $SERVER "mkdir -p $REMOTE"
-scp -i $KEY -r "$LOCAL\web\*" "${SERVER}:$REMOTE/"
+Write-Host "Fayller kocurulur..." -ForegroundColor Cyan
+# QEYD: joker (`web\*`) ISLEDILMIR — yolda bosluq olanda PowerShell onu
+# genislendirmir ve scp herfi `*` gorur. Butov qovlugu kocurmek
+# etibarlidir: hedef yoxdursa scp onu yaradir.
+ssh -i $KEY $SERVER "rm -rf ${REMOTE}.new"
+scp -i $KEY -r "$LOCAL\web" "${SERVER}:${REMOTE}.new"
 if ($LASTEXITCODE -ne 0) { Fail "scp ugursuz oldu" }
 
-# Test fayllari serverde lazim deyil.
-ssh -i $KEY $SERVER "rm -rf $REMOTE/tests"
+# Atomik evezleme: kohne versiya yeni tam kocuruldukden SONRA silinir,
+# beleliklen sayt kocurme muddetinde yarimciq gorunmur.
+ssh -i $KEY $SERVER "rm -rf ${REMOTE}.new/tests && rm -rf ${REMOTE}.old && (test -d $REMOTE && mv $REMOTE ${REMOTE}.old || true) && mv ${REMOTE}.new $REMOTE && rm -rf ${REMOTE}.old"
+if ($LASTEXITCODE -ne 0) { Fail "serverde evezleme ugursuz oldu" }
 
 # ── 4. nginx ─────────────────────────────────────────────────────────
 Write-Host "nginx yoxlanilir ve yenilenir..." -ForegroundColor Cyan
