@@ -25,6 +25,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 
+from pipeline.az_legal import AMENDMENT_NUMBER_RE
 from pipeline.models import MCQQuestion
 
 
@@ -173,10 +174,7 @@ def _check_material_reference(question: MCQQuestion, number: int) -> list[Findin
 # Qanun». Model oradan sual qurur. DİQQƏT: e-qanun adi defis (-) YOX,
 # U+2011 (non-breaking hyphen) işlədir — hər iki hal tutulmalıdır.
 
-_AMENDMENT_RE = re.compile(
-    r"\d{2,4}\s*[-‐‑‒–—]?\s*[IVX]{1,5}\s*Q[DK]",
-    re.IGNORECASE,
-)
+_AMENDMENT_RE = AMENDMENT_NUMBER_RE
 
 
 def _check_amendment_reference(question: MCQQuestion, number: int) -> list[Finding]:

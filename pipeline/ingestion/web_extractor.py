@@ -5,6 +5,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
+from pipeline.az_legal import AMENDMENT_NUMBER_RE
 from pipeline.ingestion.errors import IngestionError
 from pipeline.models import MaterialSource, RawMaterial
 
@@ -194,6 +195,52 @@ def _remove_strikethrough(soup) -> None:
                 tag.decompose()
 
 
+# ---- Düzəliş qeydləri -------------------------------------------------------
+# e-qanun səhifələrində hər dəyişdirilmiş bənddən sonra mötərizədə qeyd
+# durur: «(7 dekabr 2007-ci il tarixli 504-IIIQD nömrəli Qanunla əlavə
+# edilmişdir)». Bu, hüquqi mətn deyil, redaksiya tarixçəsidir — model
+# oradan sual qurur və sual imtahan üçün dəyərsiz çıxır (real dəst 18,
+# sual 5-də təsdiqləndi).
+#
+# ƏSAS RİSK ÇOX SİLMƏKDİR. Qanun maddəsinin özü heç vaxt itməməlidir,
+# ona görə:
+#   - yalnız MÖTƏRİZƏ/KVADRAT MÖTƏRİZƏ içindəki hissə silinir,
+#   - içərisi qısadırsa (yəni sırf qeyddirsə) silinir; uzun və məzmunlu
+#     mötərizə SAXLANILIR, düzəliş nömrəsi olsa belə.
+# Bir qeydi buraxmaq bir hökmü itirməkdən yaxşıdır.
+
+# Ayırıcı şərt. Yalnız uzunluğa baxmaq AZDIR — testdə göründü ki,
+# məzmunlu mötərizə ilə düzəliş qeydi uzunluqda üst-üstə düşür və əsl
+# hökm silinirdi. Ona görə iki yol:
+#   a) mötərizə çox qısadır (sırf istinad ola bilər), və ya
+#   b) düzəliş qeydinin öz FORMASI var: «... tarixli ... nömrəli ...».
+# Hər iki halda düzəliş nömrəsi də olmalıdır.
+_ANNOTATION_SHORT_LENGTH = 60
+_ANNOTATION_MAX_LENGTH = 160
+_AMENDMENT_SHAPE_WORDS = ("tarixli", "nömrəli")
+_BRACKETED_RE = re.compile(r"[(\[]([^()\[\]]*)[)\]]")
+
+
+def _looks_like_amendment_note(inner: str) -> bool:
+    if not AMENDMENT_NUMBER_RE.search(inner):
+        return False
+    if len(inner) <= _ANNOTATION_SHORT_LENGTH:
+        return True
+    lowered = inner.casefold()
+    has_shape = all(word in lowered for word in _AMENDMENT_SHAPE_WORDS)
+    return has_shape and len(inner) <= _ANNOTATION_MAX_LENGTH
+
+
+def _strip_amendment_annotations(text: str) -> str:
+    def replace(match: re.Match) -> str:
+        return "" if _looks_like_amendment_note(match.group(1)) else match.group(0)
+
+    cleaned = _BRACKETED_RE.sub(replace, text)
+    # Qeyd silinəndən sonra qalan ikiqat boşluqlar səliqəyə salınır.
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    return re.sub(r" +([.,;:])", r"\1", cleaned).strip()
+
+
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     # `<style>` bloklarından xətt-siniflərini ÖYRƏNMƏK üçün bu addım
@@ -215,12 +262,12 @@ def _extract_text(html: str) -> str:
     ]
     content_text = "\n".join(content_blocks)
     if len(content_text) >= _MIN_STATIC_TEXT_LENGTH:
-        return content_text
+        return _strip_amendment_annotations(content_text)
 
     # Ehtiyat yolu — sayt mətni semantik teqlərdə saxlamırsa (pis
     # markup), köhnə "hər şeyi oxu" davranışına geri qayıt ki, material
     # tamamilə itməsin.
-    return root.get_text(separator="\n", strip=True)
+    return _strip_amendment_annotations(root.get_text(separator="\n", strip=True))
 
 
 def extract(source: MaterialSource) -> RawMaterial:
