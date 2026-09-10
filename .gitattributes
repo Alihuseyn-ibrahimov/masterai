@@ -1,0 +1,23 @@
+# Sətir sonları — bütün mətn faylları LF.
+#
+# NİYƏ: Windows checkout-u faylları CRLF ilə yazırdı, VPS repo-su isə LF.
+# Sayt üçün zərərsizdir (brauzer hər ikisini oxuyur), amma deploy-dan
+# sonra `diff` ilə «serverdəki fayl commit edilmiş kodla eynidirmi»
+# yoxlaması HƏMİŞƏ fərq göstərirdi — yəni «mənbədən yoxla» siqnalı
+# yalançı həyəcan verirdi. Real deploy yoxlamasında məhz bu baş verdi
+# (2026-09-10).
+#
+# Binar fayllar (şrift, şəkil) `text=auto` ilə onsuz da toxunulmur,
+# amma açıq yazmaq daha etibarlıdır.
+* text=auto eol=lf
+
+*.woff2 binary
+*.woff  binary
+*.ttf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.db    binary
