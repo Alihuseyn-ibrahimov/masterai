@@ -101,6 +101,13 @@ if ($LASTEXITCODE -ne 0) { Fail "scp ugursuz oldu" }
 ssh -i $KEY $SERVER "rm -rf ${REMOTE}.new/tests && rm -rf ${REMOTE}.old && (test -d $REMOTE && mv $REMOTE ${REMOTE}.old || true) && mv ${REMOTE}.new $REMOTE && rm -rf ${REMOTE}.old"
 if ($LASTEXITCODE -ne 0) { Fail "serverde evezleme ugursuz oldu" }
 
+# ICAZELER: scp fayllari root adindan yazir, nginx ise www-data kimi
+# isleyir. Qovluga girmek icazesi olmasa nginx 403 qaytarir (real
+# deploy-da bas verdi). `a+rX` — fayllara oxuma, YALNIZ qovluqlara
+# icra icazesi (boyuk X bunu edir; fayllara icra verilmir).
+ssh -i $KEY $SERVER "chmod -R a+rX $REMOTE"
+if ($LASTEXITCODE -ne 0) { Fail "icazeler teyin edilmedi" }
+
 # ── 5. nginx ─────────────────────────────────────────────────────────
 Write-Host "nginx yoxlanilir ve yenilenir..." -ForegroundColor Cyan
 ssh -i $KEY $SERVER "nginx -t && systemctl reload nginx"
