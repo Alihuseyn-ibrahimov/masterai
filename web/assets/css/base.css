@@ -84,6 +84,8 @@ li { list-style: none; }
 .stack        { display: flex; flex-direction: column; gap: var(--space-4); }
 .stack--tight { gap: var(--space-2); }
 .stack--loose { gap: var(--space-6); }
+/* Flex sütunda `text-align` uşağın qutusunu mərkəzləmir. */
+.stack--center { align-items: center; }
 
 .row {
   display: flex;
