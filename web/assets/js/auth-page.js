@@ -6,7 +6,7 @@
 
 import { getUser, isLoggedIn } from './api.js';
 
-/** Daxil olmuş istifadəçini öz səhifəsinə göndərir — müəllim və tələbə
+/** Daxil olmuş istifadəçini öz səhifəsinə göndərir - müəllim və tələbə
  *  fərqli başlanğıc ekranı görür. */
 export function homePathForCurrentUser() {
   const user = getUser();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tapşırıqlar — MasterAI</title>
+<title>Tapşırıqlar - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <section>
     <div class="section-header">
       <h1>Tapşırıqlarım</h1>
-      <span class="section-header__hint">Öz sürətinizlə həll edin — vaxt limiti yoxdur</span>
+      <span class="section-header__hint">Öz sürətinizlə həll edin - vaxt limiti yoxdur</span>
     </div>
     <div id="content"></div>
   </section>
@@ -45,14 +45,14 @@
     function renderAssignments(container, assignments) {
       container.innerHTML = '';
       if (!assignments.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon">📝</div>'
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
           + '<div class="state__title">Tapşırıq yoxdur</div>'
           + '<div class="state__text">Müəlliminiz tapşırıq təyin edəndə burada görünəcək.</div></div>';
         return;
       }
       const grid = document.createElement('div');
       grid.className = 'grid';
-      // Bitməmişlər əvvəldə — tələbənin işi olanlar yuxarıda olmalıdır.
+      // Bitməmişlər əvvəldə - tələbənin işi olanlar yuxarıda olmalıdır.
       const ordered = [...assignments].sort((a, b) => {
         const done = (x) => (x.status === 'tamamlanıb' ? 1 : 0);
         return done(a) - done(b);

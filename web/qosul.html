@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PIN ilə qoşul — MasterAI</title>
+<title>PIN ilə qoşul - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
-<meta name="description" content="Müəlliminizin verdiyi PIN ilə canlı test sessiyasına qoşulun. Hesab lazım deyil — PIN və adınız kifayətdir.">
+<meta name="description" content="Müəlliminizin verdiyi PIN ilə canlı test sessiyasına qoşulun. Hesab lazım deyil - PIN və adınız kifayətdir.">
 <link rel="canonical" href="https://masterai.prdostu.com/qosul.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
 
     <div class="stack stack--tight" style="text-align: center">
       <span class="brand">Master<span class="brand__accent">AI</span></span>
-      <p class="text-muted text-sm">Müəlliminizin verdiyi PIN ilə qoşulun — hesab lazım deyil</p>
+      <p class="text-muted text-sm">Müəlliminizin verdiyi PIN ilə qoşulun - hesab lazım deyil</p>
     </div>
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
@@ -53,7 +53,7 @@
     <div class="card stack" id="questionCard" hidden>
       <div class="row row--between">
         <span class="badge badge--info" id="questionCounter">Sual</span>
-        <span class="badge badge--neutral" id="countdown">—</span>
+        <span class="badge badge--neutral" id="countdown">-</span>
       </div>
       <h3 id="questionText"></h3>
       <div class="stack stack--tight" id="options"></div>
@@ -69,7 +69,7 @@
 
     <!-- 5. Şəxsi bitiş -->
     <div class="card stack" id="personalCard" hidden style="text-align: center">
-      <div class="state__icon">✅</div>
+      <div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"></use></svg></div>
       <h3>Siz bitirdiniz</h3>
       <p id="personalScore"></p>
       <p class="text-sm text-muted">Sessiya bitəndə ümumi nəticələr görünəcək.</p>
@@ -82,7 +82,7 @@
     </div>
 
     <p class="text-sm text-muted" style="text-align: center">
-      <a href="giris.html">Hesabınızla daxil olun</a> — nəticələriniz tarixçənizə yazılsın
+      <a href="giris.html">Hesabınızla daxil olun</a> - nəticələriniz tarixçənizə yazılsın
     </p>
 
   </div>
@@ -145,11 +145,11 @@
       button.style.justifyContent = 'flex-start';
       button.textContent = `${'ABCDE'[index] || index + 1}. ${option}`;
       button.addEventListener('click', () => {
-        // İkiqat toxunuşun qarşısını al — server ikinci cavabı xəta ilə
+        // İkiqat toxunuşun qarşısını al - server ikinci cavabı xəta ilə
         // rədd edir və istifadəçi səbəbini anlamır.
         for (const other of options.children) other.disabled = true;
         if (!socket.answer(currentIndex, index)) {
-          showError('Bağlantı hazır deyil — cavab göndərilmədi.');
+          showError('Bağlantı hazır deyil - cavab göndərilmədi.');
           for (const other of options.children) other.disabled = false;
         }
       });
@@ -163,7 +163,7 @@
     badge.className = data.is_correct ? 'badge badge--success' : 'badge badge--danger';
     badge.textContent = data.is_correct ? 'Düzgün' : 'Səhv';
     document.getElementById('correctText').textContent =
-      `Düzgün cavab: ${'ABCDE'[data.correct_index] ?? '—'}`;
+      `Düzgün cavab: ${'ABCDE'[data.correct_index] ?? '-'}`;
     document.getElementById('explanationText').textContent = data.explanation || '';
     show('result');
   }
@@ -210,7 +210,7 @@
     socket = new LivePlaySocket({
       pin,
       displayName,
-      // Daxil olmuş istifadəçinin tokeni KÖNÜLLÜ göndərilir — nəticə
+      // Daxil olmuş istifadəçinin tokeni KÖNÜLLÜ göndərilir - nəticə
       // tarixçəyə yazılsın deyə. Hesabsız qoşulma da tam işləkdir.
       token: getToken() || '',
       onStatus: (status) => {
@@ -218,7 +218,7 @@
           joinBtn.disabled = false;
           joinBtn.textContent = 'Qoşul';
           if (cards.join.hidden === false) {
-            showError('Qoşulmaq alınmadı — PIN-i yoxlayın və ya sessiya artıq başlayıb.');
+            showError('Qoşulmaq alınmadı - PIN-i yoxlayın və ya sessiya artıq başlayıb.');
           } else {
             showError('Bağlantı bağlandı.');
           }
@@ -247,7 +247,7 @@
   });
 
   document.getElementById('nextBtn').addEventListener('click', () => {
-    if (!socket.next()) showError('Bağlantı hazır deyil — bir azdan cəhd edin.');
+    if (!socket.next()) showError('Bağlantı hazır deyil - bir azdan cəhd edin.');
   });
 
   window.addEventListener('beforeunload', () => { if (socket) socket.close(); });

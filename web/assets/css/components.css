@@ -334,3 +334,83 @@
   /* Məzmun alt panelin ARXASINDA qalmamalıdır. */
   .app-shell { padding-bottom: calc(var(--bottom-nav-height) + var(--space-6)); }
 }
+
+/* ---- İkonlar ----
+ * Tabler Icons (MIT), `assets/icons.svg` sprite-ından `<use>` ilə.
+ * Emoji İŞLƏDİLMİR: hər platformada fərqli görünür, rəngi idarə
+ * olunmur və ekran oxuyucusu onu mətn kimi oxuyur. */
+.icon {
+  width: var(--space-6);
+  height: var(--space-6);
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon--sm { width: var(--space-4); height: var(--space-4); }
+.icon--lg { width: var(--space-8); height: var(--space-8); }
+
+/* Boş/xəta hallarındakı böyük ikon — əvvəl emoji idi. */
+.state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+.state__icon .icon { width: var(--space-6); height: var(--space-6); }
+
+/* Xəbərdarlıq lövhəsindəki ikon mətn rəngini götürür. */
+.notice .icon { width: var(--space-4); height: var(--space-4); margin-top: 2px; }
+
+/* ---- Cavab variantı ----
+ * Açılış səhifəsindəki nümunə sual kartında və (gələcəkdə) həll
+ * ekranlarında eyni anatomiya. Toxunma hədəfi 56px: mobil üçün
+ * minimum 44px tələbindən yuxarıdır. */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--text-base);
+}
+.option__letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+}
+.option__mark { margin-left: auto; }
+
+/* Düzgün/səhv İKİ siqnalla işarələnir: fon rəngi VƏ ikon. Yalnız
+ * rənglə ayırmaq rəng korluğu olan istifadəçilər üçün kifayət deyil. */
+.option--correct {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-weight: var(--weight-semibold);
+}
+.option--correct .option__letter { background: var(--color-success); color: var(--color-surface); }
+
+.option--wrong {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.option--wrong .option__letter { background: var(--color-danger); color: var(--color-surface); }

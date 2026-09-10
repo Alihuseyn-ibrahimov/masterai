@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Çatlar — MasterAI</title>
+<title>Çatlar - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71,7 +71,7 @@
       if (!chats.length) {
         const state = document.createElement('div');
         state.className = 'state';
-        state.innerHTML = '<div class="state__icon">💬</div>'
+        state.innerHTML = '<div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg></div>'
           + '<div class="state__title">Hələ çatınız yoxdur</div>';
         const hint = document.createElement('div');
         hint.className = 'state__text';
@@ -87,7 +87,7 @@
         card.className = 'card card--interactive stack stack--tight';
         card.href = `chat.html?id=${encodeURIComponent(chat.id)}`;
         const title = document.createElement('h4');
-        // Qəsdən textContent — çatın adını istifadəçi yazır.
+        // Qəsdən textContent - çatın adını istifadəçi yazır.
         title.textContent = chat.name || (chat.kind === 'direct' ? 'Şəxsi çat' : 'Adsız çat');
         const meta = document.createElement('p');
         meta.className = 'text-sm text-muted';

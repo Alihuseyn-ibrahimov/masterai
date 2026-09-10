@@ -1,10 +1,10 @@
 /* Yenidən qoşulan WebSocket bazası.
  *
  * Üç yerdə eyni davranış lazımdır (çat, canlı sessiya hostu, canlı
- * sessiya oyunçusu) — məntiq bir dəfə burada yazılır.
+ * sessiya oyunçusu) - məntiq bir dəfə burada yazılır.
  */
 
-/** Serverin "səni buraxmıram" cavabları — yenidən qoşulmaq MƏNASIZDIR
+/** Serverin "səni buraxmıram" cavabları - yenidən qoşulmaq MƏNASIZDIR
  *  və serveri boş yerə yükləyər. Backend bu kodları işlədir:
  *  4400 yararsız qoşulma mesajı, 4401 token, 4403 üzv deyil,
  *  4404 tapılmadı, 4409 sessiya qoşulmağa açıq deyil. */
@@ -24,17 +24,17 @@ export function computeBackoffDelay(attempt, random = Math.random) {
   const jitter = exponential * 0.2 * random();
   // Hədd SON nəticəyə tətbiq olunur: jitter ±10% olduğu üçün, yalnız
   // eksponensial hissəyə tətbiq etsək yekun dəyər həddi aşardı (real
-  // testdə tapıldı — 30s hədd 33s verirdi).
+  // testdə tapıldı - 30s hədd 33s verirdi).
   return Math.round(Math.min(exponential - exponential * 0.1 + jitter, MAX_DELAY_MS));
 }
 
 export class ReconnectingSocket {
   /**
    * @param {object} options
-   * @param {() => string} options.url — hər cəhddə yenidən hesablanır
+   * @param {() => string} options.url - hər cəhddə yenidən hesablanır
    * @param {(data: object) => void} options.onMessage
    * @param {(status: 'connecting'|'open'|'reconnecting'|'closed') => void} [options.onStatus]
-   * @param {(socket: WebSocket) => void} [options.onOpen] — qoşulan kimi
+   * @param {(socket: WebSocket) => void} [options.onOpen] - qoşulan kimi
    *        göndəriləsi ilk mesaj üçün (məs. oyunçunun `display_name`-i)
    * @param {typeof WebSocket} [options.socketFactory]
    */
@@ -84,7 +84,7 @@ export class ReconnectingSocket {
       this.timer = setTimeout(() => this.connect(), delay);
     };
 
-    // `onerror`-dan sonra brauzer HƏMİŞƏ `onclose` çağırır — yenidən
+    // `onerror`-dan sonra brauzer HƏMİŞƏ `onclose` çağırır - yenidən
     // qoşulma yalnız orada planlaşdırılır ki, iki dəfə olmasın.
     this.socket.onerror = () => {};
   }

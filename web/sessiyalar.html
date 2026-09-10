@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sessiyalar — MasterAI</title>
+<title>Sessiyalar - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/components.css">
 <style>
-  /* PIN sinifdə uzaqdan oxunmalıdır — ekrana proyeksiya edilir. */
+  /* PIN sinifdə uzaqdan oxunmalıdır - ekrana proyeksiya edilir. */
   .pin {
     font-family: var(--font-heading);
     font-size: var(--text-4xl);
@@ -30,7 +30,7 @@
   <section class="stack" id="pickSection">
     <div class="section-header">
       <h1>Canlı sessiya</h1>
-      <span class="section-header__hint">Hazır sual bankı seçin — tələbələr PIN ilə qoşulacaq</span>
+      <span class="section-header__hint">Hazır sual bankı seçin - tələbələr PIN ilə qoşulacaq</span>
     </div>
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
     <div id="setList"></div>
@@ -44,7 +44,7 @@
 
     <div class="card stack" style="text-align: center">
       <p class="text-sm text-muted">Tələbələr bu PIN ilə qoşulur</p>
-      <div class="pin" id="pinValue">——————</div>
+      <div class="pin" id="pinValue">------</div>
       <p class="text-sm text-muted" id="joinHint"></p>
     </div>
 
@@ -63,7 +63,7 @@
     <div class="card stack" id="runningCard" hidden>
       <div class="row row--between">
         <h4>Gedişat</h4>
-        <span class="badge badge--info" id="countdown">—</span>
+        <span class="badge badge--info" id="countdown">-</span>
       </div>
       <div id="participants"></div>
     </div>
@@ -108,7 +108,7 @@
       const ready = sets.filter((set) => set.status === 'ready');
       container.innerHTML = '';
       if (!ready.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon">📚</div>'
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-books"></use></svg></div>'
           + '<div class="state__title">Hazır sual bankı yoxdur</div>'
           + '<div class="state__text">Əvvəlcə "Sual bankları" bölməsindən material yükləyin.</div></div>';
         return;
@@ -328,7 +328,7 @@
 
       startBtn.addEventListener('click', () => {
         if (!socket.start(selectedMinutes * 60)) {
-          showError('Bağlantı hazır deyil — bir azdan cəhd edin.');
+          showError('Bağlantı hazır deyil - bir azdan cəhd edin.');
         }
       });
     }

@@ -1,4 +1,4 @@
-/* Fənn kataloqu — açar, etiket və rəng dəyişəni.
+/* Fənn kataloqu - açar, etiket və rəng dəyişəni.
  *
  * Açarlar `server/question_set_store.py`-dəki `SUBJECTS` ilə EYNİ
  * olmalıdır; rəng dəyişənləri `tokens.css`-dəki `--subject-*` ilə.
@@ -17,7 +17,7 @@ const BY_KEY = new Map(SUBJECTS.map((subject) => [subject.key, subject]));
 
 export function subjectLabel(key) {
   const subject = BY_KEY.get(key);
-  return subject ? subject.label : key || '—';
+  return subject ? subject.label : key || '-';
 }
 
 /** CSS-ə veriləcək dəyər: `var(--subject-mentiq)`. Naməlum fənndə

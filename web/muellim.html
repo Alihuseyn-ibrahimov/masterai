@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sual bankları — MasterAI</title>
+<title>Sual bankları - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <section>
     <div class="section-header">
       <h1>Yeni sual bankı</h1>
-      <span class="section-header__hint">Material yükləyin — AI ondan test sualları hazırlasın</span>
+      <span class="section-header__hint">Material yükləyin - AI ondan test sualları hazırlasın</span>
     </div>
 
     <div class="card stack">
@@ -41,8 +41,7 @@
           <div class="field">
             <label class="field__label" for="questionCount">Neçə sual?</label>
             <!-- min/maks backend-in yoxlaması ilə eynidir
-                 (`_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`, app.py) —
-                 uyğunsuzluq testlə tutulur. -->
+                 (`_MIN_QUESTION_COUNT`/`_MAX_QUESTION_COUNT`, app.py) - uyğunsuzluq testlə tutulur. -->
             <input class="field__input" id="questionCount" name="question_count" type="number"
                    min="3" max="30" value="10" required>
           </div>
@@ -61,7 +60,7 @@
           <input class="field__input" id="location" name="location"
                  placeholder="e-qanun.az/framework/4481">
           <span class="text-xs text-muted">
-            <code>https://</code> yazmasanız da olar — özü əlavə olunur.
+            <code>https://</code> yazmasanız da olar - özü əlavə olunur.
           </span>
         </div>
 
@@ -126,11 +125,11 @@
       if (!sets.length) {
         const state = document.createElement('div');
         state.className = 'state';
-        state.innerHTML = '<div class="state__icon">📚</div>'
+        state.innerHTML = '<div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-books"></use></svg></div>'
           + '<div class="state__title">Hələ sual bankı yoxdur</div>';
         const hint = document.createElement('div');
         hint.className = 'state__text';
-        hint.textContent = 'Yuxarıdan material yükləyin — AI ondan suallar hazırlayacaq.';
+        hint.textContent = 'Yuxarıdan material yükləyin - AI ondan suallar hazırlayacaq.';
         state.append(hint);
         container.append(state);
         return;
@@ -138,7 +137,7 @@
 
       const grid = document.createElement('div');
       grid.className = 'grid';
-      // Ən yenilər yuxarıda — müəllim adətən indicə yaratdığını axtarır.
+      // Ən yenilər yuxarıda - müəllim adətən indicə yaratdığını axtarır.
       for (const set of [...sets].sort((a, b) => b.id - a.id)) {
         const card = document.createElement('div');
         card.className = 'card card--subject stack stack--tight';
@@ -192,7 +191,7 @@
     reload();
     document.getElementById('refreshBtn').addEventListener('click', reload);
 
-    // Emal fonda gedir — siyahı özü yenilənməsə müəllim səhifəni əl ilə
+    // Emal fonda gedir - siyahı özü yenilənməsə müəllim səhifəni əl ilə
     // təzələməli olur və "ilişib qalıb?" sualı yaranır.
     setInterval(() => {
       if (!document.hidden) reload();
@@ -237,7 +236,7 @@
       createBtn.textContent = 'Göndərilir…';
       try {
         // `multipart/form-data` üçün `api.js`-in JSON sarğısı uyğun
-        // deyil — `Content-Type` başlığını brauzer özü (sərhəd
+        // deyil - `Content-Type` başlığını brauzer özü (sərhəd
         // parametri ilə birlikdə) qoymalıdır.
         const response = await fetch(`${API_BASE_URL}/live/question-sets`, {
           method: 'POST',

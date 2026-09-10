@@ -1,8 +1,8 @@
-/* MasterAI — backend client-i.
+/* MasterAI - backend client-i.
  *
  * Mövcud JWT API-sinə qarşı işləyir; backend DƏYİŞMƏYİB (540+ test).
  * Modul həm brauzerdə (`<script type="module">`), həm də Node-da
- * (`node --test`) işləyir — ona görə brauzerə xas heç nə modul
+ * (`node --test`) işləyir - ona görə brauzerə xas heç nə modul
  * səviyyəsində çağırılmır.
  */
 
@@ -11,7 +11,7 @@ import { API_BASE_URL } from './config.js';
 const TOKEN_KEY = 'masterai.token';
 const USER_KEY = 'masterai.user';
 
-/** Xəta obyektinin özü — `status` ilə çağıran tərəf qərar verə bilir
+/** Xəta obyektinin özü - `status` ilə çağıran tərəf qərar verə bilir
  *  (məs. 401 → giriş səhifəsinə yönləndir). */
 export class ApiError extends Error {
   constructor(message, status) {
@@ -23,15 +23,14 @@ export class ApiError extends Error {
 
 /* `localStorage` HƏR MÜHİTDƏ MÖVCUD DEYİL və mövcud olanda belə ATA
  * BİLƏR: Safari-nin gizli rejimi, kuki bloklanan brauzerlər, `file://`
- * sxemi bəzi konfiqurasiyalarda. Belə halda tətbiq TAM SINMAMALIDIR —
- * yaddaş yalnız bu sekmə üçün müvəqqəti olur. */
+ * sxemi bəzi konfiqurasiyalarda. Belə halda tətbiq TAM SINMAMALIDIR - * yaddaş yalnız bu sekmə üçün müvəqqəti olur. */
 const memoryStore = new Map();
 
 function safeStorage() {
   try {
     const ls = globalThis.localStorage;
     if (!ls) return null;
-    // Yazma icazəsini həqiqətən yoxla — bəzi brauzerlərdə obyekt var,
+    // Yazma icazəsini həqiqətən yoxla - bəzi brauzerlərdə obyekt var,
     // amma `setItem` atır.
     const probe = '__masterai_probe__';
     ls.setItem(probe, '1');
@@ -114,7 +113,7 @@ export function clearSession() {
 
 /** Backend xətanı `{"detail": "..."}` kimi Azərbaycan dilində qaytarır
  *  və biz onu olduğu kimi göstəririk. AMMA FastAPI-nin doğrulama
- *  xətası (422) `detail`-i OBYEKT SİYAHISI kimi qaytarır — onu birbaşa
+ *  xətası (422) `detail`-i OBYEKT SİYAHISI kimi qaytarır - onu birbaşa
  *  göstərmək istifadəçiyə "[object Object]" çıxarır. */
 export function extractErrorMessage(status, payload) {
   const detail = payload && payload.detail;
@@ -157,11 +156,11 @@ export async function request(path, options = {}) {
       signal,
     });
   } catch (cause) {
-    // Şəbəkə xətası HTTP xətası DEYİL — `status` yoxdur. Flutter
+    // Şəbəkə xətası HTTP xətası DEYİL - `status` yoxdur. Flutter
     // tərəfində geniş `catch (_)` bunu digər xətalarla qarışdırırdı və
     // əsl səbəb (məs. CORS) gizlənirdi (bax masterai/CLAUDE.md,
     // "Dərs: veb host konsolunda CORS unudulmuşdu").
-    throw new ApiError('Bağlantı xətası — internet bağlantınızı yoxlayın.', 0);
+    throw new ApiError('Bağlantı xətası - internet bağlantınızı yoxlayın.', 0);
   }
 
   if (response.status === 204) return null;

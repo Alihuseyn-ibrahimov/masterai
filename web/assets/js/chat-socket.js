@@ -1,10 +1,10 @@
-/* Çat WebSocket-i — ümumi `ReconnectingSocket` bazası üzərində.
+/* Çat WebSocket-i - ümumi `ReconnectingSocket` bazası üzərində.
  *
  * Flutter tətbiqində avtomatik yenidən qoşulma YOX idi (bax
  * `app/README.md`): bağlantı kəsiləndə istifadəçi çatdan çıxıb yenidən
  * girməli idi.
  *
- * Token sorğu parametrindədir (`?token=...`) — brauzer WebSocket API-si
+ * Token sorğu parametrindədir (`?token=...`) - brauzer WebSocket API-si
  * xüsusi başlıq göndərməyə imkan vermir. Bu, backend-in mövcud
  * müqaviləsidir; bilinən risk kimi `masterai/CLAUDE.md`-də qeyd olunub.
  */

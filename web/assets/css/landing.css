@@ -16,31 +16,58 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.hero {
+/* ---- Hero: asimmetrik bölünmə ----
+ * Mərkəzləşmiş hero qəsdən tərk edildi: məhsul səhifəsində mərkəz
+ * bütün elementləri eyni çəkidə göstərir və oxu ardıcıllığı itir.
+ * Sol sütun mətn, sağ sütun məhsulun ÖZ komponentlərindən qurulmuş
+ * nümunə sual kartıdır (uydurma ekran şəkli deyil). */
+.hero-split {
   display: grid;
-  gap: var(--space-6);
-  padding: var(--space-16) 0 var(--space-12);
-  text-align: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-16);
+  align-items: center;
+  padding-block: var(--space-16) var(--space-12);
 }
-.hero__title {
+.hero-split__title {
   font-size: var(--text-4xl);
   font-weight: var(--weight-black);
   line-height: var(--leading-tight);
+  text-wrap: pretty;
 }
-.hero__lead {
+.hero-split__lead {
   font-size: var(--text-lg);
+  line-height: var(--leading-normal);
   color: var(--color-text-muted);
   max-width: var(--width-prose);
-  margin: 0 auto;
+  text-wrap: pretty;
 }
-.hero__actions {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+.hero-split__preview { box-shadow: var(--shadow-overlay); }
+.hero-split__question {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  text-wrap: pretty;
 }
 
-/* Addım nömrəsi — "necə işləyir" bölməsi üçün. */
+/* ---- Addımlar: şaquli, nömrələnmiş ----
+ * Kart şəbəkəsindən QƏSDƏN fərqli layout ailəsi. Ardıcıl bölmələrin
+ * eyni formada olması səhifəni bir bölmənin beş dəfə təkrarına
+ * çevirir. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  counter-reset: step;
+  border-left: 1px solid var(--color-border);
+  padding-left: var(--space-8);
+}
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  position: relative;
+}
+
 .step__number {
   display: inline-flex;
   align-items: center;
@@ -93,4 +120,69 @@
   .hero { padding: var(--space-8) 0 var(--space-6); }
   .hero__title { font-size: var(--text-2xl); }
   .hero__lead { font-size: var(--text-base); }
+}
+
+/* ---- Auditoriya: iki sütun, kartsız ----
+ * Ayırıcı kart deyil, boşluq və nazik xətt. */
+.audience {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+/* ---- Bağlanış ---- */
+.closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding-block: var(--space-16);
+  text-align: center;
+}
+.closing h2 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  text-wrap: pretty;
+}
+
+/* ---- Görünəndə açılma ----
+ * `transform` və `opacity` — yalnız bu ikisi kompozitorda işlənir,
+ * `top`/`height` kimi xüsusiyyətlər hər kadrda yenidən layout tələb
+ * edir. */
+/* KRİTİK: gizlətmə `.js-reveal` sinfi ilə şərtlənir və həmin sinfi
+ * skriptin ÖZÜ əlavə edir. JS işləməsə (xəta, köhnə brauzer, skript
+ * bloklayıcı, mətn rejimi) bölmələr sadəcə görünür qalır.
+ *
+ * Real render testində tapıldı: əvvəl `opacity: 0` birbaşa CSS-də
+ * idi və səhifənin yarısı BOŞ görünürdü. Məzmunun görünməsi heç vaxt
+ * JavaScript-dən asılı olmamalıdır. */
+.js-reveal [data-reveal] {
+  opacity: 0;
+  transform: translateY(var(--space-4));
+  transition: opacity var(--motion-base) var(--easing),
+              transform var(--motion-base) var(--easing);
+}
+.js-reveal [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hərəkəti azaldılmış rejimdə açılma ANİ olur, məzmun heç vaxt
+ * gizli qalmır. */
+@media (prefers-reduced-motion: reduce) {
+  .js-reveal [data-reveal] { opacity: 1; transform: none; transition: none; }
+}
+
+@media (max-width: 768px) {
+  .hero-split {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+    padding-block: var(--space-8) var(--space-6);
+  }
+  .hero-split__title { font-size: var(--text-2xl); }
+  .hero-split__lead { font-size: var(--text-base); }
+  .audience { grid-template-columns: 1fr; gap: var(--space-8); }
+  .steps { padding-left: var(--space-4); }
+  .closing { padding-block: var(--space-8); }
+  .closing h2 { font-size: var(--text-2xl); }
 }

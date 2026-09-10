@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hesabatlar — MasterAI</title>
+<title>Hesabatlar - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <section class="stack">
     <div class="section-header">
       <h1>Ev tapşırıqları</h1>
-      <span class="section-header__hint">Çat seçin — həmin çatdakı tapşırıqlar və nəticələr</span>
+      <span class="section-header__hint">Çat seçin - həmin çatdakı tapşırıqlar və nəticələr</span>
     </div>
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
@@ -120,7 +120,7 @@
     function renderAssignments(container, assignments) {
       container.innerHTML = '';
       if (!assignments.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon">📈</div>'
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-report"></use></svg></div>'
           + '<div class="state__title">Bu çatda tapşırıq yoxdur</div>'
           + '<div class="state__text">Yuxarıdan yeni tapşırıq təyin edin.</div></div>';
         return;
@@ -169,7 +169,7 @@
           option.textContent = chat.name || `Çat #${chat.id}`;
           chatSelect.append(option);
         }
-        // Yalnız HAZIR banklar təyin edilə bilər — backend yarımçıq
+        // Yalnız HAZIR banklar təyin edilə bilər - backend yarımçıq
         // bankı 400 ilə rədd edir.
         for (const set of sets.filter((s) => s.status === 'ready')) {
           const option = document.createElement('option');
@@ -178,7 +178,7 @@
           questionSetSelect.append(option);
         }
         if (!chats.length) {
-          content.innerHTML = '<div class="state"><div class="state__icon">💬</div>'
+          content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg></div>'
             + '<div class="state__title">Çatınız yoxdur</div>'
             + '<div class="state__text">Tapşırıq təyin etmək üçün əvvəlcə qrup çatına üzv olun.</div></div>';
           return;

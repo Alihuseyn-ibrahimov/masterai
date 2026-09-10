@@ -1,16 +1,16 @@
-/* Canlı sessiya — host və oyunçu tərəfi.
+/* Canlı sessiya - host və oyunçu tərəfi.
  *
  * Sessiya modeli fərdi templidir (2026-09-08 dəyişikliyi): hər tələbə
  * öz "Növbəti sual" düyməsi ilə irəliləyir, müəllim isə ÜMUMİ vaxt
  * büdcəsi təyin edir. Ona görə oyunçu iki fərqli "bitdi" halı görür:
- *   `personal_finished` — özü bitirib (yalnız öz nəticəsi),
- *   `finished`          — sessiya bitib (tam liderlik cədvəli).
+ *   `personal_finished` - özü bitirib (yalnız öz nəticəsi),
+ *   `finished` - sessiya bitib (tam liderlik cədvəli).
  */
 
 import { WS_BASE_URL } from './config.js';
 import { ReconnectingSocket } from './socket.js';
 
-/** Saniyəni `m:ss` şəklinə salır. Mənfi dəyər 0 sayılır — vaxt
+/** Saniyəni `m:ss` şəklinə salır. Mənfi dəyər 0 sayılır - vaxt
  *  bitəndən sonra "-0:03" göstərmək mənasızdır. */
 export function formatCountdown(seconds) {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -31,7 +31,7 @@ export function progressPercent(answered, total) {
  * Host ekranının iştirakçı sətirlərini qurur.
  *
  * `participants` serverdən (`state`/`participant_joined`), `progress`
- * isə `participant_progress` hadisələrindən yığılır — ikisi AYRI gəlir,
+ * isə `participant_progress` hadisələrindən yığılır - ikisi AYRI gəlir,
  * burada birləşdirilir.
  */
 export function participantRows(participants, progressById, totalQuestions) {
@@ -71,7 +71,7 @@ export class LiveHostSocket {
 }
 
 export class LivePlaySocket {
-  /** `displayName` qoşulan kimi İLK mesajda göndərilməlidir — server
+  /** `displayName` qoşulan kimi İLK mesajda göndərilməlidir - server
    *  onsuz bağlantını 4400 ilə bağlayır. `token` KÖNÜLLÜDÜR: verilsə
    *  iştirakçı hesaba bağlanır (tarixçə üçün), verilməsə anonim qalır. */
   constructor({ pin, displayName, token, onMessage, onStatus, socketFactory }) {

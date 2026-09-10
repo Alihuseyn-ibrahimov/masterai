@@ -3,11 +3,11 @@
  * Bu modul layihənin ən incə hissəsidir və səbəbi backend protokoludur:
  * EYNİ məntiqi element İKİ FƏRQLİ formada gəlir.
  *
- *   Tarixçə (`{type:"history", messages:[...]}`) — baza sətirləri:
+ *   Tarixçə (`{type:"history", messages:[...]}`) - baza sətirləri:
  *     { id, chat_id, sender_id, kind, content, created_at }
  *     `content` mətn üçün sadə sətir, QALAN hər şey üçün JSON SƏTRİDİR.
  *
- *   Canlı hadisə — sahələr ƏN ÜST səviyyədədir, `message_id` ilə:
+ *   Canlı hadisə - sahələr ƏN ÜST səviyyədədir, `message_id` ilə:
  *     { type:"quiz_question", question_id, question, options, message_id }
  *
  * Üstəlik `quiz_finished` tarixçədə `kind:"system"` kimi saxlanılır və
@@ -65,7 +65,7 @@ function fillResult(item, source) {
 function fillFinished(item, source) {
   item.finished = {
     totalQuestions: source.total_questions ?? 0,
-    // `scores` obyektdir: {"3": 5, "7": 4} — açarlar SƏTİRDİR (JSON).
+    // `scores` obyektdir: {"3": 5, "7": 4} - açarlar SƏTİRDİR (JSON).
     scores: source.scores && typeof source.scores === 'object' ? source.scores : {},
   };
   return item;
@@ -83,7 +83,7 @@ export function normalizeHistoryRow(row) {
 
   const payload = parseJsonContent(row.content);
   if (!payload) {
-    // JSON oxunmadısa element tamamilə atılmır — xam mətn kimi göstərilir
+    // JSON oxunmadısa element tamamilə atılmır - xam mətn kimi göstərilir
     // ki, çatda "boşluq" yaranmasın.
     base.kind = 'system';
     base.text = typeof row.content === 'string' ? row.content : '';

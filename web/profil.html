@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profil — MasterAI</title>
+<title>Profil - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +23,8 @@
       <div class="row">
         <span class="avatar avatar--lg" id="avatar">?</span>
         <div class="stack stack--tight">
-          <h3 id="displayName">—</h3>
-          <span class="text-sm text-muted" id="email">—</span>
+          <h3 id="displayName">-</h3>
+          <span class="text-sm text-muted" id="email">-</span>
           <div class="row" id="roles"></div>
         </div>
       </div>
@@ -49,11 +49,11 @@
     <div class="section-header"><h2>Daha çox</h2></div>
     <div class="grid" style="--grid-min: 220px">
       <a class="card card--interactive stack stack--tight" href="nailiyyetler.html">
-        <h4>🏆 Nailiyyətlər</h4>
+        <h4 class="row"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-trophy"></use></svg>Nailiyyətlər</h4>
         <p class="text-sm text-muted">Qazandığınız nişanlar</p>
       </a>
       <a class="card card--interactive stack stack--tight" href="tarixce.html">
-        <h4>📊 Tarixçə</h4>
+        <h4 class="row"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-chart-bar"></use></svg>Tarixçə</h4>
         <p class="text-sm text-muted">Keçmiş nəticələriniz</p>
       </a>
     </div>
@@ -78,8 +78,7 @@
   const THEME_KEY = 'masterai-theme';
 
   function applyStoredTheme() {
-    // Yaddaş bloklanmış brauzerlərdə (Safari gizli rejimi) atır —
-    // görünüş seçimi tətbiqi sındırmamalıdır.
+    // Yaddaş bloklanmış brauzerlərdə (Safari gizli rejimi) atır - // görünüş seçimi tətbiqi sındırmamalıdır.
     try {
       const saved = localStorage.getItem(THEME_KEY);
       if (saved === 'light' || saved === 'dark') {

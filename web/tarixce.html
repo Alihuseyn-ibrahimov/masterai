@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tarixçə — MasterAI</title>
+<title>Tarixçə - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <section>
     <div class="section-header">
       <h1>Mənim tarixçəm</h1>
-      <a class="btn btn--ghost btn--sm" href="nailiyyetler.html">🏆 Nailiyyətlər</a>
+      <a class="btn btn--ghost btn--sm" href="nailiyyetler.html"><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-trophy"></use></svg>Nailiyyətlər</a>
     </div>
     <div id="content"></div>
   </section>
@@ -39,7 +39,7 @@
     function renderHistory(container, entries) {
       container.innerHTML = '';
       if (!entries.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon">📊</div>'
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-chart-bar"></use></svg></div>'
           + '<div class="state__title">Hələ nəticəniz yoxdur</div>'
           + '<div class="state__text">Canlı sessiyada və ya ev tapşırığında iştirak edin.</div></div>';
         return;

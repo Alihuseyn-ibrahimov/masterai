@@ -298,3 +298,114 @@ class TestSeoAndSharing:
         private = {p.name for p in PAGES if 'content="noindex"' in p.read_text(encoding="utf-8")}
         leaked = [name for name in listed if name in private]
         assert not leaked, f"sitemap-də şəxsi səhifə: {leaked}"
+
+
+# Bu iki qayda `design-taste-frontend` skill-inin auditindən gəlir.
+# Auditdə real vəziyyət: 130 em-dash və 23 emoji tapıldı. Hər ikisi
+# "AI tərəfindən yazılmış" təəssüratının ən çox təkrarlanan
+# göstəricisidir və hər ikisi sükutla geri qayıdır, ona görə testlə
+# bağlanır.
+
+SCRIPTED_SOURCES = PAGES + sorted((WEB / "assets" / "js").glob("*.js"))
+
+
+class TestTypographicDiscipline:
+    @pytest.mark.parametrize("path", SCRIPTED_SOURCES, ids=lambda p: p.name)
+    def test_no_em_or_en_dash(self, path: Path):
+        """Em-dash (—) və en-dash (–) qadağandır.
+
+        Səbəb üslub deyil: bu simvol modelin ən tanınan imzasıdır və
+        Azərbaycan mətnində iki nöqtə, vergül və ya adi defis hər
+        halda daha düzgün oxunur. İcazə verilən yeganə tire adi
+        defisdir.
+        """
+        text = path.read_text(encoding="utf-8")
+        offenders = [
+            line.strip()[:100]
+            for line in text.splitlines()
+            if "—" in line or "–" in line
+        ]
+        assert not offenders, f"{path.name}: em/en-dash tapıldı: {offenders[:3]}"
+
+    @pytest.mark.parametrize("path", PAGES, ids=lambda p: p.name)
+    def test_no_emoji_used_as_icon(self, path: Path):
+        """Emoji ikon kimi işlədilmir.
+
+        Hər platformada fərqli görünür, rəngi `currentColor` ilə idarə
+        olunmur və ekran oxuyucusu onu mətn kimi oxuyur. Əvəzinə
+        `assets/icons.svg` sprite-ı (Tabler Icons, MIT) işlədilir.
+        """
+        import unicodedata
+
+        text = path.read_text(encoding="utf-8")
+        found = {
+            ch for ch in text if ord(ch) > 0x2000 and unicodedata.category(ch) == "So"
+        }
+        assert not found, f"{path.name}: emoji tapıldı: {sorted(found)}"
+
+
+class TestIconSprite:
+    SPRITE = WEB / "assets" / "icons.svg"
+    _USE_RE = re.compile(r'href="assets/icons\.svg#(i-[a-z0-9-]+)"')
+
+    def test_sprite_exists_and_has_symbols(self):
+        assert self.SPRITE.exists(), "assets/icons.svg yoxdur"
+        assert self.SPRITE.read_text(encoding="utf-8").count("<symbol") >= 20
+
+    @pytest.mark.parametrize("page", PAGES, ids=lambda p: p.name)
+    def test_every_referenced_icon_exists_in_the_sprite(self, page: Path):
+        """Səhv ikon adı brauzerdə SÜKUTLA heç nə göstərmir: xəta yoxdur,
+        sadəcə boşluq qalır."""
+        sprite = self.SPRITE.read_text(encoding="utf-8")
+        used = set(self._USE_RE.findall(page.read_text(encoding="utf-8")))
+        missing = [name for name in used if f'id="{name}"' not in sprite]
+        assert not missing, f"{page.name}: sprite-da olmayan ikon: {sorted(missing)}"
+
+
+class TestCallToActionDiscipline:
+    """Bir niyyət, bir etiket. Auditdə açılış səhifəsində qeydiyyat
+    niyyəti üç fərqli sözlə yazılmışdı (Qeydiyyat / Pulsuz başla /
+    Hesab yarat) — ziyarətçi bunları fərqli hərəkət sanır."""
+
+    INTENTS = {
+        "qeydiyyat.html": "qeydiyyat",
+        "qosul.html": "PIN qoşulması",
+        "giris.html": "giriş",
+    }
+
+    def test_each_intent_uses_exactly_one_label_on_the_landing_page(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        for href, intent in self.INTENTS.items():
+            labels = set(re.findall(rf'href="{re.escape(href)}"[^>]*>([^<]+)<', html))
+            labels = {label.strip() for label in labels if label.strip()}
+            assert len(labels) <= 1, (
+                f"«{intent}» niyyəti üçün {len(labels)} fərqli etiket: {sorted(labels)}"
+            )
+
+
+class TestLandingLayoutVariety:
+    """Ardıcıl bölmələrin eyni formada olması səhifəni bir bölmənin
+    beş dəfə təkrarına çevirir. Auditdə üç ardıcıl `.grid` kart
+    şəbəkəsi var idi."""
+
+    def test_landing_uses_at_least_four_layout_families(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        families = {
+            "hero-split": "hero-split" in html,
+            "kart şəbəkəsi": 'class="grid"' in html,
+            "addımlar": 'class="steps"' in html,
+            "iki sütun": 'class="audience"' in html,
+            "açılan siyahı": "<details" in html,
+            "bağlanış": 'class="closing' in html,
+        }
+        present = [name for name, ok in families.items() if ok]
+        assert len(present) >= 4, f"yalnız {len(present)} layout ailəsi: {present}"
+
+    def test_card_grid_is_not_used_three_times_in_a_row(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        sections = re.findall(r"<section.*?</section>", html, re.DOTALL)
+        streak = longest = 0
+        for section in sections:
+            streak = streak + 1 if 'class="grid"' in section else 0
+            longest = max(longest, streak)
+        assert longest < 3, f"{longest} ardıcıl kart şəbəkəsi bölməsi"

@@ -23,8 +23,7 @@ export function logout() {
  * Səhifənin naviqasiya qabığını qurur: üst zolaq (geniş ekran) +
  * alt panel (mobil). Hər qorunan səhifə bunu çağırır.
  *
- * Qabıq DOM-un `#appBar` və `#bottomNav` elementlərini gözləyir —
- * onlar hər səhifədə eyni adla olmalıdır.
+ * Qabıq DOM-un `#appBar` və `#bottomNav` elementlərini gözləyir - * onlar hər səhifədə eyni adla olmalıdır.
  */
 export function mountShell() {
   const bar = document.getElementById('appBar');
@@ -40,7 +39,7 @@ export function mountShell() {
 }
 
 /** Siyahı yükləmənin ÜÇ halını (yüklənir / xəta / məzmun) bir yerdə
- *  idarə edir — Flutter tərəfində bu, hər ekranda ayrıca və fərqli
+ *  idarə edir - Flutter tərəfində bu, hər ekranda ayrıca və fərqli
  *  yazılırdı, çox yerdə isə ümumiyyətlə yox idi. */
 export async function loadInto(container, loader, render) {
   container.innerHTML = '<div class="state"><div class="spinner"></div>'

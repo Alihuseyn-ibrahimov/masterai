@@ -1,7 +1,7 @@
 /* Çat elementlərinin göstərilməsi.
  *
  * Saf funksiyalar (ad axtarışı, vaxt formatı, xal cədvəli) ayrıca
- * saxlanılır ki, Node-da test edilə bilsinlər — DOM tələb etmirlər.
+ * saxlanılır ki, Node-da test edilə bilsinlər - DOM tələb etmirlər.
  *
  * TƏHLÜKƏSİZLİK: istifadəçi mətni HEÇ VAXT `innerHTML`-ə verilmir,
  * yalnız `textContent`. Çat məzmununu başqa istifadəçilər yazır.
@@ -31,8 +31,7 @@ export function displayNameFor(lookup, senderId, currentUserId) {
   return name || `İstifadəçi #${senderId}`;
 }
 
-/** ISO vaxtından yalnız saat:dəqiqə. Yararsız dəyərdə boş sətir —
- *  çatda "Invalid Date" görünməməlidir. */
+/** ISO vaxtından yalnız saat:dəqiqə. Yararsız dəyərdə boş sətir - *  çatda "Invalid Date" görünməməlidir. */
 export function formatTime(iso) {
   if (!iso) return '';
   const date = new Date(iso);
@@ -55,7 +54,7 @@ export function scoreboardRows(finished, lookup, currentUserId) {
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'az'));
 }
 
-/** İstifadəçinin bu suala artıq cavab verib-vermədiyi — nəticə
+/** İstifadəçinin bu suala artıq cavab verib-vermədiyi - nəticə
  *  elementindən oxunur. Cavab verilmiş sual yenidən aktiv görünməməlidir
  *  (Flutter-də bu, real bug idi: çat yenidən açılanda cavablanmış kart
  *  aktiv qalırdı və toxunanda backend "artıq cavablanıb" xətası verirdi). */
@@ -118,7 +117,7 @@ function renderResultItem(item, context) {
   const card = element('div', 'card stack stack--tight');
   card.append(element('span', 'badge badge--success', 'Nəticə'));
   const letter = 'ABCDE'[item.result.correctIndex];
-  card.append(element('p', null, `Düzgün cavab: ${letter != null ? letter : '—'}`));
+  card.append(element('p', null, `Düzgün cavab: ${letter != null ? letter : '-'}`));
   if (item.result.explanation) {
     card.append(element('p', 'text-sm text-muted', item.result.explanation));
   }

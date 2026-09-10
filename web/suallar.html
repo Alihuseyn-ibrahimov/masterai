@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Suallar — MasterAI</title>
+<title>Suallar - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -90,7 +90,7 @@
 
         const optionInputs = [];
         // Backend TAM 5 variant tələb edir (`UpdateQuestionRequest`,
-        // min_length=max_length=5) — sahə sayı sabitdir.
+        // min_length=max_length=5) - sahə sayı sabitdir.
         for (let i = 0; i < 5; i += 1) {
           const field = document.createElement('div');
           field.className = 'field';
@@ -174,7 +174,7 @@
         });
 
         remove.addEventListener('click', async () => {
-          // Silinmə geri qaytarıla bilmir — təsdiq soruşulur.
+          // Silinmə geri qaytarıla bilmir - təsdiq soruşulur.
           if (!window.confirm(`Sual ${index + 1} silinsin?`)) return;
           remove.disabled = true;
           try {
@@ -193,7 +193,7 @@
       function renderQuestions(container, questions) {
         container.innerHTML = '';
         if (!questions.length) {
-          container.innerHTML = '<div class="state"><div class="state__icon">📝</div>'
+          container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
             + '<div class="state__title">Bu bankda sual yoxdur</div></div>';
           return;
         }

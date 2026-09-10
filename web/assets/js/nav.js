@@ -1,4 +1,4 @@
-/* Naviqasiya çərçivəsi — bölmələr, aktivlik, göstərmə.
+/* Naviqasiya çərçivəsi - bölmələr, aktivlik, göstərmə.
  *
  * Bölmə siyahısı və aktivlik məntiqi SAF funksiyalardır (DOM tələb
  * etmir) ki, Node-da test edilə bilsinlər.
@@ -8,7 +8,7 @@
  */
 
 const STUDENT_DESTINATIONS = [
-  // `matches` — hansı səhifələrdə bu bölmə aktiv sayılır. Detal
+  // `matches` - hansı səhifələrdə bu bölmə aktiv sayılır. Detal
   // səhifəsi (məs. `chat.html`) öz bölməsini işıqlandırmalıdır, əks
   // halda istifadəçi "harda olduğunu" itirir.
   { href: 'chatlar.html', label: 'Çatlar', icon: '💬', matches: ['chatlar.html', 'chat.html'] },
@@ -28,7 +28,7 @@ export function destinationsFor(user) {
   return user && user.is_teacher ? TEACHER_DESTINATIONS : STUDENT_DESTINATIONS;
 }
 
-/** Bütün mövcud bölmələr — testlərin "hər hədəf səhifəsi var?"
+/** Bütün mövcud bölmələr - testlərin "hər hədəf səhifəsi var?"
  *  yoxlaması üçün. */
 export function allDestinations() {
   return [...STUDENT_DESTINATIONS, ...TEACHER_DESTINATIONS];
@@ -36,7 +36,7 @@ export function allDestinations() {
 
 /** Cari ünvana uyğun bölmənin `href`-i; uyğun yoxdursa `null`.
  *  Tam yol da (`/masterai/web/chat.html`), təkcə fayl adı da qəbul
- *  edilir — səhifələr həm `file://`, həm serverdən açıla bilər. */
+ *  edilir - səhifələr həm `file://`, həm serverdən açıla bilər. */
 export function activeHref(destinations, pathname) {
   const file = String(pathname || '').split('/').pop().split('?')[0];
   const match = destinations.find((destination) => destination.matches.includes(file));
@@ -67,8 +67,8 @@ function link(destination, active, className, withIcon) {
  * Üst zolağı və mobil alt paneli qurur.
  *
  * @param {object} options
- * @param {HTMLElement} options.bar — üst zolaq konteyneri
- * @param {HTMLElement} options.bottom — alt panel konteyneri
+ * @param {HTMLElement} options.bar - üst zolaq konteyneri
+ * @param {HTMLElement} options.bottom - alt panel konteyneri
  * @param {object|null} options.user
  * @param {string} options.pathname
  * @param {() => void} options.onLogout

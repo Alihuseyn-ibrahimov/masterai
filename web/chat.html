@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Çat — MasterAI</title>
+<title>Çat - MasterAI</title>
 <meta name="theme-color" content="#2F6FED">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/components.css">
 <style>
-  /* Mesaj axını uzun olur — daxili sürüşmə ilə yazma sahəsi həmişə
+  /* Mesaj axını uzun olur - daxili sürüşmə ilə yazma sahəsi həmişə
      görünən qalır. Yalnız bu səhifəyə aiddir, ona görə burada. */
   #messages {
     display: flex;
@@ -90,7 +90,7 @@
       function repaint() {
         const atBottom = messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 40;
         renderItems(messages, items, context);
-        // Yeni mesaj gələndə aşağı sürüşdür — AMMA istifadəçi yuxarı
+        // Yeni mesaj gələndə aşağı sürüşdür - AMMA istifadəçi yuxarı
         // baxırsa yerini oğurlamaq olmaz.
         if (atBottom) messages.scrollTop = messages.scrollHeight;
       }
@@ -129,7 +129,7 @@
 
       context.onAnswer = (questionId, chosenIndex) => {
         if (!socket.sendAnswer(questionId, chosenIndex)) {
-          showError('Bağlantı hazır deyil — cavab göndərilmədi, bir azdan cəhd edin.');
+          showError('Bağlantı hazır deyil - cavab göndərilmədi, bir azdan cəhd edin.');
         }
       };
 
@@ -144,7 +144,7 @@
           input.value = '';
           errorBox.hidden = true;
         } else {
-          showError('Bağlantı hazır deyil — mesaj göndərilmədi.');
+          showError('Bağlantı hazır deyil - mesaj göndərilmədi.');
         }
       });
 

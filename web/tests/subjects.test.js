@@ -17,7 +17,9 @@ describe('fənn kataloqu', () => {
 
   test('naməlum açarda sındırmır', () => {
     assert.equal(subjectLabel('yoxdur'), 'yoxdur');
-    assert.equal(subjectLabel(null), '—');
+    // Ehtiyat dəyəri adi defisdir: em-dash bütün layihədə qadağandır
+    // (bax tests/test_web_pages.py::TestTypographicDiscipline).
+    assert.equal(subjectLabel(null), '-');
   });
 
   test('rəng dəyişəni CSS formatındadır', () => {

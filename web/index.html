@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MasterAI — dərsdən AI test sualları, sinifdə birgə həll</title>
-<meta name="description" content="Dərs materialını (PDF, şəkil, sayt linki) yükləyin — AI ondan çoxseçimli test sualları hazırlasın. Müəllim canlı sessiya açır, tələbələr PIN ilə qoşulub birgə həll edir. Dövlət qulluğu və magistratura hazırlığı üçün.">
+<title>MasterAI - dərsdən AI test sualları, sinifdə birgə həll</title>
+<meta name="description" content="Dərs materialını (PDF, şəkil, sayt linki) yükləyin - AI ondan çoxseçimli test sualları hazırlasın. Müəllim canlı sessiya açır, tələbələr PIN ilə qoşulub birgə həll edir. Dövlət qulluğu və magistratura hazırlığı üçün.">
 <meta name="keywords" content="dövlət qulluğu, magistratura, test, imtahan hazırlığı, AI, quiz, Azərbaycan">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#2F6FED">
 <link rel="canonical" href="https://masterai.prdostu.com/">
 <link rel="manifest" href="manifest.json">
 
-<!-- Open Graph — Telegram/WhatsApp link önizləməsi.
+<!-- Open Graph - Telegram/WhatsApp link önizləməsi.
      MasterAI üçün xüsusilə vacibdir: müəllimlər sessiya linkini qrup
      çatlarında paylaşır, önizləməsiz çılpaq link etibarsız görünür. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MasterAI">
-<meta property="og:title" content="MasterAI — dərsdən AI test sualları">
+<meta property="og:title" content="MasterAI - dərsdən AI test sualları">
 <meta property="og:description" content="Materialı yükləyin, AI suallar hazırlasın, sinif birgə həll etsin. Dövlət qulluğu və magistratura hazırlığı üçün.">
 <meta property="og:url" content="https://masterai.prdostu.com/">
 <meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.svg">
 <meta property="og:locale" content="az_AZ">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MasterAI — dərsdən AI test sualları">
+<meta name="twitter:title" content="MasterAI - dərsdən AI test sualları">
 <meta name="twitter:description" content="Materialı yükləyin, AI suallar hazırlasın, sinif birgə həll etsin.">
 <meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.svg">
 
@@ -53,88 +53,134 @@
 
 <header class="landing-bar">
   <span class="brand">Master<span class="brand__accent">AI</span></span>
-  <div class="row">
+  <nav class="row" aria-label="Əsas">
     <a class="btn btn--ghost btn--sm landing-bar__extra" href="qosul.html">PIN ilə qoşul</a>
     <a class="btn btn--secondary btn--sm" href="giris.html">Daxil ol</a>
-    <a class="btn btn--primary btn--sm" href="qeydiyyat.html">Qeydiyyat</a>
-  </div>
+    <a class="btn btn--primary btn--sm" href="qeydiyyat.html">Pulsuz başla</a>
+  </nav>
 </header>
 
-<main class="container stack stack--loose">
+<main>
 
-  <section class="hero">
-    <h1 class="hero__title">Dərsdən test sualları — bir neçə dəqiqəyə</h1>
-    <p class="hero__lead">
-      Qanun mətnini, PDF-i və ya dərs saytının linkini yükləyin. AI ondan çoxseçimli
-      test sualları hazırlasın. Sinif canlı sessiyada birgə həll etsin, siz nəticəni
-      tələbə-tələbə görün.
-    </p>
-    <div class="hero__actions">
-      <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
-      <a class="btn btn--secondary btn--lg" href="qosul.html">Müəllimim PIN verib</a>
+  <!-- Hero: asimmetrik bölünmə. Sağ tərəf UYDURMA ekran şəkli DEYİL:
+       saytın öz komponent siniflərindən qurulmuş real sual kartıdır. -->
+  <section class="hero-split container" data-reveal>
+    <div class="stack stack--loose">
+      <h1 class="hero-split__title">Dərsdən test sualları, bir neçə dəqiqəyə</h1>
+      <p class="hero-split__lead">
+        Qanun mətnini, PDF-i və ya dərs saytının linkini yükləyin. AI ondan test sualları
+        hazırlasın, sinif canlı sessiyada birgə həll etsin.
+      </p>
+      <div class="row">
+        <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
+        <a class="btn btn--secondary btn--lg" href="qosul.html">PIN ilə qoşul</a>
+      </div>
     </div>
-    <p class="text-sm text-muted">Dövlət qulluğu və magistratura hazırlığı üçün</p>
+
+    <div class="card stack hero-split__preview" aria-label="Nümunə sual">
+      <div class="row row--between">
+        <span class="chip-subject" style="--subject: var(--subject-qanunvericilik)">Qanunvericilik</span>
+        <span class="text-xs text-muted">Sual 3/10</span>
+      </div>
+      <h2 class="hero-split__question">
+        Dövlət qulluqçusunun 20.1-ci maddədə sadalanan qadağalarına əsasən, hansı fəaliyyət
+        qəti qadağandır?
+      </h2>
+      <div class="stack stack--tight">
+        <div class="option">
+          <span class="option__letter">A</span>
+          <span>Elmi və pedaqoji fəaliyyət</span>
+        </div>
+        <div class="option option--correct">
+          <span class="option__letter">B</span>
+          <span>Sahibkarlıq fəaliyyəti ilə məşğul olmaq</span>
+          <svg class="icon icon--sm option__mark" aria-hidden="true"><use href="assets/icons.svg#i-check"></use></svg>
+        </div>
+        <div class="option">
+          <span class="option__letter">C</span>
+          <span>Yaradıcılıq fəaliyyəti</span>
+        </div>
+      </div>
+      <p class="text-sm text-muted">
+        Qanunun 20.1-ci maddəsi sahibkarlıq fəaliyyətini birbaşa qadağan edir.
+      </p>
+    </div>
   </section>
 
-  <section>
+  <!-- Layout ailəsi 1: kart şəbəkəsi -->
+  <section class="container" data-reveal>
     <div class="section-header"><h2>Nə edir</h2></div>
     <div class="grid">
       <div class="card stack stack--tight">
-        <div class="state__icon">📄</div>
+        <span class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-file-text"></use></svg></span>
         <h3>Üç növ material</h3>
         <p class="text-muted">Sayt linki, PDF sənəd və ya şəkil. Şəkildəki mətn OCR ilə oxunur.</p>
       </div>
       <div class="card stack stack--tight">
-        <div class="state__icon">🎯</div>
+        <span class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-target"></use></svg></span>
         <h3>Sual sayını siz seçirsiniz</h3>
         <p class="text-muted">3-dən 30-a qədər. AI materialı bütövlükdə oxuyub o qədər sual hazırlayır.</p>
       </div>
       <div class="card stack stack--tight">
-        <div class="state__icon">✏️</div>
+        <span class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-pencil"></use></svg></span>
         <h3>Redaktə sizdədir</h3>
         <p class="text-muted">Hər sualın mətnini, variantlarını və düzgün cavabını dəyişə bilərsiniz.</p>
       </div>
       <div class="card stack stack--tight">
-        <div class="state__icon">📊</div>
+        <span class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-chart-bar"></use></svg></span>
         <h3>Nəticə tələbə-tələbə</h3>
-        <p class="text-muted">Kim harada çətinlik çəkir — sual-sual təhlil ilə görünür.</p>
+        <p class="text-muted">Kim harada çətinlik çəkir, sual-sual təhlil ilə görünür.</p>
       </div>
     </div>
   </section>
 
-  <section>
+  <!-- Layout ailəsi 2: nömrələnmiş şaquli addımlar (şəbəkə DEYİL) -->
+  <section class="container" data-reveal>
     <div class="section-header"><h2>Necə işləyir</h2></div>
-    <div class="grid">
-      <div class="card stack stack--tight">
+    <ol class="steps">
+      <li class="step">
         <span class="step__number">1</span>
-        <h3>Material yükləyin</h3>
-        <p class="text-muted">Dərsin linkini yapışdırın və ya faylı seçin, neçə sual istədiyinizi yazın.</p>
-      </div>
-      <div class="card stack stack--tight">
+        <div class="stack stack--tight">
+          <h3>Material yükləyin</h3>
+          <p class="text-muted">Dərsin linkini yapışdırın və ya faylı seçin, neçə sual istədiyinizi yazın.</p>
+        </div>
+      </li>
+      <li class="step">
         <span class="step__number">2</span>
-        <h3>AI sualları hazırlasın</h3>
-        <p class="text-muted">Bir-üç dəqiqə çəkir. Hazır olanda banka "Hazırdır" yazılır.</p>
-      </div>
-      <div class="card stack stack--tight">
+        <div class="stack stack--tight">
+          <h3>AI sualları hazırlasın</h3>
+          <p class="text-muted">Bir-üç dəqiqə çəkir. Hazır olanda banka «Hazırdır» yazılır.</p>
+        </div>
+      </li>
+      <li class="step">
         <span class="step__number">3</span>
-        <h3>Sinif birgə həll etsin</h3>
-        <p class="text-muted">PIN paylaşın — tələbələr hesabsız qoşulur, hərə öz sürəti ilə irəliləyir.</p>
-      </div>
-    </div>
+        <div class="stack stack--tight">
+          <h3>Sinif birgə həll etsin</h3>
+          <p class="text-muted">PIN paylaşın, tələbələr hesabsız qoşulur, hərə öz sürəti ilə irəliləyir.</p>
+        </div>
+      </li>
+    </ol>
   </section>
 
-  <section>
+  <!-- Layout ailəsi 3: iki sütunlu bölünmə -->
+  <section class="container" data-reveal>
     <div class="section-header"><h2>Kimə lazımdır</h2></div>
-    <div class="grid" style="--grid-min: 300px">
-      <div class="card stack stack--tight">
-        <h3>👩‍🏫 Müəllim üçün</h3>
+    <div class="audience">
+      <div class="stack">
+        <h3 class="row">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-school"></use></svg>
+          Müəllim üçün
+        </h3>
         <p class="text-muted">
           Test hazırlamağa saatlar sərf etməyin. Materialı yükləyin, sualları yoxlayın,
           sinifdə canlı sessiya açın və ya ev tapşırığı təyin edin.
         </p>
       </div>
-      <div class="card stack stack--tight">
-        <h3>🎓 Tələbə üçün</h3>
+      <div class="stack">
+        <h3 class="row">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-award"></use></svg>
+          Tələbə üçün
+        </h3>
         <p class="text-muted">
           Öz sürətinizlə həll edin, hər cavabdan sonra izahı oxuyun. Nəticələriniz
           tarixçədə toplanır, nişanlar qazanırsınız.
@@ -143,7 +189,8 @@
     </div>
   </section>
 
-  <section>
+  <!-- Layout ailəsi 4: açılan siyahı -->
+  <section class="container" data-reveal>
     <div class="section-header"><h2>Tez-tez verilən suallar</h2></div>
     <div class="card">
       <details class="faq">
@@ -154,7 +201,7 @@
       <details class="faq">
         <summary>AI səhv sual hazırlaya bilərmi?</summary>
         <p>Bəli, ona görə hər sual redaktə oluna bilir. Müəllim sessiyadan əvvəl
-        sualları gözdən keçirməlidir — bu, sistemin qəsdən seçilmiş iş qaydasıdır.</p>
+        sualları gözdən keçirməlidir. Bu, sistemin qəsdən seçilmiş iş qaydasıdır.</p>
       </details>
       <details class="faq">
         <summary>Hansı materiallar işləyir?</summary>
@@ -163,18 +210,16 @@
       </details>
       <details class="faq">
         <summary>Neçə sual hazırlanır?</summary>
-        <p>Siz seçirsiniz — 3-dən 30-a qədər. Material qısadırsa daha az sual alına
+        <p>Siz seçirsiniz, 3-dən 30-a qədər. Material qısadırsa daha az sual alına
         bilər, bu halda sistem sizə xəbər verir.</p>
       </details>
     </div>
   </section>
 
-  <section class="hero">
-    <h2 class="hero__title">Başlamaq üçün material kifayətdir</h2>
-    <div class="hero__actions">
-      <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Hesab yarat</a>
-      <a class="btn btn--secondary btn--lg" href="giris.html">Daxil ol</a>
-    </div>
+  <!-- Layout ailəsi 5: mərkəzləşmiş bağlanış -->
+  <section class="closing container" data-reveal>
+    <h2>Başlamaq üçün material kifayətdir</h2>
+    <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
   </section>
 
 </main>
@@ -189,5 +234,26 @@
   </div>
 </footer>
 
+<script>
+  /* Bölmələr görünəndə yumşaq açılır. `window.addEventListener("scroll")`
+     QƏSDƏN işlədilmir: hər kadrda işləyir və mobil FPS-i öldürür.
+     `prefers-reduced-motion` seçimi tam hörmət olunur. */
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var items = document.querySelectorAll('[data-reveal]');
+    if (reduce || !('IntersectionObserver' in window) || !items.length) return;
+    // Gizlətməni yalnız İNDİ, hər şeyin işlədiyi təsdiqlənəndən sonra
+    // aktivləşdiririk.
+    document.documentElement.classList.add('js-reveal');
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+    items.forEach(function (item) { observer.observe(item); });
+  })();
+</script>
 </body>
 </html>

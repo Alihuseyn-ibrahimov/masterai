@@ -102,6 +102,7 @@
    * sual oxutdurur, çox geniş sətir oxunaqlığı pozur. */
   --grid-min:         240px;   /* .grid-in defolt minimum sütun eni */
   --textarea-min:      96px;   /* çoxsətirli sahənin minimum hündürlüyü */
+  --tap-target:        56px;   /* cavab variantı, əsas düymələr */
   --app-bar-height:    56px;   /* üst zolaq (mediapulse ilə eyni) */
   --bottom-nav-height: 60px;   /* mobil alt naviqasiya */
   --width-container: 1200px;
