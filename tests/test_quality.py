@@ -172,3 +172,79 @@ class TestAggregateAcrossSets:
     def test_empty_input_gives_empty_totals(self):
         from pipeline.quality import aggregate_findings
         assert aggregate_findings({}) == {}
+
+
+class TestSelfAnsweringQuestion:
+    """Real dəstdə tapılıb (dəst 18, sual 5): sual öz cavabını içində
+    daşıyırdı. «hansının tarixi 7 dekabr 2007 və nömrəsi 504-IIIQD-dir?»
+    → cavab: «7 dekabr 2007-ci il tarixli 504-IIIQD nömrəli...».
+    Dili bilməyən adam da tapar. Alət bunu görmürdü."""
+
+    def test_an_option_that_repeats_the_stem_is_flagged(self):
+        report = audit_questions([
+            q(
+                question="Aşağıdakı qanunlardan hansının qəbul tarixi 7 dekabr 2007-ci il və nömrəsi 504-IIIQD-dir?",
+                options=[
+                    "7 dekabr 2007-ci il tarixli 504-IIIQD nömrəli Azərbaycan Respublikası Qanunu",
+                    "1 oktyabr 2007-ci il tarixli 420-IIIQD nömrəli Azərbaycan Respublikası Qanunu",
+                    "31 may 2007-ci il tarixli 356-IIIQD nömrəli Azərbaycan Respublikası Qanunu",
+                    "19 oktyabr 2007-ci il tarixli 458-IIIQD nömrəli Azərbaycan Respublikası Qanunu",
+                    "12 fevral 2008-ci il tarixli 546-IIIQD nömrəli Azərbaycan Respublikası Qanunu",
+                ],
+                correct_index=0,
+            )
+        ])
+        assert any(f.code == "sual_ozunu_cavablayir" for f in report.findings)
+
+    def test_a_normal_question_sharing_topic_words_is_not_flagged(self):
+        """Yalan həyəcan qoruyucusu: normal sualda da açar sözlər
+        təkrarlanır. Fərq odur ki, orada BÜTÜN variantlar eyni sözləri
+        paylaşır, düzgün olan seçilmir."""
+        report = audit_questions([
+            q(
+                question="Dövlət qulluqçusunun rotasiyası nə deməkdir?",
+                options=[
+                    "Dövlət qulluqçusunun eyni vəzifədə qalması",
+                    "Dövlət qulluqçusunun başqa vəzifəyə köçürülməsi",
+                    "Dövlət qulluqçusunun təqaüdə çıxması",
+                    "Dövlət qulluqçusunun məvacibinin artırılması",
+                    "Dövlət qulluqçusunun təlimə göndərilməsi",
+                ],
+                correct_index=1,
+            )
+        ])
+        assert not any(f.code == "sual_ozunu_cavablayir" for f in report.findings)
+
+
+class TestMaterialReference:
+    """Real dəstdə tapılıb (dəst 18, sual 2): «Materialda qeyd olunan...».
+    İmtahanda «material» yoxdur — bu, bilik sualı deyil, mətn oxuma
+    sualıdır."""
+
+    def test_a_question_referring_to_the_material_is_flagged(self):
+        report = audit_questions([q(question="Materialda qeyd olunan dördüncü təsnifat hansıdır?")])
+        assert any(f.code == "materiala_istinad" for f in report.findings)
+
+    def test_reference_to_the_law_itself_is_not_flagged(self):
+        report = audit_questions([q(question="Qanunun 20.1-ci maddəsinə əsasən nə qadağandır?")])
+        assert not any(f.code == "materiala_istinad" for f in report.findings)
+
+
+class TestAmendmentReference:
+    """e-qanun səhifələrinin altındakı düzəliş siyahısı («504-IIIQD
+    nömrəli Qanun») modelə gedir və oradan sual qurulur. İmtahanda belə
+    sual çıxmır."""
+
+    def test_a_law_amendment_number_is_flagged(self):
+        report = audit_questions([q(question="504-IIIQD nömrəli qanun nə vaxt qəbul edilib?")])
+        assert any(f.code == "duzelis_tarixcesi" for f in report.findings)
+
+    def test_the_non_ascii_hyphen_used_by_e_qanun_is_also_caught(self):
+        """e-qanun mətnində adi defis YOX, U+2011 işlədilir. Bunu
+        nəzərə almasaq naxış sükutla keçib gedir."""
+        report = audit_questions([q(question="504‑IIIQD nömrəli qanun nə vaxt qəbul edilib?")])
+        assert any(f.code == "duzelis_tarixcesi" for f in report.findings)
+
+    def test_an_ordinary_article_reference_is_not_flagged(self):
+        report = audit_questions([q(question="Qanunun 23.2-ci maddəsi nəyi tənzimləyir?")])
+        assert not any(f.code == "duzelis_tarixcesi" for f in report.findings)

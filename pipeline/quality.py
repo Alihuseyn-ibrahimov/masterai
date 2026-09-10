@@ -140,7 +140,116 @@ def _check_weak_explanation(question: MCQQuestion, number: int) -> list[Finding]
     ]
 
 
-_PER_QUESTION_CHECKS = (_check_duplicate_options, _check_metadata, _check_weak_explanation)
+# ---- Mətnə istinad edən suallar ---------------------------------------------
+# İmtahanda «material» yoxdur. «Materialda qeyd olunan...» sualı bilik
+# yox, mətn oxuma yoxlayır — dəyəri sıfırdır.
+
+_MATERIAL_REFERENCE_PATTERNS = (
+    "materialda", "materialin", "materialın",
+    "metnde qeyd", "mətndə qeyd",
+    "verilmis metnde", "verilmiş mətndə",
+    "yuxarida qeyd", "yuxarıda qeyd",
+    "senedde qeyd", "sənəddə qeyd",
+    "parcada", "parçada",
+)
+
+
+def _check_material_reference(question: MCQQuestion, number: int) -> list[Finding]:
+    lowered = _normalize(question.question)
+    if not any(_normalize(pattern) in lowered for pattern in _MATERIAL_REFERENCE_PATTERNS):
+        return []
+    return [
+        Finding(
+            code="materiala_istinad",
+            severity=Severity.HIGH,
+            message="sual «materialda yazılanı» soruşur — imtahanda material olmur",
+            question_number=number,
+        )
+    ]
+
+
+# ---- Düzəliş tarixçəsindən qurulan suallar ----------------------------------
+# e-qanun səhifələrinin altında düzəliş siyahısı var: «504-IIIQD nömrəli
+# Qanun». Model oradan sual qurur. DİQQƏT: e-qanun adi defis (-) YOX,
+# U+2011 (non-breaking hyphen) işlədir — hər iki hal tutulmalıdır.
+
+_AMENDMENT_RE = re.compile(
+    r"\d{2,4}\s*[-‐‑‒–—]?\s*[IVX]{1,5}\s*Q[DK]",
+    re.IGNORECASE,
+)
+
+
+def _check_amendment_reference(question: MCQQuestion, number: int) -> list[Finding]:
+    haystack = " ".join([question.question, *question.options])
+    if not _AMENDMENT_RE.search(haystack):
+        return []
+    return [
+        Finding(
+            code="duzelis_tarixcesi",
+            severity=Severity.HIGH,
+            message="sual qanunun düzəliş tarixçəsindən qurulub — imtahan mövzusu deyil",
+            question_number=number,
+        )
+    ]
+
+
+# ---- Öz cavabını daşıyan suallar --------------------------------------------
+
+_SELF_ANSWER_MIN_OVERLAP = 0.5
+_SELF_ANSWER_MIN_MARGIN = 0.2
+
+
+def _overlap_with(stem_tokens: set[str], option: str) -> float:
+    tokens = set(_normalize(option).split())
+    if not tokens:
+        return 0.0
+    return len(tokens & stem_tokens) / len(tokens)
+
+
+def _check_self_answering(question: MCQQuestion, number: int) -> list[Finding]:
+    """Düzgün variant sualın öz sözlərini QALAN VARİANTLARDAN NƏZƏRƏ
+    ÇARPACAQ DƏRƏCƏDƏ ÇOX təkrarlayırsa, cavab materialı bilmədən
+    tapılır.
+
+    Fərq vacibdir: normal sualda da açar sözlər təkrarlanır, amma orada
+    BÜTÜN variantlar onları paylaşır. Buradakı ölçü mütləq oxşarlıq yox,
+    düzgün variantın digərlərindən ÜSTÜNLÜYÜDÜR."""
+    stem_tokens = set(_normalize(question.question).split())
+    if not stem_tokens:
+        return []
+    correct = _overlap_with(stem_tokens, question.options[question.correct_index])
+    others = [
+        _overlap_with(stem_tokens, option)
+        for index, option in enumerate(question.options)
+        if index != question.correct_index
+    ]
+    if not others:
+        return []
+    if correct < _SELF_ANSWER_MIN_OVERLAP:
+        return []
+    if correct < max(others) + _SELF_ANSWER_MIN_MARGIN:
+        return []
+    return [
+        Finding(
+            code="sual_ozunu_cavablayir",
+            severity=Severity.HIGH,
+            message=(
+                "düzgün variant sualın sözlərini təkrarlayır — cavab materialı "
+                "bilmədən tapılır"
+            ),
+            question_number=number,
+        )
+    ]
+
+
+_PER_QUESTION_CHECKS = (
+    _check_duplicate_options,
+    _check_metadata,
+    _check_weak_explanation,
+    _check_material_reference,
+    _check_amendment_reference,
+    _check_self_answering,
+)
 
 
 # ---- Dəstin bütününə aid naxışlar ------------------------------------------
