@@ -314,31 +314,45 @@ _HISTORY_LINE_RE = re.compile(
     r"^\s*\d{1,4}\s*[.)]\s+.*" + AMENDMENT_NUMBER_RE.pattern,
     re.IGNORECASE,
 )
-_HISTORY_MIN_RUN = 3
+# Tarixçə yazıları bir sətirdə BİTMİR — hər yazıdan sonra davam sətri
+# gəlir (real səhifədə ölçüldü, ardıcıl seriya heç vaxt 1-dən yuxarı
+# qalxmırdı). Ona görə qayda KLASTER üzrə işləyir: bir-birinə yaxın
+# yazılar bir blok sayılır və blok bütövlükdə, davam sətirləri ilə
+# birlikdə silinir.
+_HISTORY_MIN_ENTRIES = 3
+# İki yazı arasında bu qədər sətir ola bilər. Kiçik saxlanılır: sənədin
+# əvvəlində və sonunda tək-tək istinadlar varsa, aralarındakı BÜTÜN
+# qanun mətni silinərdi — ən təhlükəli hal, ayrıca testlə qorunur.
+_HISTORY_MAX_GAP = 4
 
 
 def _strip_amendment_history(text: str) -> str:
     lines = text.splitlines()
-    flags = [bool(_HISTORY_LINE_RE.match(line)) for line in lines]
+    entries = [index for index, line in enumerate(lines) if _HISTORY_LINE_RE.match(line)]
+    if len(entries) < _HISTORY_MIN_ENTRIES:
+        return text
+
+    # Yaxın yazıları klasterlərə yığ.
+    clusters: list[list[int]] = [[entries[0]]]
+    for index in entries[1:]:
+        if index - clusters[-1][-1] <= _HISTORY_MAX_GAP:
+            clusters[-1].append(index)
+        else:
+            clusters.append([index])
 
     keep = [True] * len(lines)
-    index = 0
-    while index < len(lines):
-        if not flags[index]:
-            index += 1
+    removed_any = False
+    for cluster in clusters:
+        if len(cluster) < _HISTORY_MIN_ENTRIES:
             continue
-        end = index
-        while end < len(lines) and flags[end]:
-            end += 1
-        if end - index >= _HISTORY_MIN_RUN:
-            for position in range(index, end):
-                keep[position] = False
-        index = end
+        start = cluster[0]
+        # Son yazının davam sətirləri də blokun hissəsidir.
+        end = min(cluster[-1] + _HISTORY_MAX_GAP, len(lines) - 1)
+        for position in range(start, end + 1):
+            keep[position] = False
+        removed_any = True
 
-    # Heç nə silinməyibsə mətn EYNİLƏ qaytarılır. `splitlines()` +
-    # `join()` sondakı sətir sonunu udur — toxunmadığımız mətni
-    # dəyişdirmək isə səssiz zərərdir (test bunu tutdu).
-    if all(keep):
+    if not removed_any:
         return text
 
     return "\n".join(line for line, wanted in zip(lines, keep) if wanted)

@@ -25,8 +25,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bs4 import BeautifulSoup
 
+import re
+
 from pipeline.az_legal import AMENDMENT_NUMBER_RE
 from pipeline.ingestion import web_extractor
+
+
+# Tək qalmış Azərbaycan hərfi: «v ə zif ə tutan» naxışı. Bu ölçüdə
+# aşkarlandı — mətndə hərflər sözdən ayrılıb.
+_BROKEN_SPACING_RE = re.compile(r"(?<= )[əöüçığşƏÖÜÇIĞŞ](?= )")
 
 
 def _text_without_stripping(html: str) -> str:
@@ -106,20 +113,42 @@ def main(argv: list[str]) -> int:
     print("=" * 68)
     print("SİLİNƏN QEYDLƏRDƏN NÜMUNƏLƏR (ilk 5)")
     print("=" * 68)
-    shown = 0
-    removed_lines = set(before.splitlines()) - set(after.splitlines())
-    for line in list(removed_lines)[:5]:
+    # SİLİNƏN və DƏYİŞDİRİLƏN sətirlər fərqlidir. Əvvəl ikisi
+    # qarışdırılırdı və sadəcə ikiqat boşluğu yığışdırılmış adi sətirlər
+    # «silinib» kimi göstərilirdi — yanıldıcı idi.
+    after_lines = set(after.splitlines())
+    removed = [
+        line for line in before.splitlines()
+        if line not in after_lines and AMENDMENT_NUMBER_RE.search(line)
+    ]
+    for line in removed[:5]:
         print(f"  - {line[:150]}")
-        shown += 1
-    for match in web_extractor._BRACKETED_RE.finditer(before):
-        if shown >= 5:
-            break
-        if not web_extractor._looks_like_amendment_note(match.group(1)):
-            continue
-        print(f"  - {match.group(0)[:150]}")
-        shown += 1
+    if not removed:
+        print("  (düzəliş nömrəsi olan heç bir sətir silinməyib)")
     if shown == 0:
         print("  (heç nə silinmir — qayda bu səhifədə işləmir, bax aşağı)")
+
+    print()
+    print("=" * 68)
+    print("AYRI PROBLEM: POZULMUŞ HƏRF ARALIĞI")
+    print("=" * 68)
+    print("Bu ölçüdə aşkarlandı: mətndə Azərbaycan hərfləri sözdən")
+    print("AYRILIB, məsələn «v ə zif ə tutan d ö vl ə t qulluq ç ular ı na».")
+    print("Model belə mətni oxuyursa, sual keyfiyyəti ondan zərər görür.")
+    print()
+    broken = _BROKEN_SPACING_RE.findall(after)
+    words = len(after.split())
+    print(f"  ayrılmış hərf halı : {len(broken):>7}")
+    print(f"  ümumi söz sayı     : {words:>7}")
+    if words:
+        print(f"  nisbət             : {len(broken) / words * 100:>7.1f}%")
+    if broken:
+        print()
+        print("  nümunələr:")
+        for line in after.splitlines():
+            if len(_BROKEN_SPACING_RE.findall(line)) >= 3:
+                print(f"    - {line[:120]}")
+                break
 
     print()
     print("=" * 68)

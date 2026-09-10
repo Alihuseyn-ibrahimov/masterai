@@ -223,3 +223,68 @@ class TestCleaningChainIsSingleSource:
         assert "_clean_legal_text" in inspect_source, (
             "_extract_text zənciri birbaşa çağırmalıdır"
         )
+
+
+class TestHistoryEntriesWithContinuationLines:
+    """REAL SƏHİFƏDƏ TAPILDI (ikinci ölçü). Tarixçə yazıları bir sətirdə
+    bitmir — hər yazıdan sonra davam sətri gəlir:
+
+        1. 13 fevral 2001-ci il tarixli 74-IIQD nömrəli
+        Azərbaycan Respublikasının Qanunu (Qanunvericilik Toplusu...)
+        2. 2 iyul 2002-ci il tarixli 359-IIQD nömrəli
+        Azərbaycan Respublikasının Qanunu
+
+    «Ardıcıl üç sətir» tələbi ona görə heç vaxt ödənmirdi: ölçüldü,
+    ən uzun seriya 1 idi. İndi qayda KLASTER üzrə işləyir.
+    """
+
+    ENTRY = "{i}. {i} fevral 2001-ci il tarixli {n}-IIQD nömrəli"
+    CONT = "Azərbaycan Respublikasının Qanunu (Qanunvericilik Toplusu, 2001, № {i})"
+
+    def _history(self, count: int) -> str:
+        lines = []
+        for i in range(1, count + 1):
+            lines.append(self.ENTRY.format(i=i, n=70 + i))
+            lines.append(self.CONT.format(i=i))
+        return "\n".join(lines)
+
+    def test_entries_separated_by_continuation_lines_are_removed(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        body = "Maddə 20. Sahibkarlıq fəaliyyəti qadağandır."
+        result = _strip_amendment_history(body + "\n" + self._history(5))
+        assert body in result
+        assert "IIQD" not in result
+        assert "Qanunvericilik Toplusu" not in result, "davam sətirləri də getməlidir"
+
+    def test_two_entries_are_still_not_enough(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = "Maddə 1. Hökm.\n" + self._history(2)
+        assert _strip_amendment_history(text) == text
+
+    def test_far_apart_stray_references_are_not_joined_into_one_block(self):
+        """ƏN TƏHLÜKƏLİ HAL. Sənədin əvvəlində və sonunda tək-tək
+        istinadlar varsa, onların ARASINDAKI bütün qanun mətni
+        silinməməlidir."""
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        middle = "\n".join(f"Maddə {i}. Vacib hüquqi müddəa {i}." for i in range(1, 40))
+        text = (
+            "Maddə 0. Bu 74-IIQD nömrəli Qanunla tənzimlənir.\n"
+            + middle
+            + "\nSon qeyd: 359-IIQD nömrəli Qanun.\n"
+        )
+        result = _strip_amendment_history(text)
+        for i in range(1, 40):
+            assert f"Maddə {i}. Vacib hüquqi müddəa {i}." in result, (
+                f"Maddə {i} silinib — aradakı mətn itirilir"
+            )
+
+    def test_the_block_is_removed_whole_including_its_tail(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        body = "Maddə 20. Hökm."
+        text = body + "\n" + self._history(4)
+        result = _strip_amendment_history(text)
+        assert result.strip() == body
