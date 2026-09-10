@@ -263,6 +263,10 @@ class MyAssignmentInfo(BaseModel):
     due_date: str
     status: Literal["gözləyir", "davam edir", "tamamlanıb"]
     score: int | None
+    # Xalın MƏXRƏCİ. Bunsuz «8 düzgün» tələbəyə heç nə demir; həm də
+    # başlamazdan əvvəl neçə sual olduğunu bilmək vaxt planlaması üçün
+    # lazımdır.
+    question_count: int
 
 
 class SetTeacherRequest(BaseModel):

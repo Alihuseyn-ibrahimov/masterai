@@ -498,11 +498,10 @@
 .brief__value { font-size: var(--text-base); text-wrap: pretty; }
 .brief__link { font-size: var(--text-sm); margin-top: var(--space-1); }
 
-/* ---- Sual yoxlama ekranı (`suallar.html`) ----
- * Əvvəl bu ekran 30 sualı açıq forma kimi düzürdü: sual mətni
- * textarea-nın içində olduğu üçün OXUNMURDU, müəllim isə hansından
- * başlamalı olduğunu bilmirdi. İndi kart oxunaqlıdır, redaktə tələb
- * olunanda açılır. */
+/* ---- Xülasə paneli (`suallar.html`, `tarixce.html`) ----
+ * Siyahıdan ƏVVƏL gələn bir-iki sətirlik nəticə: «hansı sualdan
+ * başlamalıyam», «hansı fənndə geridəyəm». Siyahının özü «nə oldu»nu
+ * deyir, bu panel «nə etməliyəm»i. */
 .audit {
   display: flex;
   flex-direction: column;

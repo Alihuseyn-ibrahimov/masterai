@@ -32,6 +32,7 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import { historySummary } from './assets/js/history.js';
 
   if (requireLogin()) {
     mountShell();
@@ -44,6 +45,27 @@
           + '<div class="state__text">Canlı sessiyada və ya ev tapşırığında iştirak edin.</div></div>';
         return;
       }
+      /* Xülasə siyahıdan ƏVVƏL: siyahı «nə oldu»nu deyir, tələbəyə isə
+         «nə etməliyəm» lazımdır. Zəif fənn yalnız kifayət qədər data
+         olanda deyilir (bax `history.js` - az data üzərində yanlış
+         yönləndirmə faydadan pisdir). */
+      const summary = historySummary(entries);
+      const brief = document.createElement('div');
+      brief.className = 'audit';
+      const line = document.createElement('strong');
+      line.textContent = summary.percent === null
+        ? `${summary.count} nəticə`
+        : `${summary.count} nəticə · ${summary.score}/${summary.total} düzgün (${summary.percent}%)`;
+      brief.append(line);
+      if (summary.weakest) {
+        const weak = document.createElement('p');
+        weak.className = 'text-sm audit__set-finding';
+        weak.textContent =
+          `Ən zəif fənn: ${subjectLabel(summary.weakest.subject)} - ${summary.weakest.percent}%. Məşqi buradan başlayın.`;
+        brief.append(weak);
+      }
+      container.append(brief);
+
       const list = document.createElement('div');
       list.className = 'stack stack--tight';
       // Ən yenilər yuxarıda.

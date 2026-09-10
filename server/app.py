@@ -1426,6 +1426,7 @@ def list_my_assignments(
                     due_date=assignment["due_date"],
                     status=status,
                     score=score,
+                    question_count=question_sets.count_questions(question_set["id"]),
                 )
             )
     return result

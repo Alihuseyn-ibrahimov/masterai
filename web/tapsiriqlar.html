@@ -32,6 +32,7 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import { deadlineNote, sortByUrgency } from './assets/js/deadline.js';
 
   const STATUS_BADGE = {
     'tamamlanıb': 'badge badge--success',
@@ -52,12 +53,11 @@
       }
       const grid = document.createElement('div');
       grid.className = 'grid';
-      // Bitməmişlər əvvəldə - tələbənin işi olanlar yuxarıda olmalıdır.
-      const ordered = [...assignments].sort((a, b) => {
-        const done = (x) => (x.status === 'tamamlanıb' ? 1 : 0);
-        return done(a) - done(b);
-      });
-      for (const assignment of ordered) {
+      /* Sıra TƏCİLİLİYƏ görədir (bax `deadline.js`): gecikmiş və yaxın
+         olanlar əvvəldə, tamamlanmışlar sonda. Əvvəl yalnız «bitmiş
+         sonda» qaydası vardı, yəni sabaha olan tapşırıq iki həftəlikdən
+         sonra dura bilirdi. */
+      for (const assignment of sortByUrgency(assignments)) {
         const card = document.createElement('div');
         card.className = 'card card--subject stack stack--tight';
         card.style.setProperty('--subject', subjectColorVar(assignment.subject));
@@ -73,13 +73,39 @@
 
         const meta = document.createElement('p');
         meta.className = 'text-sm text-muted';
-        meta.textContent = `${subjectLabel(assignment.subject)} · son tarix: ${assignment.due_date}`;
         card.append(head, meta);
+
+        /* Tapşırıq bitibsə son tarix artıq mənasızdır - «3 gün gecikib»
+           yazmaq tamamlanmış işdə yanlış həyəcandır. */
+        const note = assignment.status === 'tamamlanıb'
+          ? null : deadlineNote(assignment.due_date);
+        if (note) {
+          const chip = document.createElement('span');
+          chip.className = note.className;
+          chip.textContent = note.label;
+          // Dəqiq tarix ipucuda qalır: nişan «nə vaxta qədər»i deyir,
+          // tarixin özü isə nadir hallarda lazım olur.
+          chip.title = `Son tarix: ${assignment.due_date}`;
+          // Status nişanının yanında, kartın ən görünən sətrində:
+          // «gözləyir» sözündən çox «2 gün gecikib» hərəkətə çağırır.
+          head.append(chip);
+          meta.textContent = subjectLabel(assignment.subject);
+        } else {
+          meta.textContent = `${subjectLabel(assignment.subject)} · son tarix: ${assignment.due_date}`;
+        }
+        // Sual sayı başlamazdan ƏVVƏL lazımdır: «10 sual» ilə «30 sual»
+        // arasında tələbənin indi başlayıb-başlamaması qərarı var.
+        if (assignment.question_count && assignment.status !== 'tamamlanıb') {
+          meta.textContent += ` · ${assignment.question_count} sual`;
+        }
 
         if (assignment.status === 'tamamlanıb' && assignment.score != null) {
           const score = document.createElement('p');
           score.className = 'text-sm';
-          score.textContent = `Nəticə: ${assignment.score} düzgün`;
+          // Məxrəc olmadan «8 düzgün» heç nə demir: 8/8-dir, yoxsa 8/30?
+          score.textContent = assignment.question_count
+            ? `Nəticə: ${assignment.score}/${assignment.question_count} düzgün`
+            : `Nəticə: ${assignment.score} düzgün`;
           card.append(score);
         } else {
           const link = document.createElement('a');

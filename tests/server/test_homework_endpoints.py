@@ -200,6 +200,19 @@ class TestMyAssignments:
         assert body[0]["title"] == "Silloqizmlər"
         assert body[0]["status"] == "gözləyir"
 
+    def test_includes_question_count(self, env):
+        """Xal məxrəcsiz mənasızdır: «8 düzgün» tələbəyə heç nə demir,
+        «8/10 düzgün» deyir. Başlamazdan əvvəl də neçə sual olduğunu
+        bilmək lazımdır - tələbə vaxtı ona görə planlaşdırır."""
+        qs = _ready_question_set(env, n_questions=7)
+        env["homework"].create_assignment(
+            env["chat"]["id"], qs["id"], "2026-09-14", created_by=env["teacher"]["id"]
+        )
+        body = env["client"].get(
+            "/homework/my-assignments", headers=_auth(env["student"])
+        ).json()
+        assert body[0]["question_count"] == 7
+
 
 class TestStartAttempt:
     def test_unknown_assignment_returns_404(self, env):

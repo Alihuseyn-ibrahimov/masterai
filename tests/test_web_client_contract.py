@@ -110,3 +110,48 @@ class TestSubjectCatalogContract:
         html = (WEB / "muellim.html").read_text(encoding="utf-8")
         assert f'min="{minimum}"' in html, f"formada min={minimum} yoxdur"
         assert f'max="{maximum}"' in html, f"formada max={maximum} yoxdur"
+
+
+class TestBadgeCatalogContract:
+    """`badges.js` iki mənbə ilə uzlaşmalıdır: backend-in nişan açarları
+    və `icons.svg` sprite-ı.
+
+    NİYƏ İKİNCİSİ: `nailiyyetler.html` ikon adını `textContent` kimi
+    yazırdı, yəni ekranda nişan şəkli yox, `seedling`/`bolt` sözü
+    görünürdü. Sprite-da ikon VAR idi - sadəcə bağlanmamışdı. Bunu nə
+    pytest, nə pyflakes tuta bilməzdi; yalnız brauzer render-i tapdı.
+    Aşağıdakı test həmin sinif səhvi ucuz yolla tutur.
+    """
+
+    BADGES_JS = WEB / "assets" / "js" / "badges.js"
+    ICONS_SVG = WEB / "assets" / "icons.svg"
+    APP_PY = ROOT / "server" / "app.py"
+
+    def _js_badges(self) -> list[tuple[str, str]]:
+        text = self.BADGES_JS.read_text(encoding="utf-8")
+        return re.findall(r"key:\s*'([^']+)'.*?icon:\s*'([^']+)'", text, re.DOTALL)
+
+    def _backend_badge_types(self) -> list[str]:
+        text = self.APP_PY.read_text(encoding="utf-8")
+        block = re.search(r"_BADGE_TYPES\s*=\s*\(([^)]*)\)", text)
+        assert block, "app.py-də _BADGE_TYPES tapılmadı"
+        return re.findall(r'"([^"]+)"', block.group(1))
+
+    def test_badges_were_found(self):
+        """Qoruyucu: regex sınıbsa, aşağıdakı testlər sükutla 'keçər'."""
+        assert len(self._js_badges()) == 5
+
+    def test_js_and_backend_badge_keys_match(self):
+        assert sorted(key for key, _ in self._js_badges()) == sorted(self._backend_badge_types())
+
+    def test_every_badge_icon_exists_in_the_sprite(self):
+        sprite = self.ICONS_SVG.read_text(encoding="utf-8")
+        missing = [icon for _, icon in self._js_badges() if f'id="i-{icon}"' not in sprite]
+        assert not missing, f"icons.svg-də olmayan nişan ikonu: {missing}"
+
+    def test_badge_screen_draws_the_icon_instead_of_printing_its_name(self):
+        html = (WEB / "nailiyyetler.html").read_text(encoding="utf-8")
+        assert "icon.textContent = badge.icon" not in html, (
+            "ikon adı mətn kimi yazılır - ekranda `seedling` sözü görünəcək"
+        )
+        assert "createIcon(badge.icon)" in html

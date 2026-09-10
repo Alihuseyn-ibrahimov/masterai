@@ -32,6 +32,7 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { sortBadges } from './assets/js/badges.js';
+  import { createIcon } from './assets/js/icon.js';
 
   if (requireLogin()) {
     mountShell();
@@ -56,9 +57,14 @@
         // meyar özü motivasiyadır.
         if (!badge.earned) card.style.opacity = '0.55';
 
+        /* REAL BUG İDİ: ikonun ADI mətn kimi yazılırdı (`textContent`),
+           yəni ekranda nişanın şəkli yox, `seedling`/`bolt` kimi İNGİLİS
+           SÖZÜ nəhəng hərflərlə görünürdü (brauzer render yoxlamasında
+           tapıldı). Sprite (`assets/icons.svg`) bu beş ikonu onsuz da
+           saxlayırdı - sadəcə JS ona bağlanmamışdı. */
         const icon = document.createElement('div');
         icon.className = 'state__icon';
-        icon.textContent = badge.icon;
+        icon.append(createIcon(badge.icon));
         const title = document.createElement('h4');
         title.textContent = badge.label;
         const criteria = document.createElement('p');
