@@ -27,6 +27,11 @@
       <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
     </div>
     <p class="banks-summary" id="summary" role="status"></p>
+    <!-- İş xülasəsi: müəllimin dərhal görməli olduğu iki fakt. Üç böyük
+         rəqəm kartı QƏSDƏN yoxdur; burada rəqəm yox, VƏZİYYƏT və ona
+         aparan keçid göstərilir. Data yoxdursa panel ÜMUMİYYƏTLƏ
+         göstərilmir (boş qutu məlumat vermir). -->
+    <div class="brief" id="brief" hidden></div>
     <div id="content"></div>
   </section>
 
@@ -146,6 +151,65 @@
       }
       createPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       title.focus();
+    }
+
+    /* İş xülasəsi. `GET /live/teacher-summary` bu məlumatları bir
+       sorğuda yığır; əvvəl müəllim eyni cavabı tapmaq üçün üç ayrı
+       səhifəni gəzməli olurdu. Sorğu uğursuz olsa panel sadəcə
+       GÖSTƏRİLMİR: bu, köməkçi məlumatdır, səhifəni bloklamamalıdır. */
+    const brief = document.getElementById('brief');
+
+    function briefItem(label, value, linkText, href) {
+      const item = document.createElement('div');
+      item.className = 'brief__item';
+      const name = document.createElement('span');
+      name.className = 'brief__label';
+      name.textContent = label;
+      const text = document.createElement('p');
+      text.className = 'brief__value';
+      text.textContent = value;
+      item.append(name, text);
+      if (href) {
+        const link = document.createElement('a');
+        link.className = 'brief__link';
+        link.href = href;
+        link.textContent = linkText;
+        item.append(link);
+      }
+      return item;
+    }
+
+    async function loadBrief() {
+      let data;
+      try {
+        data = await request('/live/teacher-summary');
+      } catch (error) {
+        brief.hidden = true;
+        return;
+      }
+      brief.innerHTML = '';
+
+      if (data.homework && data.homework.next_due) {
+        const due = data.homework.next_due;
+        brief.append(briefItem(
+          'Ən yaxın son tarix',
+          `${due.title}, ${due.due_date}. ${due.started} tələbə başlayıb.`,
+          'Hesabatlara bax',
+          'hesabatlar.html',
+        ));
+      }
+
+      if (data.last_session) {
+        const session = data.last_session;
+        brief.append(briefItem(
+          'Son sessiya',
+          `${session.title}, ${session.participants} iştirakçı.`,
+          'Sessiyalara bax',
+          'sessiyalar.html',
+        ));
+      }
+
+      brief.hidden = brief.childElementCount === 0;
     }
 
     const summary = document.getElementById('summary');
@@ -268,7 +332,10 @@
       container.append(grid);
     }
 
-    const reload = () => loadInto(content, () => request('/live/question-sets'), renderSets);
+    const reload = () => {
+      loadBrief();
+      return loadInto(content, () => request('/live/question-sets'), renderSets);
+    };
     reload();
     document.getElementById('refreshBtn').addEventListener('click', reload);
 

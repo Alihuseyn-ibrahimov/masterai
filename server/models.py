@@ -293,3 +293,41 @@ class AdminStatsInfo(BaseModel):
     questions_total: int
     quiz_sessions_total: int
     friendships_accepted: int
+
+
+# ---- Müəllim konsolunun xülasəsi ----
+# Bu məlumatların hamısı bazada onsuz da var idi; müəllim onları görmək
+# üçün üç ayrı səhifəni gəzməli olurdu. Endpoint yalnız bir yerə yığır.
+
+
+class QuestionSetCounts(BaseModel):
+    ready: int
+    processing: int
+    failed: int
+    total: int
+
+
+class NextDueAssignment(BaseModel):
+    assignment_id: int
+    title: str
+    due_date: str
+    started: int
+
+
+class HomeworkSummary(BaseModel):
+    active: int
+    next_due: NextDueAssignment | None
+
+
+class LastSessionSummary(BaseModel):
+    session_id: int
+    title: str
+    status: str
+    participants: int
+    created_at: str
+
+
+class TeacherSummary(BaseModel):
+    question_sets: QuestionSetCounts
+    homework: HomeworkSummary
+    last_session: LastSessionSummary | None

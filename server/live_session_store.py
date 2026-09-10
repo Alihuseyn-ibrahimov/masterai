@@ -114,6 +114,27 @@ class LiveSessionStore:
             self._conn.commit()
             return self.get(cur.lastrowid)
 
+    def latest_for_question_sets(self, question_set_ids: list[int]) -> dict | None:
+        """Verilmiş sual banklarına aid ƏN SON sessiya.
+
+        `live_sessions` və `question_sets` AYRI bazalardadır (bax
+        `question_set_store.py` modul qeydi), ona görə SQL JOIN mümkün
+        deyil — bank id-ləri çağırandan gəlir.
+        """
+        if not question_set_ids:
+            return None
+        with self._lock:
+            placeholders = ",".join("?" for _ in question_set_ids)
+            cur = self._conn.execute(
+                "SELECT id, question_set_id, pin, status, current_question_index, "
+                "created_at, started_at, duration_seconds "
+                f"FROM live_sessions WHERE question_set_id IN ({placeholders}) "
+                "ORDER BY id DESC LIMIT 1",
+                tuple(question_set_ids),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
     def get(self, session_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(

@@ -81,6 +81,11 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    HomeworkSummary,
+    LastSessionSummary,
+    NextDueAssignment,
+    QuestionSetCounts,
+    TeacherSummary,
     AdminStatsInfo,
     AuthResponse,
     BadgeInfo,
@@ -942,6 +947,62 @@ def list_question_sets(
         _question_set_info(qs, question_count=question_sets.count_questions(qs["id"]))
         for qs in question_sets.list_all()
     ]
+
+
+@app.get("/live/teacher-summary", response_model=TeacherSummary)
+def teacher_summary(
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+) -> TeacherSummary:
+    """Müəllim konsolunun bir sorğuluq xülasəsi.
+
+    Bu məlumatlar bazada onsuz da var idi, sadəcə üç ayrı səhifəyə
+    səpələnmişdi: müəllim «hansı tapşırıq son tarixə yaxınlaşır?»
+    sualının cavabını heç yerdə görə bilmirdi.
+
+    Sual banklarının sayı `GET /live/question-sets` ilə EYNİ əhatədədir
+    (hamısı) ki, konsoldakı rəqəm siyahı ilə uyğun gəlsin.
+    """
+    all_sets = question_sets.list_all()
+    counts = QuestionSetCounts(
+        ready=sum(1 for qs in all_sets if qs["status"] == "ready"),
+        processing=sum(1 for qs in all_sets if qs["status"] == "processing"),
+        failed=sum(1 for qs in all_sets if qs["status"] == "failed"),
+        total=len(all_sets),
+    )
+
+    titles = {qs["id"]: qs["title"] for qs in all_sets}
+
+    assignments = homework.list_assignments_by_teacher(user["id"])
+    next_due = None
+    if assignments:
+        # Ən yaxın son tarix: müəllimin dərhal görməli olduğu tapşırıq.
+        nearest = min(assignments, key=lambda row: row["due_date"])
+        next_due = NextDueAssignment(
+            assignment_id=nearest["id"],
+            title=titles.get(nearest["question_set_id"], "Sual bankı"),
+            due_date=nearest["due_date"],
+            started=len(homework.list_attempts_for_assignment(nearest["id"])),
+        )
+
+    session = live_sessions.latest_for_question_sets(list(titles))
+    last_session = None
+    if session is not None:
+        last_session = LastSessionSummary(
+            session_id=session["id"],
+            title=titles.get(session["question_set_id"], "Sual bankı"),
+            status=session["status"],
+            participants=live_sessions.count_participants(session["id"]),
+            created_at=session["created_at"],
+        )
+
+    return TeacherSummary(
+        question_sets=counts,
+        homework=HomeworkSummary(active=len(assignments), next_due=next_due),
+        last_session=last_session,
+    )
 
 
 @app.get("/live/question-sets/{question_set_id}/questions", response_model=list[LiveQuestionInfo])
