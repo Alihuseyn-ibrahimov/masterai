@@ -5,23 +5,28 @@
  *
  * Bölmə sayı hər rol üçün ən çox 4-dür: mobil alt panelə 5-dən çoxu
  * sığmır və hədəf 4-də saxlanılır ki, etiketlər kəsilməsin.
+ *
+ * İkon adları `assets/icons.svg` sprite-ının id-ləridir (emoji YOX,
+ * bax `icon.js` modul qeydi).
  */
+
+import { createIcon } from './icon.js';
 
 const STUDENT_DESTINATIONS = [
   // `matches` - hansı səhifələrdə bu bölmə aktiv sayılır. Detal
   // səhifəsi (məs. `chat.html`) öz bölməsini işıqlandırmalıdır, əks
   // halda istifadəçi "harda olduğunu" itirir.
-  { href: 'chatlar.html', label: 'Çatlar', icon: '💬', matches: ['chatlar.html', 'chat.html'] },
-  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', icon: '📝', matches: ['tapsiriqlar.html'] },
-  { href: 'tarixce.html', label: 'Tarixçə', icon: '📊', matches: ['tarixce.html', 'nailiyyetler.html'] },
-  { href: 'profil.html', label: 'Profil', icon: '👤', matches: ['profil.html'] },
+  { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
+  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', icon: 'notes', matches: ['tapsiriqlar.html'] },
+  { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
+  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
 ];
 
 const TEACHER_DESTINATIONS = [
-  { href: 'muellim.html', label: 'Sual bankları', icon: '📚', matches: ['muellim.html'] },
-  { href: 'sessiyalar.html', label: 'Sessiyalar', icon: '🎯', matches: ['sessiyalar.html'] },
-  { href: 'hesabatlar.html', label: 'Hesabatlar', icon: '📈', matches: ['hesabatlar.html'] },
-  { href: 'profil.html', label: 'Profil', icon: '👤', matches: ['profil.html'] },
+  { href: 'muellim.html', label: 'Sual bankları', icon: 'books', matches: ['muellim.html'] },
+  { href: 'sessiyalar.html', label: 'Sessiyalar', icon: 'target', matches: ['sessiyalar.html'] },
+  { href: 'hesabatlar.html', label: 'Hesabatlar', icon: 'report', matches: ['hesabatlar.html'] },
+  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
 ];
 
 export function destinationsFor(user) {
@@ -51,11 +56,7 @@ function link(destination, active, className, withIcon) {
   node.href = destination.href;
   if (active) node.setAttribute('aria-current', 'page');
   if (withIcon) {
-    const icon = document.createElement('span');
-    icon.className = 'bottom-nav__icon';
-    icon.textContent = destination.icon;
-    icon.setAttribute('aria-hidden', 'true');
-    node.append(icon);
+    node.append(createIcon(destination.icon, 'bottom-nav__icon'));
   }
   const label = document.createElement('span');
   label.textContent = destination.label;

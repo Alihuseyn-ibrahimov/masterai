@@ -160,7 +160,10 @@ export async function request(path, options = {}) {
     // tərəfində geniş `catch (_)` bunu digər xətalarla qarışdırırdı və
     // əsl səbəb (məs. CORS) gizlənirdi (bax masterai/CLAUDE.md,
     // "Dərs: veb host konsolunda CORS unudulmuşdu").
-    throw new ApiError('Bağlantı xətası - internet bağlantınızı yoxlayın.', 0);
+    // Xəta mətni istifadəçini GÜNAHLANDIRMIR: bu nöqtədə səbəbin
+    // istifadəçinin internetində, yoxsa bizim serverimizdə olduğunu
+    // bilmirik. «İnternetinizi yoxlayın» yanlış ünvan göstərə bilər.
+    throw new ApiError('Serverə çıxmaq alınmadı. Bir azdan yenidən cəhd edin.', 0);
   }
 
   if (response.status === 204) return null;

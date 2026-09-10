@@ -2,6 +2,7 @@
  * Faza 4-də tam naviqasiya çərçivəsi bunun üzərinə gələcək. */
 
 import { ApiError, clearSession, getUser, isLoggedIn } from './api.js';
+import { createIcon } from './icon.js';
 import { renderNavigation } from './nav.js';
 
 /** Tokensiz istifadəçini giriş səhifəsinə göndərir. `replace` işlədilir
@@ -55,8 +56,13 @@ export async function loadInto(container, loader, render) {
     container.innerHTML = '';
     const state = document.createElement('div');
     state.className = 'state';
-    state.innerHTML = '<div class="state__icon">⚠️</div>'
-      + '<div class="state__title">Yüklənmədi</div>';
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'state__icon';
+    iconWrap.append(createIcon('alert'));
+    const title = document.createElement('div');
+    title.className = 'state__title';
+    title.textContent = 'Yüklənmədi';
+    state.append(iconWrap, title);
     const text = document.createElement('div');
     text.className = 'state__text';
     text.textContent = error.message;

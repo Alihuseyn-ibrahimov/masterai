@@ -160,7 +160,7 @@ describe('request', () => {
     try {
       await assert.rejects(
         () => request('/health', { auth: false }),
-        (err) => err instanceof ApiError && err.status === 0 && /Bağlantı xətası/.test(err.message),
+        (err) => err instanceof ApiError && err.status === 0 && /Serverə çıxmaq alınmadı/.test(err.message),
       );
     } finally {
       globalThis.fetch = originalFetch;

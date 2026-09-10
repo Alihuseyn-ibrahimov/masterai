@@ -327,13 +327,18 @@ class TestTypographicDiscipline:
         ]
         assert not offenders, f"{path.name}: em/en-dash tapıldı: {offenders[:3]}"
 
-    @pytest.mark.parametrize("path", PAGES, ids=lambda p: p.name)
+    @pytest.mark.parametrize("path", SCRIPTED_SOURCES, ids=lambda p: p.name)
     def test_no_emoji_used_as_icon(self, path: Path):
         """Emoji ikon kimi işlədilmir.
 
         Hər platformada fərqli görünür, rəngi `currentColor` ilə idarə
         olunmur və ekran oxuyucusu onu mətn kimi oxuyur. Əvəzinə
         `assets/icons.svg` sprite-ı (Tabler Icons, MIT) işlədilir.
+
+        DİQQƏT: bu test əvvəl YALNIZ HTML-ə baxırdı və JS faylları
+        kənarda qalırdı. Nəticədə tətbiqin bütün naviqasiyası, nişanları
+        və xəta ekranları emoji ilə qalmışdı — brauzerdə baxanda
+        göründü. İndi HTML və JS birlikdə yoxlanılır.
         """
         import unicodedata
 

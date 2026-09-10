@@ -26,11 +26,11 @@ describe('describeBadge', () => {
     assert.equal(badge.earnedAt, '2026-09-01');
   });
 
-  test('naməlum nişanda ekran boş qalmır', () => {
+  test('naməlum nişanda ekran boş qalmır (sprite ikonu qaytarılır)', () => {
     // Backend yeni nişan əlavə edərsə köhnə frontend sınmamalıdır.
     const badge = describeBadge({ badge_type: 'yeni_nisan', earned: false });
     assert.equal(badge.label, 'yeni_nisan');
-    assert.equal(badge.icon, '🏅');
+    assert.equal(badge.icon, 'award');
   });
 
   test('etibarsız sətir sındırmır', () => {

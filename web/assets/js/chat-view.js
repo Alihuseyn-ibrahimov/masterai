@@ -7,6 +7,19 @@
  * yalnız `textContent`. Çat məzmununu başqa istifadəçilər yazır.
  */
 
+import { createIcon } from './icon.js';
+
+
+/** Boş/xəta ekranlarının ikonu. Emoji QƏSDƏN işlədilmir;
+ *  bax `icon.js` modul qeydi. */
+function stateIcon(name) {
+  const wrap = document.createElement('div');
+  wrap.className = 'state__icon';
+  wrap.append(createIcon(name));
+  return wrap;
+}
+
+
 /** `GET /chats/{id}/members` cavabından id→ad xəritəsi. */
 export function buildNameLookup(members) {
   const lookup = new Map();
@@ -161,7 +174,7 @@ export function renderItems(container, items, context) {
   if (!items.length) {
     const state = element('div', 'state');
     state.append(
-      element('div', 'state__icon', '💬'),
+      stateIcon('message'),
       element('div', 'state__title', 'Hələ mesaj yoxdur'),
       element('div', 'state__text', 'İlk mesajı siz yazın və ya müəllimin quiz başlatmasını gözləyin.'),
     );
