@@ -152,6 +152,36 @@ def main(argv: list[str]) -> int:
 
     print()
     print("=" * 68)
+    print("HƏRF ARALIĞININ SƏBƏBİ: BİZİM KODUMUZ?")
+    print("=" * 68)
+    print("Fərziyyə: `get_text(\" \")` hər DAXİLİ TEQİN arasına boşluq qoyur.")
+    print("e-qanun PDF-dən çevrilmiş HTML-dir və hər xüsusi hərf ayrıca")
+    print("teqdədirsə, boşluq məhz oradan gəlir — yəni səhv bizdədir.")
+    print("Aşağıda eyni səhifə iki ayırıcı ilə müqayisə olunur.")
+    print()
+    soup = BeautifulSoup(html, "html.parser")
+    web_extractor._remove_strikethrough(soup)
+    for tag in soup(["script", "style", "nav", "footer", "header", "button", "aside", "form"]):
+        tag.decompose()
+    root = soup.find("main") or soup.find("article") or soup
+    blocks = [b for b in root.find_all(web_extractor._CONTENT_TAGS) if b.get_text(strip=True)]
+    with_space = "\n".join(b.get_text(" ", strip=True) for b in blocks)
+    without_space = "\n".join(b.get_text("", strip=True) for b in blocks)
+    for label, variant in (("get_text(\" \") — indiki", with_space),
+                           ("get_text(\"\")  — sınaq", without_space)):
+        hits = len(_BROKEN_SPACING_RE.findall(variant))
+        words = len(variant.split())
+        share = hits / words * 100 if words else 0
+        print(f"  {label:<26} ayrılmış hərf: {hits:>6}   söz: {words:>6}   ({share:.1f}%)")
+    print()
+    for variant, label in ((with_space, "indiki"), (without_space, "sınaq")):
+        for line in variant.splitlines():
+            if "Konstitusiyas" in line:
+                print(f"  {label:>6}: {line[:110]}")
+                break
+
+    print()
+    print("=" * 68)
     print("SİLİNMƏYƏN, AMMA DÜZƏLİŞ NÖMRƏSİ OLAN HİSSƏLƏR (ilk 5)")
     print("=" * 68)
     print("Bunlar ya əsl hüquqi mətndir (düzgün saxlanılıb), ya da")

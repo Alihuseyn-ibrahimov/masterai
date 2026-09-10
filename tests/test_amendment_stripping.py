@@ -255,7 +255,10 @@ class TestHistoryEntriesWithContinuationLines:
         result = _strip_amendment_history(body + "\n" + self._history(5))
         assert body in result
         assert "IIQD" not in result
-        assert "Qanunvericilik Toplusu" not in result, "davam sətirləri də getməlidir"
+        # Sonuncu istinaddan sonrakı BİR davam sətri qala bilər — qəsdən
+        # seçilmiş güzəşt (bax `_strip_amendment_history` şərhi).
+        leftovers = [ln for ln in result.splitlines() if "Qanunvericilik Toplusu" in ln]
+        assert len(leftovers) <= 1, f"həddindən çox qalıq: {leftovers}"
 
     def test_two_entries_are_still_not_enough(self):
         from pipeline.ingestion.web_extractor import _strip_amendment_history
@@ -281,10 +284,66 @@ class TestHistoryEntriesWithContinuationLines:
                 f"Maddə {i} silinib — aradakı mətn itirilir"
             )
 
-    def test_the_block_is_removed_whole_including_its_tail(self):
+    def test_every_amendment_reference_in_the_block_is_removed(self):
+        """Sonuncu istinaddan sonrakı davam sətri QALA BİLƏR — bu,
+        qəsdən seçilmiş güzəştdir: quyruğu tutmaq üçün əlavə sətir
+        silmək blokdan sonrakı əsl maddələri yeyirdi."""
         from pipeline.ingestion.web_extractor import _strip_amendment_history
 
         body = "Maddə 20. Hökm."
-        text = body + "\n" + self._history(4)
+        result = _strip_amendment_history(body + "\n" + self._history(4))
+        assert body in result
+        assert "IIQD" not in result
+
+
+class TestWrappedHistoryEntries:
+    """DÖRDÜNCÜ ÖLÇÜ. Blok qismən silindi (561 → 484), amma 470 istinad
+    qaldı. Səbəb sətirlərin necə sarındığındadır:
+
+        33. 13 iyun 2008-ci il tarixli 649 -IIIQD nömrəli
+        il tarixli 510-IIIQD nömrəli Azərbaycan Respublikası     ← nömrəsiz
+        il tarixli 648-IIIQD nömrəli Azərbaycan Respublikasının  ← nömrəsiz
+
+    Yəni yazının nömrəsi həmişə sətrin əvvəlində olmur. «Nömrə ilə
+    başlayan sətir» tələbi ona görə yazıların çoxunu buraxır.
+
+    Həll: istinadı olan HƏR sətir namizəddir, amma bu halda hədd
+    yüksəkdir. Ardıcıl 8 sətrin hər birində ayrı qanun düzəlişi nömrəsi
+    olması hüquqi mətndə baş vermir — bu, yalnız redaksiya jurnalıdır.
+    """
+
+    def _wrapped_block(self, count: int) -> str:
+        lines = []
+        for i in range(1, count + 1):
+            lines.append(f"{i}. {i} iyun 2008-ci il tarixli {600 + i}-IIIQD nömrəli")
+            lines.append(f"il tarixli {700 + i}-IIIQD nömrəli Azərbaycan Respublikasının")
+        return "\n".join(lines)
+
+    def test_a_large_wrapped_block_is_removed(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        body = "Maddə 20. Sahibkarlıq fəaliyyəti qadağandır."
+        result = _strip_amendment_history(body + "\n" + self._wrapped_block(6))
+        assert body in result
+        assert "IIIQD" not in result
+
+    def test_a_handful_of_scattered_references_is_kept(self):
+        """Hədd yüksək olduğu üçün az sayda istinad toxunulmaz qalır."""
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = (
+            "Maddə 1. Bu 74-IIQD nömrəli Qanunla tənzimlənir.\n"
+            "Maddə 2. Adi hüquqi mətn.\n"
+            "Maddə 3. Burada da 359-IIQD nömrəli Qanuna istinad var.\n"
+            "Maddə 4. Yenə adi mətn.\n"
+        )
+        assert _strip_amendment_history(text) == text
+
+    def test_law_articles_between_references_survive(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        articles = "\n".join(f"Maddə {i}. Vacib hüquqi müddəa {i}." for i in range(1, 30))
+        text = self._wrapped_block(6) + "\n" + articles
         result = _strip_amendment_history(text)
-        assert result.strip() == body
+        for i in range(1, 30):
+            assert f"Maddə {i}. Vacib hüquqi müddəa {i}." in result

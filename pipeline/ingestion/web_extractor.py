@@ -324,17 +324,29 @@ _HISTORY_MIN_ENTRIES = 3
 # əvvəlində və sonunda tək-tək istinadlar varsa, aralarındakı BÜTÜN
 # qanun mətni silinərdi — ən təhlükəli hal, ayrıca testlə qorunur.
 _HISTORY_MAX_GAP = 4
+# Nömrəsiz (sarınmış) yazılar üçün hədd: ardıcıl bu qədər sətrin hər
+# birində ayrı düzəliş nömrəsi olması yalnız redaksiya jurnalında olur.
+_HISTORY_MIN_BULK = 8
 
 
 def _strip_amendment_history(text: str) -> str:
     lines = text.splitlines()
-    entries = [index for index, line in enumerate(lines) if _HISTORY_LINE_RE.match(line)]
-    if len(entries) < _HISTORY_MIN_ENTRIES:
+    # İki növ namizəd:
+    #   güclü — sətir nömrə ilə başlayır VƏ düzəliş nömrəsi var
+    #   zəif  — sətirdə sadəcə düzəliş nömrəsi var
+    # Real səhifədə yazılar sarındığı üçün nömrə həmişə sətrin əvvəlində
+    # olmur («il tarixli 510-IIIQD nömrəli...»), ona görə zəif namizədlər
+    # də sayılır — amma onlar üçün hədd xeyli yüksəkdir.
+    strong = [i for i, line in enumerate(lines) if _HISTORY_LINE_RE.match(line)]
+    weak = [i for i, line in enumerate(lines) if AMENDMENT_NUMBER_RE.search(line)]
+    if len(weak) < _HISTORY_MIN_ENTRIES:
         return text
 
-    # Yaxın yazıları klasterlərə yığ.
-    clusters: list[list[int]] = [[entries[0]]]
-    for index in entries[1:]:
+    strong_set = set(strong)
+
+    # Yaxın sətirləri klasterlərə yığ.
+    clusters: list[list[int]] = [[weak[0]]]
+    for index in weak[1:]:
         if index - clusters[-1][-1] <= _HISTORY_MAX_GAP:
             clusters[-1].append(index)
         else:
@@ -343,11 +355,18 @@ def _strip_amendment_history(text: str) -> str:
     keep = [True] * len(lines)
     removed_any = False
     for cluster in clusters:
-        if len(cluster) < _HISTORY_MIN_ENTRIES:
+        strong_count = sum(1 for index in cluster if index in strong_set)
+        # Nömrələnmiş yazı azdırsa, blok yalnız BÖYÜK olduqda silinir:
+        # ardıcıl 8 sətrin hər birində ayrı düzəliş nömrəsi hüquqi
+        # mətndə baş vermir.
+        if strong_count < _HISTORY_MIN_ENTRIES and len(cluster) < _HISTORY_MIN_BULK:
             continue
         start = cluster[0]
-        # Son yazının davam sətirləri də blokun hissəsidir.
-        end = min(cluster[-1] + _HISTORY_MAX_GAP, len(lines) - 1)
+        # Sonuncu istinaddan SONRA heç nə silinmir. Əvvəl blokun quyruğunu
+        # tutmaq üçün bir neçə sətir əlavə silinirdi və test göstərdi ki,
+        # bu, blokdan sonra gələn ƏSL MADDƏLƏRİ yeyir. Bir davam sətri
+        # qalması bir maddəni itirməkdən qat-qat yaxşıdır.
+        end = cluster[-1]
         for position in range(start, end + 1):
             keep[position] = False
         removed_any = True
@@ -366,7 +385,15 @@ def _clean_legal_text(text: str) -> str:
     ora düşmədi — nəticədə ölçü «heç nə silinmir» dedi, halbuki qayda
     işləyirdi. İki yerdə saxlanılan zəncir mütləq ayrılır.
     """
-    return _strip_amendment_annotations(_strip_amendment_history(text))
+    # SIRA VACİBDİR. Əvvəl mötərizəli qeydlər təmizlənir, SONRA tarixçə
+    # bloku axtarılır.
+    #
+    # Əks sırada test göstərdi ki, hüquqi mətn tamamilə silinir: içində
+    # mötərizəli düzəliş qeydi olan maddə sətri («Maddə 1. Hökm.
+    # (504-IIIQD nömrəli Qanunla əlavə edilmişdir)») istinad daşıdığı
+    # üçün blokun namizədi sayılır və bloka qoşulub gedirdi.
+    # Qeyd əvvəlcədən silinsə, sətir adi mətnə çevrilir və toxunulmur.
+    return _strip_amendment_history(_strip_amendment_annotations(text))
 
 
 def _extract_text(html: str) -> str:
