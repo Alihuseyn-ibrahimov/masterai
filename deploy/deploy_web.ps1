@@ -122,4 +122,17 @@ Write-Host "  Sayt: $site   API: $api"
 if ($site -ne "200") { Fail "Sayt $site qaytardi (200 gozlenilirdi)" }
 if ($api  -ne "200") { Fail "API $api qaytardi (200 gozlenilirdi)" }
 
+# SRIFT YOXLAMASI. Sriftler artiq oz serverimizdedir; bu yol nginx-de
+# hec vaxt sinanmayib. Fayl gelmese ve ya MIME sehv olsa, sayt SINMIR —
+# sadece Azerbaycan herfleri fallback sriftle cixir. Yeni gozle
+# baxanda "islediyi" gorunur. Ona gore MENBEDEN yoxlanilir.
+$FONT_URL = "https://masterai.prdostu.com/assets/fonts/source-serif-4-latin-ext.woff2"
+$fontCode = ssh -i $KEY $SERVER "curl -s -o /dev/null -w '%{http_code}' $FONT_URL"
+$fontType = ssh -i $KEY $SERVER "curl -s -o /dev/null -w '%{content_type}' $FONT_URL"
+Write-Host "  Srift: $fontCode ($fontType)"
+if ($fontCode -ne "200") { Fail "Srift fayli $fontCode qaytardi - basliqlar fallback sriftle cixacaq" }
+if ($fontType -notmatch "font|woff") {
+    Fail "Srift MIME tipi sehvdir: '$fontType' (font/woff2 gozlenilirdi). nginx mime.types yoxlanmalidir."
+}
+
 Write-Host "Deploy tamamlandi." -ForegroundColor Green
