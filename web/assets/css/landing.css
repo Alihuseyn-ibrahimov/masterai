@@ -1,6 +1,27 @@
 /* Açılış səhifəsi — yalnız `index.html` və hüquqi səhifələr üçün.
  * Tətbiq səhifələri bu faylı yükləmir (lazımsız yük olmasın).
- * Yalnız `tokens.css` dəyişənlərindən istifadə edir. */
+ * Yalnız `tokens.css` dəyişənlərindən istifadə edir.
+ *
+ * ---- Dizayn qərarı: mövzunun öz dili ----
+ * MasterAI-ın işlədiyi material sənəddir: qanun maddələri, nömrələnmiş
+ * bəndlər, dərslik parçaları. Ona görə səhifənin vizual dili SƏNƏD
+ * dilidir — kənar nömrə, nazik cədvəl xətti, işarələnmiş bənd — hazır
+ * "SaaS kart dəsti" deyil (eyni radiuslu ağ kartlar + eyni boz kölgə,
+ * hər mövzuda təkrarlanan naxış).
+ *
+ * ---- Forma intizamı (bir qayda, hər yerdə) ----
+ *   qarşılıqlı elementlər (düymə, variant, sahə) → --radius-md
+ *   qablar (kart, panel)                          → --radius-lg
+ *   nişanlar                                      → --radius-full
+ *   siyahı ayırıcıları                            → radius YOX, nazik xətt
+ *
+ * ---- Cəsarət bir yerdə xərclənir ----
+ * Səhifədə yadda qalan tək element hero-dakı `.trace` obyektidir:
+ * material yuxarıda, ondan hazırlanmış sual aşağıda. Qalan hər şey
+ * qəsdən sakitdir. Bölmə-bölmə açılan animasiya SİLİNDİ — hər bölməyə
+ * eyni "aşağıdan sürüşərək görün" effekti generasiya olunmuş səhifənin
+ * ən tanınan əlamətidir. Bir orkestrləşdirilmiş an qalır: hero-nun
+ * yüklənməsi. */
 
 .landing-bar {
   position: sticky;
@@ -16,75 +37,232 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-/* ---- Hero: asimmetrik bölünmə ----
- * Mərkəzləşmiş hero qəsdən tərk edildi: məhsul səhifəsində mərkəz
- * bütün elementləri eyni çəkidə göstərir və oxu ardıcıllığı itir.
- * Sol sütun mətn, sağ sütun məhsulun ÖZ komponentlərindən qurulmuş
- * nümunə sual kartıdır (uydurma ekran şəkli deyil). */
-.hero-split {
+/* ---- Hero ----
+ * Mərkəzləşmiş hero qəsdən tərk edilib: mərkəz bütün elementləri eyni
+ * çəkidə göstərir və oxu ardıcıllığı itir. Sağ sütun daha genişdir,
+ * çünki səhifənin əsas arqumenti oradadır — mətn deyil, məhsulun
+ * nəticəsi. */
+.hero {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
   gap: var(--space-16);
   align-items: center;
   padding-block: var(--space-16) var(--space-12);
 }
-.hero-split__title {
+.hero__title {
   font-size: var(--text-4xl);
   font-weight: var(--weight-black);
-  line-height: var(--leading-tight);
-  text-wrap: pretty;
+  line-height: 1.05;
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
 }
-.hero-split__lead {
+.hero__lead {
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
   color: var(--color-text-muted);
-  max-width: var(--width-prose);
+  max-width: 34ch;
   text-wrap: pretty;
 }
-.hero-split__preview { box-shadow: var(--shadow-overlay); }
-.hero-split__question {
+
+/* ---- `.trace`: material → sual ----
+ * Səhifənin yeganə "böyük" elementi. UYDURMA ekran şəkli DEYİL:
+ * yuxarıda real qanun mətni parçası, aşağıda saytın öz `.option`
+ * komponentlərindən qurulmuş sual.
+ *
+ * DİQQƏT — dürüstlük: sistem sualı mənbə BƏNDİNƏ struktur olaraq
+ * bağlamır (generation.py belə bir sahə tələb etmir). Ona görə
+ * birləşdirici etiket "bu materialdan" deyir, "20.1-ci maddəyə
+ * istinadən" DEMİR. Səhifə məhsulun etmədiyi işi vəd etmir. */
+.trace {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.trace__source {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+/* Kənar nömrə — qanun sənədinin öz naxışı. Dekorasiya deyil:
+ * mətnin hansı maddədən olduğunu göstərir. */
+.trace__article {
+  grid-row: span 2;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  font-variant-numeric: tabular-nums;
+  /* `--color-text-faint` ölçüldü: tünd rejimdə kontrast 4.1, WCAG AA
+     üçün 4.5 lazımdır. `--color-text-muted` istifadə olunur. */
+  color: var(--color-text-muted);
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--color-border-strong);
+}
+.trace__text {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  text-wrap: pretty;
+}
+.trace__text mark {
+  background: var(--color-mark-soft);
+  color: var(--color-mark);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+.trace__origin {
+  font-size: var(--text-xs);
+  /* 12px mətn üçün AA həddi 4.5-dir; `--color-text-faint` 4.1 verirdi. */
+  color: var(--color-text-muted);
+}
+
+/* Birləşdirici: nazik şaquli xətt + etiket. Yüklənəndə bir dəfə
+ * uzanır — səhifədəki yeganə öz-özünə başlayan hərəkət. */
+.trace__link {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  column-gap: var(--space-3);
+  padding-left: var(--space-8);
+  height: var(--space-12);
+}
+.trace__line {
+  justify-self: center;
+  width: 2px;
+  height: 100%;
+  background: var(--color-border-strong);
+  transform-origin: top;
+}
+.trace__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.trace__question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+.trace__prompt {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   text-wrap: pretty;
 }
 
-/* ---- Addımlar: şaquli, nömrələnmiş ----
- * Kart şəbəkəsindən QƏSDƏN fərqli layout ailəsi. Ardıcıl bölmələrin
- * eyni formada olması səhifəni bir bölmənin beş dəfə təkrarına
- * çevirir. */
+/* Hero yüklənmə ardıcıllığı — səhifədə BİR dəfə, bir yerdə.
+ * Gizlətmə `.js-hero` sinfi ilə şərtlənir və həmin sinfi skriptin ÖZÜ
+ * əlavə edir: JS işləməsə hero sadəcə görünür qalır. */
+.js-hero [data-enter] {
+  opacity: 0;
+  transform: translateY(var(--space-3));
+  animation: hero-enter var(--motion-base) var(--easing) forwards;
+  animation-delay: calc(var(--enter-order, 0) * var(--motion-fast));
+}
+.js-hero .trace__line {
+  transform: scaleY(0);
+  animation: trace-draw var(--motion-base) var(--easing) forwards;
+  animation-delay: calc(4 * var(--motion-fast));
+}
+@keyframes hero-enter { to { opacity: 1; transform: none; } }
+@keyframes trace-draw { to { transform: scaleY(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .js-hero [data-enter],
+  .js-hero .trace__line { animation: none; opacity: 1; transform: none; }
+}
+
+/* ---- İddialar: xətli siyahı, KART YOX ----
+ * Məzmun dörd iddiadır, dörd ayrıca obyekt deyil. Eyni radiuslu dörd
+ * ağ kart onları süni şəkildə bir-birindən ayırır və səhifəni hazır
+ * şablona bənzədir. Ayırıcı nazik xəttdir. */
+.claims {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-16);
+  border-top: 1px solid var(--color-border);
+}
+.claim {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  padding-block: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+.claim .icon {
+  grid-row: span 2;
+  color: var(--color-text-faint);
+  margin-top: var(--space-1);
+}
+.claim h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.claim p { color: var(--color-text-muted); text-wrap: pretty; }
+
+/* ---- Addımlar: kənar nömrə ----
+ * Nömrələmə burada haqlıdır — məzmun HƏQİQƏTƏN ardıcıllıqdır.
+ * Rəngli dairə əvəzinə sənəd üslubunda kənar nömrə: eyni məlumatı
+ * verir, mövzunun dilinə uyğundur. */
 .steps {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  counter-reset: step;
+  gap: var(--space-8);
   border-left: 1px solid var(--color-border);
   padding-left: var(--space-8);
 }
 .step {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  position: relative;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-6);
 }
-
 .step__number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-full);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  grid-row: span 2;
   font-family: var(--font-heading);
+  font-size: var(--text-2xl);
   font-weight: var(--weight-black);
+  font-variant-numeric: tabular-nums;
+  /* Ölçüldü: `--color-text-faint` işıqlı rejimdə 2.96 verir, iri mətn
+     üçün AA həddi 3.0-dır — bir tük aşağı. Ona görə `muted`. */
+  color: var(--color-text-muted);
+  line-height: 1.1;
 }
+.step h3 { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.step p  { color: var(--color-text-muted); max-width: var(--width-prose); }
 
+/* ---- Auditoriya: asimmetrik ----
+ * Bərabər iki sütun "hər ikisi eyni dərəcədə vacibdir" deyir. Halbuki
+ * sinfi gətirən müəllimdir — onun bloku genişdir. */
+.audience {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--space-16);
+}
+.audience h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.audience p { color: var(--color-text-muted); text-wrap: pretty; }
+
+/* ---- Tez-tez verilən suallar ---- */
 .faq {
   border-bottom: 1px solid var(--color-border);
   padding: var(--space-4) 0;
 }
+.faq:first-of-type { border-top: 1px solid var(--color-border); }
 .faq summary {
   cursor: pointer;
   font-weight: var(--weight-semibold);
@@ -100,6 +278,26 @@
 .faq p {
   padding-top: var(--space-3);
   color: var(--color-text-muted);
+  max-width: var(--width-prose);
+}
+
+/* ---- Bağlanış ----
+ * Səhifədə mərkəzləşən YEGANƏ bölmə. Qalan hər şey sola dayandığı üçün
+ * bu mərkəz defolt deyil, ziddiyyətdir — və ona görə işləyir. */
+.closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding-block: var(--space-16);
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+}
+.closing h2 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
 }
 
 .landing-footer {
@@ -117,72 +315,41 @@
   .landing-bar__extra { display: none; }
   .landing-bar { padding: 0 var(--space-3); }
 
-  .hero { padding: var(--space-8) 0 var(--space-6); }
-  .hero__title { font-size: var(--text-2xl); }
-  .hero__lead { font-size: var(--text-base); }
-}
-
-/* ---- Auditoriya: iki sütun, kartsız ----
- * Ayırıcı kart deyil, boşluq və nazik xətt. */
-.audience {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-12);
-}
-
-/* ---- Bağlanış ---- */
-.closing {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-6);
-  padding-block: var(--space-16);
-  text-align: center;
-}
-.closing h2 {
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-black);
-  text-wrap: pretty;
-}
-
-/* ---- Görünəndə açılma ----
- * `transform` və `opacity` — yalnız bu ikisi kompozitorda işlənir,
- * `top`/`height` kimi xüsusiyyətlər hər kadrda yenidən layout tələb
- * edir. */
-/* KRİTİK: gizlətmə `.js-reveal` sinfi ilə şərtlənir və həmin sinfi
- * skriptin ÖZÜ əlavə edir. JS işləməsə (xəta, köhnə brauzer, skript
- * bloklayıcı, mətn rejimi) bölmələr sadəcə görünür qalır.
- *
- * Real render testində tapıldı: əvvəl `opacity: 0` birbaşa CSS-də
- * idi və səhifənin yarısı BOŞ görünürdü. Məzmunun görünməsi heç vaxt
- * JavaScript-dən asılı olmamalıdır. */
-.js-reveal [data-reveal] {
-  opacity: 0;
-  transform: translateY(var(--space-4));
-  transition: opacity var(--motion-base) var(--easing),
-              transform var(--motion-base) var(--easing);
-}
-.js-reveal [data-reveal].is-visible {
-  opacity: 1;
-  transform: none;
-}
-
-/* Hərəkəti azaldılmış rejimdə açılma ANİ olur, məzmun heç vaxt
- * gizli qalmır. */
-@media (prefers-reduced-motion: reduce) {
-  .js-reveal [data-reveal] { opacity: 1; transform: none; transition: none; }
-}
-
-@media (max-width: 768px) {
-  .hero-split {
+  .hero {
     grid-template-columns: 1fr;
     gap: var(--space-8);
     padding-block: var(--space-8) var(--space-6);
   }
-  .hero-split__title { font-size: var(--text-2xl); }
-  .hero-split__lead { font-size: var(--text-base); }
+  .hero__title { font-size: var(--text-3xl); }
+  .hero__lead  { font-size: var(--text-base); max-width: none; }
+
+  .trace__source { padding: var(--space-4); gap: var(--space-2) var(--space-3); }
+  .trace__question { padding: var(--space-4); }
+  .trace__prompt { font-size: var(--text-lg); }
+  .trace__link { padding-left: var(--space-8); height: var(--space-8); }
+
+  .claims   { grid-template-columns: 1fr; column-gap: 0; }
   .audience { grid-template-columns: 1fr; gap: var(--space-8); }
-  .steps { padding-left: var(--space-4); }
-  .closing { padding-block: var(--space-8); }
+  .steps    { padding-left: var(--space-4); gap: var(--space-6); }
+  .step     { column-gap: var(--space-4); }
+  .closing  { padding-block: var(--space-8); }
   .closing h2 { font-size: var(--text-2xl); }
+}
+
+@media (max-width: 480px) {
+  /* Real render + ölçmə ilə tapıldı: 390px və 360px-də brend + iki düymə
+     bir sətrə sığmır, `nav` sarılır və hündürlüyü 82px olur (zolaq isə
+     56px) — düymələr brendin ÜSTÜNƏ çıxır. 430px-də sığır (navH=35).
+     Həlli: "Daxil ol" düymə çərçivəsini itirir və mətn keçidinə çevrilir;
+     eyni keçid, daha az yer. */
+  .landing-bar nav { flex-wrap: nowrap; }
+  .landing-bar .btn--secondary {
+    background: none;
+    border-color: transparent;
+    padding-inline: var(--space-2);
+  }
+  /* 360px-də düymə mətninin ÖZÜ iki sətrə bölünürdü (ölçüldü: navH=52).
+     Sarılmayan etiket + kiçildilmiş brend yer açır. */
+  .landing-bar .btn { white-space: nowrap; }
+  .landing-bar .brand { font-size: var(--text-base); }
 }

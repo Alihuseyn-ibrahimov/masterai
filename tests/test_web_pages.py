@@ -391,12 +391,12 @@ class TestLandingLayoutVariety:
     def test_landing_uses_at_least_four_layout_families(self):
         html = (WEB / "index.html").read_text(encoding="utf-8")
         families = {
-            "hero-split": "hero-split" in html,
-            "kart şəbəkəsi": 'class="grid"' in html,
-            "addımlar": 'class="steps"' in html,
-            "iki sütun": 'class="audience"' in html,
+            "hero + trace": 'class="trace"' in html,
+            "xətli iddia siyahısı": 'class="claims"' in html,
+            "kənar nömrəli addımlar": 'class="steps"' in html,
+            "asimmetrik iki sütun": 'class="audience"' in html,
             "açılan siyahı": "<details" in html,
-            "bağlanış": 'class="closing' in html,
+            "mərkəzləşmiş bağlanış": 'class="closing' in html,
         }
         present = [name for name, ok in families.items() if ok]
         assert len(present) >= 4, f"yalnız {len(present)} layout ailəsi: {present}"

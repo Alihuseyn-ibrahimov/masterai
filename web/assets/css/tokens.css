@@ -20,11 +20,11 @@
   /* ---- Səth və mətn ----
    * Quizlet/Brilliant tərzi: ağ kartlar açıq boz fonda, ayırıcı KÖLGƏ
    * yox, incə KƏNAR XƏTTİdir. Kölgə yalnız üzən elementlərdə. */
-  --color-bg:                 #F7F8FA;
+  --color-bg:                 #FAFAF8;
   --color-surface:            #FFFFFF;
-  --color-surface-alt:        #F1F3F7;
-  --color-border:             #E3E7EE;
-  --color-border-strong:      #C9D0DC;
+  --color-surface-alt:        #F2F1EB;
+  --color-border:             #E5E4DE;
+  --color-border-strong:      #C7C5BC;
   --color-text:               #12151C;
   --color-text-muted:         #5B6472;
   --color-text-faint:         #8A93A3;
@@ -39,6 +39,11 @@
   --color-danger-soft:        #FCE4E2;
   --color-info:               #1F5FA8;
   --color-info-soft:          #E3EFFB;
+
+  /* Qanun mətnində işarələnən hökm bəndi. Xəbərdarlıq rəngindən
+   * AYRIDIR: burada heç bir problem yoxdur, sadəcə mənbə göstərilir. */
+  --color-mark:               #7A5D00;
+  --color-mark-soft:          #FBF0C4;
 
   /* ---- Fənn aksentləri (app_subject_colors.dart ilə eyni) ----
    * YALNIZ məzmunu işarələmək üçün: fənn nişanı, tərəqqi zolağı, kart
@@ -87,6 +92,10 @@
   --text-2xl:  28px;
   --text-3xl:  36px;
   --text-4xl:  46px;
+  --text-5xl:  58px;
+
+  --tracking-tight: -.02em;
+  --tracking-wide:  .01em;
 
   --leading-tight:  1.2;
   --leading-normal: 1.55;
@@ -141,6 +150,8 @@
     --color-danger-soft:  #371614;
     --color-info:         #9BC4F2;
     --color-info-soft:    #12253C;
+    --color-mark:         #E8CC7A;
+    --color-mark-soft:    #322806;
 
     --subject-mentiq:          #B39DFF;
     --subject-informatika:     #64D8CB;
@@ -177,6 +188,8 @@
   --color-danger-soft:  #371614;
   --color-info:         #9BC4F2;
   --color-info-soft:    #12253C;
+  --color-mark:         #E8CC7A;
+  --color-mark-soft:    #322806;
 
   --subject-mentiq:          #B39DFF;
   --subject-informatika:     #64D8CB;
