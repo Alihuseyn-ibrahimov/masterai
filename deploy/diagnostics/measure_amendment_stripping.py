@@ -33,6 +33,8 @@ from pipeline.ingestion import web_extractor
 
 # Tək qalmış Azərbaycan hərfi: «v ə zif ə tutan» naxışı. Bu ölçüdə
 # aşkarlandı — mətndə hərflər sözdən ayrılıb.
+# «Maddə 20.» / «Maddə 20-1.» naxışı — hüquqi mətnin skeleti.
+_ARTICLE_RE = re.compile(r"Maddə\s+\d+", re.IGNORECASE)
 _BROKEN_SPACING_RE = re.compile(r"(?<= )[əöüçığşƏÖÜÇIĞŞ](?= )")
 
 
@@ -127,6 +129,29 @@ def main(argv: list[str]) -> int:
         print("  (düzəliş nömrəsi olan heç bir sətir silinməyib)")
     else:
         print(f"  ... cəmi {len(removed)} sətir silinib")
+
+    print()
+    print("=" * 68)
+    print("QALAN MƏTN HƏQİQƏTƏN QANUNDURMU?")
+    print("=" * 68)
+    print("62% silinmək çox rəqəmdir. Silinənin DOĞRU hissə olduğunu")
+    print("yoxlamaq üçün qalanda maddələrin yerində olması təsdiqlənir.")
+    print()
+    articles_before = len(_ARTICLE_RE.findall(before))
+    articles_after = len(_ARTICLE_RE.findall(after))
+    print(f"  «Maddə N.» sayı, əvvəl : {articles_before:>5}")
+    print(f"  «Maddə N.» sayı, sonra : {articles_after:>5}")
+    if articles_before:
+        kept = articles_after / articles_before * 100
+        print(f"  qalan                  : {kept:>5.1f}%")
+        if kept < 90:
+            print("  XƏBƏRDARLIQ: maddələrin 10%-dən çoxu itib — qayda çox silir.")
+        else:
+            print("  Maddələr yerindədir.")
+    print()
+    print("  Qalan mətnin ilk sətirləri:")
+    for line in [ln for ln in after.splitlines() if ln.strip()][:6]:
+        print(f"    {line[:110]}")
 
     print()
     print("=" * 68)
