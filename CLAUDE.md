@@ -426,6 +426,44 @@ rm -rf /root/.cache/selenium # təmizlə (növbəti emal driver-i yenidən yükl
 
 Mütəmadi yoxlanmalıdır. Kök həll diskin böyüdülməsidir.
 
+## Dərs: üç bug yalnız BRAUZER RENDER-i ilə tapıldı (2026-09-10)
+
+Veb səhifələrin nə pytest, nə pyflakes tuta bilmədiyi üç real səhvi
+Chromium-da render etməklə tapıldı. Naxış eynidir: **kod işləyir, amma
+ekranda səhv şey görünür.**
+
+1. **Nişan ikonu adı mətn kimi çap olunurdu.** `nailiyyetler.html`
+   `state__icon` div-inə `badge.icon`-u `textContent` kimi yazırdı,
+   yəni ekranda `seedling`, `school`, `bolt` sözləri nəhəng hərflərlə
+   görünürdü. Sprite (`assets/icons.svg`) bu ikonları onsuz da
+   saxlayırdı — sadəcə JS ona bağlanmamışdı.
+   → İndi `TestBadgeCatalogContract` hər nişan ikonunun sprite-da
+   mövcud olduğunu VƏ ekranın ikonu çəkdiyini yoxlayır.
+
+2. **Sabit `width` telefonda üfüqi sürüşmə yaradırdı.** `giris`,
+   `qeydiyyat` və `qosul` səhifələri `style="width: var(--width-form)"`
+   (420px) yazırdı; 390px-lik telefonda səhifə yana sürüşürdü. PIN ilə
+   qoşulma ekranı isə MƏHZ telefonda işlədilir.
+   → `.form-shell` (`width:100%` + `max-width`) və
+   `TestMobileWidthDiscipline`.
+
+3. **Geri bildirim yalnız hərfi göstərirdi.** «Düzgün cavab: B» —
+   variantlar isə artıq ekranda deyildi. Tələbə B-nin nə olduğunu
+   xatırlamalı idi, yəni səhv cavabdan öyrənmə İMKANI YOX idi.
+   → `answer-feedback.js`, hər iki ekran (ev tapşırığı + canlı sessiya)
+   üçün eyni mətn.
+
+**Alət:** `deploy/diagnostics/`-dəki skriptlərə əlavə olaraq bu
+sessiyada Playwright ilə üfüqi sürüşmə ölçüsü (`scrollWidth` vs
+`clientWidth`) və mock API ilə DOLU məzmun render-i işlədildi.
+
+**Xəbərdarlıq — mock real modeldən yazılmalıdır.** Bu sessiyada İKİ
+dəfə mock-un özü səhv oldu və mövcud olmayan «bug» göstərdi: bir dəfə
+ev tapşırığı statusları ingiliscə uydurulmuşdu (real API onsuz da
+Azərbaycanca qaytarır), bir dəfə istifadəçi `name` sahəsi ilə
+saxlanılmışdı (real `UserInfo` `display_name` işlədir). Mock məlumatı
+HƏMİŞƏ `server/models.py`-dən yoxlanmalıdır.
+
 ## Dərs: statik fayllar `scp` ilə köçürüləndə nginx 403 verir (2026-09-10)
 
 İlk veb deploy-da fayllar köçdü, `nginx -t` keçdi, API 200 qaytardı,
