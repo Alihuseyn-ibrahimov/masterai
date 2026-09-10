@@ -340,9 +340,15 @@ sadə `Lock`).
    əməliyyatı ilə node-a bağlanır. UI-da "Name" sahəsi HEADER ADI-dır
    (məs. `X-Admin-Key`), kredensialın öz adı ayrı sahədir (başlıq) —
    qarışdırılması asandır.
-4. **Bu VPS-in DigitalOcean abunəliyi bitib deaktiv olsa, DÖRD şey eyni
-   anda düşür** — masterai, dildostu-live, masternr1 (aktiv pilot!) və
-   n8n, hamısı `<SERVER_IP>`-u paylaşır. Real hadisə: abunəlik bitdi,
+4. **Bu VPS-in DigitalOcean abunəliyi bitib deaktiv olsa, BEŞ şey eyni
+   anda düşür** — masterai, dildostu-live, masternr1 (aktiv pilot!),
+   n8n VƏ **mediapulse.az** (`saas_core/`, `gunicorn`+`pr-agent`,
+   `/opt/saas_core/`), hamısı `<SERVER_IP>`-u paylaşır.
+   **2026-09-10 düzəlişi:** bu bənd əvvəl "DÖRD" yazırdı və mediapulse-u
+   sadalamırdı — halbuki `saas_core/CLAUDE.md` onun da eyni serverdə
+   olduğunu göstərir. Bu, risk qiymətləndirməsini dəyişir: mediapulse-un
+   aktiv müştərisi dövlət qurumudur, yəni bu maşında disk dolması
+   və ya abunəlik kəsilməsi nazirlik müştərisi olan sistemi də çökdürür. Real hadisə: abunəlik bitdi,
    VPS tam əlçatmaz oldu (SSH/HTTPS/ping — HAMISI timeout), Flutter
    app-da real telefonda "Bağlantı xətası" bununla izah olundu (kod
    bug-ı DEYİL). Bu VPS-in abunəlik/ödəniş statusu digər layihələrdən
