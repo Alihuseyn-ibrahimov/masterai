@@ -164,6 +164,7 @@
    * 1200px mediapulse-un 1280-indən bir qədər dardır: MasterAI mətn və
    * sual oxutdurur, çox geniş sətir oxunaqlığı pozur. */
   --grid-min:         240px;   /* .grid-in defolt minimum sütun eni */
+  --grid-bank-min:    300px;   /* sual bankı kartı: iki düymə yan-yana sığsın */
   --textarea-min:      96px;   /* çoxsətirli sahənin minimum hündürlüyü */
   --tap-target:        56px;   /* cavab variantı, əsas düymələr */
   --app-bar-height:    56px;   /* üst zolaq (mediapulse ilə eyni) */

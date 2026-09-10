@@ -17,13 +17,29 @@
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
+  <!-- SIRA QƏSDƏN BELƏDİR: müəllim adətən MÖVCUD bankı işlətmək üçün
+       gəlir (sessiya başlat, sualları yoxla), yeni bank yaratmaq isə
+       nadir hadisədir. Əvvəl forma yuxarıda idi, yəni tez-tez edilən iş
+       aşağıda qalırdı. -->
   <section>
     <div class="section-header">
-      <h1>Yeni sual bankı</h1>
-      <span class="section-header__hint">Material yükləyin - AI ondan test sualları hazırlasın</span>
+      <h1>Sual bankları</h1>
+      <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
     </div>
+    <p class="banks-summary" id="summary" role="status"></p>
+    <div id="content"></div>
+  </section>
 
-    <div class="card stack">
+  <!-- Yaratma forması açılışa yığılıb (tərəqqi ilə açılma). Siyahı
+       boşdursa skript onu ÖZÜ açır: boş ekran hərəkətə dəvətdir. -->
+  <section>
+    <details class="disclosure" id="createPanel">
+      <summary class="disclosure__summary">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-upload"></use></svg>
+        Yeni sual bankı yarat
+      </summary>
+
+      <div class="disclosure__body stack">
       <div class="notice notice--danger" id="createError" role="alert" hidden></div>
       <div class="notice notice--success" id="createOk" role="status" hidden></div>
 
@@ -75,15 +91,8 @@
           Emal 1-3 dəqiqə çəkir. Siyahı hər 10 saniyədən bir özü yenilənir.
         </p>
       </form>
-    </div>
-  </section>
-
-  <section>
-    <div class="section-header">
-      <h2>Sual bankları</h2>
-      <button class="btn btn--ghost btn--sm" type="button" id="refreshBtn">Yenilə</button>
-    </div>
-    <div id="content"></div>
+      </div>
+    </details>
   </section>
 
 </div>
@@ -120,8 +129,55 @@
 
     const content = document.getElementById('content');
 
+    /* Uğursuz bankı yenidən yaratmaq: forma eyni başlıq/fənn/material
+       ilə doldurulur və açılır. Fayl sahəsi doldurula BİLMƏZ (brauzer
+       təhlükəsizlik qaydası), ona görə yalnız link materialında
+       ünvan qoyulur. */
+    function refillCreateForm(set) {
+      createPanel.open = true;
+      const title = document.getElementById('title');
+      const subject = document.getElementById('subject');
+      title.value = set.title;
+      if (subject.querySelector(`option[value="${set.subject}"]`)) subject.value = set.subject;
+      if (set.material_kind === 'link' && set.material_location) {
+        document.getElementById('kind').value = 'link';
+        document.getElementById('kind').dispatchEvent(new Event('change'));
+        document.getElementById('location').value = set.material_location;
+      }
+      createPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      title.focus();
+    }
+
+    const summary = document.getElementById('summary');
+    const createPanel = document.getElementById('createPanel');
+
+    /* Bir sətirlik vəziyyət. Üç böyük rəqəm kartı QƏSDƏN seçilmədi:
+     * o naxış hər mövzuda eyni çıxır və dekorasiyadır. Burada rəqəmlər
+     * dekorasiya deyil: «uğursuz» sayı müəllimin dərhal görməli olduğu
+     * şeydir (real ölçmədə bankların 32%-i uğursuz olub). */
+    function renderSummary(sets) {
+      if (!sets.length) {
+        summary.textContent = '';
+        summary.hidden = true;
+        return;
+      }
+      const count = (status) => sets.filter((set) => set.status === status).length;
+      const parts = [`${count('ready')} hazır`];
+      const processing = count('processing');
+      const failed = count('failed');
+      if (processing) parts.push(`${processing} hazırlanır`);
+      if (failed) parts.push(`${failed} uğursuz`);
+      summary.textContent = parts.join(', ');
+      summary.hidden = false;
+      summary.classList.toggle('banks-summary--attention', failed > 0);
+    }
+
     function renderSets(container, sets) {
       container.innerHTML = '';
+      renderSummary(sets);
+      // Boş ekran hərəkətə dəvətdir: forma özü açılır ki, ilk dəfə
+      // girən müəllim nə edəcəyini axtarmasın.
+      if (!sets.length) createPanel.open = true;
       if (!sets.length) {
         const state = document.createElement('div');
         state.className = 'state';
@@ -129,23 +185,24 @@
           + '<div class="state__title">Hələ sual bankı yoxdur</div>';
         const hint = document.createElement('div');
         hint.className = 'state__text';
-        hint.textContent = 'Yuxarıdan material yükləyin - AI ondan suallar hazırlayacaq.';
+        hint.textContent = 'Material yükləyin, AI ondan suallar hazırlayacaq.';
         state.append(hint);
         container.append(state);
         return;
       }
 
       const grid = document.createElement('div');
-      grid.className = 'grid';
+      grid.className = 'grid grid--banks';
       // Ən yenilər yuxarıda - müəllim adətən indicə yaratdığını axtarır.
       for (const set of [...sets].sort((a, b) => b.id - a.id)) {
         const card = document.createElement('div');
-        card.className = 'card card--subject stack stack--tight';
+        card.className = 'card card--subject bank';
         card.style.setProperty('--subject', subjectColorVar(set.subject));
 
         const head = document.createElement('div');
-        head.className = 'row row--between';
+        head.className = 'bank__head';
         const title = document.createElement('h4');
+        title.className = 'bank__title';
         title.textContent = set.title;
         const badge = statusBadge(set.status);
         const status = document.createElement('span');
@@ -154,22 +211,46 @@
         head.append(title, status);
 
         const meta = document.createElement('p');
-        meta.className = 'text-sm text-muted';
+        meta.className = 'bank__meta';
         meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
 
         card.append(head, meta);
 
-        if (set.status === 'failed' && set.error) {
-          const error = document.createElement('p');
-          error.className = 'text-xs';
-          error.style.color = 'var(--color-danger)';
-          error.textContent = set.error;
-          card.append(error);
+        /* «Hazırlanır» kartı əvvəl boş qutu idi. Müəllim nə qədər
+           gözləyəcəyini bilmirsə «ilişib qalıb?» sualı yaranır və
+           səhifəni təkrar-təkrar yeniləyir. Gözlənti açıq yazılır. */
+        if (set.status === 'processing') {
+          const wait = document.createElement('p');
+          wait.className = 'bank__meta';
+          wait.textContent = 'AI sualları hazırlayır, adətən 1-3 dəqiqə. Siyahı özü yenilənir.';
+          card.append(wait);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'bank__actions';
+
+        if (set.status === 'failed') {
+          if (set.error) {
+            const error = document.createElement('p');
+            error.className = 'bank__error';
+            error.textContent = set.error;
+            card.append(error);
+          }
+          /* Uğursuz bank ölü qutu olaraq qalmamalıdır. Yeni endpoint
+             LAZIM DEYİL: düymə sadəcə yaratma formasını eyni məlumatla
+             doldurur, müəllim yenidən göndərir. Real ölçmədə bankların
+             32%-i uğursuz olub və onların əksəriyyəti keçici səbəbdən
+             (serverdə Chrome-un yaddaş darlığı), yəni təkrar cəhd
+             çox vaxt işləyir. */
+          const again = document.createElement('button');
+          again.className = 'btn btn--secondary btn--sm';
+          again.type = 'button';
+          again.textContent = 'Yenidən cəhd et';
+          again.addEventListener('click', () => refillCreateForm(set));
+          actions.append(again);
         }
 
         if (set.status === 'ready') {
-          const actions = document.createElement('div');
-          actions.className = 'row';
           const questions = document.createElement('a');
           questions.className = 'btn btn--secondary btn--sm';
           questions.href = `suallar.html?id=${encodeURIComponent(set.id)}`;
@@ -179,9 +260,9 @@
           session.href = `sessiyalar.html?questionSetId=${encodeURIComponent(set.id)}`;
           session.textContent = 'Sessiya başlat';
           actions.append(questions, session);
-          card.append(actions);
         }
 
+        if (actions.childElementCount) card.append(actions);
         grid.append(card);
       }
       container.append(grid);

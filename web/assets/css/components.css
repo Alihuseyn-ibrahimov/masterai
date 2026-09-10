@@ -414,3 +414,67 @@
   color: var(--color-danger);
 }
 .option--wrong .option__letter { background: var(--color-danger); color: var(--color-surface); }
+
+/* ---- Açılış paneli (tərəqqi ilə açılma) ----
+ * Nadir edilən iş (yeni sual bankı yaratmaq) səhifəni tutmasın, amma
+ * bir klik məsafəsində qalsın. Müəllim adətən MÖVCUD bankı işlətmək
+ * üçün gəlir. */
+.disclosure {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.disclosure__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-weight: var(--weight-bold);
+  list-style: none;
+}
+.disclosure__summary::-webkit-details-marker { display: none; }
+.disclosure__summary::after {
+  content: '+';
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+}
+.disclosure[open] .disclosure__summary::after { content: '−'; }
+.disclosure[open] .disclosure__summary { border-bottom: 1px solid var(--color-border); }
+.disclosure__body { padding: var(--space-4); }
+
+/* ---- Bankların vəziyyət sətri ----
+ * Rəqəmlər burada dekorasiya deyil: «uğursuz» sayı müəllimin dərhal
+ * görməli olduğu şeydir. Ona görə üç böyük rəqəm kartı yox, bir sətir. */
+.banks-summary {
+  margin-top: calc(-1 * var(--space-2));
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.banks-summary--attention { color: var(--color-danger); font-weight: var(--weight-medium); }
+
+
+/* ---- Sual bankı kartları ----
+ * Render testində göründü: 240px-lik defolt sütunda iki düymə yan-yana
+ * sığmır və alt-alta düşür, kart isə yarımçıq görünür. Bankın iki
+ * hərəkəti (sualları yoxla / sessiya başlat) BİR sətirdə olmalıdır.
+ * Kartların hündürlüyü bərabərləşir, hərəkətlər aşağıya sabitlənir —
+ * əks halda «hazırlanır» kartı boş qutu kimi qalır. */
+.grid--banks { grid-template-columns: repeat(auto-fill, minmax(var(--grid-bank-min), 1fr)); }
+.bank { display: flex; flex-direction: column; gap: var(--space-2); }
+.bank__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.bank__title { font-size: var(--text-lg); font-weight: var(--weight-semibold); text-wrap: pretty; }
+.bank__meta { font-size: var(--text-sm); color: var(--color-text-muted); }
+.bank__error { font-size: var(--text-xs); color: var(--color-danger); text-wrap: pretty; }
+/* Hərəkətlər həmişə aşağıda: kartlar müxtəlif məzmunda olsa da
+ * düymələr eyni xətdə dayanır. */
+.bank__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
