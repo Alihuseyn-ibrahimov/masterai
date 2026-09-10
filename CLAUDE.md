@@ -385,6 +385,40 @@ sadə `Lock`).
    eyni səbəbdən masternr1 (aktiv pilot!) daxil bütün servislər risk
    altına düşür.
 
+## Dərs: Selenium keşi diski yeyir (2026-09-10)
+
+Link ingestion (JS-render) işə düşəndən sonra `/root/.cache/selenium`
+**845 MB**-a çatmışdı — Selenium Manager hər işə düşəndə brauzer/driver
+versiyalarını yükləyib keşləyir və köhnələri özü təmizləmir.
+
+Bu, 8.65 GB-lıq, beş servis daşıyan maşında ciddi problemdir: disk 98%-ə
+çatmışdı və deploy bloklanmışdı. Silmək təhlükəsizdir (keşdir, özü
+yenidən yaranır), amma **yenidən böyüyəcək**.
+
+```bash
+du -sh /root/.cache/*        # ölç
+rm -rf /root/.cache/selenium # təmizlə (növbəti emal driver-i yenidən yükləyər)
+```
+
+Mütəmadi yoxlanmalıdır. Kök həll diskin böyüdülməsidir.
+
+## Dərs: statik fayllar `scp` ilə köçürüləndə nginx 403 verir (2026-09-10)
+
+İlk veb deploy-da fayllar köçdü, `nginx -t` keçdi, API 200 qaytardı,
+amma sayt **403** verdi. Səbəb: `scp` qovluğu `drwx------` (700) ilə
+yaradır — `scp` root adından işləyir, `nginx` isə `www-data` kimi.
+nginx qovluğa girə bilmir.
+
+nginx xəta jurnalı bunu birbaşa deyirdi:
+`"/opt/masterai-web/index.html" is forbidden (13: Permission denied)`
+
+Həlli: `chmod -R a+rX /opt/masterai-web` — fayllara oxuma, YALNIZ
+qovluqlara icra icazəsi (böyük `X` məhz bunu edir). `deploy_web.ps1`-ə
+əlavə olundu.
+
+**Bu hadisə deploy skriptinin healthcheck addımının dəyərini göstərdi:**
+köçürmə uğurlu görünürdü, sınıqlığı yalnız canlı ünvandan yoxlama tapdı.
+
 ## Dərs: real material uğursuzluğu — Wikipedia `requests`-in defolt User-Agent-ini bloklayır
 
 Flutter app-ın real emulyator (Android Studio AVD) testində qrup çatına
