@@ -219,7 +219,7 @@ class TestCleaningChainIsSingleSource:
     def test_extraction_uses_the_chain(self):
         from pipeline.ingestion import web_extractor
 
-        source = inspect_source = __import__("inspect").getsource(web_extractor._extract_text)
+        inspect_source = __import__("inspect").getsource(web_extractor._extract_text)
         assert "_clean_legal_text" in inspect_source, (
             "_extract_text zənciri birbaşa çağırmalıdır"
         )

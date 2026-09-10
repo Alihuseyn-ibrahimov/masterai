@@ -125,8 +125,8 @@ def main(argv: list[str]) -> int:
         print(f"  - {line[:150]}")
     if not removed:
         print("  (düzəliş nömrəsi olan heç bir sətir silinməyib)")
-    if shown == 0:
-        print("  (heç nə silinmir — qayda bu səhifədə işləmir, bax aşağı)")
+    else:
+        print(f"  ... cəmi {len(removed)} sətir silinib")
 
     print()
     print("=" * 68)
@@ -157,14 +157,18 @@ def main(argv: list[str]) -> int:
     print("Bunlar ya əsl hüquqi mətndir (düzgün saxlanılıb), ya da")
     print("qaydanın tutmadığı formadır (düzəliş lazımdır).")
     print()
-    shown = 0
-    for line in after.splitlines():
-        if AMENDMENT_NUMBER_RE.search(line):
-            print(f"  - {line[:150]}")
-            shown += 1
-            if shown >= 5:
-                break
-    if shown == 0:
+    remaining = [line for line in after.splitlines() if AMENDMENT_NUMBER_RE.search(line)]
+    print(f"  Qalan istinadı olan sətir sayı: {len(remaining)}")
+    print()
+    # Nə qədəri nömrələnmiş siyahı formasındadır (yəni qaydanın tutmalı
+    # olduğu, amma tutmadığı), nə qədəri mətn içindədir?
+    numbered = [line for line in remaining if web_extractor._HISTORY_LINE_RE.match(line)]
+    print(f"    nömrələnmiş siyahı formasında : {len(numbered):>4}  <- qayda tutmalı idi")
+    print(f"    mətnin içində                 : {len(remaining) - len(numbered):>4}")
+    print()
+    for line in remaining[:8]:
+        print(f"  - {line[:130]}")
+    if not remaining:
         print("  (qalmayıb)")
     return 0
 

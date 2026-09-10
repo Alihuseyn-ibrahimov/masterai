@@ -213,7 +213,7 @@ class TestGetAndList:
             data={"subject": "mentiq", "title": "A", "kind": "link", "location": "https://x.az"},
             headers=_auth(env["teacher"]),
         )
-        qs = _wait_until_not_processing(env["question_sets"], env["question_sets"].list_all()[0]["id"])
+        _wait_until_not_processing(env["question_sets"], env["question_sets"].list_all()[0]["id"])
 
         r = env["client"].get("/live/question-sets", headers=_auth(env["teacher"]))
         assert r.status_code == 200

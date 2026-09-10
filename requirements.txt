@@ -25,3 +25,8 @@ PyJWT>=2.8
 email-validator>=2.1
 python-multipart>=0.0.12
 gunicorn>=23.0  # yalnız prod deploy üçün (bax deploy/masterai.service), dev-də adi uvicorn kifayətdir
+
+# Statik analiz qapısı (tests/test_static_analysis.py).
+# Diaqnostika skripti serverdə `UnboundLocalError` ilə çökdü —
+# sintaksis düzgün idi, ona görə heç bir test tutmurdu.
+pyflakes
