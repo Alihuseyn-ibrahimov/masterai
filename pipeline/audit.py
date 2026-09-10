@@ -122,9 +122,21 @@ def _audit_all(conn: sqlite3.Connection) -> int:
     if not totals:
         print("Avtomatik tapıntı yoxdur.")
     else:
+        # Dəst səviyyəli tapıntını sual faizi kimi göstərmək yanıldıcıdır:
+        # «movqe_eyriliyi 6» 6 SUAL yox, 6 DƏST deməkdir.
+        set_level_codes = {
+            finding.code
+            for report in reports.values()
+            for finding in report.findings
+            if finding.question_number is None
+        }
         for code, count in sorted(totals.items(), key=lambda item: -item[1]):
-            share = count / total_questions * 100 if total_questions else 0
-            print(f"  {code:<26} {count:>4}  ({share:.0f}% sual)")
+            if code in set_level_codes:
+                share = count / len(reports) * 100 if reports else 0
+                print(f"  {code:<26} {count:>4}  ({share:.0f}% DƏST)")
+            else:
+                share = count / total_questions * 100 if total_questions else 0
+                print(f"  {code:<26} {count:>4}  ({share:.0f}% sual)")
     print()
     print("Bunlar yalnız ŞÜBHƏ əlamətləridir. Cavabın doğruluğunu yoxlamaq")
     print("üçün: --set <ID> --out <fayl>, sonra mənbə ilə tutuşdurun.")

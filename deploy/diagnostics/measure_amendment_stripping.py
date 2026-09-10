@@ -16,6 +16,12 @@ Heç nəyi dəyişmir — yalnız endirir, ölçür və çap edir.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+# Python `sys.path`-a SKRİPTİN qovluğunu qoyur, cari qovluğu yox — ona
+# görə `deploy/diagnostics/`-dən çağırılanda `pipeline` görünmür
+# (real serverdə məhz bu xəta alındı). Layihə kökü əl ilə əlavə olunur.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bs4 import BeautifulSoup
 
