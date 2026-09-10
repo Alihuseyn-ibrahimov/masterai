@@ -377,6 +377,28 @@ def _strip_amendment_history(text: str) -> str:
     return "\n".join(line for line, wanted in zip(lines, keep) if wanted)
 
 
+def _block_text(block) -> str:
+    """Bir məzmun blokunun mətni.
+
+    REAL SƏHİFƏDƏ ÖLÇÜLDÜ, hər iki sadə variant SƏHVDİR:
+
+      get_text(" ", strip=True)  hər teqin arasına boşluq qoyur.
+                                 e-qanun PDF-dən çevrildiyi üçün hər
+                                 xüsusi hərf ayrıca teqdədir və söz
+                                 dağılır: «Az ə rbaycan». 40 min sözdə
+                                 1613 hal.
+
+      get_text("",  strip=True)  ayrıcını götürür, amma `strip=True`
+                                 əsl söz aralarını da atır və sözlər
+                                 yapışır: «QanunAzərbaycan». Söz sayı
+                                 42 866-dan 32 863-ə düşdü.
+
+    Düzgün variant: ayırıcı ƏLAVƏ EDİLMİR, mənbədəki boşluqlar isə
+    SAXLANILIR. Sonra artıq boşluqlar bir boşluğa yığılır.
+    """
+    return re.sub(r"\s+", " ", block.get_text("", strip=False)).strip()
+
+
 def _clean_legal_text(text: str) -> str:
     """Hüquqi mətnin bütün təmizləmə addımları — YEGANƏ yer.
 
@@ -411,7 +433,7 @@ def _extract_text(html: str) -> str:
     root = main if main is not None else soup
 
     content_blocks = [
-        block.get_text(" ", strip=True)
+        _block_text(block)
         for block in root.find_all(_CONTENT_TAGS)
         if block.get_text(strip=True)
     ]
@@ -422,7 +444,14 @@ def _extract_text(html: str) -> str:
     # Ehtiyat yolu — sayt mətni semantik teqlərdə saxlamırsa (pis
     # markup), köhnə "hər şeyi oxu" davranışına geri qayıt ki, material
     # tamamilə itməsin.
-    return _clean_legal_text(root.get_text(separator="\n", strip=True))
+    # Ehtiyat yolunda da EYNİ nasazlıq var idi: `separator="\n"` hər
+    # teqin arasına sətir sonu qoyurdu və söz hərf-hərf dağılırdı
+    # («D\nö\nvl\nə\nt»). Test bunu tutdu.
+    #
+    # Burada sətir quruluşu itir (hər şey bir sətir olur) — bu yol
+    # yalnız semantik teqləri olmayan pis markup üçündür və mətnin
+    # DÜZGÜN olması sətir quruluşundan vacibdir.
+    return _clean_legal_text(_block_text(root))
 
 
 def extract(source: MaterialSource) -> RawMaterial:

@@ -49,7 +49,7 @@ def _text_without_stripping(html: str) -> str:
         tag.decompose()
     root = soup.find("main") or soup.find("article") or soup
     blocks = [
-        block.get_text(" ", strip=True)
+        web_extractor._block_text(block)
         for block in root.find_all(web_extractor._CONTENT_TAGS)
         if block.get_text(strip=True)
     ]
@@ -165,19 +165,21 @@ def main(argv: list[str]) -> int:
         tag.decompose()
     root = soup.find("main") or soup.find("article") or soup
     blocks = [b for b in root.find_all(web_extractor._CONTENT_TAGS) if b.get_text(strip=True)]
-    with_space = "\n".join(b.get_text(" ", strip=True) for b in blocks)
-    without_space = "\n".join(b.get_text("", strip=True) for b in blocks)
-    for label, variant in (("get_text(\" \") — indiki", with_space),
-                           ("get_text(\"\")  — sınaq", without_space)):
+    variants = (
+        ("get_text(\" \", strip=True)  köhnə", "\n".join(b.get_text(" ", strip=True) for b in blocks)),
+        ("get_text(\"\",  strip=True)  səhv", "\n".join(b.get_text("", strip=True) for b in blocks)),
+        ("_block_text()          indiki", "\n".join(web_extractor._block_text(b) for b in blocks)),
+    )
+    for label, variant in variants:
         hits = len(_BROKEN_SPACING_RE.findall(variant))
         words = len(variant.split())
         share = hits / words * 100 if words else 0
         print(f"  {label:<26} ayrılmış hərf: {hits:>6}   söz: {words:>6}   ({share:.1f}%)")
     print()
-    for variant, label in ((with_space, "indiki"), (without_space, "sınaq")):
+    for label, variant in variants:
         for line in variant.splitlines():
             if "Konstitusiyas" in line:
-                print(f"  {label:>6}: {line[:110]}")
+                print(f"  {label:>30}: {line[:100]}")
                 break
 
     print()
