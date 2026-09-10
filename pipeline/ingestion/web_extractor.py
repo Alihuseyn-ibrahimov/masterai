@@ -294,6 +294,56 @@ def _strip_amendment_annotations(text: str) -> str:
     return re.sub(r" +([.,;:])", r"\1", cleaned).strip()
 
 
+# ---- Düzəliş tarixçəsi bloku -----------------------------------------------
+# REAL SƏHİFƏDƏ ÖLÇÜLDÜ. Əvvəlki qayda (mötərizə içindəki qeydlər)
+# e-qanun.az/framework/4481-də SIFIR nəticə verdi: 561 düzəliş nömrəsi
+# var idi, 561-i də qaldı. Səbəb — fərziyyəm səhv idi: real səhifədə
+# qeydlər mötərizədə deyil, sənədin sonunda NÖMRƏLƏNMİŞ SİYAHIDADIR:
+#
+#     1. 13 fevral 2001-ci il tarixli 74-IIQD nömrəli
+#     2. 2 iyul 2002-ci il tarixli 359-IIQD nömrəli
+#     3. 3 dekabr 2002-ci il tarixli 398-IIQD nömrəli
+#
+# 561 belə sətir. Bu, hüquqi mətn deyil, redaksiya jurnalıdır — model
+# oradan sual qurur (dəst 18, sual 5 məhz belə yaranıb).
+#
+# TƏHLÜKƏSİZLİK: yalnız ARDICIL sətirlərdən ibarət BLOK silinir. Tək
+# istinad hüquqi mətnin içində ola bilər və toxunulmur; iki sətir də
+# azdır. Üç və daha çox ardıcıl sətir isə siyahıdır.
+_HISTORY_LINE_RE = re.compile(
+    r"^\s*\d{1,4}\s*[.)]\s+.*" + AMENDMENT_NUMBER_RE.pattern,
+    re.IGNORECASE,
+)
+_HISTORY_MIN_RUN = 3
+
+
+def _strip_amendment_history(text: str) -> str:
+    lines = text.splitlines()
+    flags = [bool(_HISTORY_LINE_RE.match(line)) for line in lines]
+
+    keep = [True] * len(lines)
+    index = 0
+    while index < len(lines):
+        if not flags[index]:
+            index += 1
+            continue
+        end = index
+        while end < len(lines) and flags[end]:
+            end += 1
+        if end - index >= _HISTORY_MIN_RUN:
+            for position in range(index, end):
+                keep[position] = False
+        index = end
+
+    # Heç nə silinməyibsə mətn EYNİLƏ qaytarılır. `splitlines()` +
+    # `join()` sondakı sətir sonunu udur — toxunmadığımız mətni
+    # dəyişdirmək isə səssiz zərərdir (test bunu tutdu).
+    if all(keep):
+        return text
+
+    return "\n".join(line for line, wanted in zip(lines, keep) if wanted)
+
+
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     # `<style>` bloklarından xətt-siniflərini ÖYRƏNMƏK üçün bu addım
@@ -315,12 +365,14 @@ def _extract_text(html: str) -> str:
     ]
     content_text = "\n".join(content_blocks)
     if len(content_text) >= _MIN_STATIC_TEXT_LENGTH:
-        return _strip_amendment_annotations(content_text)
+        return _strip_amendment_annotations(_strip_amendment_history(content_text))
 
     # Ehtiyat yolu — sayt mətni semantik teqlərdə saxlamırsa (pis
     # markup), köhnə "hər şeyi oxu" davranışına geri qayıt ki, material
     # tamamilə itməsin.
-    return _strip_amendment_annotations(root.get_text(separator="\n", strip=True))
+    return _strip_amendment_annotations(
+        _strip_amendment_history(root.get_text(separator="\n", strip=True))
+    )
 
 
 def extract(source: MaterialSource) -> RawMaterial:

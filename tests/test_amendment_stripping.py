@@ -105,3 +105,91 @@ class TestWiredIntoExtraction:
         text = _extract_text(html)
         assert "504" not in text
         assert "sahibkarlıq fəaliyyəti qadağandır" in text
+
+
+class TestAmendmentHistoryBlock:
+    """REAL SƏHİFƏDƏ ÖLÇÜLDÜ, əvvəlki qayda İŞLƏMƏDİ.
+
+    e-qanun.az/framework/4481 üzərində nəticə:
+        mətn                   : 304 958 simvol
+        düzəliş nömrəsi, əvvəl : 561
+        düzəliş nömrəsi, sonra : 561   ← SIFIR silindi
+
+    Səbəb: qaydanı «düzəliş qeydi mötərizədədir» fərziyyəsi üzərində
+    qurmuşdum. Real səhifədə isə sənədin sonunda NÖMRƏLƏNMİŞ SİYAHI var:
+
+        1. 13 fevral 2001-ci il tarixli 74-IIQD nömrəli
+        2. 2 iyul 2002-ci il tarixli 359-IIQD nömrəli
+        3. 3 dekabr 2002-ci il tarixli 398-IIQD nömrəli
+
+    561 belə sətir. Mötərizə yoxdur, ona görə köhnə qayda heç birinə
+    toxunmurdu (silinən 423 simvol yalnız ikiqat boşluqların
+    yığışdırılması idi).
+    """
+
+    HISTORY = "\n".join(
+        f"{i}. {i} fevral 200{i % 9}-ci il tarixli {70 + i}-IIQD nömrəli Qanun"
+        for i in range(1, 12)
+    )
+
+    def test_a_run_of_history_lines_is_removed(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = "Maddə 1. Qanunun məqsədi budur.\n" + self.HISTORY
+        result = _strip_amendment_history(text)
+        assert "Maddə 1. Qanunun məqsədi budur." in result
+        assert "IIQD" not in result
+
+    def test_the_law_body_before_the_block_is_untouched(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        body = (
+            "Maddə 20. Dövlət qulluqçusunun vəzifələri.\n"
+            "20.1. Sahibkarlıq fəaliyyəti qadağandır.\n"
+            "20.2. Elmi fəaliyyət icazəlidir.\n"
+        )
+        result = _strip_amendment_history(body + self.HISTORY)
+        for line in body.strip().splitlines():
+            assert line in result
+
+    def test_a_single_isolated_reference_is_kept(self):
+        """Bir dənə istinad siyahı deyil — hüquqi mətnin içində ola
+        bilər və silinməməlidir."""
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = (
+            "Maddə 5. Bu maddə 74-IIQD nömrəli Qanunla tənzimlənir.\n"
+            "Maddə 6. Digər müddəa.\n"
+        )
+        assert _strip_amendment_history(text) == text
+
+    def test_two_lines_are_not_enough_to_count_as_a_block(self):
+        """Həddi aşağı salsaq təsadüfi iki sətir hüquqi mətni aparar."""
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = (
+            "1. 13 fevral 2001-ci il tarixli 74-IIQD nömrəli Qanun\n"
+            "2. 2 iyul 2002-ci il tarixli 359-IIQD nömrəli Qanun\n"
+        )
+        assert _strip_amendment_history(text) == text
+
+    def test_text_without_any_history_is_unchanged(self):
+        from pipeline.ingestion.web_extractor import _strip_amendment_history
+
+        text = "Maddə 1. Birinci.\nMaddə 2. İkinci.\n"
+        assert _strip_amendment_history(text) == text
+
+    def test_history_removal_is_wired_into_extraction(self):
+        from pipeline.ingestion.web_extractor import _extract_text
+
+        html = (
+            "<html><body><article><p>Sahibkarlıq fəaliyyəti qadağandır.</p>"
+            + "".join(
+                f"<p>{i}. {i} fevral 200{i % 9}-ci il tarixli {70 + i}-IIQD nömrəli Qanun</p>"
+                for i in range(1, 12)
+            )
+            + "</article></body></html>"
+        )
+        text = _extract_text(html)
+        assert "Sahibkarlıq fəaliyyəti qadağandır." in text
+        assert "IIQD" not in text
