@@ -15,6 +15,8 @@ from datetime import datetime
 
 import httpx
 
+from server.log_redaction import install_redaction
+
 logger = logging.getLogger(__name__)
 
 # Real production-da tapılıb: `llm_ok provider=...` (INFO) heç vaxt
@@ -41,6 +43,9 @@ def _configure_logging() -> None:
     root.setLevel(level)
     for name in _NOISY_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
+    # Sirrləri maskala (`?token=...` jurnalda açıq görünürdü).
+    # Filtr LOGGER-lərə qoşulur - səbəbi `install_redaction` sənədində.
+    install_redaction()
     # Bu sətir konfiqurasiyanın ÖZÜNÜN sübutudur: real VPS-də jurnalda
     # yalnız gunicorn-un öz INFO mesajları görünürdü (o, onsuz da INFO-da
     # idi) və bizim konfiqurasiyanın işlədiyini göstərən heç nə yox idi.
