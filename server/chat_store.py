@@ -14,6 +14,8 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
+from server.invite_code import generate_code, normalize_code
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -45,16 +47,81 @@ class ChatStore:
                 );
                 """
             )
+            # Dəvət kodu — `live_session_store.py`-dəki eyni
+            # `ALTER TABLE ADD COLUMN` naxışı (mövcud DB-də sütun artıq
+            # ola bilər).
+            try:
+                self._conn.execute("ALTER TABLE chats ADD COLUMN invite_code TEXT")
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
+            self._backfill_invite_codes_locked()
+
+    def _backfill_invite_codes_locked(self) -> None:
+        """Sütun əlavə olunanda mövcud çatlar NULL qalır. Backfill
+        olmasa həmin çatlara heç vaxt qoşulmaq olmazdı — canlı bazada
+        artıq çatlar var."""
+        cur = self._conn.execute(
+            "SELECT id FROM chats WHERE kind = 'group' AND "
+            "(invite_code IS NULL OR invite_code = '')"
+        )
+        for row in cur.fetchall():
+            self._conn.execute(
+                "UPDATE chats SET invite_code = ? WHERE id = ?",
+                (self._unique_code_locked(), row["id"]),
+            )
+        self._conn.commit()
+
+    def _unique_code_locked(self) -> str:
+        """Toqquşma ehtimalı çox kiçikdir, amma sıfır deyil — kod
+        UNIKAL olmalıdır, əks halda iki çat eyni kodla tapılar."""
+        while True:
+            code = generate_code()
+            cur = self._conn.execute(
+                "SELECT 1 FROM chats WHERE invite_code = ?", (code,)
+            )
+            if cur.fetchone() is None:
+                return code
 
     def create(self, kind: str, created_by: int, name: str | None = None) -> dict:
         with self._lock:
+            # Şəxsi çata kod ilə qoşulmaq anlayışı yoxdur — yalnız
+            # qrup çatı dəvət kodu alır.
+            code = self._unique_code_locked() if kind == "group" else None
             cur = self._conn.execute(
-                "INSERT INTO chats (kind, name, created_by, created_at) VALUES (?, ?, ?, ?)",
-                (kind, name, created_by, _utc_now_iso()),
+                "INSERT INTO chats (kind, name, created_by, created_at, invite_code) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (kind, name, created_by, _utc_now_iso(), code),
             )
             self._conn.commit()
             return self._get_locked(cur.lastrowid)
+
+    def get_by_invite_code(self, raw_code: str | None) -> dict | None:
+        """Kod ilə çat. Böyük/kiçik hərf, defis və boşluq fərqi
+        SƏHV SAYILMIR — tələbə ekranda `K7M-3QX` görür və olduğu kimi
+        yazır."""
+        code = normalize_code(raw_code)
+        if not code:
+            return None
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, kind, name, created_by, created_at, invite_code "
+                "FROM chats WHERE invite_code = ?",
+                (code,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+    def regenerate_invite_code(self, chat_id: int) -> str:
+        """Kod sinifdən kənara çıxsa (şəkil, ekran paylaşımı) müəllim
+        onu yeniləyir — köhnə kod dərhal işləməz olur."""
+        with self._lock:
+            code = self._unique_code_locked()
+            self._conn.execute(
+                "UPDATE chats SET invite_code = ? WHERE id = ?", (code, chat_id)
+            )
+            self._conn.commit()
+            return code
 
     def get(self, chat_id: int) -> dict | None:
         with self._lock:
@@ -62,7 +129,8 @@ class ChatStore:
 
     def _get_locked(self, chat_id: int) -> dict | None:
         cur = self._conn.execute(
-            "SELECT id, kind, name, created_by, created_at FROM chats WHERE id = ?",
+            "SELECT id, kind, name, created_by, created_at, invite_code "
+            "FROM chats WHERE id = ?",
             (chat_id,),
         )
         row = cur.fetchone()
@@ -87,7 +155,8 @@ class ChatStore:
     def list_by_user(self, user_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT c.id, c.kind, c.name, c.created_by, c.created_at FROM chats c "
+                "SELECT c.id, c.kind, c.name, c.created_by, c.created_at, c.invite_code "
+                "FROM chats c "
                 "JOIN chat_members m ON m.chat_id = c.id "
                 "WHERE m.user_id = ? ORDER BY c.created_at",
                 (user_id,),
