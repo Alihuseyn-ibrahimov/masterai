@@ -555,3 +555,21 @@
     align-items: stretch;
   }
 }
+
+/* Sinif lövhəsi sətri. Kart içində siyahıdır, ona görə öz çərçivəsi
+   yoxdur - yalnız ayırıcı. */
+.board-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.board-row:first-child { border-top: none; }
+
+/* Öz sətrini vurğula - uzun siyahıda tələbə özünü axtarmamalıdır. */
+.board-row--me {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-sm);
+}

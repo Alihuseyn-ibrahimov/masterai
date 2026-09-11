@@ -376,11 +376,20 @@ class HistoryEntry(BaseModel):
 
 
 class LeaderboardRow(BaseModel):
-    """Çat-üzrə liderlik lövhəsi sətri — yalnız ev tapşırığı xalları
-    (bax Faza 6 dizayn sənədi, "canlı sessiyalar çata bağlı deyil")."""
+    """Çat-üzrə liderlik lövhəsi sətri.
+
+    2026-09-11-ə qədər YALNIZ ev tapşırığı xalları sayılırdı, çünki
+    canlı sessiyalar heç bir çata bağlı deyildi. Sessiya çata
+    bağlandıqdan sonra hər iki mənbə sayılır.
+
+    Sıralama CƏMİYƏ görədir, amma komponentlər ayrıca qaytarılır —
+    tələbə hansı sahədə geridə qaldığını görməlidir.
+    """
 
     user_id: int
     display_name: str
+    homework_score: int
+    live_score: int
     total_score: int
     rank: int
 

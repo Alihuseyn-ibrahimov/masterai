@@ -95,11 +95,17 @@ class TestChatLeaderboard:
         r = env["client"].get("/chats/999/leaderboard", headers=_auth(env["teacher"]))
         assert r.status_code == 404
 
-    def test_includes_zero_score_members(self, env):
+    def test_includes_zero_score_members_but_not_the_teacher(self, env):
+        """Müəllim 2026-09-11-dən siyahıdan ÇIXARILIR (Faza 5): tapşırığı
+        təyin edən tərəfdir, tələbə ilə yarışmır. Əvvəl bu test onun da
+        siyahıda olmasını gözləyirdi.
+
+        Sıfır xallı TƏLƏBƏ isə qalır — əks halda tələbə «mən niyə
+        yoxam?» sualı ilə qalardı."""
         r = env["client"].get(f"/chats/{env['chat']['id']}/leaderboard", headers=_auth(env["teacher"]))
         assert r.status_code == 200
         names = {row["display_name"] for row in r.json()}
-        assert names == {"Müəllim", "Əli", "Vəli"}
+        assert names == {"Əli", "Vəli"}
         assert all(row["total_score"] == 0 for row in r.json())
 
     def test_sorted_descending_by_score_with_correct_ranks(self, env):

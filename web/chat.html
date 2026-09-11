@@ -74,6 +74,18 @@
     </form>
   </section>
 
+  <!-- Sinif lövhəsi. Mesaj axınının ALTINDA: hər dəfə açılanda göz
+       önündə olmasına ehtiyac yoxdur, amma səhifədən çıxmadan
+       baxılmalıdır. Yığcam saxlanılır (açılıb-bağlanan). -->
+  <section class="stack">
+    <details id="boardBox">
+      <summary class="section-header__hint" style="cursor: pointer">
+        Sinif lövhəsi
+      </summary>
+      <div class="stack stack--tight" id="board" style="margin-top: var(--space-4)"></div>
+    </details>
+  </section>
+
 </div>
 
 <nav id="bottomNav"></nav>
@@ -84,6 +96,7 @@
   import { upsertItem } from './assets/js/chat-item.js';
   import { buildNameLookup, renderItems } from './assets/js/chat-view.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { emptyLeaderboardText, leaderboardRows } from './assets/js/leaderboard.js';
 
   const STATUS_LABELS = {
     connecting: ['Qoşulur…', 'badge badge--neutral'],
@@ -182,6 +195,63 @@
       request(`/chats/${chatId}/live-session`)
         .then(renderLiveSession)
         .catch(() => {});
+
+      /* ---- Sinif lövhəsi ---- */
+
+      const board = document.getElementById('board');
+
+      function renderBoard(rows) {
+        board.innerHTML = '';
+        const empty = emptyLeaderboardText(rows);
+        if (empty) {
+          const note = document.createElement('p');
+          note.className = 'text-sm text-muted';
+          note.textContent = empty;
+          board.append(note);
+          return;
+        }
+        for (const row of leaderboardRows(rows, user.id)) {
+          const line = document.createElement('div');
+          line.className = row.isMe ? 'board-row board-row--me' : 'board-row';
+
+          const left = document.createElement('div');
+          const name = document.createElement('strong');
+          name.className = 'text-sm';
+          // Qəsdən textContent - adı istifadəçi özü yazır.
+          name.textContent = `${row.rank}. ${row.name}`;
+          const breakdown = document.createElement('div');
+          breakdown.className = 'text-xs text-muted';
+          breakdown.textContent = row.breakdown;
+          left.append(name, breakdown);
+
+          const total = document.createElement('span');
+          total.className = 'badge badge--info';
+          total.textContent = `${row.total} xal`;
+
+          line.append(left, total);
+          board.append(line);
+        }
+      }
+
+      // Lövhə YALNIZ açılanda yüklənir: çat səhifəsi onsuz da üç sorğu
+      // göndərir, dördüncüsü hər açılışda lazım deyil.
+      const boardBox = document.getElementById('boardBox');
+      let boardLoaded = false;
+      boardBox.addEventListener('toggle', () => {
+        if (!boardBox.open || boardLoaded) return;
+        boardLoaded = true;
+        board.innerHTML = '<p class="text-sm text-muted">Yüklənir…</p>';
+        request(`/chats/${chatId}/leaderboard`)
+          .then(renderBoard)
+          .catch((error) => {
+            boardLoaded = false;  // növbəti açılışda yenidən cəhd
+            board.innerHTML = '';
+            const note = document.createElement('p');
+            note.className = 'text-sm text-muted';
+            note.textContent = error.message;
+            board.append(note);
+          });
+      });
 
       const socket = new ChatSocket({
         chatId,

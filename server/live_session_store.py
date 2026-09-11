@@ -392,6 +392,36 @@ class LiveSessionStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def chat_scores_by_user(self, chat_id: int | None) -> dict[int, int]:
+        """Çatın BÜTÜN sessiyaları üzrə `{user_id: düzgün cavab cəmi}`.
+
+        NİYƏ `compute_scores`-dan AYRI: o, `participant_id` ilə
+        açarlanır və BİR sessiyaya aiddir. Eyni tələbə hər sessiyada
+        yeni `participant_id` alır, ona görə lövhədə bir adam bir neçə
+        sətirlə görünərdi.
+
+        `HomeworkStore.get_chat_leaderboard` ilə EYNİ müqavilə: sıfır
+        xallı sətir QAYTARILMIR — çağıran üzv siyahısı ilə birləşdirib
+        0-la doldurur. İki mənbə fərqli davransa, lövhədə biri üzvü
+        göstərər, digəri göstərməzdi.
+
+        `user_id IS NULL` (köhnə anonim PIN sətirləri) sayılmır: kimin
+        olduğu bilinmir və `None` açarı lövhəni sındırardı.
+        """
+        if chat_id is None:
+            return {}
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT p.user_id AS user_id, COUNT(*) AS c "
+                "FROM live_answers a "
+                "JOIN live_participants p ON p.id = a.participant_id "
+                "JOIN live_sessions s ON s.id = a.session_id "
+                "WHERE s.chat_id = ? AND a.is_correct = 1 AND p.user_id IS NOT NULL "
+                "GROUP BY p.user_id",
+                (chat_id,),
+            )
+            return {row["user_id"]: row["c"] for row in cur.fetchall()}
+
     def compute_scores(self, session_id: int) -> dict[int, int]:
         """Hər iştirakçı üçün düzgün cavab sayı — heç düzgün cavabı
         olmayan iştirakçılar da 0 xalla daxildir (liderlik lövhəsi tam

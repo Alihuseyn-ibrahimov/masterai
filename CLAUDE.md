@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1140 pytest + 174 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1163 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-11-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -216,8 +216,10 @@ razılaşdırılan ikinci layihə: 5 sabit nişan (`ilk_addim`, `yuz_faiz`,
 TƏNBƏL (hər `GET /badges/me` çağırışında yenidən) hesablanır, tələbə
 "Mənim tarixçəm" ekranındakı 🏆 ikonundan "Nailiyyətlərim" ekranına
 baxır. Hər qrup çatının içindəki 🏆 ikonu isə o çatın liderlik lövhəsini
-açır — **yalnız ev tapşırığı xalları** (canlı sessiyalar heç bir çata
-bağlı olmadığı üçün, bax dizayn sənədi "Əsas arxitektura tapıntısı").
+açır. **2026-09-11-ə qədər yalnız ev tapşırığı xalları sayılırdı**
+(canlı sessiyalar heç bir çata bağlı deyildi). Sessiya çata bağlandıqdan
+sonra lövhə hər iki mənbəni toplayır və müəllim siyahıdan çıxarılır —
+bax «Qrup çatı = sinif» alt-layihəsi.
 
 **Vəziyyət (2026-09-08):** Backend 461/461 pytest (bu sandbox-da real
 icra) + Flutter tərəfi istifadəçinin real Windows mühitində tam

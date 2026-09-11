@@ -784,25 +784,47 @@ def get_chat_leaderboard(
     chats: ChatStore = Depends(get_chat_store),
     users: UserStore = Depends(get_user_store),
     homework: HomeworkStore = Depends(get_homework_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
 ) -> list[LeaderboardRow]:
-    """Çatın liderlik lövhəsi — YALNIZ ev tapşırığı xalları (bax Faza 6
-    dizayn sənədi, "canlı sessiyalar çata bağlı deyil"). 0-xallı üzvlər
-    də daxildir (`live_session_store.compute_scores`-un eyni naxışı)."""
+    """Çatın liderlik lövhəsi — ev tapşırığı + canlı sessiya CƏMİ.
+
+    2026-09-11-ə qədər yalnız ev tapşırığı sayılırdı, çünki canlı
+    sessiyalar çata bağlı deyildi. İndi hər ikisi sayılır.
+
+    Sıralama cəmiyədir, komponentlər isə sətirdə görünür — «hansı
+    sahədə geridəyəm» sualı cavabsız qalmamalıdır.
+
+    MÜƏLLİM SİYAHIDAN ÇIXARILIR: tapşırığı təyin edən tərəfdir, tələbə
+    ilə yarışmır. Baxmaq isə qadağan deyil.
+
+    Xalı olmayan üzvlər 0 ilə DAXİLDİR — hər iki mənbə metodu sıfır
+    sətirləri qaytarmır (eyni müqavilə), doldurma burada olur.
+    """
     if chats.get(chat_id) is None:
         raise HTTPException(status_code=404, detail="Çat tapılmadı")
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
 
-    scores = homework.get_chat_leaderboard(chat_id)
+    homework_scores = homework.get_chat_leaderboard(chat_id)
+    live_scores = live_sessions.chat_scores_by_user(chat_id)
+
     rows = []
     for member_id in chats.list_member_ids(chat_id):
         member = users.get_by_id(member_id)
-        if member is not None:
-            rows.append((member_id, member["display_name"], scores.get(member_id, 0)))
-    rows.sort(key=lambda r: r[2], reverse=True)
+        if member is None or member["is_teacher"]:
+            continue
+        hw = homework_scores.get(member_id, 0)
+        live = live_scores.get(member_id, 0)
+        rows.append((member_id, member["display_name"], hw, live, hw + live))
+    # Bərabər cəmdə ad ilə sıralama — əks halda sıra təsadüfi olardı və
+    # səhifə hər yenilənəndə dəyişərdi.
+    rows.sort(key=lambda r: (-r[4], r[1]))
     return [
-        LeaderboardRow(user_id=uid, display_name=name, total_score=score, rank=i + 1)
-        for i, (uid, name, score) in enumerate(rows)
+        LeaderboardRow(
+            user_id=uid, display_name=name,
+            homework_score=hw, live_score=live, total_score=total, rank=i + 1,
+        )
+        for i, (uid, name, hw, live, total) in enumerate(rows)
     ]
 
 
