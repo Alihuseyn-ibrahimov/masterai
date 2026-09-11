@@ -522,3 +522,36 @@
  * sadəcə yoxlanmalıdır. Qırmızı rəng müəllimi yanlış yönləndirərdi. */
 .qcard__finding { color: var(--color-warning); text-wrap: pretty; }
 .qcard__saved   { color: var(--color-success); }
+
+/* Dəvət kodu - müəllim onu ekrandan oxuyub sinifə deyir, tələbə isə
+   əl ilə yazır. Ona görə mono şrift və geniş simvol arası: `K7M3QX`
+   adi mətn şriftində sıxışıq və qarışıq oxunur. */
+.invite-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-code);
+  color: var(--color-text);
+  /* `user-select: all` bir kliklə tam kodu seçir - müəllim onu
+     kopyalayıb WhatsApp qrupuna atır. */
+  user-select: all;
+}
+
+/* Gözləyən istək sətri. Kart İÇİNDƏ siyahıdır, ona görə öz çərçivəsi
+   yoxdur - yalnız sətirlər arası ayırıcı. */
+.request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.request-row:first-of-type { border-top: none; }
+
+/* Dar ekranda ad və düymələr alt-alta düşür, yoxsa düymələr sıxılır. */
+@media (max-width: 480px) {
+  .request-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

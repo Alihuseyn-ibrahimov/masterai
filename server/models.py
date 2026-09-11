@@ -55,6 +55,57 @@ class ChatInfo(BaseModel):
     name: str | None
     created_by: int
     created_at: str
+    # Dəvət kodu YALNIZ çatı yaradana göstərilir (bax `app.py`,
+    # `_chat_info_for`). Adi üzvə `None` qayıdır — kodu paylaşmaq
+    # müəllimin qərarıdır, üzv onu kənara ötürə bilməməlidir.
+    # Şəxsi çatda kod anlayışı yoxdur, ona görə orada da `None`.
+    invite_code: str | None = None
+
+
+class JoinByCodeRequest(BaseModel):
+    """Kod ilə qoşulma istəyi. Uzunluq sərhədi qəsdən genişdir —
+    normallaşdırma defis/boşluq da qəbul edir (`K7M-3QX`)."""
+
+    code: str = Field(default="", max_length=32)
+
+
+class JoinRequestResult(BaseModel):
+    """İstək göndərildikdən sonra tələbəyə qayıdan cavab.
+
+    `chat_id` QƏSDƏN YOXDUR: cavabda olsa, kod ilə ID arasında xəritə
+    qurmaq və hansı ID-lərin «canlı» olduğunu öyrənmək olardı.
+    """
+
+    chat_name: str | None
+    status: str
+
+
+class JoinRequestRow(BaseModel):
+    """Müəllimin gözləyənlər siyahısındakı bir sətir — ID yox, AD."""
+
+    user_id: int
+    display_name: str
+    created_at: str
+
+
+class ApproveJoinRequestsRequest(BaseModel):
+    """Toplu təsdiq — «Hamısını təsdiqlə» düyməsi bir sorğu göndərir."""
+
+    user_ids: list[int] = Field(default_factory=list)
+
+
+class ApproveJoinRequestsResult(BaseModel):
+    """REAL təsdiqlənənlər — sorğuda göndərilənlər yox.
+
+    Gözləyən istəyi olmayan `user_id` siyahıya düşmür, yəni bu
+    endpoint ilə kimisə «zorla» çata salmaq mümkün deyil.
+    """
+
+    approved_user_ids: list[int]
+
+
+class InviteCodeInfo(BaseModel):
+    invite_code: str
 
 
 class QuizStartRequest(BaseModel):

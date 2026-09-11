@@ -5,9 +5,17 @@
 1. **JS vahid testləri** — `node --test` ilə işə salınır. Node yoxdursa
    test ATLANIR (istifadəçinin Windows mühitində Node olmaya bilər),
    amma bu sandbox-da və CI-da real icra olunur.
-2. **Endpoint müqaviləsi** — `api.js`-dəki hər yolun `server/app.py`-də
+2. **Endpoint müqaviləsi** — client-dəki hər yolun `server/app.py`-də
    HƏQİQƏTƏN mövcud olduğu. Yazı səhvi (`/auth/loginn`) brauzerdə yalnız
    404 kimi görünər və səbəbi aydın olmaz; burada dərhal tutulur.
+
+   **2026-09-11-də genişləndirildi.** Əvvəl YALNIZ `web/assets/js/*.js`
+   skan olunurdu və yalnız DÜZ SƏTİRLƏR (`request('/chats')`) tutulurdu.
+   Halbuki sorğuların böyük hissəsi HTML səhifələrinin daxili
+   `<script type="module">` blokundadır və çoxu şablon sətridir
+   (`request(`/chats/${id}/members`)`). Yəni test öz məqsədinin
+   böyük hissəsini yoxlamırdı. İndi `web/*.html` da skan olunur və
+   şablon parametrləri `{}`-ə normallaşdırılır.
 """
 
 from __future__ import annotations
@@ -24,19 +32,52 @@ WEB = ROOT / "web"
 APP_PY = ROOT / "server" / "app.py"
 
 _ROUTE_RE = re.compile(r'@app\.(?:get|post|put|patch|delete|websocket)\(\s*"([^"]+)"')
-# `request('/auth/login', ...)` və `` `${API_BASE_URL}/health` `` kimi
-# çağırışlardakı yolları tutur.
-_JS_PATH_RE = re.compile(r"request\(\s*['\"]([^'\"]+)['\"]")
+# `request('/chats')`, `request("/auth/login", ...)` və şablon sətri
+# `` request(`/chats/${id}/members`) `` — hər üç forma.
+_JS_PATH_RE = re.compile(r"request\(\s*['\"`]([^'\"`]+)['\"`]")
+# Şablon parametri: `${chat.id}` → `{}`. Backend yolundakı `{chat_id}` də
+# eyni formaya gətirilir ki, ikisi müqayisə oluna bilsin.
+_TEMPLATE_PARAM_RE = re.compile(r"\$\{[^}]*\}")
+_ROUTE_PARAM_RE = re.compile(r"\{[^}]*\}")
+
+
+def _normalize(path: str) -> str:
+    """Parametrləri eyni yer-tutucuya çevirir.
+
+    `/chats/${chat.id}/members` və `/chats/{chat_id}/members` eyni
+    marşrutdur — müqayisə yalnız SABİT hissələr üzrə mənalıdır.
+    """
+    # Sorğu sətri marşrutun bir hissəsi deyil:
+    # `/homework/assignments?chat_id=5` → `/homework/assignments`.
+    path = path.split("?", 1)[0]
+    return _ROUTE_PARAM_RE.sub("{}", _TEMPLATE_PARAM_RE.sub("{}", path))
 
 
 def _backend_routes() -> set[str]:
-    return set(_ROUTE_RE.findall(APP_PY.read_text(encoding="utf-8")))
+    routes = set(_ROUTE_RE.findall(APP_PY.read_text(encoding="utf-8")))
+    return {_normalize(route) for route in routes}
+
+
+def _client_files():
+    """JS modulları VƏ HTML səhifələrinin daxili skriptləri.
+
+    HTML-i də oxumaq vacibdir: səhifələr sorğularını `<script
+    type="module">` içində edir, yəni yalnız `assets/js` skan edilsə
+    testin əhatəsi əsas hissəni buraxır.
+    """
+    yield from (WEB / "assets" / "js").glob("*.js")
+    yield from WEB.glob("*.html")
 
 
 def _js_paths() -> set[str]:
     paths: set[str] = set()
-    for js in (WEB / "assets" / "js").glob("*.js"):
-        paths.update(_JS_PATH_RE.findall(js.read_text(encoding="utf-8")))
+    for source in _client_files():
+        text = source.read_text(encoding="utf-8")
+        for raw in _JS_PATH_RE.findall(text):
+            # Şablon sətrinin ORTASINDAN başlayan parça (`?id=...`)
+            # yol deyil — yalnız `/` ilə başlayanları götürürük.
+            if raw.startswith("/"):
+                paths.add(_normalize(raw))
     return paths
 
 
@@ -51,7 +92,15 @@ class TestEndpointContract:
         assert not unknown, f"backend-də olmayan yol: {sorted(unknown)}"
 
     def test_client_paths_were_found(self):
-        assert _js_paths(), "api.js-də heç bir endpoint tapılmadı — regex sınıb ola bilər"
+        assert _js_paths(), "heç bir endpoint tapılmadı — regex sınıb ola bilər"
+
+    def test_html_pages_are_scanned_too(self):
+        """Qoruyucu: skan yalnız `assets/js`-ə qayıtsa, bu test sınır.
+
+        `/chats/{}/join-requests` YALNIZ `chatlar.html`-in daxili
+        skriptindədir — başqa heç bir JS faylında yoxdur.
+        """
+        assert "/chats/{}/join-requests" in _js_paths()
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node quraşdırılmayıb")

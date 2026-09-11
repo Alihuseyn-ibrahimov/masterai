@@ -47,15 +47,20 @@
 
     <div class="card stack">
       <h4>Mövcud çata qoşul</h4>
-      <p class="text-sm text-muted">Qoşulma ID-si çat kartının altında yazılır.</p>
+      <p class="text-sm text-muted">
+        Müəllimin verdiyi 6 simvollu dəvət kodunu yazın. Qoşulma müəllim
+        təsdiqlədikdən sonra tamamlanır.
+      </p>
       <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
+      <div class="notice notice--success" id="joinOk" role="status" hidden></div>
       <form class="stack stack--tight" id="joinForm">
         <div class="field">
-          <label class="field__label" for="chatId">Çat ID</label>
-          <input class="field__input" id="chatId" name="chatId" inputmode="numeric"
-                 required placeholder="12">
+          <label class="field__label" for="inviteCode">Dəvət kodu</label>
+          <input class="field__input invite-code" id="inviteCode" name="code"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false"
+                 required maxlength="7" placeholder="K7M-3QX">
         </div>
-        <button class="btn btn--secondary" type="submit" id="joinBtn">Qoşul</button>
+        <button class="btn btn--secondary" type="submit" id="joinBtn">İstək göndər</button>
       </form>
     </div>
     </div>
@@ -68,46 +73,203 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createIcon } from './assets/js/icon.js';
+  import { formatCode, isCompleteCode, normalizeCode } from './assets/js/invite-code.js';
 
   if (requireLogin()) {
     mountShell();
 
     const content = document.getElementById('content');
 
+    /* Çatın dəvət kodu backend tərəfdən YALNIZ yaradana göndərilir
+       (bax `app.py`, `_chat_info_for`). Yəni kodun mövcudluğu özü
+       «bu çatı mən yaratmışam» əlamətidir - ayrıca yoxlama lazım
+       deyil və iki mənbə arasında uyğunsuzluq riski yoxdur. */
+    const isOwner = (chat) => Boolean(chat.invite_code);
+
+    function emptyState() {
+      const state = document.createElement('div');
+      state.className = 'state';
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'state__icon';
+      iconWrap.append(createIcon('message'));
+      const title = document.createElement('div');
+      title.className = 'state__title';
+      title.textContent = 'Hələ çatınız yoxdur';
+      const hint = document.createElement('div');
+      hint.className = 'state__text';
+      hint.textContent = 'Aşağıdan yeni qrup çatı yaradın və ya müəlliminizin '
+        + 'verdiyi dəvət kodu ilə istək göndərin.';
+      state.append(iconWrap, title, hint);
+      return state;
+    }
+
+    /** Kartın başlıq sətri - çat səhifəsinə keçid. AYRICA <a>-dır,
+     *  çünki kartın içində düymələr var: bütün kartı <a> etsək,
+     *  «Təsdiqlə» düyməsinə toxunanda səhifə dəyişərdi. */
+    function cardTitleLink(chat) {
+      const link = document.createElement('a');
+      link.className = 'row row--between';
+      link.href = `chat.html?id=${encodeURIComponent(chat.id)}`;
+      const title = document.createElement('h4');
+      // Qəsdən textContent - çatın adını istifadəçi yazır.
+      title.textContent = chat.name || (chat.kind === 'direct' ? 'Şəxsi çat' : 'Adsız çat');
+      link.append(title, createIcon('arrow-right'));
+      return link;
+    }
+
+    /** Yalnız yaradana görünən blok: kod + yeniləmə + gözləyən istəklər. */
+    function ownerPanel(chat, reload) {
+      const box = document.createElement('div');
+      box.className = 'stack stack--tight';
+
+      const codeRow = document.createElement('div');
+      codeRow.className = 'row row--between';
+      const codeWrap = document.createElement('div');
+      const label = document.createElement('div');
+      label.className = 'text-xs text-muted';
+      label.textContent = 'Dəvət kodu';
+      const code = document.createElement('div');
+      code.className = 'invite-code';
+      code.textContent = formatCode(chat.invite_code);
+      codeWrap.append(label, code);
+
+      const rotate = document.createElement('button');
+      rotate.className = 'btn btn--ghost btn--sm';
+      rotate.type = 'button';
+      rotate.textContent = 'Kodu yenilə';
+      rotate.addEventListener('click', async () => {
+        // Geri dönüşü yoxdur: köhnə kod dərhal işləməz olur, yəni
+        // sinifə artıq deyilmiş kod etibarsızlaşır.
+        if (!globalThis.confirm('Köhnə kod dərhal işləməz olacaq. Davam edilsin?')) return;
+        rotate.disabled = true;
+        try {
+          await request(`/chats/${chat.id}/invite-code`, { method: 'POST' });
+          reload();
+        } catch (error) {
+          rotate.disabled = false;
+          showCardError(box, error.message);
+        }
+      });
+      codeRow.append(codeWrap, rotate);
+      box.append(codeRow);
+
+      const requests = document.createElement('div');
+      requests.className = 'stack stack--tight';
+      box.append(requests);
+      renderRequests(requests, chat, reload);
+      return box;
+    }
+
+    function showCardError(container, message) {
+      let notice = container.querySelector('.notice--danger');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'notice notice--danger';
+        notice.setAttribute('role', 'alert');
+        container.append(notice);
+      }
+      notice.textContent = message;
+      notice.hidden = false;
+    }
+
+    async function renderRequests(container, chat, reload) {
+      let rows;
+      try {
+        rows = await request(`/chats/${chat.id}/join-requests`);
+      } catch (error) {
+        showCardError(container, error.message);
+        return;
+      }
+      container.innerHTML = '';
+      if (!rows.length) return;
+
+      const heading = document.createElement('div');
+      heading.className = 'row row--between';
+      const title = document.createElement('strong');
+      title.className = 'text-sm';
+      title.textContent = `Gözləyən istək: ${rows.length}`;
+      heading.append(title);
+
+      // «Hamısını təsdiqlə» yalnız bir neçə istək olanda mənalıdır -
+      // tək sətirdə onsuz da «Təsdiqlə» düyməsi var.
+      if (rows.length > 1) {
+        const all = document.createElement('button');
+        all.className = 'btn btn--primary btn--sm';
+        all.type = 'button';
+        all.textContent = 'Hamısını təsdiqlə';
+        all.addEventListener('click', () => act(all, container, reload,
+          `/chats/${chat.id}/join-requests/approve`,
+          { user_ids: rows.map((row) => row.user_id) }));
+        heading.append(all);
+      }
+      container.append(heading);
+
+      for (const row of rows) {
+        const line = document.createElement('div');
+        line.className = 'request-row';
+        const name = document.createElement('span');
+        // Qəsdən textContent - adı istifadəçi özü yazır.
+        name.textContent = row.display_name;
+
+        const buttons = document.createElement('div');
+        buttons.className = 'row row--tight';
+        const approve = document.createElement('button');
+        approve.className = 'btn btn--primary btn--sm';
+        approve.type = 'button';
+        approve.textContent = 'Təsdiqlə';
+        approve.addEventListener('click', () => act(approve, container, reload,
+          `/chats/${chat.id}/join-requests/approve`, { user_ids: [row.user_id] }));
+
+        const decline = document.createElement('button');
+        decline.className = 'btn btn--secondary btn--sm';
+        decline.type = 'button';
+        decline.textContent = 'Rədd et';
+        decline.addEventListener('click', () => act(decline, container, reload,
+          `/chats/${chat.id}/join-requests/${row.user_id}/decline`, undefined));
+
+        buttons.append(approve, decline);
+        line.append(name, buttons);
+        container.append(line);
+      }
+    }
+
+    async function act(button, container, reload, path, body) {
+      button.disabled = true;
+      try {
+        await request(path, body === undefined ? { method: 'POST' } : { method: 'POST', body });
+        reload();
+      } catch (error) {
+        button.disabled = false;
+        showCardError(container, error.message);
+      }
+    }
+
     function renderChats(container, chats) {
       container.innerHTML = '';
       if (!chats.length) {
-        const state = document.createElement('div');
-        state.className = 'state';
-        state.innerHTML = '<div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg></div>'
-          + '<div class="state__title">Hələ çatınız yoxdur</div>';
-        const hint = document.createElement('div');
-        hint.className = 'state__text';
-        hint.textContent = 'Aşağıdan yeni qrup çatı yaradın və ya müəlliminizin verdiyi ID ilə qoşulun.';
-        state.append(hint);
-        container.append(state);
+        container.append(emptyState());
         return;
       }
       const grid = document.createElement('div');
-      grid.className = 'grid';
+      // `--start`: kartların hündürlüyü bərabərləşməsin. Yaradanın
+      // kartında kod + gözləyən istəklər var, adi üzvün kartında yox -
+      // `stretch` olsa, ikincisi nəhəng boş qutu kimi görünür (real
+      // render yoxlamasında məhz belə çıxdı).
+      grid.className = 'grid grid--start';
       for (const chat of chats) {
-        const card = document.createElement('a');
+        const card = document.createElement('div');
         card.className = 'card card--interactive stack stack--tight';
-        card.href = `chat.html?id=${encodeURIComponent(chat.id)}`;
-        const title = document.createElement('h4');
-        // Qəsdən textContent - çatın adını istifadəçi yazır.
-        title.textContent = chat.name || (chat.kind === 'direct' ? 'Şəxsi çat' : 'Adsız çat');
-        // Ox işarəsi kartın klikləndiyini bildirir: `card--interactive`
-        // yalnız hover-də sezilir, toxunma ekranında isə hover yoxdur.
-        const head = document.createElement('div');
-        head.className = 'row row--between';
-        head.append(title, createIcon('arrow-right'));
-        const meta = document.createElement('p');
-        meta.className = 'text-sm text-muted';
-        // «ID» tək başına nə üçün lazım olduğunu demir; aşağıdakı
-        // «Mövcud çata qoşul» forması məhz bu rəqəmi istəyir.
-        meta.textContent = `Qoşulma ID-si: ${chat.id}`;
-        card.append(head, meta);
+        card.append(cardTitleLink(chat));
+        if (isOwner(chat)) {
+          card.append(ownerPanel(chat, reload));
+        } else {
+          // Üzvə kod göstərilmir, amma kart tamam boş qalmamalıdır -
+          // əvvəl burada «Qoşulma ID-si» yazılırdı (həmin axın silindi).
+          const kind = document.createElement('p');
+          kind.className = 'text-sm text-muted';
+          kind.textContent = chat.kind === 'direct' ? 'Şəxsi çat' : 'Qrup çatı';
+          card.append(kind);
+        }
         grid.append(card);
       }
       container.append(grid);
@@ -116,7 +278,7 @@
     const reload = () => loadInto(content, () => request('/chats'), renderChats);
     reload();
 
-    function wire(formId, buttonId, errorId, submit) {
+    function wire(formId, buttonId, errorId, submit, onSuccess) {
       const form = document.getElementById(formId);
       const button = document.getElementById(buttonId);
       const errorBox = document.getElementById(errorId);
@@ -127,8 +289,9 @@
         button.disabled = true;
         button.textContent = 'Gözləyin…';
         try {
-          await submit(Object.fromEntries(new FormData(form).entries()));
+          const result = await submit(Object.fromEntries(new FormData(form).entries()));
           form.reset();
+          if (onSuccess) onSuccess(result);
           reload();
         } catch (error) {
           errorBox.textContent = error.message;
@@ -143,13 +306,30 @@
     wire('createForm', 'createBtn', 'createError', (data) =>
       request('/chats', { method: 'POST', body: { kind: 'group', name: data.name } }));
 
+    const codeInput = document.getElementById('inviteCode');
+    const joinOk = document.getElementById('joinOk');
+    // Yazarkən formatlama: ekranda `K7M-3QX` görünür, tələbə də eyni
+    // görünüşü yazır. Normallaşdırma serverdə də var - bu, onu əvəz
+    // etmir, sadəcə səhvi qabaqlayır.
+    codeInput.addEventListener('input', () => {
+      codeInput.value = formatCode(codeInput.value);
+    });
+
     wire('joinForm', 'joinBtn', 'joinError', (data) => {
-      const id = Number(data.chatId);
-      if (!Number.isInteger(id) || id <= 0) {
-        // Serverə mənasız sorğu göndərməkdənsə dərhal aydın mesaj.
-        throw new Error('Çat ID-si rəqəm olmalıdır.');
+      joinOk.hidden = true;
+      if (!isCompleteCode(data.code)) {
+        // Natamam kodla sorğu yalnız sürət limitini yeyir (dəqiqədə 5).
+        throw new Error('Dəvət kodu 6 simvoldan ibarətdir.');
       }
-      return request(`/chats/${id}/join`, { method: 'POST' });
+      return request('/chats/join-requests', {
+        method: 'POST',
+        body: { code: normalizeCode(data.code) },
+      });
+    }, (result) => {
+      joinOk.textContent = result.chat_name
+        ? `«${result.chat_name}» çatına istəyiniz göndərildi. Müəllim təsdiqləyəndən sonra görünəcək.`
+        : 'İstəyiniz göndərildi. Müəllim təsdiqləyəndən sonra çat görünəcək.';
+      joinOk.hidden = false;
     });
   }
 </script>

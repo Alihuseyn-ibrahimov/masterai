@@ -137,6 +137,10 @@
    * cədvəlindən yoxlanılıb (13/13). */
   --font-heading: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --font-body:    'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Dəvət kodu üçün. Sistem monosu QƏSDƏN seçilib - əlavə şrift faylı
+   * yüklənmir. Kod sinifə səslə deyilir və əl ilə yazılır, ona görə
+   * hər simvolun eyni enli və aydın olması vacibdir. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 
   --text-xs:   12px;
   --text-sm:   14px;
@@ -150,6 +154,8 @@
 
   --tracking-tight: -.02em;
   --tracking-wide:  .01em;
+  /* Kod simvolları arasında geniş ara - `K7M3QX` sıxışıq oxunur. */
+  --tracking-code:  .12em;
 
   --leading-tight:  1.2;
   --leading-normal: 1.55;

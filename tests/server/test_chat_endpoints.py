@@ -132,35 +132,7 @@ class TestCreateDirectChat:
         assert r.status_code == 403
 
 
-class TestJoinGroupChat:
-    def test_second_user_can_join(self, client):
-        ali = _register(client, email="ali@example.com")
-        vali = _register(client, email="vali@example.com")
-        chat_id = client.post(
-            "/chats", json={"kind": "group", "name": "Qrup"}, headers=_auth_headers(ali["token"])
-        ).json()["id"]
-
-        r = client.post(f"/chats/{chat_id}/join", headers=_auth_headers(vali["token"]))
-        assert r.status_code == 200
-
-        vali_chats = client.get("/chats", headers=_auth_headers(vali["token"])).json()
-        assert [c["id"] for c in vali_chats] == [chat_id]
-
-    def test_joining_direct_chat_returns_400(self, client):
-        ali = _register(client, email="ali@example.com")
-        vali = _register(client, email="vali@example.com")
-        third = _register(client, email="uc@example.com")
-        _befriend(client, ali, vali)
-        chat_id = client.post(
-            "/chats",
-            json={"kind": "direct", "peer_user_id": vali["user"]["id"]},
-            headers=_auth_headers(ali["token"]),
-        ).json()["id"]
-
-        r = client.post(f"/chats/{chat_id}/join", headers=_auth_headers(third["token"]))
-        assert r.status_code == 400
-
-    def test_unknown_chat_returns_404(self, client):
-        auth = _register(client)
-        r = client.post("/chats/9999/join", headers=_auth_headers(auth["token"]))
-        assert r.status_code == 404
+# `TestJoinGroupChat` BURADAN SİLİNDİ (2026-09-11): `POST /chats/{id}/join`
+# artıq yoxdur — çat ID-ləri ARDICIL olduğu üçün həmin endpoint hər qrup
+# çatına sərbəst giriş verirdi. Yerini tutan kod + təsdiq axınının
+# testləri: `tests/server/test_chat_join_requests_endpoints.py`.

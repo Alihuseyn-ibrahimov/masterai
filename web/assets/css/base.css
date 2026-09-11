@@ -104,6 +104,13 @@ li { list-style: none; }
   grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr));
 }
 
+/* Kartların hündürlüyü BƏRABƏRLƏŞMƏSİN. Defolt `stretch` eyni sətirdəki
+   bütün kartları ən uzununa çəkir; məzmunu az olan kart nəhəng boş
+   qutuya çevrilir. Çat siyahısında bu real olaraq göründü: dəvət kodu
+   və gözləyən istəklər olan kartın yanındakı adi kart yarımçıq
+   göründü. */
+.grid--start { align-items: start; }
+
 /* Statistika şəbəkəsi — mediapulse naxışı: geniş ekranda 4 sütun,
  * mobildə 2 (1 deyil — rəqəmlər qısadır, 1 sütun yer itirir). */
 .metric-grid {

@@ -1,7 +1,7 @@
 """MasterAI backend FastAPI tətbiqi.
 
 Auth (/auth/register, /auth/login, /health) + əsas çat (POST/GET /chats,
-/chats/{id}/join, WS /ws/chat/{id}) + AI quiz orkestrasiyası
+POST /chats/join-requests + təsdiq axını, WS /ws/chat/{id}) + AI quiz orkestrasiyası
 (POST /chats/{id}/quiz/start, WS "answer" mesaj tipi).
 """
 
@@ -66,6 +66,7 @@ from pipeline.quality import audit_questions
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
+from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
@@ -95,6 +96,8 @@ from .models import (
     QuestionSetCounts,
     TeacherSummary,
     AdminStatsInfo,
+    ApproveJoinRequestsRequest,
+    ApproveJoinRequestsResult,
     AuthResponse,
     BadgeInfo,
     ChatInfo,
@@ -110,6 +113,10 @@ from .models import (
     HomeworkAttemptState,
     HomeworkQuestionPayload,
     HomeworkReportRow,
+    InviteCodeInfo,
+    JoinByCodeRequest,
+    JoinRequestResult,
+    JoinRequestRow,
     LeaderboardRow,
     LiveQuestionInfo,
     LiveSessionInfo,
@@ -141,6 +148,7 @@ from .quiz_runner import (
     start_quiz,
 )
 from .quiz_session_store import QuizAlreadyActive, QuizSessionStore
+from .rate_limit import RateLimiter
 from .uploads import PayloadTooLarge, save_upload
 from .user_store import DuplicateEmail, UserStore
 
@@ -168,6 +176,12 @@ app.add_middleware(
 )
 app.state.user_store = UserStore(os.environ.get("USERS_DB_PATH", "users.db"))
 app.state.chat_store = ChatStore(os.environ.get("CHATS_DB_PATH", "chats.db"))
+app.state.chat_join_request_store = ChatJoinRequestStore(
+    os.environ.get("CHAT_JOIN_REQUESTS_DB_PATH", "chat_join_requests.db")
+)
+# Dəvət kodu təxminini bağlayan sayğac. Proses-daxilidir — servis
+# QƏSDƏN tək worker-lə işləyir (bax `deploy/masterai.service`, `-w 1`).
+app.state.join_rate_limiter = RateLimiter()
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
@@ -199,6 +213,21 @@ def get_user_store() -> UserStore:
 def get_chat_store() -> ChatStore:
     """Çat store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.chat_store
+
+
+def get_chat_join_request_store() -> ChatJoinRequestStore:
+    """Qoşulma istəkləri store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.chat_join_request_store
+
+
+def get_join_rate_limiter() -> RateLimiter:
+    """Kod ilə qoşulma sürət limiti.
+
+    ASILILIQ KİMİ VERİLİR ki, test onu təzə nüsxə ilə əvəz edə
+    bilsin — sayğac proses-daxili olduğu üçün testlər arasında
+    daşınsa, sonrakı testlər səbəbsiz 429 alardı.
+    """
+    return app.state.join_rate_limiter
 
 
 def get_message_store() -> MessageStore:
@@ -564,7 +593,7 @@ def create_chat(
         chat = chats.create(kind="direct", created_by=user["id"])
         chats.add_member(chat["id"], user["id"])
         chats.add_member(chat["id"], req.peer_user_id)
-    return ChatInfo(**chat)
+    return _chat_info_for(chat, user["id"])
 
 
 @app.get("/chats", response_model=list[ChatInfo])
@@ -572,22 +601,160 @@ def list_chats(
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
 ) -> list[ChatInfo]:
-    return [ChatInfo(**c) for c in chats.list_by_user(user["id"])]
+    return [_chat_info_for(c, user["id"]) for c in chats.list_by_user(user["id"])]
 
 
-@app.post("/chats/{chat_id}/join", response_model=ChatInfo)
-def join_chat(
-    chat_id: int,
-    user: dict = Depends(get_current_user),
-    chats: ChatStore = Depends(get_chat_store),
-) -> ChatInfo:
+# `POST /chats/{chat_id}/join` BURADAN SİLİNDİ (2026-09-11).
+# Səbəb: heç bir yoxlama etmirdi, çat ID-ləri isə `AUTOINCREMENT`, yəni
+# ARDICIL — 1-dən saymaqla sistemdəki bütün qrup çatlarına girmək
+# olurdu. Yerini kod + təsdiq axını tutdu (aşağıda).
+
+
+def _require_chat_creator(chat_id: int, user: dict, chats: ChatStore) -> dict:
+    """Çatı YARADAN olmaq şərti — üzv olmaq kifayət etmir.
+
+    Ayrıca funksiyadır, çünki dörd endpoint eyni qapıdan keçir; sətiriçi
+    yazılsa, biri unudulanda bu heç yerdə görünməzdi (bax `/live/*`-dakı
+    beş qapısız endpoint hadisəsi).
+    """
     chat = chats.get(chat_id)
     if chat is None:
         raise HTTPException(status_code=404, detail="Çat tapılmadı")
-    if chat["kind"] == "direct":
-        raise HTTPException(status_code=400, detail="Direct çata kənardan qoşulmaq olmaz")
-    chats.add_member(chat_id, user["id"])
-    return ChatInfo(**chat)
+    if chat["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız çatı yaradan idarə edə bilər")
+    return chat
+
+
+def _chat_info_for(chat: dict, user_id: int) -> ChatInfo:
+    """Dəvət kodunu YALNIZ yaradana göstərir.
+
+    Adi üzvə kodu versək, hər tələbə onu kənara ötürə bilər — təsdiq
+    yenə tələb olunur, amma müəllim bundan xəbərsiz qalar.
+    """
+    data = dict(chat)
+    if data.get("created_by") != user_id:
+        data["invite_code"] = None
+    return ChatInfo(**data)
+
+
+@app.post("/chats/join-requests", response_model=JoinRequestResult, status_code=201)
+def request_to_join_chat(
+    req: JoinByCodeRequest,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
+    limiter: RateLimiter = Depends(get_join_rate_limiter),
+) -> JoinRequestResult:
+    """Dəvət kodu ilə qoşulma istəyi. Üzvlük YARATMIR — müəllim təsdiqi
+    ayrı addımdır.
+
+    SÜRƏT LİMİTİ istifadəçi üzrədir: 887 milyon variantlı kodu dəqiqədə
+    5 cəhdlə axtarmaq orta hesabla ≈169 il çəkir.
+    AÇIQ MƏHDUDİYYƏT: qeydiyyat sərbəstdir, yəni çoxlu hesab açan
+    hücumçu üçün limit hesab sayına bölünür. Bu, kodun tək müdafiə
+    olmadığı üçün qəbul edilir (təsdiq onsuz da tələb olunur, müəllim
+    kodu istənilən vaxt yeniləyə bilər), amma bilinən boşluqdur.
+    """
+    if not limiter.allow(str(user["id"])):
+        raise HTTPException(
+            status_code=429, detail="Çox sayda cəhd. Bir dəqiqə sonra yenidən yoxlayın."
+        )
+    chat = chats.get_by_invite_code(req.code)
+    # Səhv kodda HƏMİŞƏ eyni cavab — cavab fərqinə baxıb kod təxmin
+    # etmək mümkün olmamalıdır.
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Belə kod tapılmadı")
+    if user["id"] in chats.list_member_ids(chat["id"]):
+        # «İstək göndərildi» yalançı olardı; üstəlik onsuz da üzv olan
+        # adam müəllimin gözləyənlər siyahısına düşməməlidir.
+        raise HTTPException(status_code=409, detail="Siz artıq bu çatın üzvüsünüz")
+    row = join_requests.request(chat_id=chat["id"], user_id=user["id"])
+    return JoinRequestResult(chat_name=chat["name"], status=row["status"])
+
+
+@app.get("/chats/{chat_id}/join-requests", response_model=list[JoinRequestRow])
+def list_join_requests(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
+    users: UserStore = Depends(get_user_store),
+) -> list[JoinRequestRow]:
+    """Gözləyən istəklər — yalnız çatı yaradana."""
+    _require_chat_creator(chat_id, user, chats)
+    rows = []
+    for row in join_requests.list_pending(chat_id):
+        requester = users.get_by_id(row["user_id"])
+        if requester is None:
+            # Hesab silinibsə sətri göstərmirik — müəllim qərar verə
+            # bilməyəcəyi sətirlə qarşılaşmamalıdır.
+            continue
+        rows.append(
+            JoinRequestRow(
+                user_id=row["user_id"],
+                display_name=requester["display_name"],
+                created_at=row["created_at"],
+            )
+        )
+    return rows
+
+
+@app.post(
+    "/chats/{chat_id}/join-requests/approve", response_model=ApproveJoinRequestsResult
+)
+def approve_join_requests(
+    chat_id: int,
+    req: ApproveJoinRequestsRequest,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
+) -> ApproveJoinRequestsResult:
+    """Toplu təsdiq — «Hamısını təsdiqlə» bir sorğu göndərir.
+
+    Üzv YALNIZ store-un təsdiqlədiyi `user_id`-lər üçün əlavə olunur.
+    `user_ids` çağırandan gəldiyi üçün bu vacibdir: gözləyən istəyi
+    olmayan adamı bu endpoint ilə çata salmaq mümkün olmamalıdır.
+    """
+    _require_chat_creator(chat_id, user, chats)
+    approved = join_requests.approve(
+        chat_id=chat_id, user_ids=req.user_ids, decided_by=user["id"]
+    )
+    for user_id in approved:
+        chats.add_member(chat_id, user_id)
+    return ApproveJoinRequestsResult(approved_user_ids=approved)
+
+
+@app.post("/chats/{chat_id}/join-requests/{requester_id}/decline", status_code=200)
+def decline_join_request(
+    chat_id: int,
+    requester_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
+) -> dict:
+    """Rədd. Tələbə YENİDƏN istək göndərə bilər — müəllim səhvən rədd
+    etsə, bu, həmişəlik bloklanma olmamalıdır."""
+    _require_chat_creator(chat_id, user, chats)
+    if not join_requests.decline(
+        chat_id=chat_id, user_id=requester_id, decided_by=user["id"]
+    ):
+        raise HTTPException(status_code=404, detail="Gözləyən istək tapılmadı")
+    return {"status": "rədd edildi"}
+
+
+@app.post("/chats/{chat_id}/invite-code", response_model=InviteCodeInfo)
+def regenerate_invite_code(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+) -> InviteCodeInfo:
+    """Kodu yeniləyir — köhnə kod dərhal işləməz olur.
+
+    Kod sinifdən kənara çıxanda (şəkil, ekran paylaşımı) müəllimin
+    yeganə çarəsidir.
+    """
+    _require_chat_creator(chat_id, user, chats)
+    return InviteCodeInfo(invite_code=chats.regenerate_invite_code(chat_id))
 
 
 @app.get("/chats/{chat_id}/members", response_model=list[ChatMemberInfo])
