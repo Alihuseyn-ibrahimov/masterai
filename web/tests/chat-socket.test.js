@@ -161,3 +161,50 @@ describe('ChatSocket', () => {
     assert.equal(FakeSocket.last, first);
   });
 });
+
+describe('canlı sessiya elanı', () => {
+  test('`live_session` mesajı ayrıca ötürücüyə gedir', () => {
+    // Kart mesaj axınında YOX, çatın yuxarısında görünür.
+    const seen = [];
+    const socket = new ChatSocket({
+      chatId: 7, token: 't', socketFactory: FakeSocket,
+      onHistory: () => {}, onItem: () => {},
+      onLiveSession: (data) => seen.push(data),
+    });
+    socket.connect();
+    FakeSocket.last.open();
+    FakeSocket.last.receive({ type: 'live_session', session_id: 5, title: 'Silloqizmlər' });
+
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].session_id, 5);
+    socket.close();
+  });
+
+  test('elan mesaj axınına DÜŞMÜR', () => {
+    // Əks halda çatda «tanınmayan element» kimi görünə bilərdi.
+    const items = [];
+    const socket = new ChatSocket({
+      chatId: 7, token: 't', socketFactory: FakeSocket,
+      onHistory: () => {}, onItem: (item) => items.push(item),
+      onLiveSession: () => {},
+    });
+    socket.connect();
+    FakeSocket.last.open();
+    FakeSocket.last.receive({ type: 'live_session', session_id: 5 });
+
+    assert.deepEqual(items, []);
+    socket.close();
+  });
+
+  test('ötürücü verilməyibsə sınmır', () => {
+    // `chat.html`-dən başqa çağıran bu açarı verməyə bilər.
+    const socket = new ChatSocket({
+      chatId: 7, token: 't', socketFactory: FakeSocket,
+      onHistory: () => {}, onItem: () => {},
+    });
+    socket.connect();
+    FakeSocket.last.open();
+    FakeSocket.last.receive({ type: 'live_session', session_id: 5 });
+    socket.close();
+  });
+});

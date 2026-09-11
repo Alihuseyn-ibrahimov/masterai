@@ -2,6 +2,7 @@ User-agent: *
 # Şəxsi ekranlar indeksləşdirilmir — məzmunu yalnız daxil olmuş
 # istifadəçiyə aiddir və axtarışda görünməsinin mənası yoxdur.
 Disallow: /chatlar.html
+Disallow: /sessiya.html
 Disallow: /chat.html
 Disallow: /profil.html
 Disallow: /tapsiriqlar.html

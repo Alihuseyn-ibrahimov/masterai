@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canlı sessiya - MasterAI</title>
+<meta name="theme-color" content="#2F6FED">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<!-- Ev tapşırığı ekranı ilə EYNİ quruluş (`tapsiriq.html`): tələbə
+     sessiya bitəndən sonra naviqasiyasız qalmamalıdır. -->
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1>Canlı sessiya</h1>
+      <a class="btn btn--ghost btn--sm" href="chatlar.html">← Çatlar</a>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+    <!-- PIN forması QƏSDƏN YOXDUR: tələbə çatdakı «Qoşul» düyməsindən
+         gəlir, üzvlüyü isə server çatdan yoxlayır. Yazılacaq heç nə
+         yoxdur - ad da hesabdan götürülür. -->
+
+    <!-- 1. Gözləmə -->
+    <div class="card stack" id="waitCard" style="text-align: center">
+      <div class="spinner" style="margin: 0 auto"></div>
+      <h3>Qoşuldunuz</h3>
+      <p class="text-sm text-muted">Müəllim sessiyanı başladanda suallar görünəcək.</p>
+    </div>
+
+    <!-- 2. Sual -->
+    <div class="card stack" id="questionCard" hidden>
+      <div class="row row--between">
+        <span class="badge badge--info" id="questionCounter">Sual</span>
+        <span class="badge badge--neutral" id="countdown">-</span>
+      </div>
+      <h3 id="questionText"></h3>
+      <div class="stack stack--tight" id="options"></div>
+    </div>
+
+    <!-- 3. Nəticə -->
+    <div class="card stack" id="resultCard" hidden>
+      <!-- Nişan `row`-un içindədir: `stack` sütununda tək element bütün
+           eni tutur və rəngli zolağa çevrilir. -->
+      <div class="row"><span class="badge" id="resultBadge"></span></div>
+      <!-- Sual mətni təkrarlanır: izah suala istinad edir, sual isə
+           artıq ekrandan getmişdi. -->
+      <p class="text-sm text-muted" id="resultQuestion"></p>
+      <p id="chosenText" hidden></p>
+      <p id="correctText"></p>
+      <p class="text-sm text-muted" id="explanationText"></p>
+      <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
+    </div>
+
+    <!-- 4. Şəxsi bitiş -->
+    <div class="card stack" id="personalCard" hidden style="text-align: center">
+      <div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"></use></svg></div>
+      <h3>Siz bitirdiniz</h3>
+      <p id="personalScore"></p>
+      <p class="text-sm text-muted">Sessiya bitəndə ümumi nəticələr görünəcək.</p>
+    </div>
+
+    <!-- 5. Sessiya bitdi -->
+    <div class="card stack" id="finishedCard" hidden>
+      <h3>Sessiya bitdi</h3>
+      <div id="leaderboard"></div>
+    </div>
+
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getToken } from './assets/js/api.js';
+  import { LivePlaySocket } from './assets/js/live.js';
+  import { PlayScreen } from './assets/js/live-play-screen.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+
+  /* Giriş MƏCBURİDİR: server tokensiz bağlantını 4401 ilə bağlayır
+     (anonim yol silinir) və iştirakçı hesaba bağlanmasa nəticə
+     tələbənin tarixçəsinə düşmür. */
+  if (requireLogin()) {
+    mountShell();
+
+    const sessionId = Number(new URLSearchParams(window.location.search).get('id'));
+
+    let socket = null;
+    const screen = new PlayScreen({
+      root: document,
+      onNext: () => {
+        if (!socket.next()) screen.showError('Bağlantı hazır deyil - bir azdan cəhd edin.');
+      },
+    });
+
+    if (!Number.isInteger(sessionId) || sessionId <= 0) {
+      screen.showError('Sessiya ünvanı düzgün deyil. Çatdakı «Qoşul» düyməsindən keçin.');
+      document.getElementById('waitCard').hidden = true;
+    } else {
+      socket = new LivePlaySocket({
+        sessionId,
+        token: getToken() || '',
+        onStatus: (status) => {
+          if (status === 'closed') {
+            // Səbəb koduna görə mətn fərqlənmir, çünki server rədd
+            // səbəbini AYRICA `error` mesajı ilə göndərir (bax
+            // `_reject_websocket`) və o, `screen.handle`-a düşür.
+            screen.showError('Bağlantı bağlandı. Çata qayıdıb yenidən qoşulun.');
+          }
+        },
+        onMessage: (data) => screen.handle(data),
+      });
+      screen.onAnswer = (index, chosen) => socket.answer(index, chosen);
+      socket.connect();
+    }
+
+    window.addEventListener('beforeunload', () => { if (socket) socket.close(); });
+  }
+</script>
+</body>
+</html>

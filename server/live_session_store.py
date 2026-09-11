@@ -86,6 +86,18 @@ class LiveSessionStore:
                 )
             except sqlite3.OperationalError:
                 pass
+            # `chat_id`/`created_by` — sessiya artıq bir SİNFƏ (qrup çatına)
+            # bağlıdır. Sütunlar NULLABLE-dır: canlı bazadakı köhnə (PIN)
+            # sessiyalar çatsızdır və tarixçədə oxunmalıdır. Məcburilik
+            # ENDPOINT qatındadır (bax `POST /live/sessions`).
+            try:
+                self._conn.execute("ALTER TABLE live_sessions ADD COLUMN chat_id INTEGER")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._conn.execute("ALTER TABLE live_sessions ADD COLUMN created_by INTEGER")
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
 
     # ---- sessiyalar ------------------------------------------------
@@ -102,17 +114,55 @@ class LiveSessionStore:
                 return pin
         raise RuntimeError("Unikal PIN yaradıla bilmədi (50 cəhddən sonra)")
 
-    def create_session(self, question_set_id: int) -> dict:
+    def create_session(
+        self,
+        question_set_id: int,
+        chat_id: int | None = None,
+        created_by: int | None = None,
+    ) -> dict:
+        """Yeni sessiya.
+
+        `chat_id`/`created_by` KÖNÜLLÜDÜR ki, köhnə (PIN) axını və
+        tarixçə testləri pozulmasın — yeni endpoint onları məcburi
+        tələb edir. `created_by` host konsolunun kimə açılacağını
+        həll edir: çatda bir neçə müəllim ola bilər, amma konsol
+        YALNIZ sessiyanı başladanındır.
+        """
         with self._lock:
             pin = self._generate_unique_pin()
             cur = self._conn.execute(
                 "INSERT INTO live_sessions "
-                "(question_set_id, pin, status, current_question_index, report_json, created_at) "
-                "VALUES (?, ?, 'waiting', 0, NULL, ?)",
-                (question_set_id, pin, _utc_now_iso()),
+                "(question_set_id, pin, status, current_question_index, report_json, "
+                "created_at, chat_id, created_by) "
+                "VALUES (?, ?, 'waiting', 0, NULL, ?, ?, ?)",
+                (question_set_id, pin, _utc_now_iso(), chat_id, created_by),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
+
+    def active_for_chat(self, chat_id: int | None) -> dict | None:
+        """Çatın BİTMƏMİŞ sessiyası — `chat.html` bunu kart kimi göstərir.
+
+        `waiting` VƏ `active` hallarının hər ikisi qaytarılır: gec
+        qoşulma açıqdır, yəni sessiya başlayandan sonra da çatda
+        görünməlidir, yoxsa gecikən tələbə onu tapa bilməz.
+
+        `chat_id is None` üçün DƏRHAL `None`: köhnə sessiyalarda bu
+        sütun NULL-dur və SQL-də `= NULL` heç vaxt doğru olmasa da,
+        bu qorunmanı açıq saxlamaq ucuzdur.
+        """
+        if chat_id is None:
+            return None
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, question_set_id, pin, status, current_question_index, "
+                "report_json, created_at, duration_seconds, started_at, chat_id, created_by "
+                "FROM live_sessions WHERE chat_id = ? AND status != 'finished' "
+                "ORDER BY id DESC LIMIT 1",
+                (chat_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     def latest_for_question_sets(self, question_set_ids: list[int]) -> dict | None:
         """Verilmiş sual banklarına aid ƏN SON sessiya.
@@ -139,7 +189,7 @@ class LiveSessionStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, question_set_id, pin, status, current_question_index, "
-                "report_json, created_at, duration_seconds, started_at "
+                "report_json, created_at, duration_seconds, started_at, chat_id, created_by "
                 "FROM live_sessions WHERE id = ?",
                 (session_id,),
             )
@@ -152,7 +202,8 @@ class LiveSessionStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, question_set_id, pin, status, current_question_index, "
-                "report_json, created_at, duration_seconds, started_at FROM live_sessions "
+                "report_json, created_at, duration_seconds, started_at, chat_id, created_by "
+                "FROM live_sessions "
                 "WHERE pin = ? AND status != 'finished' ORDER BY id DESC LIMIT 1",
                 (pin,),
             )

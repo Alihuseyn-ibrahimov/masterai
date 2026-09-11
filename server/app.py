@@ -101,6 +101,7 @@ from .models import (
     AuthResponse,
     BadgeInfo,
     ChatInfo,
+    ChatLiveSessionInfo,
     ChatMemberInfo,
     CreateChatRequest,
     CreateHomeworkAssignmentRequest,
@@ -1438,19 +1439,85 @@ async def chat_websocket(
 
 
 @app.post("/live/sessions", response_model=LiveSessionInfo, status_code=201)
-def create_live_session(
+async def create_live_session(
     req: CreateLiveSessionRequest,
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    chats: ChatStore = Depends(get_chat_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> LiveSessionInfo:
+    """Sessiya bir SİNFƏ (qrup çatına) bağlı başlayır.
+
+    İKİ ŞƏRT birlikdə: müəllim olmaq VƏ həmin çatın üzvü olmaq.
+    Yalnız birincisi olsaydı, istənilən müəllim istənilən sinifdə
+    sessiya aça bilərdi; yalnız ikincisi olsaydı, tələbə öz sinfində
+    sessiya aça bilərdi. Spec qərarı: «çatdakı istənilən müəllim».
+    """
+    chat = chats.get(req.chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(req.chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     question_set = question_sets.get(req.question_set_id)
     if question_set is None:
         raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
     if question_set["status"] != "ready":
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
-    session = live_sessions.create_session(req.question_set_id)
+
+    session = live_sessions.create_session(
+        req.question_set_id, chat_id=req.chat_id, created_by=user["id"]
+    )
+    # Çatdakı HAMI dərhal görsün — istifadəçinin əsas tələbi bu idi.
+    # `connection_manager.broadcast` onsuz da mövcuddur (mesajlar üçün),
+    # yeni infrastruktur lazım deyil — yalnız yeni mesaj tipi.
+    await manager.broadcast(
+        req.chat_id,
+        {
+            "type": "live_session",
+            "session_id": session["id"],
+            "status": session["status"],
+            "title": question_set["title"],
+            "subject": question_set["subject"],
+            "started_by": user["display_name"],
+            "started_by_user_id": user["id"],
+        },
+    )
     return LiveSessionInfo(**session)
+
+
+@app.get("/chats/{chat_id}/live-session", response_model=ChatLiveSessionInfo | None)
+def get_chat_live_session(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    users: UserStore = Depends(get_user_store),
+) -> ChatLiveSessionInfo | None:
+    """Çatın açıq sessiyası (varsa).
+
+    NİYƏ YAYIMDAN ƏLAVƏ: WS yayımı yalnız O AN bağlı olanlara çatır.
+    Sonradan çatı açan tələbə sessiyanı başqa cür görə bilməzdi.
+    """
+    if chats.get(chat_id) is None:
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    session = live_sessions.active_for_chat(chat_id)
+    if session is None:
+        return None
+    question_set = question_sets.get(session["question_set_id"])
+    starter = users.get_by_id(session["created_by"]) if session["created_by"] else None
+    return ChatLiveSessionInfo(
+        session_id=session["id"],
+        status=session["status"],
+        title=question_set["title"] if question_set else "Canlı sessiya",
+        subject=question_set["subject"] if question_set else "",
+        started_by=starter["display_name"] if starter else "Müəllim",
+        started_by_user_id=session["created_by"],
+    )
 
 
 @app.get("/live/sessions/{session_id}/report", response_model=LiveSessionReport)
@@ -1883,6 +1950,262 @@ def _schedule_live_duration_watch(
     app.state.active_live_timeouts[session_id] = task
 
 
+async def _run_host_loop(
+    websocket: WebSocket, session: dict, *, question_sets, live_sessions, manager
+) -> None:
+    """Host mesaj döngüsü — PIN və sessiya-ID marşrutlarının ORTAQ gövdəsi.
+
+    Ayrıca funksiyaya çıxarıldı ki, iki marşrut arasında məntiq
+    ayrılmasın: Faza 4-də PIN marşrutu silinəndə burada heç nə
+    dəyişmir.
+    """
+    while True:
+        try:
+            data = await websocket.receive_json()
+        except WebSocketDisconnect:
+            raise
+        except Exception:
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+            continue
+
+        if not isinstance(data, dict):
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+            continue
+
+        if data.get("action") == "start":
+            duration_seconds = data.get("duration_seconds")
+            if not isinstance(duration_seconds, int) or duration_seconds <= 0:
+                duration_seconds = DEFAULT_SESSION_DURATION_SECONDS
+            try:
+                await start_live_session(
+                    session["id"], duration_seconds,
+                    session_store=live_sessions, question_set_store=question_sets,
+                    connection_manager=manager,
+                )
+            except LiveSessionError as exc:
+                await websocket.send_json({"type": "error", "detail": str(exc)})
+                continue
+            _schedule_live_duration_watch(
+                session["id"], duration_seconds,
+                session_store=live_sessions, question_set_store=question_sets,
+                connection_manager=manager,
+            )
+        else:
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+
+
+async def _run_play_loop(
+    websocket: WebSocket, session_id: int, participant_id: int,
+    *, question_sets, live_sessions, manager,
+) -> None:
+    """Tələbə mesaj döngüsü — iki marşrutun ORTAQ gövdəsi (yuxarıdakı
+    eyni səbəb)."""
+    while True:
+        try:
+            data = await websocket.receive_json()
+        except WebSocketDisconnect:
+            raise
+        except Exception:
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+            continue
+
+        if not isinstance(data, dict) or data.get("type") not in ("answer", "next"):
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+            continue
+
+        if data.get("type") == "next":
+            try:
+                await request_next_live_question(
+                    session_id, participant_id,
+                    session_store=live_sessions, question_set_store=question_sets,
+                    connection_manager=manager,
+                )
+            except LiveSessionError as exc:
+                await websocket.send_json({"type": "error", "detail": str(exc)})
+            continue
+
+        question_index = data.get("question_index")
+        chosen_index = data.get("chosen_index")
+        if not isinstance(question_index, int) or not isinstance(chosen_index, int):
+            await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+            continue
+
+        try:
+            await record_live_answer(
+                session_id, participant_id, question_index, chosen_index,
+                session_store=live_sessions, question_set_store=question_sets,
+                connection_manager=manager,
+            )
+        except (LiveNotCurrentQuestion, LiveAlreadyAnswered, LiveSessionTimeExpired, LiveSessionError) as exc:
+            await websocket.send_json({"type": "error", "detail": str(exc)})
+
+
+def _live_session_membership(
+    session: dict, user_id: int, chats: ChatStore
+) -> bool:
+    """Bu istifadəçi sessiyanın çatının üzvüdürmü?
+
+    Sessiya ID-ləri `AUTOINCREMENT`, yəni ARDICIL — üzvlük yoxlanmasa,
+    1-dən saymaqla qonşu sinfin sessiyasına girmək olardı (eyni səhv
+    çata qoşulmada da vardı, bax `POST /chats/{id}/join` silinməsi).
+    """
+    if session.get("chat_id") is None:
+        return False
+    return user_id in chats.list_member_ids(session["chat_id"])
+
+
+@app.websocket("/ws/live/sessions/{session_id}/host")
+async def live_host_by_session_websocket(
+    websocket: WebSocket,
+    session_id: int,
+    token: str = Query(...),
+    secret: str = Depends(get_token_secret),
+    users: UserStore = Depends(get_user_store),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    manager: LiveConnectionManager = Depends(get_live_connection_manager),
+) -> None:
+    """Host konsolu — YALNIZ sessiyanı BAŞLADAN müəllim.
+
+    Çatda bir neçə müəllim ola bilər, amma iki nəfər eyni anda idarə
+    etsə (start, vaxt limiti), sinifdə nə baş verdiyi anlaşılmaz
+    olardı. Spec qərarı: konsol sessiyanı başladanındır.
+
+    Rədd HƏMİŞƏ `accept()`-dən SONRA və səbəb kodu ilə olur —
+    `accept()`-dən əvvəl bağlansa, brauzerə 1006 çatır və client
+    sonsuz yenidən qoşulur (real produksiyada baş verib).
+    """
+    try:
+        user_id = verify_token(token, secret=secret)
+    except InvalidToken:
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
+        return
+    user = users.get_by_id(user_id)
+    if user is None:
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
+        return
+
+    session = live_sessions.get(session_id)
+    if session is None or session["status"] == "finished":
+        await _reject_websocket(
+            websocket, 4404,
+            "Bu sessiya artıq bitib və ya tapılmadı. Çatdan yenisini başladın.",
+        )
+        return
+    if (
+        not user["is_teacher"]
+        or session["created_by"] != user_id
+        or not _live_session_membership(session, user_id, chats)
+    ):
+        await _reject_websocket(
+            websocket, 4403, "Bu sessiyanı yalnız onu başladan müəllim idarə edə bilər."
+        )
+        return
+
+    await websocket.accept()
+    manager.connect_host(session["id"], websocket)
+    await websocket.send_json(
+        {
+            "type": "state",
+            "session_id": session["id"],
+            "status": session["status"],
+            "participants": live_sessions.list_participants(session["id"]),
+        }
+    )
+
+    try:
+        await _run_host_loop(
+            websocket, session,
+            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+        )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect_host(session["id"], websocket)
+
+
+@app.websocket("/ws/live/sessions/{session_id}/play")
+async def live_play_by_session_websocket(
+    websocket: WebSocket,
+    session_id: int,
+    token: str = Query(default=""),
+    secret: str = Depends(get_token_secret),
+    users: UserStore = Depends(get_user_store),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    manager: LiveConnectionManager = Depends(get_live_connection_manager),
+) -> None:
+    """Tələbə bağlantısı — token MƏCBURİDİR.
+
+    Köhnə PIN yolunda token KÖNÜLLÜ idi və tokensiz iştirakçı heç bir
+    hesaba bağlanmırdı (fərdi tarixçə buna görə boş qalırdı). Burada
+    ad da yazılmır — hesabdan götürülür.
+    """
+    try:
+        user_id = verify_token(token, secret=secret)
+    except InvalidToken:
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
+        return
+    user = users.get_by_id(user_id)
+    if user is None:
+        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
+        return
+
+    session = live_sessions.get(session_id)
+    if session is None or session["status"] == "finished":
+        await _reject_websocket(
+            websocket, 4404, "Bu sessiya artıq bitib və ya tapılmadı."
+        )
+        return
+    if not _live_session_membership(session, user_id, chats):
+        await _reject_websocket(websocket, 4403, "Bu sinfin üzvü deyilsiniz.")
+        return
+
+    await websocket.accept()
+    participant = live_sessions.add_participant(
+        session["id"], user["display_name"], user_id=user_id
+    )
+    await manager.broadcast_host(
+        session["id"],
+        {
+            "type": "participant_joined",
+            "participant_id": participant["id"],
+            "display_name": user["display_name"],
+            "count": live_sessions.count_participants(session["id"]),
+        },
+    )
+    manager.connect_player(session["id"], participant["id"], websocket)
+    await websocket.send_json(
+        {"type": "joined", "participant_id": participant["id"], "session_id": session["id"]}
+    )
+
+    # GEC QOŞULMA: sessiya artıq işləyirsə, `start` yayımı çoxdan
+    # keçib — heç nə göndərilməsə tələbə boş ekrana baxardı.
+    # `request_next` yeni iştirakçı üçün 0-cı sualı göndərir (indeks
+    # cavab sayından törəyir).
+    if session["status"] == "active":
+        try:
+            await request_next_live_question(
+                session["id"], participant["id"],
+                session_store=live_sessions, question_set_store=question_sets,
+                connection_manager=manager,
+            )
+        except LiveSessionError as exc:
+            await websocket.send_json({"type": "error", "detail": str(exc)})
+
+    try:
+        await _run_play_loop(
+            websocket, session["id"], participant["id"],
+            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+        )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect_player(session["id"], participant["id"], websocket)
+
+
 @app.websocket("/ws/live/{pin}/host")
 async def live_host_websocket(
     websocket: WebSocket,
@@ -1925,44 +2248,10 @@ async def live_host_websocket(
     )
 
     try:
-        while True:
-            try:
-                data = await websocket.receive_json()
-            except WebSocketDisconnect:
-                raise
-            except Exception:
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-
-            if not isinstance(data, dict):
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-
-            action = data.get("action")
-
-            if action == "start":
-                duration_seconds = data.get("duration_seconds")
-                if not isinstance(duration_seconds, int) or duration_seconds <= 0:
-                    duration_seconds = DEFAULT_SESSION_DURATION_SECONDS
-                try:
-                    await start_live_session(
-                        session["id"],
-                        duration_seconds,
-                        session_store=live_sessions,
-                        question_set_store=question_sets,
-                        connection_manager=manager,
-                    )
-                except LiveSessionError as exc:
-                    await websocket.send_json({"type": "error", "detail": str(exc)})
-                    continue
-                _schedule_live_duration_watch(
-                    session["id"], duration_seconds,
-                    session_store=live_sessions, question_set_store=question_sets,
-                    connection_manager=manager,
-                )
-
-            else:
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
+        await _run_host_loop(
+            websocket, session,
+            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+        )
     except WebSocketDisconnect:
         pass
     finally:
@@ -2020,44 +2309,10 @@ async def live_play_websocket(
     )
 
     try:
-        while True:
-            try:
-                data = await websocket.receive_json()
-            except WebSocketDisconnect:
-                raise
-            except Exception:
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-
-            if not isinstance(data, dict) or data.get("type") not in ("answer", "next"):
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-
-            if data.get("type") == "next":
-                try:
-                    await request_next_live_question(
-                        session["id"], participant["id"],
-                        session_store=live_sessions, question_set_store=question_sets,
-                        connection_manager=manager,
-                    )
-                except LiveSessionError as exc:
-                    await websocket.send_json({"type": "error", "detail": str(exc)})
-                continue
-
-            question_index = data.get("question_index")
-            chosen_index = data.get("chosen_index")
-            if not isinstance(question_index, int) or not isinstance(chosen_index, int):
-                await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
-                continue
-
-            try:
-                await record_live_answer(
-                    session["id"], participant["id"], question_index, chosen_index,
-                    session_store=live_sessions, question_set_store=question_sets,
-                    connection_manager=manager,
-                )
-            except (LiveNotCurrentQuestion, LiveAlreadyAnswered, LiveSessionTimeExpired, LiveSessionError) as exc:
-                await websocket.send_json({"type": "error", "detail": str(exc)})
+        await _run_play_loop(
+            websocket, session["id"], participant["id"],
+            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+        )
     except WebSocketDisconnect:
         pass
     finally:

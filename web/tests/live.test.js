@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   DURATION_CHOICES_MINUTES,
   LiveHostSocket,
+  LivePinPlaySocket,
   LivePlaySocket,
   formatCountdown,
   participantRows,
@@ -92,18 +93,20 @@ class FakeSocket {
 }
 
 describe('LiveHostSocket', () => {
-  test('host ünvanına token ilə qoşulur', () => {
+  test('sessiya ID-si ilə host ünvanına qoşulur', () => {
+    // PIN yolu əvəzləndi: sessiya bir sinfə bağlıdır, konsol isə
+    // yalnız onu başladan müəllimə açılır (server `created_by`-a baxır).
     const socket = new LiveHostSocket({
-      pin: '123456', token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 42, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
-    assert.match(FakeSocket.last.url, /\/ws\/live\/123456\/host\?token=tok$/);
+    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/host\?token=tok$/);
     socket.close();
   });
 
   test('başlatma mesajı backend-in gözlədiyi açarlarla gedir', () => {
     const socket = new LiveHostSocket({
-      pin: '1', token: 't', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
@@ -114,7 +117,7 @@ describe('LiveHostSocket', () => {
 
   test('bağlantı açıq deyilsə başlatma uğursuz olduğunu bildirir', () => {
     const socket = new LiveHostSocket({
-      pin: '1', token: 't', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     assert.equal(socket.start(180), false);
@@ -123,64 +126,63 @@ describe('LiveHostSocket', () => {
 });
 
 describe('LivePlaySocket', () => {
-  test('qoşulan kimi adı İLK mesaj kimi göndərir', () => {
-    // Server `display_name` gəlməsə bağlantını 4400 ilə bağlayır.
+  test('sessiya ID-si və token ilə qoşulur', () => {
     const socket = new LivePlaySocket({
-      pin: '123456', displayName: 'Əli', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 42, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
-    FakeSocket.last.open();
-    assert.deepEqual(FakeSocket.last.sent[0], { display_name: 'Əli' });
+    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/play\?token=tok$/);
     socket.close();
   });
 
-  test('token verilibsə qoşulma mesajına əlavə olunur', () => {
+  test('qoşulanda HEÇ BİR ad mesajı göndərmir', () => {
+    // Tələbə artıq ad yazmır - server onu hesabdan götürür. Köhnə
+    // yolda ilk mesaj `display_name` idi; burada olmamalıdır.
     const socket = new LivePlaySocket({
-      pin: '1', displayName: 'Əli', token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
-    assert.deepEqual(FakeSocket.last.sent[0], { display_name: 'Əli', token: 'tok' });
-    socket.close();
-  });
-
-  test('tokensiz qoşulma mesajında `token` açarı ÜMUMİYYƏTLƏ olmur', () => {
-    // Boş sətir göndərsək server onu doğrulamağa çalışardı.
-    const socket = new LivePlaySocket({
-      pin: '1', displayName: 'Əli', token: '', onMessage: () => {}, socketFactory: FakeSocket,
-    });
-    socket.connect();
-    FakeSocket.last.open();
-    assert.equal('token' in FakeSocket.last.sent[0], false);
+    assert.deepEqual(FakeSocket.last.sent, []);
     socket.close();
   });
 
   test('cavab və növbəti mesajları düzgün formatdadır', () => {
     const socket = new LivePlaySocket({
-      pin: '1', displayName: 'Ə', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
     socket.answer(2, 3);
     socket.next();
-    assert.deepEqual(FakeSocket.last.sent[1], {
+    assert.deepEqual(FakeSocket.last.sent[0], {
       type: 'answer', question_index: 2, chosen_index: 3,
     });
-    assert.deepEqual(FakeSocket.last.sent[2], { type: 'next' });
+    assert.deepEqual(FakeSocket.last.sent[1], { type: 'next' });
     socket.close();
   });
+});
 
-  test('yenidən qoşulanda ad TƏKRAR göndərilir', () => {
-    // Server hər yeni bağlantıda qoşulma mesajı gözləyir — göndərilməsə
-    // bağlantı dərhal bağlanar.
-    const socket = new LivePlaySocket({
-      pin: '1', displayName: 'Ə', onMessage: () => {}, socketFactory: FakeSocket,
+describe('LivePinPlaySocket (müvəqqəti, Faza 4-də silinir)', () => {
+  test('PIN ünvanına qoşulur və adı İLK mesaj kimi göndərir', () => {
+    const socket = new LivePinPlaySocket({
+      pin: '123456', displayName: 'Əli', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
-    assert.equal(FakeSocket.last.sent.length, 1);
-    FakeSocket.last.open(); // yenidən açılma simulyasiyası
-    assert.equal(FakeSocket.last.sent.length, 2);
+    assert.match(FakeSocket.last.url, /\/ws\/live\/123456\/play$/);
+    assert.deepEqual(FakeSocket.last.sent[0], { display_name: 'Əli' });
+    socket.close();
+  });
+
+  test('tokensiz qoşulma mesajında `token` açarı ÜMUMİYYƏTLƏ olmur', () => {
+    // Boş sətir göndərsək server onu doğrulamağa çalışardı.
+    const socket = new LivePinPlaySocket({
+      pin: '1', displayName: 'Əli', token: '', onMessage: () => {}, socketFactory: FakeSocket,
+    });
+    socket.connect();
+    FakeSocket.last.open();
+    assert.equal('token' in FakeSocket.last.sent[0], false);
     socket.close();
   });
 });

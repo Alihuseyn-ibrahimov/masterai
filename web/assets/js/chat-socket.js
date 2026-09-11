@@ -36,6 +36,14 @@ export class ChatSocket {
       if (this.options.onServerError) this.options.onServerError(data.detail || 'Xəta');
       return;
     }
+    /* Canlı sessiya elanı mesaj AXININA girmir - o, çatın yuxarısında
+       ayrıca kart kimi görünür (istifadəçinin tələbi: «QRUPDA MÜƏLLİM
+       SESSİYA BAŞLADANDA HAMI GÖRƏ BİLƏCƏK»). `normalizeLiveEvent` onu
+       tanımadığı üçün sükutla ataraq İTİRİRDİ. */
+    if (data.type === 'live_session') {
+      if (this.options.onLiveSession) this.options.onLiveSession(data);
+      return;
+    }
     const item = normalizeLiveEvent(data);
     if (item) this.options.onItem(item);
   }

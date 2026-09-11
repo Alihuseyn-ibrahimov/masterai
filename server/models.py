@@ -219,6 +219,10 @@ class QuestionSetQuality(BaseModel):
 
 class CreateLiveSessionRequest(BaseModel):
     question_set_id: int
+    # MƏCBURİDİR: sessiya artıq bir sinfə (qrup çatına) bağlıdır.
+    # DB sütunu isə nullable qalır — köhnə (PIN) sessiyalar çatsızdır
+    # və tarixçədə oxunmalıdır.
+    chat_id: int
 
 
 class LiveSessionInfo(BaseModel):
@@ -228,6 +232,28 @@ class LiveSessionInfo(BaseModel):
     status: str
     current_question_index: int
     created_at: str
+    # Köhnə sessiyalarda hər ikisi `None` olur.
+    chat_id: int | None = None
+    created_by: int | None = None
+
+
+class ChatLiveSessionInfo(BaseModel):
+    """Çatda görünən sessiya kartı.
+
+    `pin` QƏSDƏN YOXDUR — tələbə artıq heç nə yazmır, qoşulma çat
+    üzvlüyü ilə olur. PIN-i cavaba qoymaq silinən axını diri
+    saxlayardı.
+    """
+
+    session_id: int
+    status: str
+    title: str
+    subject: str
+    started_by: str
+    # Client bunu ÖZ istifadəçi ID-si ilə müqayisə edir: sessiyanı
+    # başladan müəllim konsola, qalanları oynamağa gedir. Adla
+    # müqayisə kövrəkdir - eyni adlı iki müəllim ola bilər.
+    started_by_user_id: int | None = None
 
 
 class LiveRankingRow(BaseModel):

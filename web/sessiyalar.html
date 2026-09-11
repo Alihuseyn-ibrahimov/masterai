@@ -13,12 +13,12 @@
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/components.css">
 <style>
-  /* PIN sinifdə uzaqdan oxunmalıdır - ekrana proyeksiya edilir. */
-  .pin {
+  /* Sinif adı ekrana proyeksiya edilir - uzaqdan oxunmalıdır.
+     Əvvəl burada PIN vardı; PIN axını silindi. */
+  .announced {
     font-family: var(--font-heading);
-    font-size: var(--text-4xl);
+    font-size: var(--text-3xl);
     font-weight: var(--weight-black);
-    letter-spacing: var(--space-2);
     color: var(--color-primary);
   }
 </style>
@@ -30,9 +30,20 @@
   <section class="stack" id="pickSection">
     <div class="section-header">
       <h1>Canlı sessiya</h1>
-      <span class="section-header__hint">Hazır sual bankı seçin - tələbələr PIN ilə qoşulacaq</span>
+      <span class="section-header__hint">Sinfi və hazır sual bankını seçin - tələbələr çatdan bir toxunuşla qoşulur</span>
     </div>
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <!-- Sessiya artıq bir SİNFƏ bağlıdır: «hansı sinif» sualı çat
+         üzvlüyü ilə cavablanır, tələbə heç nə yazmır. -->
+    <div class="card stack stack--tight">
+      <div class="field">
+        <label class="field__label" for="chatSelect">Sinif (qrup çatı)</label>
+        <select class="field__select" id="chatSelect"></select>
+      </div>
+      <p class="text-xs text-muted" id="chatHint">
+        Sessiya seçilmiş çatda elan olunur və yalnız o çatın üzvləri qoşula bilər.
+      </p>
+    </div>
     <div id="setList"></div>
   </section>
 
@@ -43,9 +54,12 @@
     </div>
 
     <div class="card stack" style="text-align: center">
-      <p class="text-sm text-muted">Tələbələr bu PIN ilə qoşulur</p>
-      <div class="pin" id="pinValue">------</div>
-      <p class="text-sm text-muted" id="joinHint"></p>
+      <p class="text-sm text-muted">Sessiya bu sinifdə elan olundu</p>
+      <div class="announced" id="chatName">-</div>
+      <p class="text-sm text-muted" id="joinHint">
+        Tələbələr çatda «Qoşul» düyməsini görür - PIN yazmağa ehtiyac yoxdur.
+      </p>
+      <a class="btn btn--secondary" id="openChat" href="#">Çatı aç</a>
     </div>
 
     <div class="card stack" id="startCard">
@@ -102,6 +116,38 @@
 
     const params = new URLSearchParams(window.location.search);
     const requestedSetId = Number(params.get('questionSetId'));
+    // `chatId` çatdakı «Sessiya başlat» düyməsindən gəlir; `sessionId`
+    // isə artıq açıq sessiyanın konsoluna qayıtmaq üçündür (səhifə
+    // yenilənəndə konsol əvvəl TAM İTİRDİ - müəllim yeni sessiya
+    // açmaq məcburiyyətində qalırdı).
+    const requestedChatId = Number(params.get('chatId'));
+    const requestedSessionId = Number(params.get('sessionId'));
+
+    const chatSelect = document.getElementById('chatSelect');
+    let myChats = [];
+
+    async function loadChats() {
+      myChats = (await request('/chats')).filter((chat) => chat.kind === 'group');
+      chatSelect.innerHTML = '';
+      for (const chat of myChats) {
+        const option = document.createElement('option');
+        option.value = String(chat.id);
+        // Qəsdən textContent - çatın adını istifadəçi yazır.
+        option.textContent = chat.name || `Çat #${chat.id}`;
+        chatSelect.append(option);
+      }
+      if (Number.isInteger(requestedChatId) && requestedChatId > 0) {
+        chatSelect.value = String(requestedChatId);
+      }
+      if (!myChats.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Qrup çatınız yoxdur';
+        chatSelect.append(option);
+        document.getElementById('chatHint').textContent =
+          'Əvvəlcə «Çatlar» bölməsindən qrup çatı yaradın - sessiya bir sinfə bağlı olmalıdır.';
+      }
+    }
 
     /* ---- Sual bankı seçimi ---- */
 
@@ -129,16 +175,31 @@
     }
 
     const setList = document.getElementById('setList');
-    loadInto(setList, () => request('/live/question-sets'), (container, sets) => {
-      renderSets(container, sets);
-      if (Number.isInteger(requestedSetId) && requestedSetId > 0) {
-        const requested = sets.find((set) => set.id === requestedSetId);
-        // Müəllim "Sessiya başlat" düyməsindən gəlibsə, əl ilə yenidən
-        // seçməsinə ehtiyac yoxdur.
-        if (requested && requested.status === 'ready') startSession(requested);
-        else if (requested) showError(`"${requested.title}" hələ hazır deyil (${statusBadge(requested.status).label}).`);
-      }
-    });
+
+    /* Çat siyahısı sual banklarından ƏVVƏL yüklənməlidir: sessiya
+       yaratmaq üçün `chat_id` lazımdır və `?questionSetId=` ilə gələn
+       müəllim üçün seçim dərhal işə düşür. */
+    loadChats()
+      .catch((error) => showError(error.message))
+      .then(() => {
+        if (Number.isInteger(requestedSessionId) && requestedSessionId > 0) {
+          // Açıq sessiyanın konsoluna qayıdış - yenidən yaratmadan.
+          pickSection.hidden = true;
+          sessionSection.hidden = false;
+          openConsole(requestedSessionId, requestedChatId);
+          return;
+        }
+        loadInto(setList, () => request('/live/question-sets'), (container, sets) => {
+          renderSets(container, sets);
+          if (Number.isInteger(requestedSetId) && requestedSetId > 0) {
+            const requested = sets.find((set) => set.id === requestedSetId);
+            // Müəllim "Sessiya başlat" düyməsindən gəlibsə, əl ilə yenidən
+            // seçməsinə ehtiyac yoxdur.
+            if (requested && requested.status === 'ready') startSession(requested);
+            else if (requested) showError(`"${requested.title}" hələ hazır deyil (${statusBadge(requested.status).label}).`);
+          }
+        });
+      });
 
     /* ---- Sessiya ---- */
 
@@ -242,6 +303,12 @@
     }
 
     async function startSession(set) {
+      const chatId = Number(chatSelect.value);
+      if (!Number.isInteger(chatId) || chatId <= 0) {
+        // Serverə mənasız sorğu göndərməkdənsə dərhal aydın mesaj.
+        showError('Əvvəlcə sinif (qrup çatı) seçin.');
+        return;
+      }
       pickSection.hidden = true;
       sessionSection.hidden = false;
       document.getElementById('sessionTitle').textContent = set.title;
@@ -250,7 +317,7 @@
       let session;
       try {
         session = await request('/live/sessions', {
-          method: 'POST', body: { question_set_id: set.id },
+          method: 'POST', body: { question_set_id: set.id, chat_id: chatId },
         });
       } catch (error) {
         sessionSection.hidden = true;
@@ -259,12 +326,19 @@
         return;
       }
 
-      document.getElementById('pinValue').textContent = session.pin;
-      document.getElementById('joinHint').textContent =
-        'Tələbələr saytda "PIN ilə qoşul" səhifəsindən bu nömrəni yazır.';
+      openConsole(session.id, chatId);
+    }
+
+    /** Host konsolunu bir sessiyaya bağlayır. Sessiyanın YARADILMASINDAN
+     *  ayrıdır ki, `?sessionId=` ilə geri qayıtmaq mümkün olsun. */
+    function openConsole(sessionId, chatId) {
+      const chat = myChats.find((c) => c.id === chatId);
+      document.getElementById('chatName').textContent =
+        chat ? (chat.name || `Çat #${chatId}`) : 'Sinif';
+      document.getElementById('openChat').href = `chat.html?id=${encodeURIComponent(chatId)}`;
 
       socket = new LiveHostSocket({
-        pin: session.pin,
+        sessionId,
         token: getToken(),
         onStatus: (status) => {
           const [label, className] = STATUS_LABELS[status] || STATUS_LABELS.closed;

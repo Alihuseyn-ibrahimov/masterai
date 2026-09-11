@@ -2,7 +2,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pipeline.models import MCQQuestion
-from server.app import app, get_live_session_store, get_question_set_store, get_token_secret, get_user_store
+from server.app import (
+    app,
+    get_chat_store,
+    get_live_session_store,
+    get_question_set_store,
+    get_token_secret,
+    get_user_store,
+)
+from server.chat_store import ChatStore
 from server.auth import create_token
 from server.live_session_runner import join_session, record_answer, request_next, start_session
 from server.live_session_store import LiveSessionStore
@@ -17,7 +25,9 @@ def env():
     users = UserStore(":memory:")
     question_sets = QuestionSetStore(":memory:")
     live_sessions = LiveSessionStore(":memory:")
+    chats = ChatStore(":memory:")
 
+    app.dependency_overrides[get_chat_store] = lambda: chats
     app.dependency_overrides[get_user_store] = lambda: users
     app.dependency_overrides[get_question_set_store] = lambda: question_sets
     app.dependency_overrides[get_live_session_store] = lambda: live_sessions
@@ -32,7 +42,15 @@ def env():
     users.set_teacher(teacher["id"], True)
     teacher = users.get_by_id(teacher["id"])
 
-    yield {"client": client, "question_sets": question_sets, "live_sessions": live_sessions, "teacher": teacher}
+    # `chat_id` ARTIQ MƏCBURİDİR: sessiya bir sinfə bağlıdır və müəllim
+    # həmin çatın üzvü olmalıdır (bax `test_live_session_in_chat.py`).
+    chat = chats.create(kind="group", created_by=teacher["id"], name="11-A")
+    chats.add_member(chat["id"], teacher["id"])
+
+    yield {
+        "client": client, "question_sets": question_sets,
+        "live_sessions": live_sessions, "teacher": teacher, "chat": chat,
+    }
     app.dependency_overrides.clear()
 
 
@@ -41,12 +59,12 @@ def _auth(user) -> dict:
 
 
 def test_requires_auth(env):
-    r = env["client"].post("/live/sessions", json={"question_set_id": 1})
+    r = env["client"].post("/live/sessions", json={"question_set_id": 1, "chat_id": 1})
     assert r.status_code == 401
 
 
 def test_unknown_question_set_returns_404(env):
-    r = env["client"].post("/live/sessions", json={"question_set_id": 999}, headers=_auth(env["teacher"]))
+    r = env["client"].post("/live/sessions", json={"question_set_id": 999, "chat_id": env["chat"]["id"]}, headers=_auth(env["teacher"]))
     assert r.status_code == 404
 
 
@@ -55,7 +73,7 @@ def test_not_ready_question_set_returns_400(env):
         subject="mentiq", title="A", material_kind="link", material_location="https://x.az",
         created_by=env["teacher"]["id"],
     )
-    r = env["client"].post("/live/sessions", json={"question_set_id": qs["id"]}, headers=_auth(env["teacher"]))
+    r = env["client"].post("/live/sessions", json={"question_set_id": qs["id"], "chat_id": env["chat"]["id"]}, headers=_auth(env["teacher"]))
     assert r.status_code == 400
 
 
@@ -66,7 +84,7 @@ def test_creates_session_with_pin(env):
     )
     env["question_sets"].mark_ready(qs["id"])
 
-    r = env["client"].post("/live/sessions", json={"question_set_id": qs["id"]}, headers=_auth(env["teacher"]))
+    r = env["client"].post("/live/sessions", json={"question_set_id": qs["id"], "chat_id": env["chat"]["id"]}, headers=_auth(env["teacher"]))
     assert r.status_code == 201
     body = r.json()
     assert body["question_set_id"] == qs["id"]

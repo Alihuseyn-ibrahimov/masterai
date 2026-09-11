@@ -43,6 +43,27 @@
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
 
+    <!-- Canlı sessiya kartı. Mesaj axınının İÇİNDƏ deyil, üstündədir:
+         axına düşsə yeni mesajlarla yuxarı sürüşüb itərdi, halbuki
+         sessiya davam etdiyi müddətdə görünən qalmalıdır. -->
+    <div class="card stack stack--tight" id="liveCard" hidden>
+      <div class="row row--between">
+        <div>
+          <div class="text-xs text-muted">Canlı sessiya</div>
+          <strong id="liveTitle"></strong>
+        </div>
+        <span class="badge badge--success" id="liveStatus">Gözləyir</span>
+      </div>
+      <p class="text-sm text-muted" id="liveBy"></p>
+      <a class="btn btn--primary" id="liveJoin" href="#">Qoşul</a>
+    </div>
+
+    <!-- Yalnız müəllimə görünür. Sessiya çatın içindən başlayır -
+         tələbələr PIN yazmır. -->
+    <div class="row row--end" id="teacherTools" hidden>
+      <a class="btn btn--secondary btn--sm" id="startSessionLink" href="#">Sessiya başlat</a>
+    </div>
+
     <div id="messages" aria-live="polite"></div>
 
     <form class="row" id="sendForm">
@@ -116,11 +137,58 @@
         })
         .catch(() => {});
 
+      /* ---- Canlı sessiya ---- */
+
+      const liveCard = document.getElementById('liveCard');
+
+      if (user.is_teacher) {
+        document.getElementById('teacherTools').hidden = false;
+        document.getElementById('startSessionLink').href =
+          `sessiyalar.html?chatId=${encodeURIComponent(chatId)}`;
+      }
+
+      /** Kartı göstərir. `session` `null` olsa kart gizlənir - sessiya
+       *  bitəndə köhnə kart qalmamalıdır. */
+      function renderLiveSession(session) {
+        if (!session) {
+          liveCard.hidden = true;
+          return;
+        }
+        // Qəsdən textContent - bankın adını və müəllimin adını
+        // istifadəçi yazır.
+        document.getElementById('liveTitle').textContent = session.title || 'Canlı sessiya';
+        document.getElementById('liveBy').textContent = session.started_by
+          ? `${session.started_by} başlatdı`
+          : '';
+        const running = session.status === 'active';
+        const statusEl = document.getElementById('liveStatus');
+        statusEl.textContent = running ? 'Davam edir' : 'Gözləyir';
+        statusEl.className = running ? 'badge badge--info' : 'badge badge--success';
+
+        const join = document.getElementById('liveJoin');
+        // Sessiyanı başladan müəllim KONSOLA gedir, qalanlar oynamağa.
+        // ID ilə - adla müqayisə eyni adlı iki müəllimdə səhv işləyərdi.
+        const isHost = session.started_by_user_id === user.id;
+        join.href = isHost
+          ? `sessiyalar.html?sessionId=${encodeURIComponent(session.session_id)}`
+            + `&chatId=${encodeURIComponent(chatId)}`
+          : `sessiya.html?id=${encodeURIComponent(session.session_id)}`;
+        join.textContent = isHost ? 'Konsolu aç' : 'Qoşul';
+        liveCard.hidden = false;
+      }
+
+      /* Yayım yalnız O AN bağlı olanlara çatır - sonradan çatı açan
+         tələbə sessiyanı yalnız bu sorğu ilə görür. */
+      request(`/chats/${chatId}/live-session`)
+        .then(renderLiveSession)
+        .catch(() => {});
+
       const socket = new ChatSocket({
         chatId,
         token: getToken(),
         onHistory: (history) => { items = history; repaint(); },
         onItem: (item) => { items = upsertItem(items, item); repaint(); },
+        onLiveSession: renderLiveSession,
         onServerError: showError,
         onStatus: (status) => {
           const [label, className] = STATUS_LABELS[status] || STATUS_LABELS.closed;

@@ -27,8 +27,10 @@ from fastapi.testclient import TestClient
 
 from pipeline.models import MCQQuestion
 from server.app import (
-    app, get_live_session_store, get_question_set_store, get_token_secret, get_user_store,
+    app, get_chat_store, get_live_session_store, get_question_set_store,
+    get_token_secret, get_user_store,
 )
+from server.chat_store import ChatStore
 from server.auth import create_token
 from server.live_session_store import LiveSessionStore
 from server.question_set_store import QuestionSetStore
@@ -42,7 +44,9 @@ def env():
     users = UserStore(":memory:")
     question_sets = QuestionSetStore(":memory:")
     live_sessions = LiveSessionStore(":memory:")
+    chats = ChatStore(":memory:")
 
+    app.dependency_overrides[get_chat_store] = lambda: chats
     app.dependency_overrides[get_user_store] = lambda: users
     app.dependency_overrides[get_question_set_store] = lambda: question_sets
     app.dependency_overrides[get_live_session_store] = lambda: live_sessions
@@ -64,9 +68,16 @@ def env():
     ))
     question_sets.mark_ready(qs["id"])
 
+    # Sessiya artıq bir çata bağlıdır — həm müəllim, həm tələbə orada
+    # üzvdür ki, test İCAZƏ fərqini ölçsün, üzvlük fərqini yox.
+    chat = chats.create(kind="group", created_by=teacher["id"], name="11-A")
+    chats.add_member(chat["id"], teacher["id"])
+    chats.add_member(chat["id"], student["id"])
+
     yield {
         "client": client, "users": users, "question_sets": question_sets,
-        "live_sessions": live_sessions, "teacher": teacher, "student": student, "qs": qs,
+        "live_sessions": live_sessions, "teacher": teacher, "student": student,
+        "qs": qs, "chat": chat,
     }
     app.dependency_overrides.clear()
 
@@ -100,7 +111,8 @@ class TestStudentIsRefused:
 
     def test_cannot_start_a_live_session(self, env):
         r = env["client"].post(
-            "/live/sessions", json={"question_set_id": env["qs"]["id"]},
+            "/live/sessions",
+            json={"question_set_id": env["qs"]["id"], "chat_id": env["chat"]["id"]},
             headers=_auth(env["student"]),
         )
         assert r.status_code == 403
@@ -132,7 +144,8 @@ class TestTeacherIsAllowed:
 
     def test_can_start_a_live_session(self, env):
         r = env["client"].post(
-            "/live/sessions", json={"question_set_id": env["qs"]["id"]},
+            "/live/sessions",
+            json={"question_set_id": env["qs"]["id"], "chat_id": env["chat"]["id"]},
             headers=_auth(env["teacher"]),
         )
         assert r.status_code == 201

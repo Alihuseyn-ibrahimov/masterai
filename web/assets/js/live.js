@@ -49,9 +49,12 @@ export function participantRows(participants, progressById, totalQuestions) {
 }
 
 export class LiveHostSocket {
-  constructor({ pin, token, onMessage, onStatus, socketFactory }) {
+  /** Sessiya ID-si ilə. PIN yolu əvəzləndi: sessiya artıq bir sinfə
+   *  (qrup çatına) bağlıdır və konsol YALNIZ onu başladan müəllimə
+   *  açılır - server bunu `created_by` ilə yoxlayır. */
+  constructor({ sessionId, token, onMessage, onStatus, socketFactory }) {
     this.socket = new ReconnectingSocket({
-      url: () => `${WS_BASE_URL}/ws/live/${encodeURIComponent(pin)}/host`
+      url: () => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/host`
         + `?token=${encodeURIComponent(token)}`,
       socketFactory,
       onStatus,
@@ -71,9 +74,40 @@ export class LiveHostSocket {
 }
 
 export class LivePlaySocket {
-  /** `displayName` qoşulan kimi İLK mesajda göndərilməlidir - server
-   *  onsuz bağlantını 4400 ilə bağlayır. `token` KÖNÜLLÜDÜR: verilsə
-   *  iştirakçı hesaba bağlanır (tarixçə üçün), verilməsə anonim qalır. */
+  /** Token MƏCBURİDİR və ad GÖNDƏRİLMİR - server adı hesabdan götürür,
+   *  üzvlüyü isə çatdan yoxlayır. Yəni tələbə heç nə yazmır.
+   *
+   *  Köhnə PIN yolundan fərq: orada `display_name` ilk mesajda
+   *  göndərilirdi və token KÖNÜLLÜ idi (anonim iştirakçı heç bir
+   *  hesaba bağlanmırdı, ona görə fərdi tarixçə boş qalırdı). */
+  constructor({ sessionId, token, onMessage, onStatus, socketFactory }) {
+    this.socket = new ReconnectingSocket({
+      url: () => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/play`
+        + `?token=${encodeURIComponent(token)}`,
+      socketFactory,
+      onStatus,
+      onMessage,
+    });
+  }
+
+  connect() { this.socket.connect(); }
+
+  answer(questionIndex, chosenIndex) {
+    return this.socket.send({
+      type: 'answer', question_index: questionIndex, chosen_index: chosenIndex,
+    });
+  }
+
+  next() { return this.socket.send({ type: 'next' }); }
+
+  close() { this.socket.close(); }
+}
+
+/* MÜVƏQQƏTİ - yalnız `qosul.html` (PIN ilə anonim qoşulma) üçün.
+ * Faza 4-də həmin səhifə ilə birlikdə SİLİNİR. Ayrıca sinif kimi
+ * saxlanılır ki, yeni `LivePlaySocket` şərtlərlə çirklənməsin və
+ * silinmə bir addımda olsun. */
+export class LivePinPlaySocket {
   constructor({ pin, displayName, token, onMessage, onStatus, socketFactory }) {
     this.displayName = displayName;
     this.token = token;
