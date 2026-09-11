@@ -3,8 +3,11 @@
  * Bölmə siyahısı və aktivlik məntiqi SAF funksiyalardır (DOM tələb
  * etmir) ki, Node-da test edilə bilsinlər.
  *
- * Bölmə sayı hər rol üçün ən çox 4-dür: mobil alt panelə 5-dən çoxu
- * sığmır və hədəf 4-də saxlanılır ki, etiketlər kəsilməsin.
+ * Bölmə sayı hər rol üçün ən çox 5-dir. Rəqəm GÜMAN EDİLMƏDİ, ÖLÇÜLDÜ:
+ * 390px-lik telefonda 5 bölmənin hər biri 78px xana alır və etiketlər
+ * bir sətirdə sığır. 320px-də xana 64px olur, ona görə uzun etiketin
+ * `short` variantı verilir - alt panel onu işlədir, üst zolaq isə tam
+ * etiketi saxlayır (masaüstündə yer var).
  *
  * İkon adları `assets/icons.svg` sprite-ının id-ləridir (emoji YOX,
  * bax `icon.js` modul qeydi).
@@ -17,17 +20,30 @@ const STUDENT_DESTINATIONS = [
   // səhifəsi (məs. `chat.html`) öz bölməsini işıqlandırmalıdır, əks
   // halda istifadəçi "harda olduğunu" itirir.
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
-  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', icon: 'notes', matches: ['tapsiriqlar.html'] },
+  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
 ];
 
+/* Müəllimdə DƏ çat bölməsi var. Əvvəl yox idi və bu, funksional
+ * boşluq yaradırdı: `hesabatlar.html` tapşırıq təyin etmək üçün çat
+ * TƏLƏB EDİR («əvvəlcə qrup çatına üzv olun»), amma müəllimin çat
+ * siyahısına çatmaq yolu yox idi - yəni təzə müəllim hesabı ev
+ * tapşırığı təyin edə bilmirdi. Çat həm də müəllimin sinifə mesaj
+ * yazdığı yerdir. */
 const TEACHER_DESTINATIONS = [
-  { href: 'muellim.html', label: 'Sual bankları', icon: 'books', matches: ['muellim.html'] },
-  { href: 'sessiyalar.html', label: 'Sessiyalar', icon: 'target', matches: ['sessiyalar.html'] },
-  { href: 'hesabatlar.html', label: 'Hesabatlar', icon: 'report', matches: ['hesabatlar.html'] },
+  { href: 'muellim.html', label: 'Sual bankları', short: 'Banklar', icon: 'books', matches: ['muellim.html'] },
+  { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
+  { href: 'sessiyalar.html', label: 'Sessiyalar', short: 'Sessiya', icon: 'target', matches: ['sessiyalar.html'] },
+  { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
 ];
+
+/** Alt paneldə göstəriləcək etiket: dar telefonda uzun ad iki sətrə
+ *  düşüb sıranı əyir. `short` verilməyibsə adi etiket işlədilir. */
+export function shortLabel(destination) {
+  return (destination && destination.short) || (destination && destination.label) || '';
+}
 
 export function destinationsFor(user) {
   return user && user.is_teacher ? TEACHER_DESTINATIONS : STUDENT_DESTINATIONS;
@@ -59,7 +75,8 @@ function link(destination, active, className, withIcon) {
     node.append(createIcon(destination.icon, 'bottom-nav__icon'));
   }
   const label = document.createElement('span');
-  label.textContent = destination.label;
+  // Alt panel (ikonlu) qısa etiketi, üst zolaq tam etiketi göstərir.
+  label.textContent = withIcon ? shortLabel(destination) : destination.label;
   node.append(label);
   return node;
 }
