@@ -73,6 +73,21 @@ EYNİ ANDA cavablayır. **25 iştirakçı ilə nəticə təmizdir:**
 - server jurnalında **0 xəta** — `server/user_store.py`-dəki sqlite
   kilid narahatlığı bu yükdə ÖZÜNÜ GÖSTƏRMƏDİ
 
+**Bağlantı kəsilməsinə davamlılıq (2026-09-11, əvvəl HEÇ sınanmamışdı):**
+`deploy/diagnostics/live_session_resilience.mjs` iki ssenarini yoxlayır.
+Real sinifdə hər ikisi olur — telefon kilidlənir, müəllimin noutbuku
+yuxuya gedir. `ReconnectingSocket` məhz bunun üçün yazılıb, amma heç
+vaxt real sınanmamışdı.
+
+- **Tələbənin bağlantısı kəsilib qayıdır:** iştirakçı TƏKRARLANMIR
+  (host-da yenə 2 nəfər), cavabı və tərəqqisi qorunur, «Növbəti sual»
+  işləyir, növbəti sualı cavablaya bilir, host gedişatı yenilənir.
+- **MÜƏLLİMİN bağlantısı kəsilir:** tələbələr CAVABLAMAĞA DAVAM EDİR —
+  **dərs dayanmır.** Host qayıdanda bağlantı «Bağlıdır» olur və gedişat
+  siyahısı özü-özünə yetişir (kəsilmə müddətindəki cavabları göstərir).
+  Yəni sessiya host-un soketinə bağlı DEYİL. Bu, pilot üçün vacib
+  xəbərdir: müəllimin internetinin anlıq kəsilməsi dərsi öldürmür.
+
 **Bu nəyi İSBAT ETMİR:** bir maşındakı brauzer kontekstləridir — real
 şəbəkə gecikməsi, mobil rabitə və ayrı-ayrı telefonlar yoxdur. Serverin
 eyni anda gələn 25 bağlantını və cavabı düzgün emal etdiyi göstərilib,

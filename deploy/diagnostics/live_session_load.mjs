@@ -34,7 +34,15 @@
 /* ÇOXİŞTİRAKÇILI canlı sessiya - CLAUDE.md-də açıq qalan boşluq.
    Real backend (8125) + real sayt (8123). N ayrı brauzer konteksti =
    N ayrı "cihaz" (ayrı localStorage, ayrı WebSocket). */
-import { chromium } from 'playwright-core';
+/* playwright-core İŞLƏDİYİN QOVLUQDAN yüklənir, bu faylın yerindən YOX.
+ * Səbəb: ESM `import` modulu faylın qovluğundan yuxarı axtarır, yəni
+ * `masterai/`-də `node_modules` olmasa sınır. `createRequire(cwd)` ilə
+ * paket `npm i playwright-core` etdiyin İSTƏNİLƏN qovluqdan tapılır -
+ * repoya `node_modules` əlavə etməyə ehtiyac qalmır («build addımı
+ * yoxdur» qaydası pozulmur). */
+import { createRequire } from 'node:module';
+const require = createRequire(`${process.cwd()}/`);
+const { chromium } = require('playwright-core');
 
 const token = process.argv[2];
 const N = Number(process.argv[3] || 4);
