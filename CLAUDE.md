@@ -4,22 +4,20 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: MVP tam uc-uca real production-da təsdiqlənib** (qeydiyyat →
-qrup çatı → mesajlaşma (WS) → material yükləmə → AI sual generasiyası →
-quiz həlli → xallandırma, real Android emulyatorda, real backend-lə).
-`https://masterai.prdostu.com` — real DigitalOcean VPS-də (HTTPS, systemd,
-nginx) işləyir. Yeddi backend alt-sistemi tamamlanıb (263 test, `masterai/`
-daxilində vahid pytest run — pipeline 57 + backend auth/data 63 + çat
-(Faza A+B) 63 + material yükləmə 21 + dostluq 45 + n8n admin 14) + iki
-n8n workflow, HƏR İKİSİ aktiv/production-da. Flutter app-ın (`app/`) MVP
-nüvəsi yazılıb (22 fayl, bax "Dərs: Flutter app SDK-sız yazıldı") —
-istifadəçinin real Windows mühitində `flutter analyze` ("No issues
-found!"), `flutter test` (26 test) və `flutter run` (Android Studio AVD,
-real cihazda) HƏR ÜÇÜ təsdiqlənib. Uc-uca real test zamanı 2 real backend
-bug-ı da tapılıb düzəldilib (bax "Dərs: real material uğursuzluğu" və
-"Dərs: Groq `llama-3.3-70b-versatile` modelini dayandırıb").
-Brainstorming skill-i ilə alt-sistemlərə bölünür, hər biri öz spec-i ilə
-(`docs/superpowers/specs/`).
+**Status: canlı və real istifadəyə hazır.** `https://masterai.prdostu.com`
+— DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
+ikisi deploy olunub.
+
+**Test dəsti: 1026 pytest + 154 Node testi** (`masterai/` daxilində vahid
+run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
+Rəqəm 2026-09-11-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
+
+Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
+material yükləmə → AI sual generasiyası → quiz həlli → xallandırma.
+Flutter app (`app/`) ARXİVDƏDİR — yerini statik sayt tutub (bax
+"Veb-first keçidi"). Brainstorming skill-i ilə alt-sistemlərə bölünür,
+hər biri öz spec-i ilə (`docs/superpowers/specs/`).
 
 ## Arxitektura
 
