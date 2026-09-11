@@ -294,11 +294,22 @@ Sistemimiz üç növ materialı dəstəkləyir:
 ## Bilinən risklər (production-dan əvvəl həll edilməli)
 
 - **WebSocket JWT query param-da (`?token=...`)** — brauzer WebSocket
-  API-si custom header dəstəkləmədiyi üçün belə edilib, amma real smoke
-  testində uvicorn access log-unda tam token açıq mətn kimi göründüyü
-  təsdiqləndi. Deploy-dan əvvəl: ya log-larda maskalama, ya da qısaömürlü
-  WS-özəl "ticket" tokeni ilə əvəzlə (bax
-  `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`, bölmə 4).
+  API-si custom header dəstəkləmədiyi üçün belə edilib.
+  **YARIMÇIQ HƏLL EDİLİB (2026-09-10):** jurnal sızması bağlandı
+  (`server/log_redaction.py` — `token`/`ticket`/`api_key`/`Bearer`/
+  `X-Admin-Key` dəyərləri `***` ilə əvəzlənir). Real yoxlama HƏR İKİ
+  icra yolunda aparıldı: plain uvicorn VƏ production-la eyni
+  `gunicorn -k uvicorn.workers.UvicornWorker` — hər ikisində jurnalda
+  `token=***`, tam token 0 dəfə.
+  **AÇIQ QALIR:** token hələ URL-dədir. Tam həll qısaömürlü WS "ticket"
+  tokenidir (bax `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`,
+  bölmə 4) — `ReconnectingSocket` hər yenidən qoşulmada yeni ticket
+  istəyəcəyi üçün bu, canlı sessiya və çat bağlantısına toxunan ayrıca
+  işdir.
+  **Dərs (filtri yazarkən çıxdı):** filtri root HANDLER-inə qoşmaq
+  İŞLƏMİR — `uvicorn.access` üçün `propagate=False`-dur və
+  `UvicornWorker` onun `handlers`-ini əvəz edir. Filtr LOGGER-ə
+  qoşulmalıdır; 12 vahid test keçsə də real icra bunu açdı.
 - ~~`_notify_admin_webhook()` real production-da hələ sınanmayıb~~ —
   **✅ TƏSDİQLƏNDİ (2026-09-03):** Flutter app-ın real mühit testində
   (qrup çatına sayt linki yükləndi, emal uğursuz oldu — bax aşağıdakı
@@ -425,6 +436,31 @@ rm -rf /root/.cache/selenium # təmizlə (növbəti emal driver-i yenidən yükl
 ```
 
 Mütəmadi yoxlanmalıdır. Kök həll diskin böyüdülməsidir.
+
+## İcazə xəritəsi (2026-09-10-da tam yoxlanılıb)
+
+`/live/*`-da beş endpoint qapısız tapıldıqdan sonra BÜTÜN marşrutlar
+bir-bir yoxlandı. Hazırkı vəziyyət:
+
+| Qapı | Say | Nümunə |
+|---|---|---|
+| Qəsdən açıq | 2 | `POST /auth/register`, `POST /auth/login` |
+| Yalnız giriş + gövdədə üzvlük/sahiblik | 22 | `/chats/*`, `/homework/*`, `/history/me` |
+| Müəllim (asılılıq) | 10 | bütün `/live/*` |
+| Müəllim (sətiriçi) | 2 | `POST /homework/assignments`, `GET /history/student/{id}` |
+| Admin | 4 | `/admin/*` (ikisi API açarı, biri `is_admin`) |
+| WebSocket (öz məntiqi) | 3 | `/ws/chat/*`, `/ws/live/*` |
+
+**Ayrıca yoxlanılıb (ən riskli olanlar):**
+`POST /homework/attempts/{id}/answer` → `attempt["student_id"] != user["id"]`
+ilə 403 verir (başqasının cəhdini cavablamaq mümkün deyil);
+`POST /chats/{id}/quiz/start` → yalnız materialı yükləyən başlada bilir;
+çat endpointləri `member_ids` ilə üzvlüyü yoxlayır.
+
+**`tests/server/test_endpoint_guards.py`** bu xəritəni qoruyur: hər yeni
+marşrut ya qapıdan keçməli, ya da SƏBƏBİ ilə `PUBLIC_ROUTES`-a
+yazılmalıdır. Test qapını müvəqqəti çıxarmaqla real olaraq sınanıb —
+`GET /badges/me` dərhal tutuldu.
 
 ## Dərs: üç bug yalnız BRAUZER RENDER-i ilə tapıldı (2026-09-10)
 
