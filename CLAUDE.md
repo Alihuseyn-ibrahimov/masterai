@@ -157,6 +157,13 @@ ev tapşırığı + hər iki tərəfin — tələbə "Mənim tarixçəm", müəl
 tələbə tarixçəsi" — ekranları). Ətraflı bax
 `.planning/2026-09-07-masterai-student-history/progress.md`.
 
+**Veb versiyasında təsdiq (2026-09-11):** "join-after-login" zənciri
+Flutter-dən veb-ə keçiddən sonra ilk dəfə uc-uca yoxlandı — daxil olmuş
+tələbə `qosul.html`-dən PIN ilə qoşuldu, 4 sualı cavabladı, nəticə
+`tarixce.html`-də göründü ("1 nəticə · 3/4 düzgün (75%)", növü "Canlı
+sessiya"). Yəni `qosul.html`-in könüllü `token` göndərməsi işləyir və
+keçid zamanı bu funksiya İTMƏYİB.
+
 ## Çox-müəllimli idarəetmə (Faza 4)
 
 Ayrıca `is_admin` bayrağı (`is_teacher`-in eyni `ALTER TABLE` naxışı) —
