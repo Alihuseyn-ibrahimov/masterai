@@ -62,10 +62,24 @@ göstərilməsi/cavablanması → avtomatik keçid → sessiya bitməsi → host
 "Sessiya hesabatı" ekranı (yekun sıralama + sual-sual təhlil) — HAMISI
 düzgün işlədi. 343 backend test + 32 Flutter test, hamısı keçir.
 
-**Açıq qalan:** real FİZİKİ çoxcihaz (bir neçə AYRI telefon, eyni anda
-bir neçə tələbə) miqyas testi — indiyədək yalnız 1 iştirakçı ilə (eyni
-noutbukda 2 brauzer sekməsi) sınanıb. Master NR 1 kursuna göstərmək üçün
-real sınaq dərsi planlaşdırılmalıdır. Ətraflı tarixçə/qərarlar üçün bax
+**Çoxiştirakçılı yoxlama (2026-09-11, əvvəl AÇIQ idi):** indi
+`deploy/diagnostics/live_session_load.mjs` ilə sınanır — N ayrı brauzer
+konteksti (ayrı localStorage, ayrı WebSocket) eyni PIN-lə qoşulur və
+EYNİ ANDA cavablayır. **25 iştirakçı ilə nəticə təmizdir:**
+
+- hər sualda `total_answers = 25` — heç bir cavab İTMƏYİB
+- xal aralığı 0-3, sual sayını (4) aşan yoxdur
+- təkrar iştirakçı adı yoxdur, liderlik lövhəsi ardıcıldır
+- server jurnalında **0 xəta** — `server/user_store.py`-dəki sqlite
+  kilid narahatlığı bu yükdə ÖZÜNÜ GÖSTƏRMƏDİ
+
+**Bu nəyi İSBAT ETMİR:** bir maşındakı brauzer kontekstləridir — real
+şəbəkə gecikməsi, mobil rabitə və ayrı-ayrı telefonlar yoxdur. Serverin
+eyni anda gələn 25 bağlantını və cavabı düzgün emal etdiyi göstərilib,
+şəbəkə davranışı YOX. Master NR 1 kursunda real sınaq dərsi hələ də
+planlaşdırılmalıdır — amma artıq "heç sınanmayıb" vəziyyətindən çıxdıq.
+
+Ətraflı tarixçə/qərarlar üçün bax
 `.planning/2026-09-07-masterai-live-classroom/progress.md`.
 
 **2026-09-08 tarixində sinxron model tam ləğv edilib (fərdi tempo):**
