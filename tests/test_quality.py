@@ -248,3 +248,51 @@ class TestAmendmentReference:
     def test_an_ordinary_article_reference_is_not_flagged(self):
         report = audit_questions([q(question="Qanunun 23.2-ci maddəsi nəyi tənzimləyir?")])
         assert not any(f.code == "duzelis_tarixcesi" for f in report.findings)
+
+
+class TestFindingMessagesAreUserFacing:
+    """Tapıntı mətnləri MÜƏLLİMİN EKRANINA düşür (`suallar.html`
+    keyfiyyət paneli), ona görə saytın tipoqrafiya qaydasına tabedir.
+
+    Real icrada tapıldı: `/live/question-sets/{id}/quality` cavabında
+    em-dash (—) vardı. `tests/test_web_pages.py`-dəki qayda yalnız
+    `web/` altındakı fayllara baxır, mətn isə backend-dən gəlir - ona
+    görə boşluq burada bağlanır.
+    """
+
+    def _message_literals(self) -> list[str]:
+        """`ast` ilə oxunur, regex ilə YOX: mətnlərin bir hissəsi çox
+        sətirli mötərizədə və ya f-string-dədir. Regex onları sükutla
+        buraxırdı (ilk cəhdimdə 9 mətndən yalnız 5-ni tapdı)."""
+        import ast
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parent.parent / "pipeline" / "quality.py"
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        messages = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            for keyword in node.keywords:
+                if keyword.arg != "message":
+                    continue
+                # Sadə sətir, bitişdirilmiş sətir və f-string-in sabit
+                # hissələri - hamısı istifadəçiyə görünür.
+                for part in ast.walk(keyword.value):
+                    if isinstance(part, ast.Constant) and isinstance(part.value, str):
+                        messages.append(part.value)
+        return messages
+
+    def test_messages_were_found(self):
+        """Qoruyucu: regex sınıbsa test sükutla 'keçər'."""
+        assert len(self._message_literals()) >= 8
+
+    def test_no_em_or_en_dash_in_messages(self):
+        offenders = [m for m in self._message_literals() if "—" in m or "–" in m]
+        assert not offenders, f"tapıntı mətnində em/en-dash: {offenders}"
+
+    def test_messages_are_lowercase_fragments(self):
+        """Nişanın yanında cümlə parçası kimi oxunur - böyük hərflə
+        başlayan mətn ekranda yarımçıq cümlə təsiri bağışlayır."""
+        offenders = [m for m in self._message_literals() if m[:1].isupper()]
+        assert not offenders, f"böyük hərflə başlayan tapıntı mətni: {offenders}"

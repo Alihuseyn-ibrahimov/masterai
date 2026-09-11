@@ -101,7 +101,7 @@ def _check_duplicate_options(question: MCQQuestion, number: int) -> list[Finding
         Finding(
             code="tekrar_variant",
             severity=Severity.HIGH,
-            message="eyni variant iki dəfə verilib — tələbə üçün ikisi də eyni görünür",
+            message="eyni variant iki dəfə verilib - tələbə üçün ikisi də eyni görünür",
             question_number=number,
         )
     ]
@@ -163,7 +163,7 @@ def _check_material_reference(question: MCQQuestion, number: int) -> list[Findin
         Finding(
             code="materiala_istinad",
             severity=Severity.HIGH,
-            message="sual «materialda yazılanı» soruşur — imtahanda material olmur",
+            message="sual «materialda yazılanı» soruşur - imtahanda material olmur",
             question_number=number,
         )
     ]
@@ -185,7 +185,7 @@ def _check_amendment_reference(question: MCQQuestion, number: int) -> list[Findi
         Finding(
             code="duzelis_tarixcesi",
             severity=Severity.HIGH,
-            message="sual qanunun düzəliş tarixçəsindən qurulub — imtahan mövzusu deyil",
+            message="sual qanunun düzəliş tarixçəsindən qurulub - imtahan mövzusu deyil",
             question_number=number,
         )
     ]
@@ -232,7 +232,7 @@ def _check_self_answering(question: MCQQuestion, number: int) -> list[Finding]:
             code="sual_ozunu_cavablayir",
             severity=Severity.HIGH,
             message=(
-                "düzgün variant sualın sözlərini təkrarlayır — cavab materialı "
+                "düzgün variant sualın sözlərini təkrarlayır - cavab materialı "
                 "bilmədən tapılır"
             ),
             question_number=number,
@@ -275,7 +275,7 @@ def _check_longest_option_giveaway(questions: list[MCQQuestion]) -> list[Finding
             code="en_uzun_variant_duzgun",
             severity=Severity.MEDIUM,
             message=(
-                f"{hits}/{len(questions)} sualda düzgün cavab ən uzun variantdır — "
+                f"{hits}/{len(questions)} sualda düzgün cavab ən uzun variantdır - "
                 "tələbə materialı oxumadan tapa bilər"
             ),
         )
@@ -296,7 +296,7 @@ def _check_position_bias(questions: list[MCQQuestion]) -> list[Finding]:
             code="movqe_eyriliyi",
             severity=Severity.MEDIUM,
             message=(
-                f"{hits}/{len(questions)} sualda düzgün cavab «{letter}» mövqeyindədir — "
+                f"{hits}/{len(questions)} sualda düzgün cavab «{letter}» mövqeyindədir - "
                 "variantlar qarışdırılmalıdır"
             ),
         )
