@@ -148,8 +148,8 @@ class TestLastSession:
         sessions = env["live_sessions"]
         first = sessions.create_session(qs["id"])
         latest = sessions.create_session(qs["id"])
-        sessions.add_participant(latest["id"], "Aysel")
-        sessions.add_participant(latest["id"], "Elvin")
+        sessions.add_participant(latest["id"], "Aysel", user_id=1)
+        sessions.add_participant(latest["id"], "Elvin", user_id=1)
 
         body = env["client"].get("/live/teacher-summary", headers=_auth(env["teacher"])).json()
         last = body["last_session"]

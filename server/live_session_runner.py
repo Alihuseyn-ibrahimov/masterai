@@ -31,11 +31,16 @@ class LiveSessionError(Exception):
 
 
 class SessionNotFound(LiveSessionError):
-    """Bu PIN-ə uyğun bitməmiş sessiya yoxdur."""
+    """Belə sessiya yoxdur."""
 
 
 class SessionNotJoinable(LiveSessionError):
-    """Sessiya artıq başlayıb/bitib — yeni iştirakçı qəbul etmir."""
+    """Sessiya BİTİB — yeni iştirakçı qəbul etmir.
+
+    Əvvəl «artıq başlayıb» da bura düşürdü; gec qoşulma açıldıqdan sonra
+    (2026-09-11) yalnız bitmiş sessiya rədd edilir — real sinifdə tələbə
+    gecikir, telefonu söndürülür, dərsə sonradan qoşulur.
+    """
 
 
 class NotCurrentQuestion(LiveSessionError):
@@ -139,13 +144,20 @@ def compute_report(session_id: int, *, session_store, question_set_store) -> dic
 
 
 async def join_session(
-    pin: str, display_name: str, *, session_store, connection_manager, user_id: int | None = None
+    session_id: int, display_name: str, *, session_store, connection_manager, user_id: int
 ) -> tuple[dict, dict]:
-    session = session_store.get_by_pin(pin)
+    """İştirakçını sessiyaya əlavə edir və host-a bildirir.
+
+    PIN yerinə SESSİYA ID-si (2026-09-11): sessiya artıq bir sinfə
+    bağlıdır, üzvlüyü çağıran (endpoint) çat üzərindən yoxlayır.
+    `user_id` MƏCBURİDİR — anonim iştirakçı yolu silindi, yəni hər
+    nəticə bir hesaba bağlanır və tələbənin tarixçəsinə düşür.
+    """
+    session = session_store.get(session_id)
     if session is None:
-        raise SessionNotFound(pin)
-    if session["status"] != "waiting":
-        raise SessionNotJoinable(pin)
+        raise SessionNotFound(session_id)
+    if session["status"] == "finished":
+        raise SessionNotJoinable(session_id)
 
     participant = session_store.add_participant(session["id"], display_name, user_id=user_id)
     count = session_store.count_participants(session["id"])

@@ -77,8 +77,6 @@ from .live_session_runner import AlreadyAnswered as LiveAlreadyAnswered
 from .live_session_runner import DEFAULT_SESSION_DURATION_SECONDS
 from .live_session_runner import LiveSessionError
 from .live_session_runner import NotCurrentQuestion as LiveNotCurrentQuestion
-from .live_session_runner import SessionNotFound as LiveSessionNotFound
-from .live_session_runner import SessionNotJoinable as LiveSessionNotJoinable
 from .live_session_runner import SessionTimeExpired as LiveSessionTimeExpired
 from .live_session_runner import compute_report as compute_live_report
 from .live_session_runner import join_session as join_live_session
@@ -1953,11 +1951,11 @@ def _schedule_live_duration_watch(
 async def _run_host_loop(
     websocket: WebSocket, session: dict, *, question_sets, live_sessions, manager
 ) -> None:
-    """Host mesaj döngüsü — PIN və sessiya-ID marşrutlarının ORTAQ gövdəsi.
+    """Host mesaj döngüsü.
 
-    Ayrıca funksiyaya çıxarıldı ki, iki marşrut arasında məntiq
-    ayrılmasın: Faza 4-də PIN marşrutu silinəndə burada heç nə
-    dəyişmir.
+    Marşrutun gövdəsindən AYRI saxlanılır: icazə yoxlaması (kim bu
+    konsolu aça bilər) ilə mesaj emalı iki ayrı məsələdir və bir
+    funksiyada qarışdıqda hər ikisi çətin oxunur.
     """
     while True:
         try:
@@ -1998,8 +1996,7 @@ async def _run_play_loop(
     websocket: WebSocket, session_id: int, participant_id: int,
     *, question_sets, live_sessions, manager,
 ) -> None:
-    """Tələbə mesaj döngüsü — iki marşrutun ORTAQ gövdəsi (yuxarıdakı
-    eyni səbəb)."""
+    """Tələbə mesaj döngüsü (yuxarıdakı eyni səbəb)."""
     while True:
         try:
             data = await websocket.receive_json()
@@ -2164,18 +2161,15 @@ async def live_play_by_session_websocket(
         return
 
     await websocket.accept()
-    participant = live_sessions.add_participant(
-        session["id"], user["display_name"], user_id=user_id
-    )
-    await manager.broadcast_host(
-        session["id"],
-        {
-            "type": "participant_joined",
-            "participant_id": participant["id"],
-            "display_name": user["display_name"],
-            "count": live_sessions.count_participants(session["id"]),
-        },
-    )
+    try:
+        session, participant = await join_live_session(
+            session["id"], user["display_name"],
+            session_store=live_sessions, connection_manager=manager, user_id=user_id,
+        )
+    except LiveSessionError as exc:
+        await websocket.send_json({"type": "error", "detail": str(exc)})
+        await websocket.close(code=4404)
+        return
     manager.connect_player(session["id"], participant["id"], websocket)
     await websocket.send_json(
         {"type": "joined", "participant_id": participant["id"], "session_id": session["id"]}
@@ -2206,114 +2200,9 @@ async def live_play_by_session_websocket(
         manager.disconnect_player(session["id"], participant["id"], websocket)
 
 
-@app.websocket("/ws/live/{pin}/host")
-async def live_host_websocket(
-    websocket: WebSocket,
-    pin: str,
-    token: str = Query(...),
-    secret: str = Depends(get_token_secret),
-    users: UserStore = Depends(get_user_store),
-    question_sets: QuestionSetStore = Depends(get_question_set_store),
-    live_sessions: LiveSessionStore = Depends(get_live_session_store),
-    manager: LiveConnectionManager = Depends(get_live_connection_manager),
-) -> None:
-    try:
-        user_id = verify_token(token, secret=secret)
-    except InvalidToken:
-        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
-        return
-    if users.get_by_id(user_id) is None:
-        await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
-        return
-
-    session = live_sessions.get_by_pin(pin)
-    if session is None:
-        # `get_by_pin` BİTMİŞ sessiyanı qaytarmır — ən çox rast gəlinən
-        # hal budur: müəllimin səhifəsi köhnəlib.
-        await _reject_websocket(
-            websocket, 4404,
-            "Bu sessiya artıq bitib və ya tapılmadı. Sessiyalar bölməsindən yenisini başladın.",
-        )
-        return
-
-    await websocket.accept()
-    manager.connect_host(session["id"], websocket)
-    await websocket.send_json(
-        {
-            "type": "state",
-            "session_id": session["id"],
-            "status": session["status"],
-            "participants": live_sessions.list_participants(session["id"]),
-        }
-    )
-
-    try:
-        await _run_host_loop(
-            websocket, session,
-            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
-        )
-    except WebSocketDisconnect:
-        pass
-    finally:
-        manager.disconnect_host(session["id"], websocket)
-
-
-@app.websocket("/ws/live/{pin}/play")
-async def live_play_websocket(
-    websocket: WebSocket,
-    pin: str,
-    question_sets: QuestionSetStore = Depends(get_question_set_store),
-    live_sessions: LiveSessionStore = Depends(get_live_session_store),
-    manager: LiveConnectionManager = Depends(get_live_connection_manager),
-    secret: str = Depends(get_token_secret),
-) -> None:
-    await websocket.accept()
-
-    try:
-        join_msg = await websocket.receive_json()
-    except Exception:
-        await websocket.close(code=4400)
-        return
-    display_name = (join_msg or {}).get("display_name") if isinstance(join_msg, dict) else None
-    if not isinstance(display_name, str) or not display_name.strip():
-        await websocket.close(code=4400)
-        return
-
-    # `token` KÖNÜLLÜDÜR — PIN qoşulması hesabsız da mümkündür (bax
-    # `JoinPinScreen`, giriş ekranından ƏVVƏL istifadə edilə bilər).
-    # Daxil olmuş istifadəçi öz tokenini göndərəndə iştirakçı hesaba
-    # bağlanır (Fərdi tələbə tarixçəsi buna əsaslanır) — etibarsız/köhnə
-    # tokenlə qoşulma RƏDD EDİLMİR, sadəcə anonim kimi davam edir.
-    token = (join_msg or {}).get("token") if isinstance(join_msg, dict) else None
-    user_id: int | None = None
-    if isinstance(token, str) and token.strip():
-        try:
-            user_id = verify_token(token.strip(), secret=secret)
-        except InvalidToken:
-            user_id = None
-
-    try:
-        session, participant = await join_live_session(
-            pin, display_name, session_store=live_sessions, connection_manager=manager, user_id=user_id
-        )
-    except LiveSessionNotFound:
-        await websocket.close(code=4404)
-        return
-    except LiveSessionNotJoinable:
-        await websocket.close(code=4409)
-        return
-
-    manager.connect_player(session["id"], participant["id"], websocket)
-    await websocket.send_json(
-        {"type": "joined", "participant_id": participant["id"], "session_id": session["id"]}
-    )
-
-    try:
-        await _run_play_loop(
-            websocket, session["id"], participant["id"],
-            question_sets=question_sets, live_sessions=live_sessions, manager=manager,
-        )
-    except WebSocketDisconnect:
-        pass
-    finally:
-        manager.disconnect_player(session["id"], participant["id"], websocket)
+# PIN marşrutları (`/ws/live/{pin}/host` və `/ws/live/{pin}/play`) BURADAN
+# SİLİNDİ (2026-09-11, Faza 4). Sessiya artıq bir sinfə (qrup çatına)
+# bağlıdır: müəllim çatdan başladır, tələbə çatdakı «Qoşul» düyməsindən
+# girir. Anonim (tokensiz) iştirakçı yolu da onunla birlikdə getdi —
+# indi hər nəticə bir hesaba bağlanır və tələbənin tarixçəsinə düşür.
+# `live_sessions.pin` SÜTUNU qalır (köhnə sessiyaların tarixçəsi).

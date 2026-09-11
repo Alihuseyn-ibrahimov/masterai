@@ -120,17 +120,21 @@ class TestChatWebsocket:
 
 
 class TestLiveHostWebsocket:
-    def test_unknown_pin_is_explained(self, env):
-        """Ən çox rast gəlinən hal: sessiya artıq BİTİB. `get_by_pin`
-        bitmiş sessiyanı qaytarmır, ona görə müəllimin köhnə səhifəsi
-        sonsuz yenidən qoşulurdu."""
+    def test_unknown_session_is_explained(self, env):
+        """Ən çox rast gəlinən hal: sessiya artıq BİTİB və müəllimin
+        səhifəsi köhnəlib. Səbəb göndərilməsə brauzerə 1006 çatır və
+        səhifə sonsuz yenidən qoşulur (real produksiyada baş verib).
+
+        Ünvan Faza 4-də PIN-dən sessiya ID-sinə keçdi."""
         payload, code = _reason_and_code(
-            env["client"], f"/ws/live/000000/host?token={_token(env['ali']['id'])}"
+            env["client"], f"/ws/live/sessions/9999/host?token={_token(env['ali']['id'])}"
         )
         assert code == 4404
         assert payload["type"] == "error"
 
     def test_invalid_token_is_explained(self, env):
-        payload, code = _reason_and_code(env["client"], "/ws/live/000000/host?token=yanlis")
+        payload, code = _reason_and_code(
+            env["client"], "/ws/live/sessions/9999/host?token=yanlis"
+        )
         assert code == 4401
         assert payload["type"] == "error"

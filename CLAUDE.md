@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1166 pytest + 176 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1140 pytest + 174 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-11-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -35,10 +35,10 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Dostluq/sosial qraf endpoint-ləri | `POST/GET /friends/requests`, accept/decline/cancel, `GET /friends`, unfriend. `POST /chats` (direct) dostluq şərtinə bağlıdır | ✅ Tamamlandı (45 test) |
 | Material yükləmə endpoint-i | `POST/GET /chats/{id}/materials`, `asyncio.to_thread` ilə fon emalı (pipeline→sual+sistem mesajı) | ✅ Tamamlandı (21 test) |
 | ~~Flutter app (`app/`)~~ | **ARXİV — əvəzlənib** (2026-09-09). Release imzalama açarı yoxdur, Play Store-a dərc olunmayıb → real tələbəyə çatmaq yolu YOX idi. Kod silinməyib | 🗄️ Arxiv, bax `app/README.md` |
-| **Veb sayt (`web/`)** | Statik HTML+CSS+vanilla JS, build addımı YOXDUR. Bütün 17 səhifə: açılış, auth, çat+quiz, ev tapşırıqları, tarixçə, nişanlar, müəllim konsolu, canlı sessiya, PIN qoşulması, hüquqi səhifələr | ✅ Kod hazır, real backend-lə uc-uca sınaq gözlənilir |
+| **Veb sayt (`web/`)** | Statik HTML+CSS+vanilla JS, build addımı YOXDUR. Bütün 18 səhifə: açılış, auth, çat+quiz, ev tapşırıqları, tarixçə, nişanlar, müəllim konsolu, canlı sessiya (çatdan), hüquqi səhifələr | ✅ Kod hazır, real backend-lə uc-uca sınaq gözlənilir |
 | n8n/MCP admin avtomatlaşdırması | Uğursuz material→Telegram bildirişi VƏ gündəlik statistika — HƏR İKİSİ aktiv, n8n.prdostu.com-da | ✅ Tamamlandı (14 test + 2 aktiv real workflow) |
 | Deploy | DigitalOcean (`<SERVER_IP>`, dildostu/masternr1 ilə eyni VPS), `https://masterai.prdostu.com`, systemd+nginx+certbot HTTPS | ✅ Tamamlandı — canlı, real `curl`+n8n icrası ilə təsdiqlənib |
-| Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə mobil PIN-qoşulma, `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
+| Canlı Sinif Sessiyası (Kahoot-tərzi, Faza 1 — Master NR 1 pilotu üçün) | Müəllim veb host konsolu + tələbə qoşulması. **PIN axını 2026-09-11-də silindi** — sessiya qrup çatına bağlıdır (bax «Qrup çatı = sinif»), `docs/superpowers/specs/2026-09-07-masterai-live-classroom-design.md`, `.planning/2026-09-07-masterai-live-classroom/` | ✅ Tam uc-uca REAL test edilib (host+tələbə, real AI sualları, real PIN, sessiya hesabatı) — bax aşağı "Canlı Sinif Sessiyası" bölməsi |
 | Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq) | Müəllim tapşırıq təyin edir (veb+mobil, `is_teacher` bayrağı) → tələbə "Tapşırıqlarım"da öz sürəti ilə həll edir → müəllim hesabatda görür, `docs/superpowers/specs/2026-09-07-masterai-homework-mode-design.md`, `.planning/2026-09-07-masterai-homework-mode/` | ✅ Tam uc-uca REAL test edilib (təyin→görmə→həll→hesabat) — bax aşağı "Ev Təkrarı Rejimi" bölməsi |
 | Fərdi tələbə tarixçəsi (Faza 3 — canlı sessiya + ev tapşırığı birləşmiş tarixçə) | Tələbə "Mənim tarixçəm"də öz keçmiş nəticələrinə baxır, müəllim istənilən tələbəni seçib eynisini görür, `.planning/2026-09-07-masterai-student-history/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Fərdi tələbə tarixçəsi" bölməsi |
 | Çox-müəllimli idarəetmə (Faza 4 — `is_admin` rolu) | Admin (ayrıca `is_admin` bayrağı) tətbiq daxilindən e-poçtla başqa istifadəçini müəllim edir/çıxarır, hazırkı müəllimlərin siyahısını görür — VPS-də əl ilə skript artıq lazım deyil, `.planning/2026-09-07-masterai-multi-teacher-management/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Çox-müəllimli idarəetmə" bölməsi |
@@ -51,9 +51,15 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
 Mövcud tələbə-yönümlü sistemə TOXUNMADAN əlavə olunmuş paralel alt-sistem:
-müəllim veb brauzerdə (`flutter run -d chrome`/`build web`) sual bankı
-yaradır → AI sualları çıxarır → PIN-li canlı sessiya başladır; tələbələr
-hesabsız, yalnız PIN+ad ilə mobil/veb-dən qoşulur, Kahoot-tərzi cavablayır.
+müəllim sual bankı yaradır → AI sualları çıxarır → canlı sessiya
+başladır; tələbələr Kahoot-tərzi cavablayır.
+
+**DİQQƏT — bu bölmənin bir hissəsi TARİXDİR.** Aşağıdakı PIN
+istinadları 2026-09-07/09-08 tarixli vəziyyəti təsvir edir. **PIN axını
+2026-09-11-də tamamilə silindi** (bax «Qrup çatı = sinif» bölməsi):
+sessiya bir qrup çatına bağlıdır, müəllim onu çatdan başladır, tələbə
+çatdakı «Qoşul» düyməsindən girir — nə PIN, nə ad yazılır, hesab
+məcburidir. `qosul.html` və anonim iştirakçı yolu artıq yoxdur.
 
 **2026-09-07 tarixində TAM UC-UCA REAL TEST edilib** (istifadəçinin real
 Windows mühitində, real backend-ə qarşı): sual bankı yaradılması → AI-nın
@@ -145,12 +151,14 @@ tarixçəsi" ekranından (çat seç → üzv seç) istənilən tələbənin
 tarixçəsinə baxır (yalnız ortaq çatı olan tələbələr üçün icazə verilir).
 
 **Real arxitektura boşluğu tapılıb düzəldilib:** `live_participants`
-əvvəllər `users`-a bağlı deyildi (PIN qoşulması qəsdən hesabsızdır).
-İndi `WS /ws/live/{pin}/play` join mesajına KÖNÜLLÜ `token` sahəsi
-əlavə olundu — yalnız daxil olmuş istifadəçi qoşulanda dolur (bax
-"join-after-login" bölməsi, `chat_list_screen.dart`-dakı "Sinif
-sessiyasına qoşul" ikonu), etibarsız/köhnə token qoşulmanı RƏDD ETMİR,
-sadəcə anonim kimi davam edir — pre-login PIN axını dəyişməz qalır.
+əvvəllər `users`-a bağlı deyildi (PIN qoşulması qəsdən hesabsız idi).
+Aralıq həll kimi join mesajına KÖNÜLLÜ `token` sahəsi əlavə olunmuşdu.
+
+**2026-09-11-də bu tam bağlandı:** anonim yol silindi, token
+MƏCBURİDİR, `add_participant` `user_id`-siz çağırıla bilmir. Yəni
+`user_id IS NULL` olan sətir artıq YARANA BİLMƏZ; canlı bazadakı
+köhnə anonim sətirlər qalır və `list_participations_for_user` onları
+onsuz da qaytarmır.
 
 **Vəziyyət (2026-09-07):** Tam uc-uca REAL test edilib (canlı sessiya +
 ev tapşırığı + hər iki tərəfin — tələbə "Mənim tarixçəm", müəllim "Fərdi
@@ -159,10 +167,12 @@ tələbə tarixçəsi" — ekranları). Ətraflı bax
 
 **Veb versiyasında təsdiq (2026-09-11):** "join-after-login" zənciri
 Flutter-dən veb-ə keçiddən sonra ilk dəfə uc-uca yoxlandı — daxil olmuş
-tələbə `qosul.html`-dən PIN ilə qoşuldu, 4 sualı cavabladı, nəticə
-`tarixce.html`-də göründü ("1 nəticə · 3/4 düzgün (75%)", növü "Canlı
-sessiya"). Yəni `qosul.html`-in könüllü `token` göndərməsi işləyir və
-keçid zamanı bu funksiya İTMƏYİB.
+tələbə PIN ilə qoşuldu, 4 sualı cavabladı, nəticə `tarixce.html`-də
+göründü ("1 nəticə · 3/4 düzgün (75%)", növü "Canlı sessiya").
+
+Həmin gün PIN axını silindi və zəncir daha da sadələşdi: tələbə onsuz
+da daxil olmuş vəziyyətdə çatdan qoşulur, yəni «könüllü token»
+anlayışı qalmadı — hər nəticə bir hesaba bağlıdır.
 
 ## Çox-müəllimli idarəetmə (Faza 4)
 
@@ -512,8 +522,9 @@ ekranda səhv şey görünür.**
 
 2. **Sabit `width` telefonda üfüqi sürüşmə yaradırdı.** `giris`,
    `qeydiyyat` və `qosul` səhifələri `style="width: var(--width-form)"`
-   (420px) yazırdı; 390px-lik telefonda səhifə yana sürüşürdü. PIN ilə
-   qoşulma ekranı isə MƏHZ telefonda işlədilir.
+   (420px) yazırdı; 390px-lik telefonda səhifə yana sürüşürdü.
+   Qoşulma ekranı isə MƏHZ telefonda işlədilir. (`qosul` səhifəsi
+   sonradan silindi, qayda qalır — `sessiya.html` də telefondadır.)
    → `.form-shell` (`width:100%` + `max-width`) və
    `TestMobileWidthDiscipline`.
 

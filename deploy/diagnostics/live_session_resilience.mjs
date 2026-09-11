@@ -1,3 +1,15 @@
+/* ⚠️ BU SKRİPT HAZIRDA SINIQDIR (2026-09-11, Faza 4).
+ *
+ * PIN axını silindi: `#pinValue` və `#pin` elementləri artıq yoxdur,
+ * `qosul.html` səhifəsi də silinib. Skript çat axınına uyğunlaşdırılana
+ * qədər İŞLƏMİR — bu, Faza 6-nın işidir (bax
+ * `.planning/2026-09-11-masterai-class-chat/task_plan.md`).
+ *
+ * Yeni axın: müəllim qrup çatından sessiya başladır → tələbələr
+ * `sessiya.html?id=N` ünvanından qoşulur (hesab məcburidir, yəni hər
+ * brauzer kontekstinə ayrıca qeydiyyat+təsdiq lazımdır).
+ */
+
 /* Canlı sessiyanın BAĞLANTI KƏSİLMƏSİNƏ davamlılığı.
  *
  * NİYƏ: real sinifdə bağlantı kəsilir — telefon kilidlənir, wifi düşür,

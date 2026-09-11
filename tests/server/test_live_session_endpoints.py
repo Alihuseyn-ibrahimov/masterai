@@ -77,7 +77,7 @@ def test_not_ready_question_set_returns_400(env):
     assert r.status_code == 400
 
 
-def test_creates_session_with_pin(env):
+def test_creates_session_bound_to_the_chat(env):
     qs = env["question_sets"].create(
         subject="mentiq", title="A", material_kind="link", material_location="https://x.az",
         created_by=env["teacher"]["id"],
@@ -89,7 +89,9 @@ def test_creates_session_with_pin(env):
     body = r.json()
     assert body["question_set_id"] == qs["id"]
     assert body["status"] == "waiting"
-    assert len(body["pin"]) == 6
+    # `pin` cavabdan ÇIXARILDI (Faza 4) — PIN axını silindi.
+    assert "pin" not in body
+    assert body["chat_id"] == env["chat"]["id"]
 
 
 class _NoopConnectionManager:
@@ -137,7 +139,7 @@ class TestGetReport:
         session = env["live_sessions"].create_session(qs["id"])
 
         manager = _NoopConnectionManager()
-        _, participant = await join_session(session["pin"], "Əli", session_store=env["live_sessions"], connection_manager=manager)
+        _, participant = await join_session(session["id"], "Əli", user_id=1, session_store=env["live_sessions"], connection_manager=manager)
         await start_session(session["id"], session_store=env["live_sessions"], question_set_store=env["question_sets"], connection_manager=manager)
         await record_answer(
             session["id"], participant["id"], 0, chosen_index=0,

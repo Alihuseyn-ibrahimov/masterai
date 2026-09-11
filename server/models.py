@@ -228,7 +228,8 @@ class CreateLiveSessionRequest(BaseModel):
 class LiveSessionInfo(BaseModel):
     id: int
     question_set_id: int
-    pin: str
+    # `pin` BURADAN ÇIXARILDI (2026-09-11, Faza 4): PIN axını silindi,
+    # heç bir ekran onu göstərmir. DB sütunu qalır (köhnə sessiyalar).
     status: str
     current_question_index: int
     created_at: str

@@ -126,10 +126,20 @@ class TestMyHistory:
         assert entries[0]["score"] == 2
         assert entries[0]["total_questions"] == 2
 
-    def test_ignores_anonymous_participation(self, env):
+    def test_ignores_other_students_participation(self, env):
+        """Əvvəl bu test ANONİM iştirakı yoxlayırdı (`user_id=None`).
+        Anonim yol Faza 4-də silindi — indi hər iştirakçı bir hesaba
+        bağlıdır. Qorunması vacib olan qayda isə DƏYİŞMƏDİ: başqasının
+        nəticəsi mənim tarixçəmə düşməməlidir.
+
+        Köhnə anonim sətirlər canlı bazada QALIR (silinmir) və
+        `list_participations_for_user` onları onsuz da qaytarmır —
+        bunun testi `test_live_session_store.py`-dədir.
+        """
         qs = _ready_question_set(env)
         session = env["live_sessions"].create_session(qs["id"])
-        env["live_sessions"].add_participant(session["id"], "Qonaq")  # user_id=None
+        ozge = env["users"].create("ozge@masternr1.az", "hash", "Özgə")
+        env["live_sessions"].add_participant(session["id"], "Özgə", user_id=ozge["id"])
         env["live_sessions"].set_status(session["id"], "finished")
         r = env["client"].get("/history/me", headers=_auth(env["student"]))
         assert r.json() == []

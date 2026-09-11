@@ -32,12 +32,12 @@ class TestSchema:
         assert session["chat_id"] is None
         assert session["created_by"] is None
 
-    def test_lookup_by_pin_also_returns_the_chat(self):
-        """PIN axını Faza 4-də silinir, amma hələ işləkdir — həmin
-        yoldan gələn sessiya da çatını daşımalıdır."""
+    def test_lookup_by_id_returns_the_chat(self):
+        """Əvvəl bu test PIN ilə axtarışı yoxlayırdı; PIN axını Faza
+        4-də silindi, sessiya yalnız ID ilə tapılır."""
         store = LiveSessionStore(":memory:")
         created = store.create_session(question_set_id=1, chat_id=5, created_by=9)
-        found = store.get_by_pin(created["pin"])
+        found = store.get(created["id"])
         assert found["chat_id"] == 5
         assert found["created_by"] == 9
 

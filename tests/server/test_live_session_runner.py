@@ -6,6 +6,7 @@ from server.live_session_runner import (
     LiveSessionError,
     NotCurrentQuestion,
     SessionNotFound,
+    SessionNotJoinable,
     SessionTimeExpired,
     compute_report,
     join_session,
@@ -83,8 +84,7 @@ class TestJoinSession:
     @pytest.mark.asyncio
     async def test_join_creates_participant_and_notifies_host(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, participant = await join_session(
-            session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"]
+        _, participant = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"]
         )
 
         assert participant["display_name"] == "Əli"
@@ -95,25 +95,47 @@ class TestJoinSession:
         assert payload["count"] == 1
 
     @pytest.mark.asyncio
-    async def test_join_passes_through_optional_user_id(self, env):
+    async def test_participant_is_linked_to_the_account(self, env):
+        """`user_id` artıq MƏCBURİDİR (Faza 4) — anonim yol silindi.
+        Fərdi tarixçə buna söykənir."""
         session = env["sessions"].create_session(env["question_set_id"])
         _, participant = await join_session(
-            session["pin"], "Aygün", session_store=env["sessions"],
-            connection_manager=env["manager"], user_id=42,
+            session["id"], "Aygün", user_id=42,
+            session_store=env["sessions"], connection_manager=env["manager"],
         )
         assert participant["user_id"] == 42
 
     @pytest.mark.asyncio
-    async def test_raises_for_unknown_pin(self, env):
+    async def test_raises_for_unknown_session(self, env):
         with pytest.raises(SessionNotFound):
-            await join_session("000000", "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+            await join_session(
+                9999, "Əli", user_id=1,
+                session_store=env["sessions"], connection_manager=env["manager"],
+            )
 
     @pytest.mark.asyncio
-    async def test_raises_when_session_already_active(self, env):
+    async def test_joining_an_active_session_is_ALLOWED(self, env):
+        """GEC QOŞULMA (Faza 3 qərarı). Əvvəl burada `LiveSessionError`
+        gözlənilirdi — real sinifdə tələbə gecikir, telefonu söndürülür,
+        dərsə sonradan qoşulur, ona görə həmin davranış dəyişdirildi."""
         session = env["sessions"].create_session(env["question_set_id"])
         await start_session(session["id"], 180, **_kwargs(env))
-        with pytest.raises(LiveSessionError):
-            await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+
+        _, participant = await join_session(
+            session["id"], "Gecikən", user_id=7,
+            session_store=env["sessions"], connection_manager=env["manager"],
+        )
+        assert participant["id"] is not None
+
+    @pytest.mark.asyncio
+    async def test_joining_a_finished_session_raises(self, env):
+        session = env["sessions"].create_session(env["question_set_id"])
+        env["sessions"].set_status(session["id"], "finished")
+        with pytest.raises(SessionNotJoinable):
+            await join_session(
+                session["id"], "Əli", user_id=1,
+                session_store=env["sessions"], connection_manager=env["manager"],
+            )
 
 
 class TestStartSession:
@@ -165,8 +187,8 @@ class TestRecordAnswer:
     @pytest.mark.asyncio
     async def test_computes_correctness_and_sends_result_only_to_answerer(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         answer = await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
@@ -186,7 +208,7 @@ class TestRecordAnswer:
     @pytest.mark.asyncio
     async def test_notifies_host_of_this_participants_progress(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
 
@@ -204,7 +226,7 @@ class TestRecordAnswer:
     @pytest.mark.asyncio
     async def test_raises_when_question_index_does_not_match_own_progress(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
         with pytest.raises(NotCurrentQuestion):
             await record_answer(session["id"], p1["id"], 1, chosen_index=0, **_kwargs(env))
@@ -215,8 +237,8 @@ class TestRecordAnswer:
         qalsa da bu, p1-in irəliləməsinə mane olmur (köhnə sinxron model
         ləğv olunub)."""
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
@@ -231,7 +253,7 @@ class TestRecordAnswer:
     @pytest.mark.asyncio
     async def test_raises_session_time_expired(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 0, **_kwargs(env))  # 0 saniyəlik büdcə — dərhal bitmiş sayılır
 
         with pytest.raises(SessionTimeExpired):
@@ -242,7 +264,7 @@ class TestRequestNext:
     @pytest.mark.asyncio
     async def test_sends_own_next_question(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
 
@@ -257,8 +279,8 @@ class TestRequestNext:
     @pytest.mark.asyncio
     async def test_early_finisher_sees_personal_result_immediately_without_full_leaderboard(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
@@ -278,8 +300,8 @@ class TestRequestNext:
     @pytest.mark.asyncio
     async def test_session_finishes_with_full_leaderboard_when_all_participants_done(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
@@ -304,7 +326,7 @@ class TestRequestNext:
     @pytest.mark.asyncio
     async def test_time_expired_forces_finish_regardless_of_progress(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 0, **_kwargs(env))  # dərhal bitmiş sayılır
 
         await request_next(session["id"], p1["id"], **_kwargs(env))
@@ -324,8 +346,8 @@ class TestComputeReport:
     @pytest.mark.asyncio
     async def test_rankings_sorted_by_score_descending(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))  # düzgün
@@ -347,9 +369,9 @@ class TestComputeReport:
     @pytest.mark.asyncio
     async def test_per_question_reports_correct_count_and_most_common_wrong(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p2 = await join_session(session["pin"], "Vəli", session_store=env["sessions"], connection_manager=env["manager"])
-        _, p3 = await join_session(session["pin"], "Səbinə", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p3 = await join_session(session["id"], "Səbinə", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         # 0-cı sual (correct_index=0): p1 düzgün, p2 və p3 eyni səhv variantı (2) seçir
@@ -369,7 +391,7 @@ class TestComputeReport:
     @pytest.mark.asyncio
     async def test_most_common_wrong_index_is_none_when_no_wrong_answers(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
 
@@ -379,7 +401,7 @@ class TestComputeReport:
     @pytest.mark.asyncio
     async def test_session_finish_caches_report_json(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
-        _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
         await start_session(session["id"], 180, **_kwargs(env))
 
         await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))

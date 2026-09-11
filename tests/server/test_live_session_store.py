@@ -1,6 +1,5 @@
 import pytest
 
-import server.live_session_store as live_session_store_module
 from server.live_session_store import LiveSessionStore
 
 
@@ -17,40 +16,20 @@ def test_create_session_defaults(store):
     assert session["status"] == "waiting"
     assert session["current_question_index"] == 0
     assert session["report_json"] is None
-    assert len(session["pin"]) == 6
-    assert session["pin"].isdigit()
 
 
-def test_create_session_retries_on_pin_collision(store, monkeypatch):
-    """`_generate_unique_pin` bitməmiş sessiyalar arasında unikal PIN
-    təmin etməlidir — ilk cəhd toqquşsa belə."""
-    first = store.create_session(question_set_id=1)
-
-    calls = iter([first["pin"], first["pin"], "654321"])
-    monkeypatch.setattr(live_session_store_module.random, "randint", lambda a, b: int(next(calls)))
-
-    second = store.create_session(question_set_id=2)
-    assert second["pin"] == "654321"
-    assert second["pin"] != first["pin"]
+# `test_create_session_retries_on_pin_collision` SİLİNDİ (Faza 4):
+# `_generate_unique_pin` artıq yoxdur. PIN axını tamamilə getdi —
+# sessiya sinfə bağlıdır, tələbə çatdan qoşulur.
 
 
 def test_get_returns_none_when_missing(store):
     assert store.get(999) is None
 
 
-def test_get_by_pin_finds_waiting_session(store):
-    session = store.create_session(question_set_id=1)
-    assert store.get_by_pin(session["pin"]) == session
-
-
-def test_get_by_pin_returns_none_for_finished_session(store):
-    session = store.create_session(question_set_id=1)
-    store.set_status(session["id"], "finished")
-    assert store.get_by_pin(session["pin"]) is None
-
-
-def test_get_by_pin_returns_none_for_unknown_pin(store):
-    assert store.get_by_pin("000000") is None
+# `get_by_pin` testləri SİLİNDİ (Faza 4) — metod yoxdur. Sessiya
+# ID ilə tapılır (`test_live_session_chat_link.py`), üzvlük isə
+# çat üzərindən yoxlanılır (`test_live_session_in_chat.py`).
 
 
 def test_set_status(store):
@@ -80,8 +59,8 @@ def test_save_report(store):
 
 def test_add_and_list_participants(store):
     session = store.create_session(question_set_id=1)
-    p1 = store.add_participant(session["id"], "Əli")
-    p2 = store.add_participant(session["id"], "Vəli")
+    p1 = store.add_participant(session["id"], "Əli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
 
     participants = store.list_participants(session["id"])
     assert [p["display_name"] for p in participants] == ["Əli", "Vəli"]
@@ -90,12 +69,19 @@ def test_add_and_list_participants(store):
     assert store.count_participants(session["id"]) == 2
 
 
-def test_add_participant_stores_optional_user_id(store):
+def test_add_participant_requires_a_user(store):
+    """Anonim iştirakçı yolu SİLİNDİ (Faza 4).
+
+    Əvvəl `user_id` könüllü idi (PIN qoşulması hesabsız idi) və belə
+    iştirakçıların nəticəsi HEÇ KİMİN tarixçəsinə düşmürdü. İndi hər
+    nəticə bir hesaba bağlıdır.
+    """
     session = store.create_session(question_set_id=1)
-    anon = store.add_participant(session["id"], "Qonaq")
     logged_in = store.add_participant(session["id"], "Aygün", user_id=42)
-    assert anon["user_id"] is None
     assert logged_in["user_id"] == 42
+
+    with pytest.raises(TypeError):
+        store.add_participant(session["id"], "Qonaq")
 
 
 def test_list_participations_for_user_only_finished_sessions(store):
@@ -115,7 +101,7 @@ def test_list_participations_for_user_only_finished_sessions(store):
 
 def test_list_participations_for_user_ignores_anonymous_and_other_users(store):
     session = store.create_session(question_set_id=1)
-    store.add_participant(session["id"], "Qonaq")
+    store.add_participant(session["id"], "Qonaq", user_id=1)
     store.add_participant(session["id"], "Başqası", user_id=7)
     store.set_status(session["id"], "finished")
     assert store.list_participations_for_user(42) == []
@@ -124,8 +110,8 @@ def test_list_participations_for_user_ignores_anonymous_and_other_users(store):
 def test_participants_do_not_leak_across_sessions(store):
     s1 = store.create_session(question_set_id=1)
     s2 = store.create_session(question_set_id=2)
-    store.add_participant(s1["id"], "s1 iştirakçı")
-    store.add_participant(s2["id"], "s2 iştirakçı")
+    store.add_participant(s1["id"], "s1 iştirakçı", user_id=1)
+    store.add_participant(s2["id"], "s2 iştirakçı", user_id=1)
 
     assert [p["display_name"] for p in store.list_participants(s1["id"])] == ["s1 iştirakçı"]
     assert [p["display_name"] for p in store.list_participants(s2["id"])] == ["s2 iştirakçı"]
@@ -133,7 +119,7 @@ def test_participants_do_not_leak_across_sessions(store):
 
 def test_record_answer_and_has_answered(store):
     session = store.create_session(question_set_id=1)
-    participant = store.add_participant(session["id"], "Əli")
+    participant = store.add_participant(session["id"], "Əli", user_id=1)
 
     assert store.has_answered(session["id"], participant["id"], 0) is False
     answer = store.record_answer(session["id"], participant["id"], 0, chosen_index=2, is_correct=True)
@@ -145,8 +131,8 @@ def test_record_answer_and_has_answered(store):
 
 def test_list_answers_for_question(store):
     session = store.create_session(question_set_id=1)
-    p1 = store.add_participant(session["id"], "Əli")
-    p2 = store.add_participant(session["id"], "Vəli")
+    p1 = store.add_participant(session["id"], "Əli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=1, is_correct=False)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=0, is_correct=True)
@@ -159,7 +145,7 @@ def test_list_answers_for_question(store):
 
 def test_list_answers_for_session(store):
     session = store.create_session(question_set_id=1)
-    participant = store.add_participant(session["id"], "Əli")
+    participant = store.add_participant(session["id"], "Əli", user_id=1)
     store.record_answer(session["id"], participant["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], participant["id"], 1, chosen_index=1, is_correct=False)
 
@@ -169,8 +155,8 @@ def test_list_answers_for_session(store):
 
 def test_compute_scores_includes_zero_score_participants(store):
     session = store.create_session(question_set_id=1)
-    p1 = store.add_participant(session["id"], "Əli")
-    p2 = store.add_participant(session["id"], "Vəli")
+    p1 = store.add_participant(session["id"], "Əli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=3, is_correct=False)
@@ -191,8 +177,8 @@ def test_start_sets_active_status_duration_and_started_at(store):
 
 def test_count_answers_by_participant(store):
     session = store.create_session(question_set_id=1)
-    p1 = store.add_participant(session["id"], "Əli")
-    p2 = store.add_participant(session["id"], "Vəli")
+    p1 = store.add_participant(session["id"], "Əli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=1, is_correct=False)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=2, is_correct=False)
@@ -203,7 +189,7 @@ def test_count_answers_by_participant(store):
 
 def test_list_answers_for_participant_ordered_by_question_index(store):
     session = store.create_session(question_set_id=1)
-    participant = store.add_participant(session["id"], "Əli")
+    participant = store.add_participant(session["id"], "Əli", user_id=1)
     store.record_answer(session["id"], participant["id"], 1, chosen_index=1, is_correct=False)
     store.record_answer(session["id"], participant["id"], 0, chosen_index=0, is_correct=True)
 
@@ -215,8 +201,8 @@ def test_list_answers_for_participant_ordered_by_question_index(store):
 def test_compute_scores_does_not_leak_across_sessions(store):
     s1 = store.create_session(question_set_id=1)
     s2 = store.create_session(question_set_id=2)
-    p1 = store.add_participant(s1["id"], "s1 iştirakçı")
-    p2 = store.add_participant(s2["id"], "s2 iştirakçı")
+    p1 = store.add_participant(s1["id"], "s1 iştirakçı", user_id=1)
+    p2 = store.add_participant(s2["id"], "s2 iştirakçı", user_id=1)
     store.record_answer(s1["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(s2["id"], p2["id"], 0, chosen_index=0, is_correct=True)
 

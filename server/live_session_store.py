@@ -1,18 +1,23 @@
-"""Canlı sinif sessiyaları (PIN-lə qoşulma) — SQLite saxlanması.
+"""Canlı sinif sessiyaları — SQLite saxlanması.
+
+Sessiya BİR SİNFƏ (qrup çatına) bağlıdır: `chat_id` müəllimin hansı
+sinifdə başlatdığını, `created_by` isə host konsolunun kimə açılacağını
+saxlayır. PIN ilə qoşulma axını 2026-09-11-də tamamilə silindi; `pin`
+sütunu yalnız köhnə sətirlər üçün qalır və heç yerdə oxunmur.
 
 `live_sessions`/`live_participants`/`live_answers` `question_sets`-dən
 (bax `question_set_store.py`) ayrıdır — bu, "hansı sual bankı" ilə "hansı
 canlı yarış" arasındakı fərqdir (bir sual bankı ilə vaxtaşırı bir neçə
 sessiya keçirilə bilər).
 
-`threading.RLock()` bütün metodları əhatə edir (reentrant, çünki
-`create_session()` PIN unikallığını yoxlamaq üçün öz daxilində SELECT
-işlədir) — səbəb üçün bax `user_store.py`-nin modul qeydi.
+`threading.RLock()` bütün metodları əhatə edir. Reentrant olmalıdır,
+çünki `create_session()` kilid altında `self.get()` çağırır (əvvəl
+səbəb PIN unikallığı yoxlaması idi — PIN getdi, reentrantlıq QALDI).
+Səbəb üçün bax `user_store.py`-nin modul qeydi.
 """
 
 from __future__ import annotations
 
-import random
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -102,17 +107,11 @@ class LiveSessionStore:
 
     # ---- sessiyalar ------------------------------------------------
 
-    def _generate_unique_pin(self) -> str:
-        """6 rəqəmli PIN — yalnız AKTİV (bitməmiş) sessiyalar arasında
-        unikal olmalıdır, bax dizayn sənədi. Çağıran `_lock` altında olmalıdır."""
-        for _ in range(50):
-            pin = f"{random.randint(0, 999999):06d}"
-            cur = self._conn.execute(
-                "SELECT 1 FROM live_sessions WHERE pin = ? AND status != 'finished'", (pin,)
-            )
-            if cur.fetchone() is None:
-                return pin
-        raise RuntimeError("Unikal PIN yaradıla bilmədi (50 cəhddən sonra)")
+    # `_generate_unique_pin` BURADAN SİLİNDİ (2026-09-11, Faza 4).
+    # PIN ilə qoşulma axını tamamilə getdi: sessiya artıq bir sinfə
+    # (qrup çatına) bağlıdır və tələbə çatdakı «Qoşul» düyməsindən
+    # girir. `pin` SÜTUNU qalır, çünki canlı bazadakı köhnə sessiyalar
+    # onu daşıyır və tarixçə həmin sətirlərə söykənir.
 
     def create_session(
         self,
@@ -122,20 +121,25 @@ class LiveSessionStore:
     ) -> dict:
         """Yeni sessiya.
 
-        `chat_id`/`created_by` KÖNÜLLÜDÜR ki, köhnə (PIN) axını və
-        tarixçə testləri pozulmasın — yeni endpoint onları məcburi
-        tələb edir. `created_by` host konsolunun kimə açılacağını
-        həll edir: çatda bir neçə müəllim ola bilər, amma konsol
-        YALNIZ sessiyanı başladanındır.
+        `chat_id`/`created_by` store qatında KÖNÜLLÜDÜR — canlı
+        bazadakı köhnə sessiyalarda onlar NULL-dur və həmin sətirlər
+        oxunmalıdır. `POST /live/sessions` isə hər ikisini doldurur.
+
+        `created_by` host konsolunun kimə açılacağını həll edir: çatda
+        bir neçə müəllim ola bilər, amma konsol YALNIZ sessiyanı
+        başladanındır.
         """
         with self._lock:
-            pin = self._generate_unique_pin()
             cur = self._conn.execute(
+                # `pin` sütunu `NOT NULL`-dur və sqlite-da bunu ləğv
+                # etmək cədvəlin yenidən qurulmasını tələb edərdi.
+                # Yeni sessiyalar BOŞ SƏTİR yazır — dəyər heç yerdə
+                # oxunmur (axtarış metodları silinib).
                 "INSERT INTO live_sessions "
                 "(question_set_id, pin, status, current_question_index, report_json, "
                 "created_at, chat_id, created_by) "
-                "VALUES (?, ?, 'waiting', 0, NULL, ?, ?, ?)",
-                (question_set_id, pin, _utc_now_iso(), chat_id, created_by),
+                "VALUES (?, '', 'waiting', 0, NULL, ?, ?, ?)",
+                (question_set_id, _utc_now_iso(), chat_id, created_by),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -196,19 +200,9 @@ class LiveSessionStore:
             row = cur.fetchone()
             return dict(row) if row else None
 
-    def get_by_pin(self, pin: str) -> dict | None:
-        """Yalnız bitməmiş (`waiting`/`active`) sessiyanı tapır — PIN
-        bitmiş sessiyadan sonra təkrar istifadə oluna bilər."""
-        with self._lock:
-            cur = self._conn.execute(
-                "SELECT id, question_set_id, pin, status, current_question_index, "
-                "report_json, created_at, duration_seconds, started_at, chat_id, created_by "
-                "FROM live_sessions "
-                "WHERE pin = ? AND status != 'finished' ORDER BY id DESC LIMIT 1",
-                (pin,),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
+    # `get_by_pin` BURADAN SİLİNDİ (2026-09-11, Faza 4) — PIN ilə
+    # axtarış anlayışı qalmadı. Sessiya ID-si ilə `get()` işlədilir,
+    # üzvlük isə çat üzərindən yoxlanılır.
 
     def start(self, session_id: int, duration_seconds: int) -> dict:
         """Sessiyanı 'active' edir, ümumi vaxt büdcəsini (saniyə) və
@@ -254,14 +248,17 @@ class LiveSessionStore:
 
     # ---- iştirakçılar ------------------------------------------------
 
-    def add_participant(
-        self, session_id: int, display_name: str, user_id: int | None = None
-    ) -> dict:
-        """`user_id` YALNIZ tələbə daxil olmuş hesabla PIN-ə qoşulanda dolur
-        (bax `app.py`, `live_play_websocket` — token könüllüdür, çünki PIN
-        qoşulması hesabsız da mümkündür) — Fərdi tələbə tarixçəsi bunu
-        istifadə edir, anonim qoşulmalar (`user_id IS NULL`) tarixçəyə
-        düşmür."""
+    def add_participant(self, session_id: int, display_name: str, user_id: int) -> dict:
+        """`user_id` MƏCBURİDİR (2026-09-11, Faza 4).
+
+        Əvvəl könüllü idi, çünki PIN qoşulması hesabsız da mümkün idi —
+        belə iştirakçılar `user_id IS NULL` ilə yazılırdı və nəticələri
+        HEÇ KİMİN tarixçəsinə düşmürdü. Anonim yol silindi; indi hər
+        nəticə bir hesaba bağlıdır.
+
+        Sütun sxemdə nullable qalır: canlı bazada köhnə anonim sətirlər
+        var və onlar silinmir.
+        """
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO live_participants (session_id, display_name, joined_at, user_id) "

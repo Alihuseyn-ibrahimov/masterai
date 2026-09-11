@@ -1,10 +1,11 @@
 /* Tələbənin canlı sessiya ekranı - sual, nəticə, bitiş, lövhə.
  *
- * NİYƏ AYRICA MODUL: eyni ekran İKİ səhifədən işlədilir - `sessiya.html`
- * (çatdan qoşulma, yeni yol) və `qosul.html` (PIN, Faza 4-də silinir).
- * Kopyalasaydıq, bir tərəfdəki düzəliş digərini keçərdi; keçmişdə məhz
- * belə bir bug olub (geri bildirim yalnız hərfi göstərirdi və iki
- * ekranda ayrı-ayrı yazılmışdı).
+ * NİYƏ AYRICA MODUL: hazırda yalnız `sessiya.html` işlədir, amma modul
+ * QƏSDƏN səhifədən asılı deyil - ekran məntiqi HTML-in içində yazılsa,
+ * ikinci ekran lazım olan kimi kopyalanardı. Keçmişdə məhz belə bir bug
+ * olub: geri bildirim yalnız hərfi göstərirdi və düzəliş iki ekranda
+ * ayrı-ayrı yazılmalı idi. (Faza 4-ə qədər `qosul.html` da bunu
+ * işlədirdi; həmin səhifə PIN axını ilə birlikdə silindi.)
  *
  * Modul DOM işlədir, amma elementləri ÖZÜ AXTARMIR - `root` verilir.
  * Saf hesablamalar (`answerFeedback`, `formatCountdown`) ayrı

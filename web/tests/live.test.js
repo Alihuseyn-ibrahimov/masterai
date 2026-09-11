@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import {
   DURATION_CHOICES_MINUTES,
   LiveHostSocket,
-  LivePinPlaySocket,
   LivePlaySocket,
   formatCountdown,
   participantRows,
@@ -159,30 +158,6 @@ describe('LivePlaySocket', () => {
       type: 'answer', question_index: 2, chosen_index: 3,
     });
     assert.deepEqual(FakeSocket.last.sent[1], { type: 'next' });
-    socket.close();
-  });
-});
-
-describe('LivePinPlaySocket (müvəqqəti, Faza 4-də silinir)', () => {
-  test('PIN ünvanına qoşulur və adı İLK mesaj kimi göndərir', () => {
-    const socket = new LivePinPlaySocket({
-      pin: '123456', displayName: 'Əli', onMessage: () => {}, socketFactory: FakeSocket,
-    });
-    socket.connect();
-    FakeSocket.last.open();
-    assert.match(FakeSocket.last.url, /\/ws\/live\/123456\/play$/);
-    assert.deepEqual(FakeSocket.last.sent[0], { display_name: 'Əli' });
-    socket.close();
-  });
-
-  test('tokensiz qoşulma mesajında `token` açarı ÜMUMİYYƏTLƏ olmur', () => {
-    // Boş sətir göndərsək server onu doğrulamağa çalışardı.
-    const socket = new LivePinPlaySocket({
-      pin: '1', displayName: 'Əli', token: '', onMessage: () => {}, socketFactory: FakeSocket,
-    });
-    socket.connect();
-    FakeSocket.last.open();
-    assert.equal('token' in FakeSocket.last.sent[0], false);
     socket.close();
   });
 });

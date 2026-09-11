@@ -105,7 +105,7 @@ async def test_partial_progress_is_kept_when_time_forces_finish(env):
     """Vaxt bitəndə kim harada qalıbsa sessiya ORADA bağlanır — cavablanmamış
     suallar sadəcə xalsız qalır (bax dizayn qərarı)."""
     session = env["sessions"].create_session(env["question_set_id"])
-    _, p1 = await join_session(session["pin"], "Əli", session_store=env["sessions"], connection_manager=env["manager"])
+    _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
     await start_session(session["id"], _TEST_DURATION, **_kwargs(env))
     await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))  # yalnız 1-ci sualı cavablayır
 

@@ -102,37 +102,3 @@ export class LivePlaySocket {
 
   close() { this.socket.close(); }
 }
-
-/* MÜVƏQQƏTİ - yalnız `qosul.html` (PIN ilə anonim qoşulma) üçün.
- * Faza 4-də həmin səhifə ilə birlikdə SİLİNİR. Ayrıca sinif kimi
- * saxlanılır ki, yeni `LivePlaySocket` şərtlərlə çirklənməsin və
- * silinmə bir addımda olsun. */
-export class LivePinPlaySocket {
-  constructor({ pin, displayName, token, onMessage, onStatus, socketFactory }) {
-    this.displayName = displayName;
-    this.token = token;
-    this.socket = new ReconnectingSocket({
-      url: () => `${WS_BASE_URL}/ws/live/${encodeURIComponent(pin)}/play`,
-      socketFactory,
-      onStatus,
-      onMessage,
-      onOpen: () => {
-        const join = { display_name: this.displayName };
-        if (this.token) join.token = this.token;
-        this.socket.send(join);
-      },
-    });
-  }
-
-  connect() { this.socket.connect(); }
-
-  answer(questionIndex, chosenIndex) {
-    return this.socket.send({
-      type: 'answer', question_index: questionIndex, chosen_index: chosenIndex,
-    });
-  }
-
-  next() { return this.socket.send({ type: 'next' }); }
-
-  close() { this.socket.close(); }
-}
