@@ -1,15 +1,3 @@
-/* ⚠️ BU SKRİPT HAZIRDA SINIQDIR (2026-09-11, Faza 4).
- *
- * PIN axını silindi: `#pinValue` və `#pin` elementləri artıq yoxdur,
- * `qosul.html` səhifəsi də silinib. Skript çat axınına uyğunlaşdırılana
- * qədər İŞLƏMİR — bu, Faza 6-nın işidir (bax
- * `.planning/2026-09-11-masterai-class-chat/task_plan.md`).
- *
- * Yeni axın: müəllim qrup çatından sessiya başladır → tələbələr
- * `sessiya.html?id=N` ünvanından qoşulur (hesab məcburidir, yəni hər
- * brauzer kontekstinə ayrıca qeydiyyat+təsdiq lazımdır).
- */
-
 /* Canlı sessiyanın BAĞLANTI KƏSİLMƏSİNƏ davamlılığı.
  *
  * NİYƏ: real sinifdə bağlantı kəsilir — telefon kilidlənir, wifi düşür,
@@ -22,12 +10,16 @@
  *   host     — MÜƏLLİMİN bağlantısı kəsilir (daha ağır: sessiya onun
  *              konsoluna bağlı görünür)
  *
+ * 2026-09-11-də PIN axını silindi, skript çat axınına keçirildi:
+ * tələbələr API ilə qeydiyyatdan keçir, kod ilə istək göndərir, müəllim
+ * təsdiqləyir, sonra `sessiya.html?id=N` ünvanından qoşulur.
+ *
  * İŞLƏTMƏK:
- *   1. Backend (yaddaşdaxili nüsxə kifayətdir) — 8125
+ *   1. Backend — 8125
  *   2. .venv/bin/python -m http.server 8123 --directory web
  *   3. npm i playwright-core   (bir dəfə)
- *   4. node deploy/diagnostics/live_session_resilience.mjs <TOKEN> student
- *      node deploy/diagnostics/live_session_resilience.mjs <TOKEN> host
+ *   4. node deploy/diagnostics/live_session_resilience.mjs <TOKEN> student [bankId]
+ *      node deploy/diagnostics/live_session_resilience.mjs <TOKEN> host [bankId]
  *
  * 2026-09-11 NƏTİCƏLƏRİ (hər ikisi TƏMİZ):
  *
@@ -75,32 +67,72 @@ const redirect = async (ctx) => {
   });
 };
 
-const hostCtx = await b.newContext({ viewport: { width: 1200, height: 900 } });
-await hostCtx.addInitScript((t) => {
+const questionSetId = Number(process.argv[4] || 1);
+
+const api = async (path, { method = 'GET', body, bearer = token } = {}) => {
+  const res = await fetch(`${API}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${text.slice(0, 200)}`);
+  return text ? JSON.parse(text) : null;
+};
+
+/* ---- Quraşdırma (API - yoxlanılan hissə deyil) ---- */
+const stamp = Date.now();
+const chat = await api('/chats', { method: 'POST', body: { kind: 'group', name: `Davamlılıq ${stamp}` } });
+const accounts = {};
+for (const ad of ['Kəsilən', 'Sabit']) {
+  const auth = await api('/auth/register', {
+    method: 'POST', bearer: null,
+    body: { email: `dav${stamp}_${ad}@e2e.az`, password: 'Parol1234', display_name: ad },
+  });
+  await api('/chats/join-requests', {
+    method: 'POST', bearer: auth.token, body: { code: chat.invite_code },
+  });
+  accounts[ad] = auth;
+}
+await api(`/chats/${chat.id}/join-requests/approve`, {
+  method: 'POST',
+  body: { user_ids: Object.values(accounts).map((a) => a.user.id) },
+});
+
+const seed = (ctx, t, user) => ctx.addInitScript(([tok, u]) => {
   try {
-    localStorage.setItem('masterai.token', t);
-    localStorage.setItem('masterai.user', JSON.stringify({
-      id: 1, email: 'm@n.az', display_name: 'Müəllim', is_teacher: true, is_admin: false,
-    }));
+    localStorage.setItem('masterai.token', tok);
+    localStorage.setItem('masterai.user', JSON.stringify(u));
   } catch (e) { /* localStorage bağlı ola bilər */ }
-}, token);
+}, [t, user]);
+
+const hostCtx = await b.newContext({ viewport: { width: 1200, height: 900 } });
+await seed(hostCtx, token, {
+  id: 1, email: 'm@n.az', display_name: 'Müəllim', is_teacher: true, is_admin: false,
+});
 await redirect(hostCtx);
 const host = await hostCtx.newPage();
 host.on('pageerror', (e) => errs.push('host: ' + e.message));
-await host.goto(`${SITE}/sessiyalar.html?questionSetId=1`, { waitUntil: 'networkidle' });
-await host.waitForTimeout(1500);
-const pin = await host.$eval('#pinValue', (e) => e.textContent);
-console.log('PIN:', pin, '| ssenari:', MODE);
+await host.goto(`${SITE}/sessiyalar.html?questionSetId=${questionSetId}&chatId=${chat.id}`,
+                { waitUntil: 'networkidle' });
+await host.waitForTimeout(2000);
+
+// Sessiya ID-sini MƏTNDƏN yox, API-dən götürürük.
+const card = await api(`/chats/${chat.id}/live-session`);
+if (!card) { console.error('sessiya yaranmadı'); await b.close(); process.exit(1); }
+console.log('sessiya:', card.session_id, '| ssenari:', MODE);
 
 const join = async (ad) => {
+  const auth = accounts[ad];
   const ctx = await b.newContext({ viewport: { width: 400, height: 850 } });
+  await seed(ctx, auth.token, auth.user);
   await redirect(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', (e) => errs.push(`${ad}: ${e.message}`));
-  await p.goto(`${SITE}/qosul.html`, { waitUntil: 'networkidle' });
-  await p.fill('#pin', pin);
-  await p.fill('#displayName', ad);
-  await p.click('#joinForm button[type=submit]');
+  await p.goto(`${SITE}/sessiya.html?id=${card.session_id}`, { waitUntil: 'networkidle' });
   return { ctx, p, ad };
 };
 const kesilen = await join('Kəsilən');

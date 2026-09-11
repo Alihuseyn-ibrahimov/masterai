@@ -68,16 +68,24 @@ göstərilməsi/cavablanması → avtomatik keçid → sessiya bitməsi → host
 "Sessiya hesabatı" ekranı (yekun sıralama + sual-sual təhlil) — HAMISI
 düzgün işlədi. 343 backend test + 32 Flutter test, hamısı keçir.
 
-**Çoxiştirakçılı yoxlama (2026-09-11, əvvəl AÇIQ idi):** indi
+**Çoxiştirakçılı yoxlama (2026-09-11, əvvəl AÇIQ idi):**
 `deploy/diagnostics/live_session_load.mjs` ilə sınanır — N ayrı brauzer
-konteksti (ayrı localStorage, ayrı WebSocket) eyni PIN-lə qoşulur və
-EYNİ ANDA cavablayır. **25 iştirakçı ilə nəticə təmizdir:**
+konteksti (ayrı localStorage, ayrı WebSocket) EYNİ ANDA qoşulur və
+EYNİ ANDA cavablayır. **PIN axını silindikdən sonra skript çat axınına
+keçirildi** (hər tələbə API ilə qeydiyyatdan keçir, kod ilə istək
+göndərir, müəllim toplu təsdiqləyir, sonra `sessiya.html?id=N`).
 
-- hər sualda `total_answers = 25` — heç bir cavab İTMƏYİB
-- xal aralığı 0-3, sual sayını (4) aşan yoxdur
-- təkrar iştirakçı adı yoxdur, liderlik lövhəsi ardıcıldır
+**25 iştirakçı ilə nəticə təmizdir (çat axını ilə təkrarlanıb):**
+
+- hər 4 sualda `total_answers = 25` — heç bir cavab İTMƏYİB
+- xal aralığı 0-4, sual sayını aşan yoxdur
+- təkrar iştirakçı adı yoxdur, toplu təsdiq 25/25
+- qoşulma müddəti ~10.8 saniyə (25 brauzer konteksti)
 - server jurnalında **0 xəta** — `server/user_store.py`-dəki sqlite
   kilid narahatlığı bu yükdə ÖZÜNÜ GÖSTƏRMƏDİ
+
+Skript nəticəni MƏTNDƏN yox, `/live/sessions/{id}/report` cavabından
+yoxlayır və problem tapsa sıfırdan fərqli kodla çıxır.
 
 **Bağlantı kəsilməsinə davamlılıq (2026-09-11, əvvəl HEÇ sınanmamışdı):**
 `deploy/diagnostics/live_session_resilience.mjs` iki ssenarini yoxlayır.
@@ -88,11 +96,20 @@ vaxt real sınanmamışdı.
 - **Tələbənin bağlantısı kəsilib qayıdır:** iştirakçı TƏKRARLANMIR
   (host-da yenə 2 nəfər), cavabı və tərəqqisi qorunur, «Növbəti sual»
   işləyir, növbəti sualı cavablaya bilir, host gedişatı yenilənir.
+  (2026-09-11-də çat axını ilə TƏKRAR yoxlanıldı — nəticə eynidir.)
 - **MÜƏLLİMİN bağlantısı kəsilir:** tələbələr CAVABLAMAĞA DAVAM EDİR —
   **dərs dayanmır.** Host qayıdanda bağlantı «Bağlıdır» olur və gedişat
   siyahısı özü-özünə yetişir (kəsilmə müddətindəki cavabları göstərir).
   Yəni sessiya host-un soketinə bağlı DEYİL. Bu, pilot üçün vacib
   xəbərdir: müəllimin internetinin anlıq kəsilməsi dərsi öldürmür.
+
+**Uc-uca İNSAN AXINI (2026-09-11):**
+`deploy/diagnostics/chat_join_flow.mjs` — tələbə kodu ƏL İLƏ yazır,
+müəllim təsdiq düyməsinə BASIR, tələbə çatda sessiyanı görüb qoşulur.
+8 addımın hamısı təmiz: kiçik hərflə yazılan kod qəbul olunur, istək
+üzvlük yaratmır, üzvə dəvət kodu göstərilmir, tələbə PIN və ad
+YAZMADAN sessiyaya girir, lövhədə canlı sessiya xalı görünür, müəllim
+lövhədə yoxdur.
 
 **Bu nəyi İSBAT ETMİR:** bir maşındakı brauzer kontekstləridir — real
 şəbəkə gecikməsi, mobil rabitə və ayrı-ayrı telefonlar yoxdur. Serverin
@@ -328,7 +345,17 @@ bir neçə bug tapdı, o cümlədən:
 .venv/bin/python -m http.server 8123 --bind 127.0.0.1 --directory web &
 .venv/bin/python deploy/diagnostics/check_pages_in_browser.py   # JS xətaları
 .venv/bin/python deploy/diagnostics/screenshot_pages.py          # görünüş
+
+# Uc-uca (real backend 8125 + npm i playwright-core lazımdır):
+node deploy/diagnostics/chat_join_flow.mjs <müəllim tokeni>        # insan axını
+node deploy/diagnostics/live_session_load.mjs <token> 25 <bankId>  # 25 tələbə
+node deploy/diagnostics/live_session_resilience.mjs <token> student # bağlantı
+node deploy/diagnostics/live_session_resilience.mjs <token> host
 ```
+
+**`npm i playwright-core` repoya girmir** — `.gitignore`-dadır.
+Skriptlər `createRequire(cwd)` ilə paketi istənilən qovluqdan tapır,
+yəni «build addımı yoxdur» qaydası pozulmur.
 
 ## Giriş formatları (pipeline)
 
