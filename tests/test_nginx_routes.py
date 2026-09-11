@@ -73,12 +73,16 @@ def test_websocket_block_has_a_long_timeout():
     assert "$connection_upgrade" in conf
 
 
-def test_html_is_not_cached_but_assets_are():
+def test_html_is_not_cached():
     """HTML keşlənsə istifadəçi yeni versiyanı görmək üçün sərt
-    təzələmə etməli olur; CSS/JS isə keşlənməlidir."""
+    təzələmə etməli olur.
+
+    QEYD: bu test əvvəl «CSS/JS isə keşlənməlidir» də tələb edirdi və
+    `expires 7d;` axtarırdı - yəni SƏHV qaydanı qoruyurdu. Həmin keş
+    deploy-ların qayıdan istifadəçiyə çatmamasına səbəb oldu (aşağıdakı
+    keş testlərinin şərhinə bax)."""
     conf = NGINX_CONF.read_text(encoding="utf-8")
     assert re.search(r"\\\.html\$.*?\n\s*expires -1;", conf, re.DOTALL)
-    assert "expires 7d;" in conf
 
 
 def test_upload_limit_leaves_headroom_over_the_backend_limit():
@@ -103,3 +107,57 @@ def test_websocket_is_not_in_the_regex_block():
         "`ws` regex blokuna düşüb — WebSocket upgrade başlıqları itəcək"
     )
     assert "ws" in _nginx_dedicated_prefixes(), "`ws` üçün ayrıca location bloku yoxdur"
+
+
+# ---- Keş başlıqları -------------------------------------------------------
+# REAL HADİSƏ (2026-09-11): müəllim naviqasiyasına «Çatlar» əlavə olundu,
+# deploy uğurlu keçdi, serverdəki `nav.js`-də dəyişiklik VAR idi — amma
+# brauzerdə görünmürdü. Səbəb: `js`/`css` 7 gün keşlənirdi və HTML onlara
+# VERSİYASIZ istinad edir (build addımı yoxdur, ona görə `nav.js?v=...`
+# kimi cache-busting də yoxdur). Yəni HƏR deploy köhnə kodu qayıdan
+# istifadəçilərdə 7 günə qədər canlı saxlayırdı.
+#
+# Şriftlər istisnadır: məzmunları dəyişmir, uzun keş onlarda düzgündür.
+
+# Həm `\.(css|js)$`, həm də mötərizəsiz `\.woff2$` formasını tutur -
+# ilk variantım yalnız mötərizəlini tuturdu və şrift blokunu SÜKUTLA
+# buraxırdı.
+_CACHE_BLOCK_RE = re.compile(
+    r"location\s+~\*\s+\\\.\(?([^)$]+)\)?\$\s*\{([^}]*)\}", re.DOTALL
+)
+
+
+def _cache_blocks() -> dict[str, str]:
+    """Uzantı qrupu → blokun gövdəsi."""
+    conf = NGINX_CONF.read_text(encoding="utf-8")
+    return {match.group(1): match.group(2) for match in _CACHE_BLOCK_RE.finditer(conf)}
+
+
+def test_cache_blocks_were_found():
+    """Qoruyucu: regex sınıbsa, aşağıdakı testlər sükutla 'keçər'."""
+    assert _cache_blocks(), "nginx konfiqurasiyasında keş blokları tapılmadı"
+
+
+def test_code_assets_are_revalidated_not_long_cached():
+    """`js`/`css` uzun keşlənməməlidir - HTML onlara versiyasız istinad
+    edir, yəni deploy-dan sonra köhnə kod qayıdan istifadəçidə qalar."""
+    offenders = []
+    for extensions, body in _cache_blocks().items():
+        parts = set(extensions.split("|"))
+        if not parts & {"js", "css"}:
+            continue
+        if "no-cache" not in body:
+            offenders.append(f"{extensions}: 'no-cache' yoxdur")
+        if re.search(r"expires\s+\d+[smhdy]", body):
+            offenders.append(f"{extensions}: uzun `expires` var")
+    assert not offenders, "; ".join(offenders)
+
+
+def test_fonts_may_still_be_cached_long():
+    """Şrift faylları məzmunca sabitdir - onları hər açılışda yenidən
+    yoxlamaq mənasız trafikdir."""
+    fonts = [body for ext, body in _cache_blocks().items() if "woff2" in ext.split("|")]
+    assert fonts, "şrift üçün ayrıca keş bloku yoxdur"
+    assert any(re.search(r"expires\s+\d+[smhdy]", body) for body in fonts), (
+        "şriftlər uzun keşlənməlidir"
+    )
