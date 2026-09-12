@@ -4,7 +4,7 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: canlı və real istifadəyə hazır.** `https://masterai.prdostu.com`
+**Status: canlı və real istifadəyə hazır.** «Qrup çatı = sinif» dəyişikliyi 2026-09-12-də deploy olundu (PIN axını silindi, qoşulma dəvət kodu + müəllim təsdiqi ilədir). `https://masterai.prdostu.com`
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
