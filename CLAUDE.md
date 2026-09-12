@@ -560,6 +560,12 @@ sadə `Lock`).
    əməliyyatından ƏVVƏL mütləq `df -h /` yoxlanmalıdır**, əks halda
    eyni səbəbdən masternr1 (aktiv pilot!) daxil bütün servislər risk
    altına düşür.
+   **Runbook: `deploy/VPS_MAINTENANCE.md`** — ölçmə skripti
+   (`deploy/vps_disk_report.sh`, heç nə silmir), üç təbəqəli təmizlik
+   (təhlükəsiz keş → qərar tələb edən backup → YALNIZ restartdan sonra
+   `apt autoremove`), restart pəncərəsi və pre-flight. Restartın ən
+   böyük riski `systemctl is-enabled`-dir: `disabled` servis qalxmır və
+   HEÇ BİR xəta vermir.
 
 ## Təsdiq: Claude fallback-ı real emalda işləyir (2026-09-10)
 
