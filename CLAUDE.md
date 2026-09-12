@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1190 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1192 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -337,9 +337,29 @@ xəbərdarlıq sarıdan NARINCIYA keçdi (sarı indi brend aksentidir), və
 «düzgün» iki solğun yaşıl olardı. 22 rəng cütünün WCAG kontrastı
 hesablanıb, hamısı AA keçir.
 
+**DEPLOY EDİLİB (2026-09-12)** — canlı saytda yoxlanıldı
+(`--color-primary: #4A6B4D`).
+
+**Keş dərsi — EYNİ SƏBƏB GÜNDƏ İKİ DƏFƏ:** fayl adı dəyişmirsə,
+brauzerdəki köhnə nüsxə qalır; `Cache-Control: no-cache` YALNIZ gələcək
+sorğulara təsir edir, əvvəl `expires 7d` ilə keşlənmişə YOX. Səhər
+`live.js` faylın adını dəyişməklə həll edildi; dizayn deploy-undan sonra
+telefonda köhnə palitra göründü və bu dəfə CSS/JS ünvanlarına `?v=`
+əlavə edildi. İki test qoruyur: hər CSS linkinin versiyası var VƏ bütün
+səhifələr EYNİ versiyanı işlədir.
+
+**Üçüncü keş yeri gözdən qaçmışdı:** telefonda linki açanda əvvəlcə
+MAVİ ekranda M loqosu görünürdü — səbəb CSS deyil, `manifest.json`-dakı
+`theme_color` idi (Android PWA açılış ekranını o rəngləyir). İkon,
+manifest və og-image ünvanları da versiyalandı.
+
+**Paylaşım şəklində KÖHNƏ MƏTN tapıldı:** `og-banner.svg` «Sinif PIN
+ilə qoşulur» yazırdı — PIN axını 2026-09-11-də silinib. Yəni linki
+paylaşan hər kəs artıq mövcud olmayan funksiyanı oxuyurdu. Dizayn
+dəyişikliyi bunu təsadüfən üzə çıxardı; palitra dəyişməsəydi, mətn
+bilinməz müddət yanlış qalacaqdı.
+
 Ətraflı: `docs/superpowers/specs/2026-09-12-masterai-quiz-ux-redesign.md`.
-**Deploy EDİLMƏYİB** — istifadəçinin təqdimatı səbəbindən sistem
-donduruldu.
 
 ## Veb-first keçidi (2026-09-09) — ƏSAS ARXİTEKTURA DƏYİŞİKLİYİ
 
