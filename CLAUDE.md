@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1187 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1190 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -293,6 +293,44 @@ Chrome/disk/swap infrastrukturu da düzəldildi (bax aşağı "Dərs: VPS-də
 Chrome/Selenium quraşdırma"). Ətraflı bax
 `.planning/2026-09-08-masterai-ingestion-question-count/progress.md`.
 
+
+## Quiz UX yenilənməsi (2026-09-12) — «əsl tədris tətbiqi» hissi
+
+İstifadəçi şikayəti: «sayt əsl education app havası vermir», quizlər
+rəngarəng olsun, sayt «AI ilə hazırlanmış kimi görünməsin». Üç səbəb
+tapıldı, ikisi ölçüləbilən:
+
+1. **Quiz ekranı dizayn olunmuş komponenti İŞLƏTMİRDİ.** Hər iki ekran
+   (canlı sessiya + ev tapşırığı) variantları `btn btn--secondary` ilə
+   çəkirdi — ekranda beş bərabər boz düymə. `.option` anatomiyası
+   `components.css`-də var idi və YALNIZ açılış səhifəsində işlədilirdi.
+2. **Palitra AI-nın standart görünüşü idi:** isti krem fon (`#FAFAF8`) +
+   Source Serif başlıq. İndi sərin qrafit + **Archivo**.
+3. **Fənn rəngləri istifadəsiz qalırdı** — yalnız kartın 3px kənarında.
+
+Yeniliklər: `quiz-options.js` (hər iki ekran üçün PAYLAŞILAN variant
+çəkilişi), A-E üçün beş rəngli hərf nişanı, sual-sual seqment tərəqqisi,
+`.verdict` bloku, `.streak` (2+ ardıcıl), `.score-ring`
+(`conic-gradient`, kitabxanasız), `.rank` sıralama sətirləri.
+
+**Rəng intizamı qalır:** fənn/variant rəngi YALNIZ məzmunu işarələyir,
+düymə rəngi kimi işlədilmir. Qırmızı və yaşıl variant rəngi kimi
+İŞLƏDİLMİR — onlar səhv/düzgün siqnallarıdır.
+
+**Şrift mənbədən yoxlandı:** üç namizədin `cmap` cədvəli oxundu —
+Figtree-də `Ə` və `ə` YOXDUR (Manrope ilə eyni tələ), Archivo 14/14.
+
+**Brauzer render-i üç qüsur tapdı** (kod testləri tuta bilməzdi): xal
+dairəsində faiz mətni halqanın üstünə düşürdü, D variantının qırmızı
+rəngi «səhv» siqnalı ilə toqquşurdu, açılış səhifəsində hərf nişanı boz
+fonda ağ hərflə görünməz olardı.
+
+**Mövcud testlər üç səhvimi tutdu:** emoji ikon kimi (`✓`/`✗` → sprite
+`i-x` əlavə edildi), uzun tire, təyin olunmamış token.
+
+Ətraflı: `docs/superpowers/specs/2026-09-12-masterai-quiz-ux-redesign.md`.
+**Deploy EDİLMƏYİB** — istifadəçinin təqdimatı səbəbindən sistem
+donduruldu.
 
 ## Veb-first keçidi (2026-09-09) — ƏSAS ARXİTEKTURA DƏYİŞİKLİYİ
 

@@ -13,7 +13,11 @@
  */
 
 import { answerFeedback } from './answer-feedback.js';
+import { createIcon } from './icon.js';
 import { formatCountdown } from './live-socket.js';
+import {
+  markChosen, renderOptions, renderSteps, resetOptions, revealAnswer,
+} from './quiz-options.js';
 
 const CARD_IDS = {
   join: 'joinCard',
@@ -35,6 +39,10 @@ export class PlayScreen {
        yalnız indeks göndərir - variant mətnləri yalnız cari sualdadır. */
     this.currentQuestion = null;
     this.chosenIndex = null;
+    this.optionButtons = [];
+    /* Ardıcıl düzgün cavab sayı. Motivasiya elementidir - İKİDƏN
+       başlayaraq göstərilir, çünki «1 ardıcıl» mənasızdır. */
+    this.streak = 0;
     this.countdownTimer = null;
     this.remainingSeconds = 0;
     this.onAnswer = () => false;
@@ -88,6 +96,9 @@ export class PlayScreen {
       `Sual ${data.index + 1}/${data.total}`;
     this.root.getElementById('questionText').textContent = data.question;
 
+    const steps = this.root.getElementById('quizSteps');
+    if (steps) renderSteps(steps, { total: data.total, currentIndex: data.index });
+
     if (typeof data.remaining_seconds === 'number') {
       this.remainingSeconds = Math.max(0, Math.round(data.remaining_seconds));
       this.root.getElementById('countdown').textContent = formatCountdown(this.remainingSeconds);
@@ -95,25 +106,16 @@ export class PlayScreen {
     }
 
     const options = this.root.getElementById('options');
-    options.innerHTML = '';
-    (data.options || []).forEach((option, index) => {
-      const button = document.createElement('button');
-      button.className = 'btn btn--secondary btn--block';
-      button.type = 'button';
-      button.style.justifyContent = 'flex-start';
-      button.textContent = `${'ABCDE'[index] || index + 1}. ${option}`;
-      button.addEventListener('click', () => {
-        // İkiqat toxunuşun qarşısını al - server ikinci cavabı xəta ilə
-        // rədd edir və istifadəçi səbəbini anlamır.
-        for (const other of options.children) other.disabled = true;
-        this.chosenIndex = index;
-        if (!this.onAnswer(this.currentIndex, index)) {
-          this.showError('Bağlantı hazır deyil - cavab göndərilmədi.');
-          this.chosenIndex = null;
-          for (const other of options.children) other.disabled = false;
-        }
-      });
-      options.append(button);
+    this.optionButtons = renderOptions(options, data.options, (index) => {
+      // İkiqat toxunuşun qarşısını al - server ikinci cavabı xəta ilə
+      // rədd edir və istifadəçi səbəbini anlamır.
+      markChosen(this.optionButtons, index);
+      this.chosenIndex = index;
+      if (!this.onAnswer(this.currentIndex, index)) {
+        this.showError('Bağlantı hazır deyil - cavab göndərilmədi.');
+        this.chosenIndex = null;
+        resetOptions(this.optionButtons);
+      }
     });
     this.show('question');
   }
@@ -125,9 +127,43 @@ export class PlayScreen {
       chosenIndex: this.chosenIndex,
       isCorrect: data.is_correct,
     });
+    /* Cavab VARİANTLARIN ÜSTÜNDƏ də göstərilir: tələbə hansını seçdiyini
+       və düzgününü yan-yana görür. Əvvəl yalnız mətnlə deyilirdi. */
+    if (this.optionButtons.length) {
+      revealAnswer(this.optionButtons, {
+        correctIndex: data.correct_index,
+        chosenIndex: this.chosenIndex,
+      });
+    }
+
+    this.streak = data.is_correct ? this.streak + 1 : 0;
+
+    const verdict = this.root.getElementById('verdict');
+    if (verdict) {
+      verdict.className = `verdict verdict--${data.is_correct ? 'correct' : 'wrong'}`;
+      const vIcon = this.root.getElementById('verdictIcon');
+      vIcon.replaceChildren(createIcon(data.is_correct ? 'check' : 'x', 'icon--lg'));
+      this.root.getElementById('verdictTitle').textContent =
+        data.is_correct ? 'Düzgün' : 'Səhv';
+      const note = this.root.getElementById('verdictNote');
+      if (note) {
+        note.textContent = data.is_correct
+          ? 'Davam et - növbəti sual gözləyir.'
+          : 'İzahı oxu, növbəti sualda işinə yarayacaq.';
+      }
+    }
+
+    const streakEl = this.root.getElementById('streak');
+    if (streakEl) {
+      streakEl.hidden = this.streak < 2;
+      streakEl.textContent = `${this.streak} ardıcıl düzgün`;
+    }
+
     const badge = this.root.getElementById('resultBadge');
-    badge.className = feedback.badge.className;
-    badge.textContent = feedback.badge.label;
+    if (badge) {
+      badge.className = feedback.badge.className;
+      badge.textContent = feedback.badge.label;
+    }
     this.root.getElementById('resultQuestion').textContent =
       this.currentQuestion ? this.currentQuestion.question : '';
     const chosen = this.root.getElementById('chosenText');
@@ -149,15 +185,23 @@ export class PlayScreen {
     list.className = 'stack stack--tight';
     rows.forEach((row, index) => {
       const line = document.createElement('div');
-      line.className = 'row row--between';
+      /* İlk üç yer ayrıca işarələnir - sıralamanın mənası budur. */
+      line.className = index < 3 ? 'rank rank--podium' : 'rank';
+
+      const place = document.createElement('span');
+      place.className = 'rank__place';
+      place.textContent = String(index + 1);
+
       const name = document.createElement('span');
-      name.className = 'text-sm';
+      name.className = 'rank__name';
       // Qəsdən textContent - adı istifadəçi yazır.
-      name.textContent = `${index + 1}. ${row.display_name || `İştirakçı #${row.participant_id}`}`;
+      name.textContent = row.display_name || `İştirakçı #${row.participant_id}`;
+
       const score = document.createElement('span');
-      score.className = 'text-sm';
-      score.textContent = `${row.correct_count ?? row.score ?? 0} düzgün`;
-      line.append(name, score);
+      score.className = 'rank__score';
+      score.textContent = `${row.correct_count ?? row.score ?? 0}`;
+
+      line.append(place, name, score);
       list.append(line);
     });
     container.append(list);
@@ -171,6 +215,17 @@ export class PlayScreen {
     if (data.type === 'personal_finished') {
       this.root.getElementById('personalScore').textContent =
         `${data.correct_count}/${data.total_questions} düzgün cavab`;
+      /* Xal dairəsi - `conic-gradient`, kitabxana yoxdur. Məxrəc sıfır
+         olsa faiz hesablanmır (uydurma 0% göstərmək yanlışdır). */
+      const ring = this.root.getElementById('scoreRing');
+      if (ring && data.total_questions) {
+        const pct = Math.round((data.correct_count / data.total_questions) * 100);
+        ring.style.setProperty('--pct', String(pct));
+        const value = this.root.getElementById('scoreRingValue');
+        if (value) value.textContent = `${data.correct_count}/${data.total_questions}`;
+        const label = this.root.getElementById('scoreRingLabel');
+        if (label) label.textContent = `${pct}% düzgün`;
+      }
       this.show('personal');
       return;
     }

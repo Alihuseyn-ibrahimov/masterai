@@ -17,7 +17,7 @@
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
-  <section class="stack">
+  <section class="stack quiz-shell">
     <div class="section-header">
       <h1>Ev tapşırığı</h1>
       <a class="btn btn--ghost btn--sm" href="tapsiriqlar.html">← Tapşırıqlar</a>
@@ -28,21 +28,29 @@
       <div class="state__text">Yüklənir…</div></div></div>
 
     <div class="card stack" id="questionCard" hidden>
-      <div class="row row--between">
-        <span class="badge badge--info" id="counter">Sual</span>
-        <span class="text-sm text-muted" id="scoreLabel"></span>
+      <div class="quiz-head">
+        <span class="quiz-counter" id="counter">Sual</span>
+        <span class="quiz-timer" id="scoreLabel"></span>
       </div>
-      <!-- Tərəqqi zolağı: «Sual 3/12» rəqəmdir, zolaq isə nə qədər
-           qaldığını bir baxışda göstərir. -->
-      <div class="progress"><div class="progress__fill" id="progressFill"></div></div>
-      <h3 id="questionText"></h3>
-      <div class="stack stack--tight" id="options"></div>
+      <!-- Sual-sual seqment: canlı sessiya ilə EYNİ komponent.
+           Əvvəl burada faiz zolağı idi; seqment «nə qədər qaldı»
+           sualına daha düz cavab verir. -->
+      <div id="quizSteps" class="quiz-steps" aria-hidden="true"></div>
+      <h2 class="quiz-question" id="questionText"></h2>
+      <div id="options" class="option-list"></div>
     </div>
 
     <div class="card stack" id="feedbackCard" hidden>
       <!-- Nişan `row`-un içindədir: `stack` sütununda tək element bütün
            eni tutur və rəngli zolağa çevrilir. -->
-      <div class="row"><span class="badge" id="feedbackBadge"></span></div>
+      <div class="verdict" id="verdict">
+        <span class="verdict__icon" id="verdictIcon" aria-hidden="true"></span>
+        <span class="stack stack--tight">
+          <span class="verdict__title" id="verdictTitle"></span>
+          <span class="verdict__note" id="verdictNote"></span>
+        </span>
+      </div>
+      <div class="row"><span class="streak" id="streak" hidden></span></div>
       <!-- Sual mətni geri bildirimdə TƏKRARLANIR: izah suala istinad
            edir, sual isə artıq ekrandan getmişdi. -->
       <p class="text-sm text-muted" id="feedbackQuestion"></p>
@@ -52,8 +60,13 @@
       <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
     </div>
 
-    <div class="card stack" id="doneCard" hidden style="text-align: center">
-      <div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"></use></svg></div>
+    <div class="card stack stack--center" id="doneCard" hidden>
+      <div class="score-ring" id="scoreRing">
+        <div class="score-ring__inner">
+          <span class="score-ring__value" id="scoreRingValue">-</span>
+        </div>
+      </div>
+      <span class="score-ring__label" id="scoreRingLabel"></span>
       <h3>Tapşırıq tamamlandı</h3>
       <p id="finalScore"></p>
       <a class="btn btn--secondary" href="tapsiriqlar.html">Tapşırıqlara qayıt</a>
@@ -68,8 +81,14 @@
   import { request } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
   import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
+  import { createIcon } from './assets/js/icon.js';
+  /* Variant çəkilişi canlı sessiya ilə EYNİ modulda - əvvəl hər iki
+     ekran onu ayrı-ayrı yazırdı və ikisi də `btn btn--secondary`
+     işlədirdi (ekranda beş boz düymə). */
+  import {
+    markChosen, renderOptions, renderSteps, resetOptions, revealAnswer,
+  } from './assets/js/quiz-options.js';
 
-  const LETTERS = 'ABCDE';
 
   if (requireLogin()) {
     mountShell();
@@ -100,28 +119,24 @@
        server yalnız indeks qaytarır (`HomeworkAnswerResult`) - variant
        mətnləri yalnız burada, cari sualda var. */
     let currentQuestion = null;
+    let optionButtons = [];
+    /* Ardıcıl düzgün cavab - İKİDƏN başlayaraq göstərilir. */
+    let streak = 0;
 
     function renderQuestion(question) {
       currentQuestion = question;
       document.getElementById('counter').textContent =
         `Sual ${question.index + 1}/${question.total}`;
-      const percent = question.total > 0
-        ? Math.round((question.index / question.total) * 100) : 0;
-      document.getElementById('progressFill').style.setProperty('--progress', `${percent}%`);
+      renderSteps(document.getElementById('quizSteps'), {
+        total: question.total, currentIndex: question.index,
+      });
       document.getElementById('scoreLabel').textContent = `${score} düzgün`;
       document.getElementById('questionText').textContent = question.question;
 
-      const options = document.getElementById('options');
-      options.innerHTML = '';
-      (question.options || []).forEach((option, index) => {
-        const button = document.createElement('button');
-        button.className = 'btn btn--secondary btn--block';
-        button.type = 'button';
-        button.style.justifyContent = 'flex-start';
-        button.textContent = `${LETTERS[index] || index + 1}. ${option}`;
-        button.addEventListener('click', () => submitAnswer(question.index, index, options));
-        options.append(button);
-      });
+      optionButtons = renderOptions(
+        document.getElementById('options'), question.options,
+        (index) => submitAnswer(question.index, index),
+      );
       show('question');
     }
 
@@ -132,9 +147,26 @@
         chosenIndex,
         isCorrect: result.is_correct,
       });
-      const badge = document.getElementById('feedbackBadge');
-      badge.className = feedback.badge.className;
-      badge.textContent = feedback.badge.label;
+      /* Nəticə variantların ÜSTÜNDƏ də görünür - tələbə seçdiyini və
+         düzgününü yan-yana oxuyur. */
+      revealAnswer(optionButtons, {
+        correctIndex: result.correct_index, chosenIndex,
+      });
+
+      streak = result.is_correct ? streak + 1 : 0;
+      const verdict = document.getElementById('verdict');
+      verdict.className = `verdict verdict--${result.is_correct ? 'correct' : 'wrong'}`;
+      document.getElementById('verdictIcon')
+        .replaceChildren(createIcon(result.is_correct ? 'check' : 'x', 'icon--lg'));
+      document.getElementById('verdictTitle').textContent =
+        result.is_correct ? 'Düzgün' : 'Səhv';
+      document.getElementById('verdictNote').textContent = result.is_correct
+        ? 'Davam et - növbəti sual gözləyir.'
+        : 'İzahı oxu, növbəti sualda işinə yarayacaq.';
+
+      const streakEl = document.getElementById('streak');
+      streakEl.hidden = streak < 2;
+      streakEl.textContent = `${streak} ardıcıl düzgün`;
       document.getElementById('feedbackQuestion').textContent =
         currentQuestion ? currentQuestion.question : '';
       const chosen = document.getElementById('chosenText');
@@ -151,10 +183,10 @@
       show('feedback');
     }
 
-    async function submitAnswer(questionIndex, chosenIndex, optionsContainer) {
+    async function submitAnswer(questionIndex, chosenIndex) {
       // İkiqat toxunuş serverdə "artıq cavablanıb" xətası verir və
       // istifadəçi səbəbini anlamır.
-      for (const button of optionsContainer.children) button.disabled = true;
+      markChosen(optionButtons, chosenIndex);
       try {
         const result = await request(`/homework/attempts/${attemptId}/answer`, {
           method: 'POST',
@@ -164,7 +196,7 @@
         renderFeedback(result, chosenIndex);
       } catch (error) {
         showError(error.message);
-        for (const button of optionsContainer.children) button.disabled = false;
+        resetOptions(optionButtons);
       }
     }
 
@@ -182,6 +214,14 @@
     function finishAttempt(total) {
       const questions = total ?? (currentQuestion && currentQuestion.total) ?? 0;
       document.getElementById('finalScore').textContent = scoreLine(score, questions);
+      /* Xal dairəsi. Məxrəc sıfır olsa faiz hesablanmır - uydurma 0%
+         göstərmək yanlış olardı (bax `scoreLine`-ın eyni qaydası). */
+      if (questions) {
+        const pct = Math.round((score / questions) * 100);
+        document.getElementById('scoreRing').style.setProperty('--pct', String(pct));
+        document.getElementById('scoreRingValue').textContent = `${score}/${questions}`;
+        document.getElementById('scoreRingLabel').textContent = `${pct}% düzgün`;
+      }
       show('done');
     }
 

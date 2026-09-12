@@ -1,13 +1,37 @@
-/* MasterAI — dizayn tokenləri.
+/* MasterAI - dizayn tokenləri.
  *
  * Bu fayl layihənin YEGANƏ rəng/ölçü mənbəyidir. Heç bir başqa CSS
- * faylında birbaşa hex rəng və ya piksel ölçüsü yazılmır — yalnız
+ * faylında birbaşa hex rəng və ya piksel ölçüsü yazılmır - yalnız
  * `var(--...)`. Bu intizam mediapulse.az-dan götürülüb (orada da bütün
  * sayt `--navy`/`--accent`/`--surface` dəyişənləri üzərində qurulub) və
  * `tests/test_web_design_system.py` ilə avtomatik yoxlanılır.
  *
  * Rəng palitrası Flutter tətbiqindən KÖÇÜRÜLÜB ki, davamlılıq itməsin:
  * toxum rəngi #2F6FED, 6 fənn aksenti `app_subject_colors.dart`-dan.
+ *
+ * ---- 2026-09-12 YENİLƏNMƏSİ: «əsl tədris tətbiqi» hissi ----
+ * İki problem ölçülüb düzəldildi:
+ *
+ * 1. KREM FON + SERİF BAŞLIQ. Əvvəlki `--color-bg: #FAFAF8` isti krem
+ *    idi və başlıqlar Source Serif ilə yazılırdı. Bu kombinasiya nəşr/
+ *    hüquq bürosu estetikasıdır, tədris tətbiqi deyil - üstəlik hazırda
+ *    AI-nın ən çox istehsal etdiyi görünüşdür (krem + serif + isti
+ *    aksent), yəni «AI ilə hazırlanmış kimi görünür» hissinin birinci
+ *    səbəbi məhz budur. İndi fon SƏRİN qrafitdir, başlıq isə Archivo
+ *    (qrotesk). Neytral rənglər təsadüfi boz deyil: hamısı mavi tərəfə
+ *    çox az meyllidir, yəni əsas rənglə bir dəstdir.
+ *
+ * 2. FƏNN RƏNGLƏRİ İŞLƏNMİRDİ. Altı fənn aksenti var idi, amma yalnız
+ *    kartın 3px sol kənarında. Məhsulun yeganə real rəng kimliyi
+ *    istifadəsiz qalırdı. İndi quiz ekranı öz fənninin rəngini götürür
+ *    (`--quiz-accent`) və cavab variantlarının hərf nişanları beş ayrı
+ *    rəngdədir.
+ *
+ * NİYƏ BU, ƏVVƏLKİ QƏRARLA ZİDDİYYƏT DEYİL: aşağıda «fənn rəngi düymə
+ * rəngi kimi İŞLƏDİLMİR» yazılıb və o qayda QALIR. Rəng yalnız
+ * MƏZMUNU işarələyir - hərf nişanı, tərəqqi, nəticə vəziyyəti. Səhifə
+ * karkası (fon, kart, düymə) sakit qalır. Alabəzək tətbiq rəngin
+ * çoxluğundan deyil, rəngin MƏNASIZ yerdə işlədilməsindən yaranır.
  */
 
 /* ---- Şriftlər: öz serverimizdə ----
@@ -57,6 +81,27 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Archivo - başlıq/rəqəm üzü. Dəyişən (wght 100-900), hər iki alt-dəst.
+ * Azərbaycan hərflərinin hamısı (14/14) `cmap` cədvəlindən YOXLANILIB.
+ * Bu yoxlama məcburidir: eyni yoxlamada Figtree-də `Ə` və `ə` OLMADIĞI
+ * aşkarlandı (əvvəl Manrope də məhz buna görə rədd edilmişdi). */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../fonts/archivo-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../fonts/archivo-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* ---- Brend ---- */
   --color-primary:            #2F6FED;
@@ -67,14 +112,14 @@
   /* ---- Səth və mətn ----
    * Quizlet/Brilliant tərzi: ağ kartlar açıq boz fonda, ayırıcı KÖLGƏ
    * yox, incə KƏNAR XƏTTİdir. Kölgə yalnız üzən elementlərdə. */
-  --color-bg:                 #FAFAF8;
+  --color-bg:                 #F3F5FA;
   --color-surface:            #FFFFFF;
-  --color-surface-alt:        #F2F1EB;
-  --color-border:             #E5E4DE;
-  --color-border-strong:      #C7C5BC;
-  --color-text:               #12151C;
-  --color-text-muted:         #5B6472;
-  --color-text-faint:         #8A93A3;
+  --color-surface-alt:        #E9EDF5;
+  --color-border:             #DCE2ED;
+  --color-border-strong:      #BAC3D4;
+  --color-text:               #0E1421;
+  --color-text-muted:         #515C74;
+  --color-text-faint:         #8892A6;
 
   /* ---- Semantik ----
    * Hər biri cütlükdür: açıq fon + tünd mətn (mediapulse nişan naxışı). */
@@ -94,7 +139,7 @@
 
   /* ---- Fənn aksentləri (app_subject_colors.dart ilə eyni) ----
    * YALNIZ məzmunu işarələmək üçün: fənn nişanı, tərəqqi zolağı, kart
-   * kənarı. Düymə rəngi kimi İŞLƏDİLMİR — əks halda tətbiq alabəzək
+   * kənarı. Düymə rəngi kimi İŞLƏDİLMİR - əks halda tətbiq alabəzək
    * görünür (bax dizayn speci, 3-cü bölmə). */
   --subject-mentiq:           #7C4DFF;
   --subject-informatika:      #00897B;
@@ -102,6 +147,29 @@
   --subject-azerbaycan-dili:  #2E7D32;
   --subject-qanunvericilik:   #C62828;
   --subject-xarici-dil:       #1565C0;
+
+  /* ---- Cavab variantı rəngləri (A-E) ----
+   * NİYƏ BEŞ AYRI RƏNG: quiz ekranı beş bərabər boz düymə kimi
+   * görünəndə tələbə üçün heç bir «oyun» hissi yoxdur - hər variantın
+   * öz rəngi olanda göz onları dərhal ayırır və toxunma qərarı
+   * sürətlənir (Kahoot/Quizizz-in işlədən mexanizmi budur).
+   *
+   * Rəng YALNIZ hərf nişanındadır, bütün düyməni doldurmur: variantın
+   * MƏTNİ oxunmalıdır, rəng isə mövqe göstəricisidir.
+   *
+   * QIRMIZI VƏ YAŞIL VARİANT RƏNGİ KİMİ İŞLƏDİLMİR: onlar
+   * «səhv»/«düzgün» siqnallarıdır. İlk versiyada D qırmızı idi və
+   * brauzer render-ində göründü ki, cavab verilməzdən ƏVVƏL D variantı
+   * «təhlükəli» görünür. İndi fuksiyadır.
+   *
+   * Hər biri ağ mətnlə WCAG AA (4.5:1) keçir - hərf nişanının üstündə
+   * ağ hərf yazılır. Tünd rejimdə açıq variantlar tünd mətnlə işlənir. */
+  --opt-a: #4338CA;
+  --opt-b: #0E7490;
+  --opt-c: #A4530A;
+  --opt-d: #A21CAF;
+  --opt-e: #6D28D9;
+  --opt-ink: #FFFFFF;
 
   /* ---- Boşluq: 4-lük şkala ---- */
   --space-1: 4px;
@@ -124,18 +192,26 @@
   --shadow-overlay: 0 8px 28px rgba(18, 21, 28, .16);
 
   /* ---- Tipoqrafika ----
-   * Başlıq: Source Serif 4. Nunito yumşaq-yuvarlaq üzdür və uşaq
-   * tətbiqi kimi oxunur; auditoriyamız isə dövlət qulluğu və
-   * magistratura imtahanına hazırlaşan yetkinlərdir. Məhsulun işlədiyi
-   * material da sənəddir (qanun maddəsi, dərslik) — nəşr serifi burada
-   * bəzək deyil, mövzunun öz dilidir.
+   * Başlıq: Archivo (2026-09-12-dən). Əvvəl Source Serif 4 idi - o
+   * seçim «material sənəddir, ona görə nəşr serifi» məntiqi ilə
+   * edilmişdi. Məntiq düzgün idi, nəticə isə səhv: ekranda məhsul
+   * tədris tətbiqi kimi yox, hüquq bürosunun saytı kimi oxunurdu.
+   * Auditoriya yetkindir, amma məhsul bir OYUN mexanizmi işlədir
+   * (növbəli sual, xal, sıralama) - başlıq üzü də ona uyğun olmalıdır.
+   * Archivo qrotesk ailəsindəndir: ağır çəkilərdə enerjili, sıxılmış
+   * hərf quruluşu rəqəmləri (xal, sayğac, sıralama) yaxşı göstərir.
+   * Nunito qəsdən seçilmədi - o, uşaq tətbiqi kimi oxunur.
    *
    * Mətn: Inter saxlanılır. Uzun sual mətnlərində ekran oxunaqlığı
    * yaxşıdır və Azərbaycan hərflərini tam örtür.
    *
    * Hər ikisinin Azərbaycan hərflərini çəkdiyi şrift faylının cmap
    * cədvəlindən yoxlanılıb (13/13). */
-  --font-heading: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-heading: 'Archivo', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Source Serif 4 SİLİNMİR - sənəd tipli səhifələrdə (məxfilik,
+   * şərtlər, qanun mətni sitatı) yeri var və şrift faylı onsuz da
+   * yüklənib. `--font-document` kimi qalır, başlıq üzü isə Archivo. */
+  --font-document: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --font-body:    'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   /* Dəvət kodu üçün. Sistem monosu QƏSDƏN seçilib - əlavə şrift faylı
    * yüklənmir. Kod sinifə səslə deyilir və əl ilə yazılır, ona görə
@@ -173,6 +249,7 @@
   --grid-bank-min:    300px;   /* sual bankı kartı: iki düymə yan-yana sığsın */
   --textarea-min:      96px;   /* çoxsətirli sahənin minimum hündürlüyü */
   --tap-target:        56px;   /* cavab variantı, əsas düymələr */
+  --score-ring-size:  120px;   /* yekun xal dairəsi (conic-gradient) */
   --app-bar-height:    56px;   /* üst zolaq (mediapulse ilə eyni) */
   --bottom-nav-height: 60px;   /* mobil alt naviqasiya */
   --width-container: 1200px;
@@ -185,7 +262,7 @@
   --easing: cubic-bezier(.2, 0, .2, 1);
 }
 
-/* Tünd rejim — sistem seçimi. `[data-theme]` əl ilə keçid üçün
+/* Tünd rejim - sistem seçimi. `[data-theme]` əl ilə keçid üçün
  * saxlanılır (istifadəçi seçimi sistem seçimini üstələyir). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -194,14 +271,14 @@
     --color-primary-soft:  #1B2A45;
     --color-on-primary:    #0B1020;
 
-    --color-bg:            #0F1116;
-    --color-surface:       #171A21;
-    --color-surface-alt:   #1E222B;
-    --color-border:        #2A2F3A;
-    --color-border-strong: #3C4350;
-    --color-text:          #EDEFF3;
-    --color-text-muted:    #A2ABBA;
-    --color-text-faint:    #79828F;
+    --color-bg:            #0D1018;
+    --color-surface:       #151A25;
+    --color-surface-alt:   #1D232F;
+    --color-border:        #29313F;
+    --color-border-strong: #3B4454;
+    --color-text:          #EBEEF4;
+    --color-text-muted:    #A0AABC;
+    --color-text-faint:    #767F90;
 
     --color-success:      #7FD6A6;
     --color-success-soft: #14301F;
@@ -221,6 +298,16 @@
     --subject-qanunvericilik:  #EF9A9A;
     --subject-xarici-dil:      #90CAF9;
 
+
+    /* Variant rəngləri tünd rejimdə AÇIQ olur və mətn TÜNDDƏN gəlir -
+     * tünd fonda doymuş tünd rəng üzərində ağ hərf oxunmur. */
+    --opt-a: #A5B4FC;
+    --opt-b: #67E8F9;
+    --opt-c: #FCD34D;
+    --opt-d: #F0ABFC;
+    --opt-e: #C4B5FD;
+    --opt-ink: #0D1018;
+
     --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
     --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);
   }
@@ -232,14 +319,14 @@
   --color-primary-soft:  #1B2A45;
   --color-on-primary:    #0B1020;
 
-  --color-bg:            #0F1116;
-  --color-surface:       #171A21;
-  --color-surface-alt:   #1E222B;
-  --color-border:        #2A2F3A;
-  --color-border-strong: #3C4350;
-  --color-text:          #EDEFF3;
-  --color-text-muted:    #A2ABBA;
-  --color-text-faint:    #79828F;
+  --color-bg:            #0D1018;
+  --color-surface:       #151A25;
+  --color-surface-alt:   #1D232F;
+  --color-border:        #29313F;
+  --color-border-strong: #3B4454;
+  --color-text:          #EBEEF4;
+  --color-text-muted:    #A0AABC;
+  --color-text-faint:    #767F90;
 
   --color-success:      #7FD6A6;
   --color-success-soft: #14301F;
@@ -258,6 +345,16 @@
   --subject-azerbaycan-dili: #81C784;
   --subject-qanunvericilik:  #EF9A9A;
   --subject-xarici-dil:      #90CAF9;
+
+
+  /* Variant rəngləri tünd rejimdə AÇIQ olur və mətn TÜNDDƏN gəlir -
+   * tünd fonda doymuş tünd rəng üzərində ağ hərf oxunmur. */
+  --opt-a: #A5B4FC;
+  --opt-b: #67E8F9;
+  --opt-c: #FCD34D;
+  --opt-d: #F0ABFC;
+  --opt-e: #C4B5FD;
+  --opt-ink: #0D1018;
 
   --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
   --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);

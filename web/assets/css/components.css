@@ -1,5 +1,5 @@
-/* MasterAI — komponent kitabxanası.
- * Flutter tətbiqində paylaşılan komponent qovluğu YOX idi — 21 ekran öz
+/* MasterAI - komponent kitabxanası.
+ * Flutter tətbiqində paylaşılan komponent qovluğu YOX idi - 21 ekran öz
  * düymə/kartını ayrıca qururdu, vizual uyğunsuzluğun kök səbəbi bu idi.
  * Burada hər komponent BİR dəfə təyin olunur.
  * Yalnız `tokens.css` dəyişənlərindən istifadə edir. */
@@ -15,7 +15,7 @@
 .card--interactive { cursor: pointer; transition: border-color var(--motion-fast) var(--easing); }
 .card--interactive:hover { border-color: var(--color-border-strong); }
 
-/* Fənn rəngi kartın SOL kənarında — məzmunu işarələyir, doldurmur.
+/* Fənn rəngi kartın SOL kənarında - məzmunu işarələyir, doldurmur.
  * İşlədilməsi: <div class="card card--subject" style="--subject: var(--subject-mentiq)"> */
 .card--subject { border-left: 3px solid var(--subject, var(--color-primary)); }
 
@@ -55,7 +55,7 @@
 .btn--lg    { padding: var(--space-4) var(--space-8); font-size: var(--text-lg); }
 .btn--block { width: 100%; }
 
-/* ---- Nişan (badge) — mediapulse naxışı: açıq fon + tünd mətn ---- */
+/* ---- Nişan (badge) - mediapulse naxışı: açıq fon + tünd mətn ---- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -72,7 +72,7 @@
 .badge--info    { background: var(--color-info-soft);    color: var(--color-info); }
 .badge--neutral { background: var(--color-surface-alt);  color: var(--color-text-muted); }
 
-/* Fənn çipi — rəng `--subject` ilə ötürülür. */
+/* Fənn çipi - rəng `--subject` ilə ötürülür. */
 .chip-subject {
   display: inline-flex;
   align-items: center;
@@ -160,7 +160,7 @@
   align-items: baseline;
   justify-content: space-between;
   /* Dar ekranda izah başlığın YANINDA sıxılıb pis sarılırdı (real
-   * render testində görüldü) — sarılmağa icazə verilir ki, öz sətrinə
+   * render testində görüldü) - sarılmağa icazə verilir ki, öz sətrinə
    * düşsün. */
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -183,7 +183,7 @@
 .state__title { font-family: var(--font-heading); font-size: var(--text-lg); font-weight: var(--weight-bold); }
 .state__text  { color: var(--color-text-muted); max-width: var(--width-form); }
 
-/* Yüklənmə dairəsi — `currentColor` işlədir ki, hər kontekstdə uyğun
+/* Yüklənmə dairəsi - `currentColor` işlədir ki, hər kontekstdə uyğun
  * rəngdə olsun. */
 .spinner {
   width: var(--space-6);
@@ -195,7 +195,7 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Skelet — məzmun yüklənərkən yerini tutur (boş ekran sıçrayışının
+/* Skelet - məzmun yüklənərkən yerini tutur (boş ekran sıçrayışının
  * qarşısını alır). */
 .skeleton {
   background: var(--color-surface-alt);
@@ -281,7 +281,7 @@
 }
 .app-nav__link:hover { background: var(--color-surface-alt); text-decoration: none; }
 
-/* Cari səhifə — rəngdən ƏLAVƏ fon da verilir: yalnız rənglə fərq
+/* Cari səhifə - rəngdən ƏLAVƏ fon da verilir: yalnız rənglə fərq
  * rəng korluğu olan istifadəçilər üçün kifayət deyil. */
 .app-nav__link[aria-current="page"] {
   background: var(--color-primary-soft);
@@ -352,7 +352,7 @@
 .icon--sm { width: var(--space-4); height: var(--space-4); }
 .icon--lg { width: var(--space-8); height: var(--space-8); }
 
-/* Boş/xəta hallarındakı böyük ikon — əvvəl emoji idi. */
+/* Boş/xəta hallarındakı böyük ikon - əvvəl emoji idi. */
 .state__icon {
   display: inline-flex;
   align-items: center;
@@ -369,20 +369,52 @@
 .notice .icon { width: var(--space-4); height: var(--space-4); margin-top: 2px; }
 
 /* ---- Cavab variantı ----
- * Açılış səhifəsindəki nümunə sual kartında və (gələcəkdə) həll
- * ekranlarında eyni anatomiya. Toxunma hədəfi 56px: mobil üçün
- * minimum 44px tələbindən yuxarıdır. */
+ * Quiz ekranının ƏSAS elementi. Əvvəl canlı sessiya və ev tapşırığı
+ * variantları `btn btn--secondary` ilə çəkirdi, yəni ekranda beş
+ * BƏRABƏR BOZ DÜYMƏ görünürdü - «tədris tətbiqi hissi yoxdur»
+ * şikayətinin birinci səbəbi məhz bu idi. `.option` onsuz da burada
+ * təyin olunmuşdu və HEÇ YERDƏ işlədilmirdi (yalnız açılış
+ * səhifəsindəki nümunə sualda).
+ *
+ * Anatomiya: [hərf nişanı] [variant mətni] [nəticə işarəsi]
+ * Hərf nişanı A-E üçün beş ayrı rəngdədir (`--opt`), mətn isə sakit
+ * qalır. Toxunma hədəfi 56px - mobil minimumu 44px-dən yuxarıdır. */
 .option {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
   min-height: var(--tap-target);
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--easing),
+              background var(--motion-fast) var(--easing),
+              transform var(--motion-fast) var(--easing);
 }
+.option:hover:not(:disabled) {
+  border-color: var(--opt, var(--color-primary));
+  background: var(--color-surface-alt);
+}
+/* Fiziki basma hissi. `translateY` işlədilir, `height` YOX - ölçü
+ * dəyişikliyi layout-u yenidən hesablatdırır və mobildə büdrəyir. */
+.option:active:not(:disabled) { transform: translateY(1px); }
+
+.option:disabled { cursor: default; }
+/* Cavab verildikdən sonra bütün variantlar `disabled` olur, amma
+ * SOLĞUNLAŞMIR: tələbə hansı variantı seçdiyini və düzgününü
+ * oxumalıdır. `.btn:disabled { opacity: .5 }` burada yanlış olardı. */
+.option:disabled:not(.option--correct):not(.option--wrong):not(.option--chosen) {
+  color: var(--color-text-muted);
+}
+
 .option__letter {
   display: inline-flex;
   align-items: center;
@@ -391,17 +423,40 @@
   height: var(--space-8);
   flex-shrink: 0;
   border-radius: var(--radius-sm);
-  background: var(--color-surface-alt);
-  color: var(--color-text-muted);
+  /* Fallback QƏSDƏN rənglidir: hərf `--opt-ink` (ağ) ilə yazılır, boz
+     fon üzərində ağ hərf GÖRÜNMƏZ olardı. Açılış səhifəsində məhz bu
+     baş verirdi - brauzer render-ində tutuldu. */
+  background: var(--opt, var(--color-primary));
+  color: var(--opt-ink);
+  font-family: var(--font-heading);
   font-weight: var(--weight-bold);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
+  line-height: 1;
 }
-.option__mark { margin-left: auto; }
+.option__text { flex: 1; min-width: 0; }
+.option__mark {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-weight: var(--weight-bold);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
 
-/* Düzgün/səhv İKİ siqnalla işarələnir: fon rəngi VƏ ikon. Yalnız
- * rənglə ayırmaq rəng korluğu olan istifadəçilər üçün kifayət deyil. */
+/* Seçilmiş, hələ nəticə gəlməmiş vəziyyət - server cavabı gözlənilir.
+ * Bu addım əvvəl GÖRÜNMÜRDÜ: tələbə toxunurdu, heç nə dəyişmirdi. */
+.option--chosen {
+  border-color: var(--color-primary);
+  border-width: 2px;
+  background: var(--color-primary-soft);
+  font-weight: var(--weight-semibold);
+}
+
+/* Düzgün/səhv İKİ siqnalla işarələnir: fon rəngi VƏ işarə (✓/✗).
+ * Yalnız rənglə ayırmaq rəng korluğu olan istifadəçilər üçün kifayət
+ * deyil - bu qayda əvvəlki versiyadan saxlanılır. */
 .option--correct {
   border-color: var(--color-success);
+  border-width: 2px;
   background: var(--color-success-soft);
   color: var(--color-success);
   font-weight: var(--weight-semibold);
@@ -410,10 +465,232 @@
 
 .option--wrong {
   border-color: var(--color-danger);
+  border-width: 2px;
   background: var(--color-danger-soft);
   color: var(--color-danger);
+  font-weight: var(--weight-semibold);
 }
 .option--wrong .option__letter { background: var(--color-danger); color: var(--color-surface); }
+
+/* Quiz qabığı: geniş ekranda sual sətri 1000px uzanmasın.
+ * Brauzer render-ində göründü - hərf nişanı ilə mətnin arası açılır və
+ * göz variantları bir baxışda tuta bilmir. Mətn oxunaqlığı üçün
+ * `--width-prose` onsuz da layihədə var. */
+.quiz-shell {
+  width: 100%;
+  max-width: var(--width-prose);
+  margin-inline: auto;
+}
+
+/* Variant siyahısı. `gap` boşluğu - toxunma hədəfləri arasında ən azı
+ * 8px olmalıdır, yoxsa telefonda səhv variant seçilir. */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ---- Quiz başlığı: sayğac + vaxt ---- */
+.quiz-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.quiz-counter {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+/* Vaxt sayğacı - rəqəmlər eyni enli olmalıdır, yoxsa hər saniyə
+ * zolaq titrəyir. */
+.quiz-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.quiz-timer--urgent { background: var(--color-danger-soft); color: var(--color-danger); }
+
+/* ---- Sual mətni ----
+ * Quiz ekranında sual EN BÖYÜK elementdir. Əvvəl adi `<p>` idi və
+ * ekranda variantlardan seçilmirdi. */
+.quiz-question {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+/* ---- Sual-sual tərəqqi ----
+ * Zolaq yerinə SEQMENT: tələbə neçə sual qaldığını dərhal görür.
+ * Zolaq «70%» deyir, seqment «7-dən 5-ini bitirdin» deyir - ikincisi
+ * imtahan hazırlığında daha faydalıdır. */
+.quiz-steps {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.quiz-steps__item {
+  flex: 1;
+  height: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  transition: background var(--motion-base) var(--easing);
+}
+.quiz-steps__item--done    { background: var(--quiz-accent, var(--color-primary)); }
+.quiz-steps__item--current { background: var(--quiz-accent, var(--color-primary)); opacity: .45; }
+
+/* ---- Nəticə vəziyyəti (verdict) ----
+ * Cavabdan sonra ekranın ƏSAS mesajı. Əvvəl kiçik bir `badge` idi -
+ * doğru/səhv hissi ötürmürdü. */
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+.verdict__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+  line-height: 1;
+}
+.verdict__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+}
+.verdict__note { font-size: var(--text-sm); }
+
+.verdict--correct { background: var(--color-success-soft); color: var(--color-success); }
+.verdict--correct .verdict__icon { background: var(--color-success); color: var(--color-surface); }
+.verdict--wrong { background: var(--color-danger-soft); color: var(--color-danger); }
+.verdict--wrong .verdict__icon { background: var(--color-danger); color: var(--color-surface); }
+
+/* ---- Ardıcıl düzgün cavab ----
+ * Kiçik, amma tədris tətbiqlərində ən güclü motivasiya elementi.
+ * İKİ və daha çox ardıcıl cavabdan sonra görünür - birdən sonra
+ * «seriya» demək mənasızdır. */
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* ---- Yekun xal dairəsi ----
+ * `conic-gradient` ilə - SVG və ya kitabxana LAZIM DEYİL.
+ * `--pct` 0-100 arası JS-dən verilir. */
+.score-ring {
+  --pct: 0;
+  display: grid;
+  place-items: center;
+  width: var(--score-ring-size);
+  height: var(--score-ring-size);
+  border-radius: var(--radius-full);
+  background:
+    conic-gradient(var(--quiz-accent, var(--color-primary)) calc(var(--pct) * 1%),
+                   var(--color-surface-alt) 0);
+}
+.score-ring__inner {
+  display: grid;
+  place-items: center;
+  width: calc(var(--score-ring-size) - var(--space-4));
+  height: calc(var(--score-ring-size) - var(--space-4));
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  text-align: center;
+}
+.score-ring__value {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* Faiz mətni dairənin İÇİNDƏ DEYİL, ALTINDADIR.
+ * Brauzer render-ində göründü: dairənin mərkəzindən aşağıda enişən
+ * sahə daralır, ona görə «80% düzgün» halqanın üstünə düşürdü. Dairənin
+ * içində yalnız qısa rəqəm qalır. */
+.score-ring__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ---- Sıralama sətri ----
+ * İlk üç yer nişanla işarələnir. Ad UZUN ola bilər - kəsilmir, sıxılır;
+ * xal sütunu isə eyni enli rəqəmlərlə düz durur. */
+.rank {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.rank--podium { border-color: var(--color-border-strong); }
+.rank--me { border-color: var(--color-primary); border-width: 2px; background: var(--color-primary-soft); }
+.rank__place {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.rank--podium .rank__place {
+  background: var(--quiz-accent, var(--color-primary));
+  color: var(--color-on-primary);
+}
+.rank__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rank__score {
+  flex-shrink: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- Açılış paneli (tərəqqi ilə açılma) ----
  * Nadir edilən iş (yeni sual bankı yaratmaq) səhifəni tutmasın, amma
@@ -461,7 +738,7 @@
  * Render testində göründü: 240px-lik defolt sütunda iki düymə yan-yana
  * sığmır və alt-alta düşür, kart isə yarımçıq görünür. Bankın iki
  * hərəkəti (sualları yoxla / sessiya başlat) BİR sətirdə olmalıdır.
- * Kartların hündürlüyü bərabərləşir, hərəkətlər aşağıya sabitlənir —
+ * Kartların hündürlüyü bərabərləşir, hərəkətlər aşağıya sabitlənir -
  * əks halda «hazırlanır» kartı boş qutu kimi qalır. */
 .grid--banks { grid-template-columns: repeat(auto-fill, minmax(var(--grid-bank-min), 1fr)); }
 .bank { display: flex; flex-direction: column; gap: var(--space-2); }

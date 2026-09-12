@@ -78,7 +78,11 @@ class TestTokensAreTheSingleSource:
         used = set(_VAR_USE_RE.findall(_read(path)))
         # Yerli (inline `style` ilə ötürülən) dəyişənlər tokens.css-də
         # olmur — onlar komponentin parametrləridir, sabit deyil.
-        local = {"--subject", "--progress", "--enter-order"}
+        # `--opt` (variant rəngi), `--quiz-accent` (fənn rəngi) və
+        # `--pct` (xal dairəsinin faizi) də komponent parametrləridir:
+        # JS/HTML inline `style` ilə ötürülür, sabit deyil.
+        local = {"--subject", "--progress", "--enter-order",
+                 "--opt", "--quiz-accent", "--pct"}
         undefined = used - token_names - local
         assert not undefined, f"{path.name}: təyin olunmamış token: {sorted(undefined)}"
 

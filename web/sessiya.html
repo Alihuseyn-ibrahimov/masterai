@@ -19,7 +19,7 @@
      sessiya bitəndən sonra naviqasiyasız qalmamalıdır. -->
 <div class="container app-shell stack stack--loose">
 
-  <section class="stack">
+  <section class="stack quiz-shell">
     <div class="section-header">
       <h1>Canlı sessiya</h1>
       <a class="btn btn--ghost btn--sm" href="chatlar.html">← Çatlar</a>
@@ -38,33 +38,53 @@
       <p class="text-sm text-muted">Müəllim sessiyanı başladanda suallar görünəcək.</p>
     </div>
 
-    <!-- 2. Sual -->
+    <!-- 2. Sual
+         `--quiz-accent` fənn rəngini ötürür: tərəqyi seqmentləri və
+         xal dairəsi ondan rəng alır. Fənn bilinməsə əsas rəng işləyir. -->
     <div class="card stack" id="questionCard" hidden>
-      <div class="row row--between">
-        <span class="badge badge--info" id="questionCounter">Sual</span>
-        <span class="badge badge--neutral" id="countdown">-</span>
+      <div class="quiz-head">
+        <span class="quiz-counter" id="questionCounter">Sual</span>
+        <span class="quiz-timer" id="countdown">-</span>
       </div>
-      <h3 id="questionText"></h3>
-      <div class="stack stack--tight" id="options"></div>
+      <!-- Sual-sual tərəqqi: zolaq yox, SEQMENT. «7-dən 5-ini
+           bitirdin» məlumatı imtahan hazırlığında faizdən faydalıdır. -->
+      <div id="quizSteps" class="quiz-steps" aria-hidden="true"></div>
+      <h2 class="quiz-question" id="questionText"></h2>
+      <div id="options" class="option-list"></div>
     </div>
 
-    <!-- 3. Nəticə -->
+    <!-- 3. Nəticə
+         Əsas mesaj `verdict` blokudur - əvvəl kiçik bir nişan idi və
+         düzgün/səhv hissini ötürmürdü. -->
     <div class="card stack" id="resultCard" hidden>
-      <!-- Nişan `row`-un içindədir: `stack` sütununda tək element bütün
-           eni tutur və rəngli zolağa çevrilir. -->
-      <div class="row"><span class="badge" id="resultBadge"></span></div>
+      <div class="verdict" id="verdict">
+        <span class="verdict__icon" id="verdictIcon" aria-hidden="true"></span>
+        <span class="stack stack--tight">
+          <span class="verdict__title" id="verdictTitle"></span>
+          <span class="verdict__note" id="verdictNote"></span>
+        </span>
+      </div>
+      <!-- Ardıcıl düzgün cavab. İKİDƏN başlayaraq görünür. -->
+      <div class="row"><span class="streak" id="streak" hidden></span></div>
       <!-- Sual mətni təkrarlanır: izah suala istinad edir, sual isə
            artıq ekrandan getmişdi. -->
       <p class="text-sm text-muted" id="resultQuestion"></p>
       <p id="chosenText" hidden></p>
       <p id="correctText"></p>
       <p class="text-sm text-muted" id="explanationText"></p>
-      <button class="btn btn--primary btn--block" type="button" id="nextBtn">Növbəti sual</button>
+      <button class="btn btn--primary btn--block btn--lg" type="button" id="nextBtn">Növbəti sual</button>
     </div>
 
-    <!-- 4. Şəxsi bitiş -->
-    <div class="card stack" id="personalCard" hidden style="text-align: center">
-      <div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-check"></use></svg></div>
+    <!-- 4. Şəxsi bitiş
+         Xal dairəsi `conic-gradient` ilə çəkilir - SVG və ya kitabxana
+         yoxdur, «build addımı yoxdur» qaydası qorunur. -->
+    <div class="card stack stack--center" id="personalCard" hidden>
+      <div class="score-ring" id="scoreRing">
+        <div class="score-ring__inner">
+          <span class="score-ring__value" id="scoreRingValue">-</span>
+        </div>
+      </div>
+      <span class="score-ring__label" id="scoreRingLabel"></span>
       <h3>Siz bitirdiniz</h3>
       <p id="personalScore"></p>
       <p class="text-sm text-muted">Sessiya bitəndə ümumi nəticələr görünəcək.</p>
