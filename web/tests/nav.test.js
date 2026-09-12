@@ -96,3 +96,4 @@ describe('activeHref', () => {
     assert.equal(activeHref(student, 'muellim.html'), null);
   });
 });
+

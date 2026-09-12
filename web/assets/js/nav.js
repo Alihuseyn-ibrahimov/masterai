@@ -100,7 +100,11 @@ export function renderNavigation({ bar, bottom, user, pathname, onLogout }) {
 
   const brand = document.createElement('a');
   brand.className = 'brand';
-  brand.href = destinations[0].href;
+  /* Loqo AÇILIŞ SƏHİFƏSİNƏ aparır, ilk bölməyə yox.
+     Əvvəl `destinations[0].href` idi - yəni müəllim üçün «Sual
+     bankları», tələbə üçün «Çatlar». İstifadəçi loqodan əsas sayta
+     qayıtmaq gözləyir; bölmələr onsuz da zolağın özündədir. */
+  brand.href = 'index.html';
   brand.append(document.createTextNode('Master'));
   const accent = document.createElement('span');
   accent.className = 'brand__accent';

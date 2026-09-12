@@ -547,3 +547,23 @@ class TestThemeBootstrap:
             "rejim seçsə, bu səhifəyə keçəndə ekran işıqlı olacaq"
         )
         assert "data-theme" in head, f"{path.name}: `data-theme` atributu qoyulmur"
+
+
+class TestBrandLink:
+    """Loqo AÇILIŞ səhifəsinə aparmalıdır.
+
+    Əvvəl `destinations[0].href` idi - yəni loqo müəllimdə «Sual
+    bankları»na, tələbədə «Çatlar»a aparırdı. İstifadəçi loqodan əsas
+    sayta qayıtmaq gözləyir; bölmələr onsuz da zolağın içindədir.
+
+    NİYƏ MƏNBƏ YOXLAMASI: `renderNavigation` DOM tələb edir, Node
+    testlərində isə DOM yoxdur (`nav.test.js` yalnız saf funksiyaları
+    yoxlayır). Vizual təsdiq `deploy/diagnostics/nav-bar-preview.html`
+    ilə brauzerdə aparılır.
+    """
+
+    def test_logo_points_to_the_landing_page(self):
+        nav = (WEB / "assets" / "js" / "nav.js").read_text(encoding="utf-8")
+        assert "brand.href = 'index.html'" in nav, (
+            "loqo açılış səhifəsinə aparmır"
+        )
