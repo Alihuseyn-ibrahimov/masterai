@@ -249,17 +249,42 @@ class LiveSessionStore:
     # ---- iştirakçılar ------------------------------------------------
 
     def add_participant(self, session_id: int, display_name: str, user_id: int) -> dict:
-        """`user_id` MƏCBURİDİR (2026-09-11, Faza 4).
+        """TAP-VƏ-YA-YARAT: (sessiya, istifadəçi) cütü üçün BİR sətir.
 
-        Əvvəl könüllü idi, çünki PIN qoşulması hesabsız da mümkün idi —
-        belə iştirakçılar `user_id IS NULL` ilə yazılırdı və nəticələri
-        HEÇ KİMİN tarixçəsinə düşmürdü. Anonim yol silindi; indi hər
-        nəticə bir hesaba bağlıdır.
+        `user_id` MƏCBURİDİR (2026-09-11, Faza 4). Əvvəl könüllü idi,
+        çünki PIN qoşulması hesabsız da mümkün idi — belə iştirakçılar
+        `user_id IS NULL` ilə yazılırdı və nəticələri HEÇ KİMİN
+        tarixçəsinə düşmürdü. Anonim yol silindi; indi hər nəticə bir
+        hesaba bağlıdır. Sütun sxemdə nullable qalır: canlı bazada
+        köhnə anonim sətirlər var və onlar silinmir.
 
-        Sütun sxemdə nullable qalır: canlı bazada köhnə anonim sətirlər
-        var və onlar silinmir.
+        NİYƏ SADƏ `INSERT` DEYİL (2026-09-12, real produksiya bug-ı,
+        sessiya #31): hər WebSocket bağlantısı `add_participant`
+        çağırır, tələbə isə səhifəni yeniləyir, telefonu kilidlənir,
+        şəbəkəsi kəsilir. Sadə `INSERT` ilə canlı bazada bir Amil ÜÇ
+        sətirlə göründü (07:02:48, 07:03:02, 07:04:15) — balı üç yerə
+        bölündü, hesabatdakı sıralama yanlış oldu, özü də qayıdanda
+        yenidən 0-cı sualdan başladı (cavab sayı yeni sətirdə sıfır
+        idi). `joined_at` İLK qoşulmanı saxlayır; `display_name` isə
+        hesabdakı cari ada yenilənir.
+
+        Köhnə anonim (`user_id IS NULL`) sətirlər bu axtarışa düşmür —
+        `user_id` indi həmişə dolu olduğu üçün sadə bərabərlik kifayətdir.
         """
         with self._lock:
+            existing = self._conn.execute(
+                "SELECT id FROM live_participants WHERE session_id = ? AND user_id = ? "
+                "ORDER BY id LIMIT 1",
+                (session_id, user_id),
+            ).fetchone()
+            if existing is not None:
+                self._conn.execute(
+                    "UPDATE live_participants SET display_name = ? WHERE id = ?",
+                    (display_name, existing["id"]),
+                )
+                self._conn.commit()
+                return self.get_participant(existing["id"])
+
             cur = self._conn.execute(
                 "INSERT INTO live_participants (session_id, display_name, joined_at, user_id) "
                 "VALUES (?, ?, ?, ?)",

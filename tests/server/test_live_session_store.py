@@ -60,13 +60,82 @@ def test_save_report(store):
 def test_add_and_list_participants(store):
     session = store.create_session(question_set_id=1)
     p1 = store.add_participant(session["id"], "Əli", user_id=1)
-    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=2)
 
     participants = store.list_participants(session["id"])
     assert [p["display_name"] for p in participants] == ["Əli", "Vəli"]
     assert store.get_participant(p1["id"])["display_name"] == "Əli"
     assert store.get_participant(p2["id"])["display_name"] == "Vəli"
     assert store.count_participants(session["id"]) == 2
+
+
+class TestParticipantIsUniquePerUser:
+    """REAL PRODUKSİYA BUG-I (2026-09-12, sessiya #31).
+
+    Tələbə səhifəni hər yeniləyəndə (və ya telefon bağlantını itirib
+    qayıdanda) yeni WebSocket açılır — `add_participant` isə hər dəfə
+    YENİ sətir yazırdı. Canlı bazada bir Amil ÜÇ sətirlə göründü
+    (07:02:48, 07:03:02, 07:04:15) və onun balı üç sətrə bölündü,
+    yəni sessiya hesabatı yanlış çıxdı.
+
+    Ona görə `add_participant` indi «tap-və-ya-yarat»dır: (sessiya,
+    istifadəçi) cütü üçün HƏMİŞƏ bir sətir.
+    """
+
+    def test_second_join_returns_the_same_row(self, store):
+        session = store.create_session(question_set_id=1)
+        first = store.add_participant(session["id"], "Amil", user_id=5)
+        second = store.add_participant(session["id"], "Amil", user_id=5)
+
+        assert second["id"] == first["id"]
+        assert store.count_participants(session["id"]) == 1
+        assert len(store.list_participants(session["id"])) == 1
+
+    def test_joined_at_is_not_reset_on_rejoin(self, store):
+        """Qoşulma vaxtı İLK qoşulmanı göstərməlidir — sıralama və
+        hesabat ona söykənir."""
+        session = store.create_session(question_set_id=1)
+        first = store.add_participant(session["id"], "Amil", user_id=5)
+        again = store.add_participant(session["id"], "Amil", user_id=5)
+
+        assert again["joined_at"] == first["joined_at"]
+
+    def test_display_name_is_refreshed_on_rejoin(self, store):
+        session = store.create_session(question_set_id=1)
+        first = store.add_participant(session["id"], "Köhnə ad", user_id=5)
+        again = store.add_participant(session["id"], "Yeni ad", user_id=5)
+
+        assert again["id"] == first["id"]
+        assert again["display_name"] == "Yeni ad"
+        assert store.get_participant(first["id"])["display_name"] == "Yeni ad"
+
+    def test_different_users_stay_separate(self, store):
+        session = store.create_session(question_set_id=1)
+        a = store.add_participant(session["id"], "Amil", user_id=5)
+        b = store.add_participant(session["id"], "Nigar", user_id=6)
+
+        assert a["id"] != b["id"]
+        assert store.count_participants(session["id"]) == 2
+
+    def test_same_user_in_another_session_is_a_new_row(self, store):
+        first = store.create_session(question_set_id=1)
+        second = store.create_session(question_set_id=1)
+        a = store.add_participant(first["id"], "Amil", user_id=5)
+        b = store.add_participant(second["id"], "Amil", user_id=5)
+
+        assert a["id"] != b["id"]
+
+    def test_answers_survive_a_rejoin(self, store):
+        """Bug-ın əsl zərəri: cavablar köhnə sətirdə qalıb yenisinə
+        yazılmırdı, yəni «Növbəti sual» indeksi sıfırlanırdı."""
+        session = store.create_session(question_set_id=1)
+        participant = store.add_participant(session["id"], "Amil", user_id=5)
+        store.record_answer(session["id"], participant["id"], 0, 2, True)
+
+        again = store.add_participant(session["id"], "Amil", user_id=5)
+
+        assert store.count_answers_by_participant(session["id"], again["id"]) == 1
+        assert store.compute_scores(session["id"]) == {participant["id"]: 1}
 
 
 def test_add_participant_requires_a_user(store):
@@ -132,7 +201,7 @@ def test_record_answer_and_has_answered(store):
 def test_list_answers_for_question(store):
     session = store.create_session(question_set_id=1)
     p1 = store.add_participant(session["id"], "Əli", user_id=1)
-    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=2)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=1, is_correct=False)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=0, is_correct=True)
@@ -156,7 +225,7 @@ def test_list_answers_for_session(store):
 def test_compute_scores_includes_zero_score_participants(store):
     session = store.create_session(question_set_id=1)
     p1 = store.add_participant(session["id"], "Əli", user_id=1)
-    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=2)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=3, is_correct=False)
@@ -178,7 +247,7 @@ def test_start_sets_active_status_duration_and_started_at(store):
 def test_count_answers_by_participant(store):
     session = store.create_session(question_set_id=1)
     p1 = store.add_participant(session["id"], "Əli", user_id=1)
-    p2 = store.add_participant(session["id"], "Vəli", user_id=1)
+    p2 = store.add_participant(session["id"], "Vəli", user_id=2)
     store.record_answer(session["id"], p1["id"], 0, chosen_index=0, is_correct=True)
     store.record_answer(session["id"], p1["id"], 1, chosen_index=1, is_correct=False)
     store.record_answer(session["id"], p2["id"], 0, chosen_index=2, is_correct=False)

@@ -310,6 +310,51 @@ class TestPlaySocket:
             _expect_rejection(ws, 4404)
 
 
+class TestReconnect:
+    """REAL PRODUKSİYA BUG-I (2026-09-12, sessiya #31).
+
+    Jurnalda üç ayrı `[accepted]` `/play` bağlantısı var idi (tələbə
+    səhifəni yeniləyib) və bazada Amil ÜÇ iştirakçı sətri ilə göründü.
+    Nəticə: bir tələbənin balı üç sətrə bölündü, sessiya hesabatındakı
+    sıralama yanlış oldu.
+
+    Əvvəlki «bağlantı kəsilməsi» diaqnostikası bunu BURAXMIŞDI, çünki
+    iştirakçıları EKRANDAN (host siyahısından) oxuyurdu, bazadan yox.
+    """
+
+    def _url(self, env, session_id: int) -> str:
+        return f"/ws/live/sessions/{session_id}/play?token={_token(env['student'])}"
+
+    def test_reconnecting_does_not_create_a_second_participant(self, env):
+        session = _start(env)
+        with env["client"].websocket_connect(self._url(env, session["id"])) as ws:
+            first = ws.receive_json()["participant_id"]
+        with env["client"].websocket_connect(self._url(env, session["id"])) as ws:
+            second = ws.receive_json()["participant_id"]
+
+        assert second == first
+        assert env["live_sessions"].count_participants(session["id"]) == 1
+
+    def test_progress_survives_a_reconnect(self, env):
+        """Əsl zərər: cavablar köhnə sətirdə qalanda tələbə qayıdanda
+        yenidən 0-cı sualdan başlayırdı."""
+        session = _start(env)
+        env["live_sessions"].start(session["id"], 600)
+
+        with env["client"].websocket_connect(self._url(env, session["id"])) as ws:
+            ws.receive_json()  # joined
+            ws.receive_json()  # 0-cı sual
+            ws.send_json({"type": "answer", "question_index": 0, "chosen_index": 0})
+            assert ws.receive_json()["type"] == "result"
+
+        with env["client"].websocket_connect(self._url(env, session["id"])) as ws:
+            ws.receive_json()  # joined
+            question = ws.receive_json()
+
+        assert question["type"] == "question"
+        assert question["index"] == 1, "qayıdan tələbə 0-cı sualdan başlayır"
+
+
 class TestLateJoin:
     def test_a_member_can_join_after_the_session_started(self, env):
         """SPEC QƏRARI: gec qoşulma açıqdır. Əvvəl `waiting` olmayan

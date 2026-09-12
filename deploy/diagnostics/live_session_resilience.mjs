@@ -27,6 +27,12 @@
  *     nəfər), cavabı və tərəqqisi (1/4) qorunur, «Növbəti sual» işləyir,
  *     2-ci sualı cavablaya bilir, host gedişatı 2/4-ə yenilənir.
  *
+ * 2026-09-12 DÜZƏLİŞİ — YUXARIDAKI «TƏKRARLANMIR» NƏTİCƏSİ YANLIŞ İDİ:
+ *   skript iştirakçıları sadəcə ÇAP EDİRDİ, heç nə yoxlamırdı, insan da
+ *   siyahıya baxıb «iki nəfər» deyib keçmişdi. Real produksiyada
+ *   (sessiya #31) bir tələbə bazada ÜÇ sətirlə göründü. İndi skript
+ *   təkrarı özü tutur və tapsa sıfırdan fərqli kodla çıxır.
+ *
  *   host: müəllim offline ikən TƏLƏBƏLƏR CAVABLAMAĞA DAVAM EDİR — dərs
  *     dayanmır. Host qayıdanda bağlantı «Bağlıdır» olur və gedişat
  *     siyahısı özü-özünə yetişir (kəsilmə müddətindəki cavabları göstərir).
@@ -180,8 +186,26 @@ await kesilen.p.waitForTimeout(1500);
 console.log('cavab nəticəsi  :',
   await kesilen.p.$eval('#resultBadge', (e) => e.textContent).catch(() => 'CAVAB GETMƏDİ'));
 await host.waitForTimeout(1500);
-console.log('yekun gedişat   :',
-  await host.$$eval('#participants .row span', (els) => els.map((e) => e.textContent)));
+/* `.row span` HƏR iştirakçı üçün İKİ span verir (ad + «2/4»), ona görə
+ * gedişat üçün hamısı, ad yoxlaması üçün YALNIZ birincisi oxunur. */
+const yekunSiyahi = await host.$$eval(
+  '#participants .row span', (els) => els.map((e) => e.textContent),
+);
+const adlar = await host.$$eval(
+  '#participants .row span:first-child', (els) => els.map((e) => e.textContent.trim()),
+);
+console.log('yekun gedişat   :', yekunSiyahi);
 console.log('JS xətaları     :', errs.length ? errs.slice(0, 4) : 'yoxdur');
+
+/* TƏKRAR YOXLAMASI — MƏTNƏ BAXIB QƏRAR VERMƏK BURADA SINDI.
+ * Bir ad iki dəfə görünürsə, bağlantı qayıdanda yeni iştirakçı sətri
+ * yaranıb (2026-09-12 bug-ı). */
+const tekrarlar = adlar.filter((ad, i) => adlar.indexOf(ad) !== i);
+if (tekrarlar.length) {
+  console.error('SINDI: iştirakçı TƏKRARLANIB ->', [...new Set(tekrarlar)]);
+  await b.close();
+  process.exit(1);
+}
+console.log('təkrar yoxlaması: TƏMİZ (' + adlar.length + ' fərqli iştirakçı)');
 
 await b.close();

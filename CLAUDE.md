@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1163 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1181 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-09-11-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -93,10 +93,14 @@ Real sinifdə hər ikisi olur — telefon kilidlənir, müəllimin noutbuku
 yuxuya gedir. `ReconnectingSocket` məhz bunun üçün yazılıb, amma heç
 vaxt real sınanmamışdı.
 
-- **Tələbənin bağlantısı kəsilib qayıdır:** iştirakçı TƏKRARLANMIR
-  (host-da yenə 2 nəfər), cavabı və tərəqqisi qorunur, «Növbəti sual»
-  işləyir, növbəti sualı cavablaya bilir, host gedişatı yenilənir.
-  (2026-09-11-də çat axını ilə TƏKRAR yoxlanıldı — nəticə eynidir.)
+- **Tələbənin bağlantısı kəsilib qayıdır:** cavabı və tərəqqisi
+  qorunur, «Növbəti sual» işləyir, növbəti sualı cavablaya bilir, host
+  gedişatı yenilənir.
+  **DÜZƏLİŞ (2026-09-12): burada əvvəl «iştirakçı TƏKRARLANMIR (host-da
+  yenə 2 nəfər)» yazılmışdı — bu YANLIŞ idi.** Skript iştirakçıları
+  yalnız ÇAP edirdi, yoxlamırdı; nəticə ekrana baxıb qəbul edilmişdi.
+  Real produksiyada (sessiya #31) bir tələbə bazada ÜÇ sətirlə göründü.
+  Bax aşağı «Dərs: təkrarlanan iştirakçı».
 - **MÜƏLLİMİN bağlantısı kəsilir:** tələbələr CAVABLAMAĞA DAVAM EDİR —
   **dərs dayanmır.** Host qayıdanda bağlantı «Bağlıdır» olur və gedişat
   siyahısı özü-özünə yetişir (kəsilmə müddətindəki cavabları göstərir).
@@ -390,6 +394,66 @@ Sistemimiz üç növ materialı dəstəkləyir:
   `_notify_admin_webhook()`-u çağırdı və Telegram-a bildiriş REAL
   gəldi (istifadəçi təsdiqlədi). Uc-uca zəncir (backend material
   emalı → n8n webhook → Telegram) indi tam real şəraitdə yoxlanılıb.
+
+## Dərs: təkrarlanan iştirakçı — hər WS bağlantısı yeni sətir yazırdı (2026-09-12)
+
+Real dərsdə tapıldı. Tələbə (Amil) sessiyaya qoşuldu, səhifəni bir neçə
+dəfə yenilədi. Bazada:
+
+```
+sessiya #31: chat=5 yaradan=2 status=active
+  iştirakçı: Tələbə A | user_id: 5 | 07:02:48
+  iştirakçı: Tələbə A | user_id: 5 | 07:03:02
+  iştirakçı: Tələbə A | user_id: 5 | 07:04:15
+```
+
+Üç sətir — jurnaldakı üç `[accepted]` `/play` bağlantısı ilə dəqiq
+üst-üstə düşür. `add_participant` sadə `INSERT` idi və `/play`
+soketinin HƏR açılışında çağırılırdı.
+
+**Zərər üç yerdədir:**
+1. Sessiya hesabatındakı sıralama (`rankings`) `participant_id` ilə
+   qurulur — bir adam üç sətirlə, balı üç yerə bölünmüş görünür.
+2. Tələbə qayıdanda cavab sayı YENİ sətirdə sıfır olduğu üçün yenidən
+   0-cı sualdan başlayır.
+3. Host siyahısı `participant_joined` hadisələrini `concat` edir —
+   ekranda eyni ad təkrarlanır.
+
+Liderlik lövhəsi **təsirlənmir**: `chat_scores_by_user` `user_id` üzrə
+qruplaşdırır, yəni təkrarlar onsuz da birləşir.
+
+**Düzəliş:** `add_participant` artıq TAP-VƏ-YA-YARATdır — (sessiya,
+istifadəçi) cütü üçün bir sətir; `joined_at` ilk qoşulmanı saxlayır,
+`display_name` cari ada yenilənir. `join_session` təkrar qoşulmada
+host-a hadisə GÖNDƏRMİR. Mövcud korlanmış sətirlər üçün ayrıca təmir
+skripti var (aşağı).
+
+**Niyə əvvəl tutulmadı — iki ayrı səbəb:**
+
+- **Diaqnostika ekrandan oxuyurdu.** `live_session_resilience.mjs`
+  iştirakçı adlarını `console.log` edirdi, heç nə yoxlamırdı; insan
+  siyahıya baxıb «iki nəfər, təmiz» demişdi. İndi skript təkrarı özü
+  tutur və tapsa sıfırdan fərqli kodla çıxır.
+- **Testlərdə `user_id` əhəmiyyətsiz sabit idi.** Fixture-lar Əli,
+  Vəli və Səbinəyə EYNİ `user_id=1` verirdi — üç ayrı adam bir hesabla.
+  Belə fixture ilə «eyni istifadəçi iki dəfə qoşulur» ssenarisi heç
+  vaxt yaranmırdı. Düzəlişdən sonra 8 test dərhal sındı; hamısı
+  fixture səhvi idi, davranış yox.
+
+**Təmir skripti (canlı dataya toxunur, ƏL İLƏ işlədilir):**
+
+```bash
+python3 deploy/repair_duplicate_participants.py live_sessions.db          # göstər
+python3 deploy/repair_duplicate_participants.py live_sessions.db --apply  # yaz
+```
+
+Ən erkən sətir qalır, qalanların cavabları ona köçür, eyni sual iki
+sətirdə cavablanıbsa İLK cavab saxlanılır, `user_id IS NULL` (köhnə
+anonim PIN) sətirlərə TOXUNULMUR. Saxlanmış hesabatı olan sessiyalar
+ayrıca xəbərdarlıqla göstərilir — həmin hesabat köhnə `participant_id`
+ilə yazılıb. **Avtomatik miqrasiya QƏSDƏN edilmədi:** birləşdirməni geri
+qaytarmaq yalnız backup-dan mümkündür, servis start-ında sükutla
+işləməməlidir. 9 test (`tests/test_repair_duplicate_participants.py`).
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 

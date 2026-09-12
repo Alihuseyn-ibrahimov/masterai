@@ -159,17 +159,25 @@ async def join_session(
     if session["status"] == "finished":
         raise SessionNotJoinable(session_id)
 
+    known = session_store.count_participants(session["id"])
     participant = session_store.add_participant(session["id"], display_name, user_id=user_id)
     count = session_store.count_participants(session["id"])
-    await connection_manager.broadcast_host(
-        session["id"],
-        {
-            "type": "participant_joined",
-            "participant_id": participant["id"],
-            "display_name": display_name,
-            "count": count,
-        },
-    )
+
+    # TƏKRAR QOŞULMADA HOST-A HEÇ NƏ GETMİR (2026-09-12): `add_participant`
+    # tap-və-ya-yaratdır, yəni say dəyişməyibsə bu adam siyahıda ONSUZ DA
+    # var. Host (`sessiyalar.html`) `participant_joined` hadisələrini
+    # sadəcə `concat` edir — ikinci hadisə eyni tələbəni ekranda iki
+    # dəfə göstərərdi. Real hadisə: tələbə səhifəni yeniləyir.
+    if count != known:
+        await connection_manager.broadcast_host(
+            session["id"],
+            {
+                "type": "participant_joined",
+                "participant_id": participant["id"],
+                "display_name": display_name,
+                "count": count,
+            },
+        )
     return session, participant
 
 
