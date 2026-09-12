@@ -321,3 +321,54 @@ Təmizlikdən sonra disk yenə 85%+ qalırsa, bu, baxım problemi deyil —
 Çatda fayl/səs mesajı funksiyası (planlaşdırılan alt-layihə) **bu qərar
 verilməmiş başlana bilməz** — istifadəçi faylları diskə yazılır və
 hazırda ~1 GB boş yer var.
+
+
+---
+
+## Statik sayt deploy-u və GERİ QAYTARMA
+
+```bash
+cd /opt/pr-agent/repo && git pull
+cp -a /opt/masterai-web /root/web-backup-$(date +%F-%H%M)
+cp -a /opt/pr-agent/repo/masterai/web/. /opt/masterai-web/
+chmod -R a+rX /opt/masterai-web     # `cp`/`scp` 700 qoyur, nginx 403 verir
+```
+
+Backend toxunulmur, `systemctl restart` LAZIM DEYİL — canlı sessiya və
+çat bağlantıları kəsilmir.
+
+### Geri qaytarma — ULDUZ İŞLƏTMƏ
+
+**REAL HADİSƏ (2026-09-12): bu əmr saytı söndürdü.**
+
+```bash
+# SƏHV - belə etmə:
+rm -rf /opt/masterai-web && mv /root/web-backup-* /opt/masterai-web
+```
+
+Backup BİRDƏN ÇOX olanda `*` hamısını tutur, `mv` isə sonuncu arqumenti
+HƏDƏF QOVLUQ sayır — o qovluq isə bir addım əvvəl silinmişdi. Nəticə:
+`mv: target ... No such file or directory` və **sayt tamamilə yoxa
+çıxır** (backend işləsə də).
+
+**DOĞRU yol — əvvəl bax, sonra ADI İLƏ göstər, `cp` işlət:**
+
+```bash
+ls -d /root/web-backup-*
+rm -rf /opt/masterai-web
+cp -a /root/web-backup-2026-09-12-0930 /opt/masterai-web
+chmod -R a+rX /opt/masterai-web
+curl -s -o /dev/null -w "%{http_code}\n" https://masterai.prdostu.com/index.html
+```
+
+`cp` işlədilir, `mv` yox: backup yerində qalır və təkrar lazım olsa
+əlçatandır.
+
+**Ən sürətli bərpa isə backup ümumiyyətlə lazım deyil** — repo onsuz da
+serverdədir:
+
+```bash
+mkdir -p /opt/masterai-web
+cp -a /opt/pr-agent/repo/masterai/web/. /opt/masterai-web/
+chmod -R a+rX /opt/masterai-web
+```
