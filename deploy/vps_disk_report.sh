@@ -25,8 +25,12 @@ du -xh --max-depth=2 / 2>/dev/null | sort -rh | head -15
 say "JURNAL"
 if command -v journalctl >/dev/null 2>&1; then
   journalctl --disk-usage
-  grep -h "^SystemMaxUse" /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null \
-    || echo "SystemMaxUse təyin edilməyib — jurnal sərbəst böyüyür"
+  # `grep` mövcud OLMAYAN fayla görə 2 qaytarır — uyğunluq tapsa da.
+  # Ona görə `||` işləmir, çıxış dəyişənə yığılır.
+  _jmax="$(cat /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null \
+    | grep "^SystemMaxUse")"
+  if [ -n "$_jmax" ]; then echo "$_jmax"; else
+    echo "SystemMaxUse təyin edilməyib — jurnal sərbəst böyüyür"; fi
 else
   echo "journalctl yoxdur"
 fi
@@ -36,6 +40,17 @@ for p in /root/.cache/selenium /root/.cache/pip /root/.cache/ms-playwright \
          /root/.npm /var/cache/apt/archives /tmp /var/tmp; do
   [ -e "$p" ] && du -sh "$p" 2>/dev/null
 done
+
+say "VAR/LIB və VAR/LOG AÇILIŞI (real ölçmədə yerin ƏSLİ burada çıxdı)"
+du -xh --max-depth=1 /var/lib /var/log 2>/dev/null | sort -rh | head -12
+
+say "SNAP (headless serverdə çox vaxt lazımsız paketlər olur)"
+if command -v snap >/dev/null 2>&1; then
+  snap list 2>/dev/null
+  du -sh /var/lib/snapd /snap 2>/dev/null
+else
+  echo "snap yoxdur"
+fi
 
 say "BACKUP FAYLLARI (əl ilə yaradılmış — nə vaxt silinəcəyi QƏRARDIR)"
 du -sh /root/masterai-backup 2>/dev/null

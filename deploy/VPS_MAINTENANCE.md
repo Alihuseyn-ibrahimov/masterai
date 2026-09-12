@@ -30,15 +30,21 @@ Hesabatda ən vacib sətir **`is-enabled`**-dir (aşağı, bölmə 3).
 ### Təbəqə A — tam təhlükəsiz (keşdir, özü yenidən yaranır)
 
 ```bash
-rm -rf /root/.cache/selenium        # link ingestion-dan sonra 845 MB-a çatmışdı
-rm -rf /root/.cache/pip
+rm -rf /root/.cache/selenium /root/.cache/pip
 apt clean                           # /var/cache/apt/archives
-journalctl --vacuum-size=100M
+journalctl --vacuum-size=50M
 ```
 
-`selenium` keşi **yenidən böyüyəcək** — Selenium Manager hər işə düşəndə
-brauzer/driver yükləyir və köhnəni özü təmizləmir. Növbəti link
-materialı emalı driver-i yenidən endirir (bir dəfəlik gecikmə, xəta yox).
+**DİQQƏT — 2026-09-12 ölçməsi bu təbəqənin dəyərini AZ göstərdi.**
+Əvvəl burada selenium keşinin 845 MB-a çatdığı yazılmışdı və ilk
+təxminim məhz o idi; real ölçmə isə **22 MB** verdi, jurnal onsuz da
+`SystemMaxUse=150M` ilə məhdudlaşdırılıb (127.9 MB). Yəni bütün A
+təbəqəsi cəmi ~50-150 MB qaytarır — 90% dolu diskdə bu, çıxış yolu
+DEYİL. Əsl yer B və C təbəqələrində, həqiqi böyük qovluqlarda
+(`/var/lib`, `/usr/src`, köhnə kernellər) və son nəticədə diskin
+böyüdülməsindədir.
+
+Dərs: "keçən dəfə bu şişmişdi" HESABAT DEYİL. Həmişə bölmə 0-dan başla.
 
 Jurnalın limiti yoxdursa, birdəfəlik təyin et (yenidən dolmasın):
 
@@ -111,11 +117,28 @@ qalxmayan bir servis olsa vaxt lazım olacaq.
 
 **(a) Ən vacib yoxlama: hər servis `enabled`-dir?**
 
+Siyahını **maşından** götür, sənəddən YOX. 2026-09-12-də bu sənəddə
+`masternr1-web`, `masternr1-celery`, `n8n` yazılmışdı — maşında belə
+servis YOXDUR (adlar layihə sənədlərindən götürülmüşdü). Əvəzində
+`gunicorn.service`, `cloudflared.service` var. Adını bilmədiyin servisi
+yoxlaya bilmirsən, yəni restartdan sonra qalxıb-qalxmadığını da bilmirsən.
+
 ```bash
-for s in masterai dildostu-live masternr1-web masternr1-celery pr-agent n8n nginx; do
-  printf '%-20s %s\n' "$s" "$(systemctl is-enabled $s 2>&1)"
-done
+# 1) İŞLƏYƏN bütün servislər (sistem servisləri xaric):
+systemctl list-units --type=service --state=running --no-legend --no-pager \
+  | awk '{print $1}' | grep -vE "systemd-|dbus|cron|ssh|getty|polkit|rsyslog|\
+unattended|multipathd|udisks|networkd|resolved|logind|journald|accounts|fwupd|\
+ModemManager|snap\.|user@"
+
+# 2) hər birinin enabled vəziyyəti:
+for s in $(systemctl list-units --type=service --state=running --no-legend --no-pager \
+           | awk '{print $1}'); do
+  printf '%-35s %s\n' "$s" "$(systemctl is-enabled $s 2>&1)"
+done | grep -v " enabled$"     # yalnız PROBLEMLİ olanlar görünür
 ```
+
+İkinci əmr **boş çıxsa, hər şey qaydasındadır**. Nə görünürsə —
+`disabled`, `static`, `linked` — restartdan əvvəl araşdırılmalıdır.
 
 `disabled` olan servis **restartdan sonra özü qalxmır və heç bir xəta
 vermir** — sükutla ölür. Bu, restartın ən böyük riskidir. `disabled`
@@ -172,13 +195,24 @@ Sonra ~60 saniyə gözlə və yenidən SSH ilə qoş.
 
 Ekrana baxıb "qalxdı" demək kifayət deyil. Hər servis ayrıca:
 
+Restartdan ƏVVƏL işləyən servislərin siyahısını fayla yaz, sonra
+müqayisə et — yaddaşa güvənmə:
+
 ```bash
-for s in masterai dildostu-live masternr1-web masternr1-celery pr-agent n8n nginx; do
-  printf '%-20s %s\n' "$s" "$(systemctl is-active $s 2>&1)"
-done
+# ƏVVƏL (restartdan qabaq):
+systemctl list-units --type=service --state=running --no-legend --no-pager \
+  | awk '{print $1}' | sort > /root/servis-evvel.txt
+
+# SONRA (restartdan sonra):
+systemctl list-units --type=service --state=running --no-legend --no-pager \
+  | awk '{print $1}' | sort > /root/servis-sonra.txt
+diff /root/servis-evvel.txt /root/servis-sonra.txt && echo "FƏRQ YOXDUR"
 swapon --show
 df -h /
 ```
+
+`<` ilə başlayan sətir **qalxmayan servisdir** — ən çox ehtiyac
+duyulan yoxlama budur.
 
 Sonra hər sayt **kənardan** (HTTP status):
 
