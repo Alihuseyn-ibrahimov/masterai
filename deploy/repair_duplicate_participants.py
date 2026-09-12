@@ -21,11 +21,20 @@ TOXUNULMUR — kimin olduğu bilinmir.
 
     python3 deploy/repair_duplicate_participants.py live_sessions.db
     python3 deploy/repair_duplicate_participants.py live_sessions.db --apply
+
+Bitmiş sessiyanın SAXLANMIŞ hesabatı birləşmədən sonra köhnəlir
+(sıralama silinmiş `participant_id`-lərə istinad edir). Onu yenidən
+hesablamaq üçün sual bankı bazası da lazımdır — bu addım venv tələb edir,
+çünki `question_set_store` `pipeline.models`-u idxal edir:
+
+    .venv/bin/python deploy/repair_duplicate_participants.py \
+        live_sessions.db --apply --recompute-reports question_sets.db
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
 
@@ -125,12 +134,43 @@ def repair(conn: sqlite3.Connection, *, apply: bool) -> dict:
     }
 
 
+def recompute_reports(session_store, question_set_store, session_ids: list[int]) -> list[int]:
+    """Saxlanmış hesabatı MÖVCUD sətirlərdən yenidən qurur.
+
+    Yalnız hesabatı OLAN sessiyalar toxunulur — bitməməyə hesabat
+    yazmaq onu vaxtından əvvəl «bitmiş» kimi göstərərdi.
+
+    Ayrı funksiya, çünki `repair`-dən fərqli olaraq sual bankı bazasını
+    tələb edir (`compute_report` sualların mətnini oxuyur).
+    """
+    from server.live_session_runner import compute_report
+
+    changed: list[int] = []
+    for session_id in session_ids:
+        session = session_store.get(session_id)
+        if session is None or not session.get("report_json"):
+            continue
+        report = compute_report(
+            session_id,
+            session_store=session_store,
+            question_set_store=question_set_store,
+        )
+        session_store.save_report(session_id, json.dumps(report, ensure_ascii=False))
+        changed.append(session_id)
+    return changed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("db", help="live_sessions.db yolu")
     parser.add_argument(
         "--apply", action="store_true",
         help="dəyişiklikləri YAZ (defolt: yalnız göstər)",
+    )
+    parser.add_argument(
+        "--recompute-reports", metavar="QUESTION_SETS_DB",
+        help="birləşmədən sonra köhnəlmiş hesabatları yenidən hesabla "
+             "(sual bankı bazasının yolu; venv tələb edir)",
     )
     args = parser.parse_args(argv)
 
@@ -165,6 +205,20 @@ def main(argv: list[str] | None = None) -> int:
             "DİQQƏT — bu sessiyaların SAXLANMIŞ hesabatı köhnəlir "
             f"(iştirakçı ID-ləri dəyişdi): {summary['stale_reports']}"
         )
+        if args.apply and args.recompute_reports:
+            from server.live_session_store import LiveSessionStore
+            from server.question_set_store import QuestionSetStore
+
+            changed = recompute_reports(
+                LiveSessionStore(path=args.db),
+                QuestionSetStore(path=args.recompute_reports),
+                summary["stale_reports"],
+            )
+            print(f"Hesabat yenidən hesablandı: {changed}")
+        elif args.recompute_reports:
+            print("(hesabat yalnız --apply ilə birlikdə yenidən hesablanır)")
+        else:
+            print("Yenidən hesablamaq üçün: --recompute-reports question_sets.db")
     if not args.apply:
         print("Yazmaq üçün: --apply (ƏVVƏLCƏ BACKUP AL)")
     return 0

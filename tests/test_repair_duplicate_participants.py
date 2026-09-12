@@ -12,9 +12,17 @@ düzəldildi (tap-və-ya-yarat). Bu skript YALNIZ həmin düzəlişdən
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from deploy.repair_duplicate_participants import find_duplicates, repair
+from deploy.repair_duplicate_participants import (
+    find_duplicates,
+    recompute_reports,
+    repair,
+)
+from pipeline.models import MCQQuestion
+from server.question_set_store import QuestionSetStore
 from server.live_session_store import LiveSessionStore
 
 
@@ -155,3 +163,55 @@ class TestRepair:
         summary = repair(store._conn, apply=True)
 
         assert session["id"] in summary["stale_reports"]
+
+
+class TestRecomputeReports:
+    """Birləşmədən SONRA saxlanmış hesabat köhnəlir — sıralama
+    `participant_id` ilə yazılıb və silinmiş ID-lərə istinad edir.
+    Müəllim hesabat səhifəsində hələ də üç «Amil» görərdi."""
+
+    @pytest.fixture
+    def question_sets(self, tmp_path):
+        store = QuestionSetStore(path=str(tmp_path / "question_sets.db"))
+        qs = store.create(
+            subject="mentiq", title="Bank", material_kind="link",
+            material_location="https://x.az", created_by=1,
+        )
+        for i in range(2):
+            store.add_question(qs["id"], MCQQuestion(
+                question=f"Sual {i}?", options=["A", "B", "C", "D", "E"],
+                correct_index=0, explanation="izah mətni burada",
+            ))
+        store.mark_ready(qs["id"])
+        store.question_set_id = qs["id"]
+        return store
+
+    def test_rankings_no_longer_reference_deleted_rows(self, store, question_sets):
+        session = store.create_session(question_set_id=question_sets.question_set_id)
+        keep = _duplicate_row(store, session["id"], "Amil", 5)
+        dup = _duplicate_row(store, session["id"], "Amil", 5)
+        store.record_answer(session["id"], dup, 0, 0, True)
+        store.save_report(
+            session["id"],
+            json.dumps({"rankings": [
+                {"rank": 1, "participant_id": dup, "display_name": "Amil", "score": 1},
+                {"rank": 2, "participant_id": keep, "display_name": "Amil", "score": 0},
+            ]}, ensure_ascii=False),
+        )
+
+        repair(store._conn, apply=True)
+        changed = recompute_reports(store, question_sets, [session["id"]])
+
+        assert changed == [session["id"]]
+        rankings = json.loads(store.get(session["id"])["report_json"])["rankings"]
+        assert [r["participant_id"] for r in rankings] == [keep]
+        assert rankings[0]["score"] == 1, "cavab köçdüyü üçün xal qorunmalıdır"
+
+    def test_a_session_without_a_report_is_skipped(self, store, question_sets):
+        """Bitməmiş sessiyaya hesabat YAZMAQ olmaz — o, sessiya
+        bitəndə normal axında yaranır."""
+        session = store.create_session(question_set_id=question_sets.question_set_id)
+        store.add_participant(session["id"], "Amil", user_id=5)
+
+        assert recompute_reports(store, question_sets, [session["id"]]) == []
+        assert store.get(session["id"])["report_json"] is None

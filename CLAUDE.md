@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1181 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1183 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -449,11 +449,13 @@ python3 deploy/repair_duplicate_participants.py live_sessions.db --apply  # yaz
 
 Ən erkən sətir qalır, qalanların cavabları ona köçür, eyni sual iki
 sətirdə cavablanıbsa İLK cavab saxlanılır, `user_id IS NULL` (köhnə
-anonim PIN) sətirlərə TOXUNULMUR. Saxlanmış hesabatı olan sessiyalar
-ayrıca xəbərdarlıqla göstərilir — həmin hesabat köhnə `participant_id`
-ilə yazılıb. **Avtomatik miqrasiya QƏSDƏN edilmədi:** birləşdirməni geri
+anonim PIN) sətirlərə TOXUNULMUR. Bitmiş sessiyanın SAXLANMIŞ hesabatı
+birləşmədən sonra köhnəlir (sıralama silinmiş `participant_id`-lərə
+istinad edir) — `--recompute-reports question_sets.db` onu yenidən
+hesablayır; bu addım venv tələb edir, çünki `question_set_store`
+`pipeline.models`-u idxal edir. **Avtomatik miqrasiya QƏSDƏN edilmədi:** birləşdirməni geri
 qaytarmaq yalnız backup-dan mümkündür, servis start-ında sükutla
-işləməməlidir. 9 test (`tests/test_repair_duplicate_participants.py`).
+işləməməlidir. 11 test (`tests/test_repair_duplicate_participants.py`).
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 
