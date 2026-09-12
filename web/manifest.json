@@ -6,10 +6,15 @@
   "start_url": "./giris.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F7F8FA",
-  "theme_color": "#2F6FED",
+  "background_color": "#F3F4EF",
+  "theme_color": "#141810",
   "orientation": "portrait-primary",
   "icons": [
-    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }

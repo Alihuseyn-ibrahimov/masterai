@@ -1,8 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="MasterAI — dərsdən AI test sualları">
-  <rect width="1200" height="630" fill="#F7F8FA"/>
-  <rect x="0" y="0" width="1200" height="12" fill="#2F6FED"/>
-  <text x="80" y="250" font-family="Nunito, Segoe UI, sans-serif" font-size="86" font-weight="800" fill="#12151C">Master<tspan fill="#2F6FED">AI</tspan></text>
-  <text x="80" y="340" font-family="Inter, Segoe UI, sans-serif" font-size="40" fill="#12151C">Dərsdən AI test sualları</text>
-  <text x="80" y="404" font-family="Inter, Segoe UI, sans-serif" font-size="30" fill="#5B6472">Sinif PIN ilə qoşulur, birgə həll edir</text>
-  <text x="80" y="540" font-family="Inter, Segoe UI, sans-serif" font-size="26" fill="#5B6472">masterai.prdostu.com</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="MasterAI - dərsdən AI test sualları">
+  <rect width="1200" height="630" fill="#F3F4EF"/>
+  <rect x="0" y="0" width="1200" height="14" fill="#4A6B4D"/>
+  <rect x="0" y="500" width="1200" height="130" fill="#141810"/>
+  <text x="80" y="250" font-family="Archivo, Segoe UI, sans-serif" font-size="86" font-weight="800" fill="#11150E">Master<tspan fill="#4A6B4D">AI</tspan></text>
+  <text x="80" y="340" font-family="Inter, Segoe UI, sans-serif" font-size="40" fill="#11150E">Dərsdən AI test sualları</text>
+  <text x="80" y="404" font-family="Inter, Segoe UI, sans-serif" font-size="30" fill="#4F5648">Müəllim sessiya başladır, sinif birgə həll edir</text>
+  <text x="80" y="578" font-family="Inter, Segoe UI, sans-serif" font-size="28" fill="#D9A21B">masterai.prdostu.com</text>
 </svg>
