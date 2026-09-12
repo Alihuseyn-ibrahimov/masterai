@@ -13,7 +13,7 @@
  */
 
 import { answerFeedback } from './answer-feedback.js';
-import { formatCountdown } from './live.js';
+import { formatCountdown } from './live-socket.js';
 
 const CARD_IDS = {
   join: 'joinCard',

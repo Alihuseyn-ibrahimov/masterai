@@ -84,7 +84,7 @@
 
 <script type="module">
   import { getToken } from './assets/js/api.js';
-  import { LivePlaySocket } from './assets/js/live.js';
+  import { LivePlaySocket } from './assets/js/live-socket.js';
   import { PlayScreen } from './assets/js/live-play-screen.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
 
@@ -108,6 +108,25 @@
       screen.showError('Sessiya ünvanı düzgün deyil. Çatdakı «Qoşul» düyməsindən keçin.');
       document.getElementById('waitCard').hidden = true;
     } else {
+      /* QOŞULMA GÖZƏTÇİSİ. REAL HADİSƏ (2026-09-12): handshake 403
+         alırdı, 403 isə «fatal» sayılmadığı üçün `ReconnectingSocket`
+         sonsuz cəhd edir və status `reconnecting` qalır - `closed`
+         HEÇ VAXT gəlmir. Nəticədə tələbə spinnerə baxıb gözləyirdi,
+         ekranda isə heç bir izah yox idi.
+
+         İndi müəyyən müddət ərzində `joined` gəlməsə, aydın və
+         ƏMƏLİ mesaj göstərilir. */
+      const JOIN_TIMEOUT_MS = 12000;
+      let joined = false;
+      const joinGuard = setTimeout(() => {
+        if (joined) return;
+        screen.showError(
+          'Sessiyaya qoşulmaq alınmadı. Səhifəni Ctrl+Shift+R ilə yeniləyin '
+          + '(telefonda: brauzeri bağlayıb yenidən açın). Problem davam edərsə '
+          + 'müəllimə deyin - sessiya bağlanmış ola bilər.',
+        );
+      }, JOIN_TIMEOUT_MS);
+
       socket = new LivePlaySocket({
         sessionId,
         token: getToken() || '',
@@ -116,10 +135,18 @@
             // Səbəb koduna görə mətn fərqlənmir, çünki server rədd
             // səbəbini AYRICA `error` mesajı ilə göndərir (bax
             // `_reject_websocket`) və o, `screen.handle`-a düşür.
+            clearTimeout(joinGuard);
             screen.showError('Bağlantı bağlandı. Çata qayıdıb yenidən qoşulun.');
           }
         },
-        onMessage: (data) => screen.handle(data),
+        onMessage: (data) => {
+          if (data && data.type === 'joined') {
+            joined = true;
+            clearTimeout(joinGuard);
+            screen.clearError();
+          }
+          screen.handle(data);
+        },
       });
       screen.onAnswer = (index, chosen) => socket.answer(index, chosen);
       socket.connect();

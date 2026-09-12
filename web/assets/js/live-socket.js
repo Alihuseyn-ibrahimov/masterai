@@ -1,5 +1,22 @@
 /* Canlı sessiya - host və oyunçu tərəfi.
  *
+ * FAYL ADI QƏSDƏN DƏYİŞDİRİLİB (`live.js` -> `live-socket.js`,
+ * 2026-09-12). REAL HADİSƏ: soketlərin imzası PIN-dən sessiya ID-sinə
+ * keçdi, amma tələbələrin brauzerində `live.js`-in KÖHNƏ nüsxəsi
+ * qalmışdı (nginx keş düzəlişindən ƏVVƏL `expires 7d` ilə yüklənmişdi
+ * və brauzer onu 7 gün serverdən soruşmadan işlədir). Nəticədə yeni
+ * `sessiya.html` `{ sessionId }` ötürürdü, köhnə kod isə `pin`
+ * oxuyurdu -> `undefined`:
+ *
+ *     "WebSocket /ws/live/undefined/play" 403   (hər 30 saniyədə)
+ *
+ * Marşrut silindiyi üçün 403 gəlirdi, `ReconnectingSocket` isə sonsuz
+ * cəhd edirdi: müəllim iştirakçını görmürdü, tələbə isə spinnerdə
+ * ilişirdi. Server tərəf TAMAMİLƏ DÜZGÜN işləyirdi.
+ *
+ * Başlıq düzəlişi köhnə keşi TƏMİZLƏMİR - yalnız YENİ ÜNVAN edir.
+ * Ona görə imzası pozucu şəkildə dəyişən modulun adı dəyişdirilir.
+ *
  * Sessiya modeli fərdi templidir (2026-09-08 dəyişikliyi): hər tələbə
  * öz "Növbəti sual" düyməsi ilə irəliləyir, müəllim isə ÜMUMİ vaxt
  * büdcəsi təyin edir. Ona görə oyunçu iki fərqli "bitdi" halı görür:

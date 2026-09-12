@@ -8,7 +8,7 @@ import {
   formatCountdown,
   participantRows,
   progressPercent,
-} from '../assets/js/live.js';
+} from '../assets/js/live-socket.js';
 
 describe('formatCountdown', () => {
   test('dəqiqə:saniyə formatı', () => {
