@@ -54,6 +54,49 @@ printf '[Journal]\nSystemMaxUse=150M\n' > /etc/systemd/journald.conf.d/size.conf
 systemctl restart systemd-journald
 ```
 
+### Təbəqə A+ — SNAP: bu maşındakı ƏN BÖYÜK lazımsız yük
+
+2026-09-12 ölçməsi göstərdi: **`/var/lib/snapd` = 1.6 GB** (8.7 GB-lıq
+diskdə). İçindəkilər:
+
+| Snap | Nədir | Serverdə lazımdır? |
+|---|---|---|
+| `cups` | printer servisi | YOX |
+| `gnome-46-2404` | GNOME SDK | YOX |
+| `mesa-2404` | qrafik drayverləri | YOX |
+| `gtk-common-themes` | GTK temaları | YOX |
+| `core22`, `snapd`, `bare` | snapd-in özü | SAXLA |
+
+Zəncir birdir: `cups` snap-ı GNOME/GTK/Mesa tələb edir. Yəni headless
+serverdə 1.6 GB çap sistemi və onun qrafik asılılıqları oturur.
+
+```bash
+snap remove --purge cups
+snap remove --purge gnome-46-2404 gtk-common-themes mesa-2404
+snap list && df -h /
+```
+
+**Sıra vacibdir:** `cups` əvvəl silinməlidir, yoxsa snapd asılılığa görə
+imtina edir. `core22`/`snapd`/`bare`-ə toxunma.
+
+Risk sıfıra yaxındır: printer yoxdur, GUI yoxdur, Chrome `.deb`
+paketindəndir (`/opt/google`) və snap-dan asılı deyil.
+
+**`du` TƏLƏSİ:** `du -sh /snap` 4.0 GB göstərir, amma bu squashfs-in
+AÇILMIŞ ölçüsüdür — real disk istifadəsi `/var/lib/snapd`-dəki `.snap`
+fayllarıdır. Geri qaytarılacaq rəqəmi `/snap`-dan hesablamaq yanlış
+gözlənti yaradır.
+
+### Təbəqə A++ — apt siyahıları və jurnal
+
+```bash
+journalctl --vacuum-size=50M                 # 136M → 50M
+rm -rf /var/lib/apt/lists/* && apt update    # 197M → ~40M
+```
+
+`apt clean` bu siyahılara TOXUNMUR — o, yalnız `/var/cache/apt/archives`-i
+təmizləyir (orada cəmi 3.2 MB idi).
+
 ### Təbəqə B — QƏRAR tələb edir (data, keş deyil)
 
 ```bash
@@ -147,6 +190,31 @@ tapılsa, restartdan ƏVVƏL düzəlt:
 ```bash
 systemctl enable <servis>
 ```
+
+**(a2) HƏR servisin systemd unit-i varmı? — 2026-09-12-də AÇIQ RİSK**
+
+Ölçmə göstərdi: bu maşında **`masternr1` və `n8n` üçün systemd unit
+YOXDUR** — yalnız `masterai.service` və `gunicorn.service` («PR Dostu»,
+`/opt/saas_core` = mediapulse) var. Unit-i olmayan proses restartdan
+sonra ÖZÜ QALXMIR.
+
+masternr1 aktiv pilotdur (real müştəri mesajları), ona görə **restartdan
+əvvəl bu aydınlaşdırılmalıdır**:
+
+```bash
+ss -ltnp | grep -vE "127.0.0.53|:22"        # kim hansı portu dinləyir
+ps aux | grep -iE "n8n|masternr1|node" | grep -v grep
+crontab -l 2>/dev/null | grep -v "^#"       # @reboot sətri varmı
+ls /etc/systemd/system/*.service
+grep -rh "proxy_pass\|server_name" /etc/nginx/sites-enabled/ | sort -u
+```
+
+Üç mümkün nəticə:
+1. **Başqa maşındadır** (repo sənədində `tv-monitor/` üçün «ayrı Hetzner
+   VPS, n8n» yazılıb) → bu restart ona təsir etmir, problem yoxdur.
+2. **Əl ilə başladılıb** (tmux/screen/nohup) → restartdan sonra ÖLƏCƏK.
+   Əvvəlcə systemd unit-i yazılmalıdır.
+3. **`@reboot` cron ilə qalxır** → işləyir, amma yoxlanmalıdır.
 
 **(b) Swap fstab-dadır?**
 
