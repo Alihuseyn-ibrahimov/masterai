@@ -262,8 +262,13 @@
   gap: var(--space-4);
   height: var(--app-bar-height);
   padding: 0 var(--space-4);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  /* QARA LÖVHƏ. Brendin üç rəngindən biri qaradır; üst zolaq onun
+   * daşıyıcısıdır. Funksional faydası da var: tətbiqin karkası
+   * məzmundan aydın ayrılır, ağ sual kartları «lövhənin üstündə»
+   * oturur. */
+  background: var(--color-ink-surface);
+  color: var(--color-on-ink);
+  border-bottom: 1px solid var(--color-ink-surface);
 }
 
 .app-nav { display: flex; gap: var(--space-1); }
@@ -274,18 +279,24 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  color: var(--color-text-muted);
+  color: var(--color-on-ink-muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.app-nav__link:hover { background: var(--color-surface-alt); text-decoration: none; }
+.app-nav__link:hover {
+  background: var(--color-ink-hover);
+  color: var(--color-on-ink);
+  text-decoration: none;
+}
 
 /* Cari səhifə - rəngdən ƏLAVƏ fon da verilir: yalnız rənglə fərq
- * rəng korluğu olan istifadəçilər üçün kifayət deyil. */
+ * rəng korluğu olan istifadəçilər üçün kifayət deyil.
+ * Qara zolaqda SARI işlədilir: təbaşir kimi oxunur və brendin üçüncü
+ * rəngini işə salır. */
 .app-nav__link[aria-current="page"] {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--color-ink-active);
+  color: var(--color-accent);
   font-weight: var(--weight-semibold);
 }
 
@@ -444,10 +455,15 @@
 
 /* Seçilmiş, hələ nəticə gəlməmiş vəziyyət - server cavabı gözlənilir.
  * Bu addım əvvəl GÖRÜNMÜRDÜ: tələbə toxunurdu, heç nə dəyişmirdi. */
+/* «Seçildi, server cavabı gözlənilir» - QƏSDƏN RƏNGSİZDİR.
+ * Əvvəl brend rəngi ilə doldurulurdu. Brend mavi olanda bu işləyirdi,
+ * amma brend YAŞIL olandan sonra «seçilmiş» ilə «düzgün» eyni ailədən
+ * iki solğun yaşıl olardı - tələbə bir anlıq cavabın düzgün sayıldığını
+ * zənn edərdi. Gözləmə vəziyyətinin rəngi YOXDUR: qalın qrafit kənar. */
 .option--chosen {
-  border-color: var(--color-primary);
+  border-color: var(--color-text);
   border-width: 2px;
-  background: var(--color-primary-soft);
+  background: var(--color-surface-alt);
   font-weight: var(--weight-semibold);
 }
 
@@ -550,8 +566,12 @@
   background: var(--color-surface-alt);
   transition: background var(--motion-base) var(--easing);
 }
-.quiz-steps__item--done    { background: var(--quiz-accent, var(--color-primary)); }
-.quiz-steps__item--current { background: var(--quiz-accent, var(--color-primary)); opacity: .45; }
+/* Tərəqqi ADAÇAYI (struktur), xal dairəsi SARI (nailiyyət). Əvvəl hər
+ * ikisi fənn rəngini götürürdü - brend yaşıl-sarı-qara olandan sonra
+ * ekranda təsadüfi bənövşəyi halqa görünürdü. Fənn rəngi öz yerində
+ * (kart kənarı, fənn çipi) qalır. */
+.quiz-steps__item--done    { background: var(--color-primary); }
+.quiz-steps__item--current { background: var(--color-primary); opacity: .45; }
 
 /* ---- Nəticə vəziyyəti (verdict) ----
  * Cavabdan sonra ekranın ƏSAS mesajı. Əvvəl kiçik bir `badge` idi -
@@ -599,8 +619,10 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+  /* SARI aksent - «afərin» siqnalı. Əvvəl xəbərdarlıq rəngi idi, yəni
+   * müvəffəqiyyət nişanı «diqqət» rəngi ilə çəkilirdi. */
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
   font-family: var(--font-heading);
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
@@ -617,7 +639,7 @@
   height: var(--score-ring-size);
   border-radius: var(--radius-full);
   background:
-    conic-gradient(var(--quiz-accent, var(--color-primary)) calc(var(--pct) * 1%),
+    conic-gradient(var(--color-accent) calc(var(--pct) * 1%),
                    var(--color-surface-alt) 0);
 }
 .score-ring__inner {
@@ -675,8 +697,14 @@
   font-variant-numeric: tabular-nums;
 }
 .rank--podium .rank__place {
-  background: var(--quiz-accent, var(--color-primary));
+  background: var(--color-primary);
   color: var(--color-on-primary);
+}
+/* Birinci yer SARIDIR - sıralamada tək bir qalib var və o, bir
+ * baxışda seçilməlidir. İkinci/üçüncü yaşıl qalır. */
+.rank--first .rank__place {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 .rank__name {
   flex: 1;

@@ -185,8 +185,10 @@ export class PlayScreen {
     list.className = 'stack stack--tight';
     rows.forEach((row, index) => {
       const line = document.createElement('div');
-      /* İlk üç yer ayrıca işarələnir - sıralamanın mənası budur. */
+      /* İlk üç yer ayrıca işarələnir - sıralamanın mənası budur.
+         Birinci yer SARI (brend aksenti), 2-3 yaşıl. */
       line.className = index < 3 ? 'rank rank--podium' : 'rank';
+      if (index === 0) line.classList.add('rank--first');
 
       const place = document.createElement('span');
       place.className = 'rank__place';

@@ -328,6 +328,15 @@ fonda ağ hərflə görünməz olardı.
 **Mövcud testlər üç səhvimi tutdu:** emoji ikon kimi (`✓`/`✗` → sprite
 `i-x` əlavə edildi), uzun tire, təyin olunmamış token.
 
+**İkinci iterasiya (eyni gün): yaşıl + sarı + qara.** Mavi tamamilə
+getdi (favicon və 17 `theme-color` metası daxil). Üst zolaq QARADIR,
+cari səhifə sarı ilə işarələnir. İki semantik toqquşma həll edildi:
+«düzgün» brend yaşılının doymuş variantıdır (ayrı yaşıl deyil),
+xəbərdarlıq sarıdan NARINCIYA keçdi (sarı indi brend aksentidir), və
+«seçildi, gözlənilir» vəziyyəti RƏNGSİZ edildi - yoxsa «seçilmiş» ilə
+«düzgün» iki solğun yaşıl olardı. 22 rəng cütünün WCAG kontrastı
+hesablanıb, hamısı AA keçir.
+
 Ətraflı: `docs/superpowers/specs/2026-09-12-masterai-quiz-ux-redesign.md`.
 **Deploy EDİLMƏYİB** — istifadəçinin təqdimatı səbəbindən sistem
 donduruldu.

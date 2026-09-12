@@ -104,33 +104,62 @@
 
 :root {
   /* ---- Brend ---- */
-  --color-primary:            #2F6FED;
-  --color-primary-hover:      #2358C7;
-  --color-primary-soft:       #E8F0FE;
+  --color-primary:            #4A6B4D;
+  --color-primary-hover:      #395539;
+  --color-primary-soft:       #E3EAE0;
   --color-on-primary:         #FFFFFF;
+
+  /* ---- QARA SƏTH: «sinif lövhəsi» ----
+   * Üst zolaq və açılış bölməsi qaradır. Bu, brendin üçüncü rəngidir
+   * (yaşıl + sarı + qara) və eyni zamanda funksional seçimdir: tətbiqin
+   * karkası məzmundan aydın ayrılır, sual kartları ağ kağız kimi
+   * «lövhənin üstündə» oturur. */
+  --color-ink-surface:        #141810;
+  --color-on-ink:             #F2F3EC;
+  --color-on-ink-muted:       #A8AE9B;
+  /* Qara səthin üstündəki örtüklər. Ayrıca hex DEYİL, şəffaf ağdır:
+   * səth rəngi dəyişsə də örtük onunla birlikdə dəyişir. */
+  --color-ink-hover:          rgba(255, 255, 255, .08);
+  --color-ink-active:         rgba(255, 255, 255, .14);
+
+  /* ---- SARI AKSENT: enerji ----
+   * Ardıcıl düzgün cavab, tərəqqi, birinci yer. XƏBƏRDARLIQ DEYİL -
+   * xəbərdarlıq narıncıdır (aşağı). İki sarı tonun bir-birinə
+   * qarışmaması üçün bu ayrılıq MƏCBURİDİR. */
+  --color-accent:             #D9A21B;
+  --color-accent-soft:        #FBEECB;
+  --color-accent-ink:         #3A2A00;
+  --color-accent-text:        #6B4E00;
 
   /* ---- Səth və mətn ----
    * Quizlet/Brilliant tərzi: ağ kartlar açıq boz fonda, ayırıcı KÖLGƏ
    * yox, incə KƏNAR XƏTTİdir. Kölgə yalnız üzən elementlərdə. */
-  --color-bg:                 #F3F5FA;
+  --color-bg:                 #F3F4EF;
   --color-surface:            #FFFFFF;
-  --color-surface-alt:        #E9EDF5;
-  --color-border:             #DCE2ED;
-  --color-border-strong:      #BAC3D4;
-  --color-text:               #0E1421;
-  --color-text-muted:         #515C74;
-  --color-text-faint:         #8892A6;
+  --color-surface-alt:        #E8EAE1;
+  --color-border:             #DBDED3;
+  --color-border-strong:      #B6BBAA;
+  --color-text:               #11150E;
+  --color-text-muted:         #4F5648;
+  --color-text-faint:         #838A78;
 
   /* ---- Semantik ----
    * Hər biri cütlükdür: açıq fon + tünd mətn (mediapulse nişan naxışı). */
-  --color-success:            #1E7A4B;
-  --color-success-soft:       #DCF5E7;
-  --color-warning:            #8A5A00;
-  --color-warning-soft:       #FDF0D2;
+  /* «Düzgün» brend yaşılının DOYMUŞ variantıdır - ayrı bir yaşıl deyil.
+   * Bir ailədir, ona görə ekranda yad görünmür; doymuşluq fərqi isə
+   * brend düyməsi ilə cavab nəticəsini ayırır. */
+  --color-success:            #1B6B41;
+  --color-success-soft:       #D8F0E0;
+  /* XƏBƏRDARLIQ SARI DEYİL, NARINCIDIR. Sarı artıq brend aksentidir
+   * (ardıcıllıq, tərəqqi); ikisi eyni ton olsa istifadəçi «diqqət»
+   * siqnalı ilə «afərin» siqnalını ayıra bilməz. */
+  --color-warning:            #8A4A12;
+  --color-warning-soft:       #F8E3CE;
   --color-danger:             #B3261E;
   --color-danger-soft:        #FCE4E2;
-  --color-info:               #1F5FA8;
-  --color-info-soft:          #E3EFFB;
+  /* Info MAVİ DEYİL: paletdə mavi qalmır. Qrafit neytral status. */
+  --color-info:               #3A4038;
+  --color-info-soft:          #E7E9E1;
 
   /* Qanun mətnində işarələnən hökm bəndi. Xəbərdarlıq rəngindən
    * AYRIDIR: burada heç bir problem yoxdur, sadəcə mənbə göstərilir. */
@@ -157,6 +186,11 @@
    * Rəng YALNIZ hərf nişanındadır, bütün düyməni doldurmur: variantın
    * MƏTNİ oxunmalıdır, rəng isə mövqe göstəricisidir.
    *
+   * 2026-09-12 ikinci yenilənmə: brend yaşıl-sarı-qara olandan sonra
+   * əvvəlki parlaq tonlar (indiqo/firuzə/fuksiya) ekranda yad dəst kimi
+   * oxunurdu. İndi hamısı DƏRİN və torpaq tonlarıdır - beşi də
+   * bir-birindən seçilir, amma adaçayı və qara ilə bir dəstdir.
+   *
    * QIRMIZI VƏ YAŞIL VARİANT RƏNGİ KİMİ İŞLƏDİLMİR: onlar
    * «səhv»/«düzgün» siqnallarıdır. İlk versiyada D qırmızı idi və
    * brauzer render-ində göründü ki, cavab verilməzdən ƏVVƏL D variantı
@@ -164,11 +198,11 @@
    *
    * Hər biri ağ mətnlə WCAG AA (4.5:1) keçir - hərf nişanının üstündə
    * ağ hərf yazılır. Tünd rejimdə açıq variantlar tünd mətnlə işlənir. */
-  --opt-a: #4338CA;
-  --opt-b: #0E7490;
-  --opt-c: #A4530A;
-  --opt-d: #A21CAF;
-  --opt-e: #6D28D9;
+  --opt-a: #3A4E7A;
+  --opt-b: #1C6152;
+  --opt-c: #8A5A12;
+  --opt-d: #7A3A5E;
+  --opt-e: #4A4F45;
   --opt-ink: #FFFFFF;
 
   /* ---- Boşluq: 4-lük şkala ---- */
@@ -266,28 +300,39 @@
  * saxlanılır (istifadəçi seçimi sistem seçimini üstələyir). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-primary:       #7EA6F8;
-    --color-primary-hover: #9CBCFA;
-    --color-primary-soft:  #1B2A45;
-    --color-on-primary:    #0B1020;
+    --color-primary:       #9DBE9F;
+    --color-primary-hover: #B4CFB5;
+    --color-primary-soft:  #1D2A1E;
+    --color-on-primary:    #0E110C;
 
-    --color-bg:            #0D1018;
-    --color-surface:       #151A25;
-    --color-surface-alt:   #1D232F;
-    --color-border:        #29313F;
-    --color-border-strong: #3B4454;
-    --color-text:          #EBEEF4;
-    --color-text-muted:    #A0AABC;
-    --color-text-faint:    #767F90;
+    --color-ink-surface:   #171C14;
+    --color-on-ink:        #EDEFE7;
+    --color-on-ink-muted:  #A5AC99;
+    --color-ink-hover:     rgba(255, 255, 255, .08);
+    --color-ink-active:    rgba(255, 255, 255, .14);
 
-    --color-success:      #7FD6A6;
-    --color-success-soft: #14301F;
-    --color-warning:      #F0C674;
-    --color-warning-soft: #33270B;
+    --color-accent:        #F0C24A;
+    --color-accent-soft:   #332705;
+    --color-accent-ink:    #1A1500;
+    --color-accent-text:   #F0C24A;
+
+    --color-bg:            #0E110C;
+    --color-surface:       #161A13;
+    --color-surface-alt:   #1E231A;
+    --color-border:        #2B3226;
+    --color-border-strong: #3E4637;
+    --color-text:          #EDEFE7;
+    --color-text-muted:    #A5AC99;
+    --color-text-faint:    #7C8474;
+
+    --color-success:      #6FCB96;
+    --color-success-soft: #10301E;
+    --color-warning:      #E8AE72;
+    --color-warning-soft: #33210F;
     --color-danger:       #F2A9A3;
     --color-danger-soft:  #371614;
-    --color-info:         #9BC4F2;
-    --color-info-soft:    #12253C;
+    --color-info:         #B6BDA8;
+    --color-info-soft:    #23281E;
     --color-mark:         #E8CC7A;
     --color-mark-soft:    #322806;
 
@@ -301,11 +346,11 @@
 
     /* Variant rəngləri tünd rejimdə AÇIQ olur və mətn TÜNDDƏN gəlir -
      * tünd fonda doymuş tünd rəng üzərində ağ hərf oxunmur. */
-    --opt-a: #A5B4FC;
-    --opt-b: #67E8F9;
-    --opt-c: #FCD34D;
-    --opt-d: #F0ABFC;
-    --opt-e: #C4B5FD;
+    --opt-a: #A8B8E0;
+    --opt-b: #7FCDB8;
+    --opt-c: #E8C07A;
+    --opt-d: #D9A0C0;
+    --opt-e: #AEB5A6;
     --opt-ink: #0D1018;
 
     --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
@@ -314,28 +359,39 @@
 }
 
 [data-theme="dark"] {
-  --color-primary:       #7EA6F8;
-  --color-primary-hover: #9CBCFA;
-  --color-primary-soft:  #1B2A45;
-  --color-on-primary:    #0B1020;
+  --color-primary:       #9DBE9F;
+  --color-primary-hover: #B4CFB5;
+  --color-primary-soft:  #1D2A1E;
+  --color-on-primary:    #0E110C;
 
-  --color-bg:            #0D1018;
-  --color-surface:       #151A25;
-  --color-surface-alt:   #1D232F;
-  --color-border:        #29313F;
-  --color-border-strong: #3B4454;
-  --color-text:          #EBEEF4;
-  --color-text-muted:    #A0AABC;
-  --color-text-faint:    #767F90;
+  --color-ink-surface:   #171C14;
+  --color-on-ink:        #EDEFE7;
+  --color-on-ink-muted:  #A5AC99;
+  --color-ink-hover:     rgba(255, 255, 255, .08);
+  --color-ink-active:    rgba(255, 255, 255, .14);
 
-  --color-success:      #7FD6A6;
-  --color-success-soft: #14301F;
-  --color-warning:      #F0C674;
-  --color-warning-soft: #33270B;
+  --color-accent:        #F0C24A;
+  --color-accent-soft:   #332705;
+  --color-accent-ink:    #1A1500;
+  --color-accent-text:   #F0C24A;
+
+  --color-bg:            #0E110C;
+  --color-surface:       #161A13;
+  --color-surface-alt:   #1E231A;
+  --color-border:        #2B3226;
+  --color-border-strong: #3E4637;
+  --color-text:          #EDEFE7;
+  --color-text-muted:    #A5AC99;
+  --color-text-faint:    #7C8474;
+
+  --color-success:      #6FCB96;
+  --color-success-soft: #10301E;
+  --color-warning:      #E8AE72;
+  --color-warning-soft: #33210F;
   --color-danger:       #F2A9A3;
   --color-danger-soft:  #371614;
-  --color-info:         #9BC4F2;
-  --color-info-soft:    #12253C;
+  --color-info:         #B6BDA8;
+  --color-info-soft:    #23281E;
   --color-mark:         #E8CC7A;
   --color-mark-soft:    #322806;
 
@@ -349,11 +405,11 @@
 
   /* Variant rəngləri tünd rejimdə AÇIQ olur və mətn TÜNDDƏN gəlir -
    * tünd fonda doymuş tünd rəng üzərində ağ hərf oxunmur. */
-  --opt-a: #A5B4FC;
-  --opt-b: #67E8F9;
-  --opt-c: #FCD34D;
-  --opt-d: #F0ABFC;
-  --opt-e: #C4B5FD;
+  --opt-a: #A8B8E0;
+  --opt-b: #7FCDB8;
+  --opt-c: #E8C07A;
+  --opt-d: #D9A0C0;
+  --opt-e: #AEB5A6;
   --opt-ink: #0D1018;
 
   --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);

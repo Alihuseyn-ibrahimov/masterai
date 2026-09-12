@@ -102,3 +102,63 @@ Layihənin intizamı işlədi — bunlar düzəlişdən əvvəl commit edilə bi
 - Chromium render: masaüstü/mobil, işıq/tünd — üfüqi sürüşmə YOXDUR,
   JS xətası YOXDUR
 - **HƏLƏ EDİLMƏYİB:** real cihazda insan gözü ilə təsdiq və deploy
+
+
+---
+
+# İkinci iterasiya: yaşıl + sarı + qara
+
+**İstifadəçi qərarı:** «əsas rənglərimiz yaşıl sarı və qara olsun».
+
+## İki semantik toqquşma və həlli
+
+Yaşıl artıq «düzgün», sarı artıq «xəbərdarlıq» demək idi. Brend rəngləri
+onların üstünə gəlsəydi, istifadəçi siqnalları ayıra bilməzdi. Rollar
+yenidən bölüşdürüldü:
+
+| Rəng | Rolu | Nə DEYİL |
+|---|---|---|
+| Qara/qrafit | struktur, üst zolaq, mətn, «gözləyir» vəziyyəti | — |
+| Adaçayı yaşıl | brend + əsas əməliyyat | «düzgün» onun DOYMUŞ variantıdır, ayrı yaşıl deyil |
+| Sarı | enerji: ardıcıllıq, xal dairəsi, birinci yer | xəbərdarlıq DEYİL |
+| Narıncı | YALNIZ xəbərdarlıq | sarıdan qəsdən ayrılıb |
+| Qırmızı | YALNIZ səhv | — |
+
+**«Seçildi, nəticə gözlənilir» vəziyyəti RƏNGSİZ edildi.** Əvvəl brend
+rəngi ilə dolurdu; brend mavi olanda bu işləyirdi, yaşıl olandan sonra
+«seçilmiş» ilə «düzgün» eyni ailədən iki solğun yaşıl olardı və tələbə
+bir anlıq cavabın düzgün sayıldığını zənn edərdi.
+
+**Mavi tamamilə getdi:** `info` statusu da qrafitə çevrildi,
+`theme-color` metaları (17 səhifə) və favicon yeniləndi.
+
+## Qara üst zolaq — «sinif lövhəsi»
+
+Üst zolaq qaradır, cari səhifə isə **sarı** ilə işarələnir (təbaşir
+naxışı). Funksional faydası: tətbiqin karkası məzmundan aydın ayrılır,
+ağ sual kartları lövhənin üstündə oturur.
+
+**Tünd rejimdə məntiq tərsinədir:** fon onsuz da qaradır, ona görə zolaq
+fondan bir qədər AÇIQDIR. İlk dəyər (#0A0C08) fonla qaynayıb itirdi —
+brauzer render-ində göründü.
+
+## Variant rəngləri yenidən köklənib
+
+Əvvəlki parlaq tonlar (indiqo, firuzə, fuksiya) yeni kimliklə yad dəst
+kimi oxunurdu. İndi hamısı dərin torpaq tonlarıdır: slate-göy, firuzə-
+yaşıl, tunc, gavalı, qrafit. Render-də A və E demək olar eyni görünürdü
+(hər ikisi tünd bənövşəyi) — E qrafitə çevrildi, qara onsuz da brendin
+rəngidir.
+
+## Kontrast MƏNBƏDƏN yoxlanıldı
+
+22 rəng cütünün WCAG nisbəti hesablandı (gözlə qiymətləndirilmədi):
+**hamısı AA (4.5:1) keçir** — düymə, link, qara zolaq mətni, sarı nişan,
+hər beş variant nişanı, işıq və tünd rejim ayrı-ayrı.
+
+## Test qaydası yenə tutdu
+
+Qara zolağın örtük rəngləri `rgba()` ilə yazılmışdı — `tokens.css`-dən
+kənarda birbaşa rəng qadağandır. `--color-ink-hover`/`--color-ink-active`
+tokenləri əlavə edildi (şəffaf ağ, yəni səth rəngi dəyişsə örtük də
+dəyişir).
