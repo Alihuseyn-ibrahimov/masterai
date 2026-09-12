@@ -525,3 +525,25 @@ class TestAssetCacheBusting:
             f"səhifələr FƏRQLİ versiya işlədir: {sorted(versions)} - "
             "yarımçıq bumb, bəzi istifadəçilər qarışıq dəst alacaq"
         )
+
+
+class TestThemeBootstrap:
+    """HƏR səhifə saxlanmış görünüş seçimini tətbiq etməlidir.
+
+    REAL BUG (2026-09-12): tema məntiqi YALNIZ `profil.html`-in içində
+    idi. İstifadəçi tünd rejim seçirdi, çatlara keçən kimi ekran
+    yenidən işıqlı olurdu - seçim itmirdi, sadəcə digər səhifələr onu
+    OXUMURDU.
+
+    Skript `<head>`-də və İNLİNE olmalıdır: modul kimi yüklənsə brauzer
+    əvvəlcə işıqlı ekranı çəkər, sonra tündə keçər (ağ sıçrayış).
+    """
+
+    @pytest.mark.parametrize("path", PAGES, ids=lambda p: p.name)
+    def test_page_applies_the_stored_theme(self, path: Path):
+        head = path.read_text(encoding="utf-8").split("</head>")[0]
+        assert "masterai-theme" in head, (
+            f"{path.name}: görünüş seçimi tətbiq edilmir - istifadəçi tünd "
+            "rejim seçsə, bu səhifəyə keçəndə ekran işıqlı olacaq"
+        )
+        assert "data-theme" in head, f"{path.name}: `data-theme` atributu qoyulmur"

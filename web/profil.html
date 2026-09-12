@@ -9,6 +9,17 @@
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
 <link rel="icon" href="assets/icon.svg?v=20260912a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
 <link rel="stylesheet" href="assets/css/tokens.css?v=20260912a">
 <link rel="stylesheet" href="assets/css/base.css?v=20260912a">
 <link rel="stylesheet" href="assets/css/components.css?v=20260912a">
@@ -74,36 +85,11 @@
 <script type="module">
   import { getUser } from './assets/js/api.js';
   import { logout, mountShell, requireLogin } from './assets/js/page-shell.js';
+  /* Tema məntiqi PAYLAŞILAN moduldadır - əvvəl yalnız bu səhifənin
+     içində idi və digər səhifələr seçimi oxumurdu. */
+  import { readStoredTheme, setTheme } from './assets/js/theme.js';
 
-  const THEME_KEY = 'masterai-theme';
 
-  function applyStoredTheme() {
-    // Yaddaş bloklanmış brauzerlərdə (Safari gizli rejimi) atır - // görünüş seçimi tətbiqi sındırmamalıdır.
-    try {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === 'light' || saved === 'dark') {
-        document.documentElement.setAttribute('data-theme', saved);
-      }
-    } catch { /* cihaz seçimi qalır */ }
-  }
-
-  function chooseTheme(choice) {
-    try {
-      if (choice === 'system') {
-        localStorage.removeItem(THEME_KEY);
-        document.documentElement.removeAttribute('data-theme');
-      } else {
-        localStorage.setItem(THEME_KEY, choice);
-        document.documentElement.setAttribute('data-theme', choice);
-      }
-    } catch {
-      // Yaddaş yoxdursa seçim yalnız bu sekmə üçün tətbiq olunur.
-      if (choice === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', choice);
-    }
-  }
-
-  applyStoredTheme();
 
   if (requireLogin()) {
     mountShell();
@@ -131,8 +117,21 @@
       document.getElementById('studentExtras').hidden = false;
     }
 
-    for (const button of document.querySelectorAll('[data-theme-choice]')) {
-      button.addEventListener('click', () => chooseTheme(button.dataset.themeChoice));
+    /* Hansı seçimin aktiv olduğu ƏVVƏL heç yerdə görünmürdü -
+       istifadəçi öz seçimini yalnız ekranın rəngindən təxmin edirdi. */
+    const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
+    function markActive(choice) {
+      for (const button of themeButtons) {
+        const isActive = button.dataset.themeChoice === choice;
+        button.setAttribute('aria-pressed', String(isActive));
+        button.classList.toggle('btn--primary', isActive);
+        button.classList.toggle('btn--secondary', !isActive && button.dataset.themeChoice !== 'system');
+        button.classList.toggle('btn--ghost', !isActive && button.dataset.themeChoice === 'system');
+      }
+    }
+    markActive(readStoredTheme());
+    for (const button of themeButtons) {
+      button.addEventListener('click', () => markActive(setTheme(button.dataset.themeChoice)));
     }
 
     document.getElementById('logoutBtn').addEventListener('click', logout);

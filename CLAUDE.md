@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1192 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1212 pytest + 192 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -553,6 +553,36 @@ tap-və-ya-yarat davranışı canlıdır.
 yenilə → müəllim ekranında bax» addımı. Baza və jurnal düzəlişi
 sübut edir, EKRANDA nə göründüyünü isə yalnız insan təsdiq edə bilər
 (bu dərsin əsas dərsi məhz budur — ekran və baza ayrı şeylərdir).
+
+## Dərs: görünüş seçimi bir səhifənin içində qalmışdı (2026-09-12)
+
+İstifadəçi profildən tünd rejim seçirdi, başqa bölməyə keçən kimi ekran
+yenidən işıqlı olurdu. Seçim İTMİRDİ — `localStorage`-a düzgün yazılırdı;
+sadəcə **digər səhifələr onu oxumurdu**, çünki bütün tema məntiqi
+`profil.html`-in içindəki inline skriptdə yazılmışdı.
+
+Bu, layihədə təkrarlanan naxışdır: ümumi davranış bir səhifənin içinə
+yazılanda qalan səhifələr ondan xəbərsiz qalır (eyni səbəbdən əvvəl
+cavab variantlarının çəkilişi iki ekranda ayrı yazılmışdı).
+
+**Həll iki hissədir və bu ayrılıq qəsdəndir:**
+1. `assets/js/theme.js` — paylaşılan modul (oxu/yaz/tətbiq et),
+   9 Node testi ilə örtülü: yararsız dəyər, bloklanmış yaddaş
+   (Safari gizli rejimi), «cihaza uyğun» seçimində atributun SİLİNMƏSİ.
+2. Hər səhifənin `<head>`-ində **kiçik inline skript** — temanı ilk
+   boyamadan ƏVVƏL tətbiq edir. Modul kimi yüklənsə, brauzer əvvəlcə
+   işıqlı ekranı çəkər, sonra tündə keçər: hər keçiddə ağ sıçrayış.
+
+`TestThemeBootstrap` hər səhifədə bunun varlığını yoxlayır — yeni səhifə
+onu unuda bilməz.
+
+**Yan tapıntı:** profil ekranında hansı seçimin aktiv olduğu HEÇ YERDƏ
+görünmürdü, istifadəçi öz seçimini yalnız ekranın rəngindən təxmin
+edirdi. İndi aktiv düymə işarələnir (`aria-pressed` + vizual vəziyyət).
+
+Real brauzerdə yoxlanılıb: tünd seçimi beş fərqli səhifədə qalır
+(`data-theme=dark`, fon `rgb(14,17,12)`), «cihaza uyğun» isə atributu
+silir.
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 
