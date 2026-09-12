@@ -49,7 +49,8 @@
       <h4>Mövcud çata qoşul</h4>
       <p class="text-sm text-muted">
         Müəllimin verdiyi 6 simvollu dəvət kodunu yazın. Qoşulma müəllim
-        təsdiqlədikdən sonra tamamlanır.
+        təsdiqlədikdən sonra tamamlanır - müəllimin ekranında istəyiniz
+        10 saniyə ərzində görünür.
       </p>
       <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
       <div class="notice notice--success" id="joinOk" role="status" hidden></div>
@@ -156,6 +157,7 @@
       const requests = document.createElement('div');
       requests.className = 'stack stack--tight';
       box.append(requests);
+      requestPanels.push({ container: requests, chat });
       renderRequests(requests, chat, reload);
       return box;
     }
@@ -172,6 +174,12 @@
       notice.hidden = false;
     }
 
+    /* Yenilənən panellərin reyestri. Müəllim səhifəni açıq saxlayıb
+       kodu sinifə deyir - istəklər O ANDA gəlir. Siyahı özü
+       yenilənməsə, ekranda heç nə dəyişmir və müəllim «işləmir»
+       nəticəsinə gəlir. (Real istifadədə məhz bu baş verdi.) */
+    const requestPanels = [];
+
     async function renderRequests(container, chat, reload) {
       let rows;
       try {
@@ -181,7 +189,15 @@
         return;
       }
       container.innerHTML = '';
-      if (!rows.length) return;
+      if (!rows.length) {
+        // Boş sətir QOYULUR: əks halda müəllim «istək yoxdur» ilə
+        // «panel sınıqdır» arasında fərq qoya bilmir.
+        const bos = document.createElement('p');
+        bos.className = 'text-xs text-muted';
+        bos.textContent = 'Gözləyən istək yoxdur.';
+        container.append(bos);
+        return;
+      }
 
       const heading = document.createElement('div');
       heading.className = 'row row--between';
@@ -246,6 +262,9 @@
 
     function renderChats(container, chats) {
       container.innerHTML = '';
+      // Kartlar yenidən qurulur - köhnə panel istinadları artıq DOM-da
+      // deyil, saxlanılsa yaddaşda ilişib qalardılar.
+      requestPanels.length = 0;
       if (!chats.length) {
         container.append(emptyState());
         return;
@@ -277,6 +296,19 @@
 
     const reload = () => loadInto(content, () => request('/chats'), renderChats);
     reload();
+
+    /* Gözləyən istəklər hər 10 saniyədə özü yenilənir - `muellim.html`
+       ilə EYNİ naxış. BÜTÜN səhifə yox, yalnız istək siyahıları
+       yenilənir: `reload()` çağırsaydıq hər 10 saniyədə «Yüklənir…»
+       spinneri yanıb-sönərdi.
+       `document.hidden` - arxa fondakı sekmə sorğu göndərməsin. */
+    const REQUEST_POLL_MS = 10000;
+    setInterval(() => {
+      if (document.hidden) return;
+      for (const panel of requestPanels) {
+        renderRequests(panel.container, panel.chat, reload);
+      }
+    }, REQUEST_POLL_MS);
 
     function wire(formId, buttonId, errorId, submit, onSuccess) {
       const form = document.getElementById(formId);
