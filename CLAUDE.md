@@ -466,6 +466,23 @@ səbəbdən: skript yalnız import edilərək sınanmışdı.
    skript «təkrar yoxdur» deyib erkən çıxır və köhnəlmiş hesabata
    ÇATMIR. `--sessions 31` bunun üçün əlavə edildi.
 
+**PRODUKSİYADA TƏTBİQ EDİLDİ (2026-09-12), nəticə BAZADAN yoxlanıldı:**
+
+| Yoxlama | Əvvəl | Sonra |
+|---|---|---|
+| Sessiya #31 iştirakçı sətri | 3 (id 20, 21, 22) | 1 (id 20) |
+| Cavab | 10 (5 real + 5 təkrar) | 5 |
+| Hesabat sıralaması | üç «Amil», bölünmüş bal | bir Amil, 1/5 |
+
+Saxlanılan sətrin `joined_at`-i ilk qoşulmadır (07:02:48). Backup:
+`/root/backup-live-2026-09-12-0827.db`. Servis restart edilib, yəni
+tap-və-ya-yarat davranışı canlıdır.
+
+**HƏLƏ TƏSDİQLƏNMƏYƏN:** real telefonda «bir sual cavabla → səhifəni
+yenilə → müəllim ekranında bax» addımı. Baza və jurnal düzəlişi
+sübut edir, EKRANDA nə göründüyünü isə yalnız insan təsdiq edə bilər
+(bu dərsin əsas dərsi məhz budur — ekran və baza ayrı şeylərdir).
+
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 
 `sqlite3.connect(path, check_same_thread=False)` YALNIZ Python-un thread-
