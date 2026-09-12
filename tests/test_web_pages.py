@@ -492,3 +492,36 @@ class TestMobileWidthDiscipline:
         assert not offenders, (
             f"{page.name}: sabit en tapıldı (`max-width` işlədin): {offenders}"
         )
+
+
+class TestAssetCacheBusting:
+    """CSS/JS ünvanları VERSİYA daşımalıdır və versiya HƏR SƏHİFƏDƏ EYNİ.
+
+    REAL HADİSƏ (2026-09-12, İKİ dəfə): dizayn deploy olundu, brauzer
+    isə köhnə faylı göstərdi. Səbəb: fayl adı dəyişmirsə, artıq
+    keşlənmiş nüsxə keşdə qalır - `Cache-Control: no-cache` YALNIZ
+    gələcək sorğulara təsir edir, əvvəl `expires 7d` ilə keşlənmiş
+    fayla YOX. Birinci dəfə `live.js` faylın adını dəyişməklə həll
+    edildi; ikinci dəfə (bütün palitra) versiya parametri ilə.
+
+    Test versiyanın MÖVCUDLUĞUNU və eyniliyini yoxlayır, dəyərini yox -
+    deploy zamanı bumb etmək istifadəçinin işidir. Yarımçıq bumb isə
+    (bəzi səhifə köhnə, bəzisi yeni) məhz burada tutulur.
+    """
+
+    def test_every_css_link_carries_a_version(self):
+        offenders = []
+        for path in PAGES:
+            for match in re.finditer(r'href="(assets/css/[^"]+)"', path.read_text(encoding='utf-8')):
+                if "?v=" not in match.group(1):
+                    offenders.append(f"{path.name}: {match.group(1)}")
+        assert not offenders, f"versiyasız CSS: {offenders}"
+
+    def test_all_pages_use_the_same_version(self):
+        versions = set()
+        for path in PAGES:
+            versions.update(re.findall(r'assets/css/[^"?]+\?v=([^"]+)', path.read_text(encoding='utf-8')))
+        assert len(versions) == 1, (
+            f"səhifələr FƏRQLİ versiya işlədir: {sorted(versions)} - "
+            "yarımçıq bumb, bəzi istifadəçilər qarışıq dəst alacaq"
+        )
