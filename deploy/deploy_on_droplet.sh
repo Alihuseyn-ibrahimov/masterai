@@ -3,7 +3,20 @@
 # Bu skript YERLƏŞDİYİ repo checkout-unu işlədir (klon etmir) — dildostu-nun
 # eyni naxışı (bax dildostu/server/deploy/deploy_on_droplet.sh).
 #
-# İşlətmə (droplet-də, root):
+# ⚠️ BU SKRİPT YALNIZ İLK QURAŞDIRMA ÜÇÜNDÜR — YENİLƏMƏ ÜÇÜN YOX.
+#
+# Mövcud serverdə təkrar işlədilsə İKİ ZƏRƏR verir:
+#   1. `.env`-i YENİDƏN YAZIR. `JWT_SECRET` mühitdə verilməsə təzəsi
+#      generasiya olunur və BÜTÜN istifadəçilər sistemdən çıxır
+#      (mövcud tokenlər etibarsızlaşır).
+#   2. nginx konfiqurasiyasını üzərinə yazır — buradakı nüsxə YALNIZ
+#      reverse proxy-dir, statik sayt bloku YOXDUR (real nüsxə:
+#      `deploy/nginx-masterai.conf`). Yəni sayt sıradan çıxar.
+#
+# YENİLƏMƏ yolu: `deploy/UPDATE.md` (backup → git pull → restart →
+# mənbədən yoxlama).
+#
+# İşlətmə (YALNIZ təmiz serverdə, root):
 #   1) Mövcud checkout-u yenilə:   git -C /opt/pr-agent/repo pull
 #   2) Skripti işə sal:
 #      GROQ_API_KEY=gsk_... bash /opt/pr-agent/repo/masterai/deploy/deploy_on_droplet.sh masterai.prdostu.com
@@ -57,6 +70,15 @@ ADMIN_API_KEY_VAL="${ADMIN_API_KEY:-$(.venv/bin/python -c 'import secrets; print
   echo "QUIZ_SESSIONS_DB_PATH=$SRV/data/quiz_sessions.db"
   echo "QUIZ_ATTEMPTS_DB_PATH=$SRV/data/quiz_attempts.db"
   echo "FRIENDSHIPS_DB_PATH=$SRV/data/friendships.db"
+  # Aşağıdakı beşi 2026-09-12-də əlavə olundu. Əvvəl siyahıda YOX idi,
+  # yəni bu bazalar `WorkingDirectory`-də (repo checkout-unda) yaranırdı,
+  # `data/`-da yox — backup yalnız `data/`-nı götürsə, canlı sessiyalar,
+  # sual bankları, ev tapşırıqları və nişanlar İTƏRDİ.
+  echo "QUESTION_SETS_DB_PATH=$SRV/data/question_sets.db"
+  echo "LIVE_SESSIONS_DB_PATH=$SRV/data/live_sessions.db"
+  echo "HOMEWORK_DB_PATH=$SRV/data/homework.db"
+  echo "BADGES_DB_PATH=$SRV/data/badges.db"
+  echo "CHAT_JOIN_REQUESTS_DB_PATH=$SRV/data/chat_join_requests.db"
   echo "MATERIAL_UPLOAD_DIR=$SRV/data/uploads"
 } > "$SRV/.env"
 chmod 600 "$SRV/.env"
