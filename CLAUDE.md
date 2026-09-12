@@ -422,6 +422,10 @@ node deploy/diagnostics/chat_join_flow.mjs <müəllim tokeni>        # insan ax�
 node deploy/diagnostics/live_session_load.mjs <token> 25 <bankId>  # 25 tələbə
 node deploy/diagnostics/live_session_resilience.mjs <token> student # bağlantı
 node deploy/diagnostics/live_session_resilience.mjs <token> host
+
+# Naviqasiya zolağı (screenshot alətləri onu GÖRMÜR - giriş tələb edir):
+.venv/bin/python -m http.server 8123 --bind 127.0.0.1   # masterai/ KÖKÜNDƏN
+# sonra: http://127.0.0.1:8123/deploy/diagnostics/nav-bar-preview.html
 ```
 
 **`npm i playwright-core` repoya girmir** — `.gitignore`-dadır.

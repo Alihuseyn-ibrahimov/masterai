@@ -121,6 +121,10 @@
    * səth rəngi dəyişsə də örtük onunla birlikdə dəyişir. */
   --color-ink-hover:          rgba(255, 255, 255, .08);
   --color-ink-active:         rgba(255, 255, 255, .14);
+  /* Qara səth üzərində adaçayı. Əsas `--color-primary` (#4A6B4D) qara
+   * fonda cəmi 3.00:1 verir - AA-dan aşağı. Bu ton HƏR İKİ rejimdə
+   * eynidir, çünki zolaq həmişə qaradır. */
+  --color-primary-on-ink:     #9DBE9F;
 
   /* ---- SARI AKSENT: enerji ----
    * Ardıcıl düzgün cavab, tərəqqi, birinci yer. XƏBƏRDARLIQ DEYİL -
@@ -310,6 +314,7 @@
     --color-on-ink-muted:  #A5AC99;
     --color-ink-hover:     rgba(255, 255, 255, .08);
     --color-ink-active:    rgba(255, 255, 255, .14);
+    --color-primary-on-ink: #9DBE9F;
 
     --color-accent:        #F0C24A;
     --color-accent-soft:   #332705;
@@ -369,6 +374,7 @@
   --color-on-ink-muted:  #A5AC99;
   --color-ink-hover:     rgba(255, 255, 255, .08);
   --color-ink-active:    rgba(255, 255, 255, .14);
+  --color-primary-on-ink: #9DBE9F;
 
   --color-accent:        #F0C24A;
   --color-accent-soft:   #332705;

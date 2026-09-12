@@ -271,6 +271,35 @@
   border-bottom: 1px solid var(--color-ink-surface);
 }
 
+/* ---- QARA ZOLAQ ÜZƏRİNDƏKİ ELEMENTLƏR ----
+ * REAL BUG (2026-09-12): zolaq qara edildi, amma içindəki elementlərin
+ * rəngi yenilənmədi. Nəticədə «Master» sözü qara fonda qara mətnlə
+ * yazılırdı - kontrast 1.03:1, yəni GÖRÜNMÜRDÜ. Ekran şəklində
+ * «Master» yoxa çıxmış, yalnız «AI» qalmışdı.
+ *
+ * Dərs: səthin rəngini dəyişəndə onun BÜTÜN uşaqları yoxlanmalıdır -
+ * `--color-text` səhifə fonu üçün hesablanıb, səth üçün yox. */
+.app-bar .brand { color: var(--color-on-ink); }
+.app-bar .brand__accent { color: var(--color-primary-on-ink); }
+
+/* Avatar zolaqda: solğun yaşıl fon qara üzərində yoxa çıxır. */
+.app-bar .avatar {
+  background: var(--color-ink-active);
+  color: var(--color-on-ink);
+}
+
+/* «Çıxış» düyməsi zolaqda: ağ fonlu düymə qara zolaqda həddən artıq
+ * qışqırır və diqqəti əsas məzmundan alır. Kontur variantı. */
+.app-bar .btn--secondary {
+  background: transparent;
+  color: var(--color-on-ink);
+  border-color: var(--color-on-ink-muted);
+}
+.app-bar .btn--secondary:hover:not(:disabled) {
+  background: var(--color-ink-hover);
+  border-color: var(--color-on-ink);
+}
+
 .app-nav { display: flex; gap: var(--space-1); }
 
 .app-nav__link {

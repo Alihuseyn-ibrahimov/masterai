@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naviqasiya zolağı - yoxlama</title>
+<link rel="stylesheet" href="../../web/assets/css/tokens.css">
+<link rel="stylesheet" href="../../web/assets/css/base.css">
+<link rel="stylesheet" href="../../web/assets/css/components.css">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container stack">
+  <h1>Səhifə başlığı</h1>
+  <p class="text-muted">Zolaq REAL <code>nav.js</code> ilə çəkilir, saxta maket deyil.</p>
+  <p class="text-sm text-muted">NİYƏ BU FAYL VAR: <code>screenshot_pages.py</code> səhifələri
+  GİRİŞ ETMƏDƏN çəkir, ona görə üst zolaq və alt naviqasiya şəkillərdə heç vaxt görünmür.
+  2026-09-12-də bu boşluq real bug buraxdı: zolaq qara edildi, «Master» sözü isə qara
+  mətnlə qaldı (kontrast 1.03:1) və yalnız istifadəçinin telefon ekranı şəklində üzə çıxdı.</p>
+</div>
+<nav id="bottomNav"></nav>
+<script type="module">
+  import { renderNavigation } from '../../web/assets/js/nav.js';
+  renderNavigation({
+    bar: document.getElementById('appBar'),
+    bottom: document.getElementById('bottomNav'),
+    user: { display_name: 'Nümunə Müəllim', is_teacher: true },
+    pathname: '/chatlar.html',
+    onLogout: () => {},
+  });
+</script>
+</body>
+</html>
