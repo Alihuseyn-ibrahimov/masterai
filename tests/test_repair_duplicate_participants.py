@@ -288,3 +288,58 @@ class TestCommandLine:
         rankings = json.loads(fresh.get(session["id"])["report_json"])["rankings"]
         assert [r["participant_id"] for r in rankings] == [keep]
         assert rankings[0]["score"] == 1
+
+    def test_named_sessions_are_recomputed_on_a_clean_database(self, store, tmp_path):
+        """REAL BOŞLUQ (VPS, 2026-09-12): birləşmə bir icrada yazıldı,
+        hesabatın yenidən hesablanması isə sındı. İkinci icrada baza
+        artıq TƏMİZ idi, ona görə skript «təkrar yoxdur» deyib erkən
+        çıxdı və köhnəlmiş hesabata HEÇ ÇATMADI.
+
+        `--sessions` məhz bunun üçündür: təkrar olmasa da adı çəkilən
+        sessiyanın hesabatı yenidən hesablanır.
+        """
+        qs_path = tmp_path / "question_sets.db"
+        qs_store = QuestionSetStore(path=str(qs_path))
+        qs = qs_store.create(
+            subject="mentiq", title="Bank", material_kind="link",
+            material_location="https://x.az", created_by=1,
+        )
+        qs_store.add_question(qs["id"], MCQQuestion(
+            question="Sual?", options=["A", "B", "C", "D", "E"],
+            correct_index=0, explanation="izah mətni burada",
+        ))
+        qs_store.mark_ready(qs["id"])
+
+        session = store.create_session(question_set_id=qs["id"])
+        participant = store.add_participant(session["id"], "Amil", user_id=5)
+        store.record_answer(session["id"], participant["id"], 0, 0, True)
+        # Köhnə hesabat: artıq mövcud olmayan iştirakçıya istinad edir.
+        store.save_report(session["id"], json.dumps({"rankings": [
+            {"rank": 1, "participant_id": 999, "display_name": "Amil", "score": 1},
+        ]}, ensure_ascii=False))
+
+        assert find_duplicates(store._conn) == [], "baza onsuz da təmizdir"
+
+        result = subprocess.run(
+            [sys.executable, str(self._script()), str(tmp_path / "live_sessions.db"),
+             "--apply", "--recompute-reports", str(qs_path),
+             "--sessions", str(session["id"])],
+            cwd=str(tmp_path), capture_output=True, text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert f"Hesabat yenidən hesablandı: [{session['id']}]" in result.stdout
+
+        fresh = LiveSessionStore(path=str(tmp_path / "live_sessions.db"))
+        rankings = json.loads(fresh.get(session["id"])["report_json"])["rankings"]
+        assert [r["participant_id"] for r in rankings] == [participant["id"]]
+
+    def test_sessions_without_recompute_flag_is_rejected(self, store, tmp_path):
+        """`--sessions` tək başına mənasızdır — sükutla heç nə etməkdənsə
+        açıq xəta versin."""
+        result = subprocess.run(
+            [sys.executable, str(self._script()), str(tmp_path / "live_sessions.db"), "--sessions", "31"],
+            cwd=str(tmp_path), capture_output=True, text=True,
+        )
+        assert result.returncode != 0
+        assert "--recompute-reports" in (result.stderr + result.stdout)

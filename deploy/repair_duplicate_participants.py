@@ -29,6 +29,15 @@ hesablamaq üçün sual bankı bazası da lazımdır — bu addım venv tələb 
 
     .venv/bin/python deploy/repair_duplicate_participants.py \
         live_sessions.db --apply --recompute-reports question_sets.db
+
+Birləşmə bir icrada, hesabat isə AYRI icrada aparılıbsa (real hal:
+birinci icrada birləşmə yazıldı, hesabat `sys.path` səhvi ilə sındı),
+ikinci icrada baza artıq təmiz olur və skript hesabata çatmır. Onda
+sessiyanı adı ilə göstər:
+
+    .venv/bin/python deploy/repair_duplicate_participants.py \
+        live_sessions.db --apply --recompute-reports question_sets.db \
+        --sessions 31
 """
 
 from __future__ import annotations
@@ -184,7 +193,23 @@ def main(argv: list[str] | None = None) -> int:
         help="birləşmədən sonra köhnəlmiş hesabatları yenidən hesabla "
              "(sual bankı bazasının yolu; venv tələb edir)",
     )
+    parser.add_argument(
+        "--sessions", metavar="ID[,ID...]",
+        help="hesabatı MƏCBURİ yenidən hesablanacaq sessiya ID-ləri — "
+             "təkrar tapılmasa belə. Birləşmə bir icrada, hesabat isə "
+             "ayrı icrada aparılanda lazımdır (real hal: VPS-də ilk "
+             "icrada birləşmə yazıldı, hesabat sındı; ikinci icrada "
+             "baza artıq təmiz idi və hesabata heç çatılmırdı)",
+    )
     args = parser.parse_args(argv)
+
+    if args.sessions and not args.recompute_reports:
+        parser.error("--sessions yalnız --recompute-reports ilə birlikdə işləyir")
+
+    forced = (
+        [int(part) for part in args.sessions.split(",") if part.strip()]
+        if args.sessions else []
+    )
 
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -192,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     groups = find_duplicates(conn)
     if not groups:
         print("Təkrarlanmış iştirakçı YOXDUR — baza təmizdir.")
+        if forced:
+            return _recompute(args, forced)
         return 0
 
     print(f"Təkrarlanmış qrup: {len(groups)}")
@@ -212,27 +239,38 @@ def main(argv: list[str] | None = None) -> int:
         f"{summary['moved_answers']} cavab köçür, "
         f"{summary['dropped_answers']} təkrar cavab atılır."
     )
-    if summary["stale_reports"]:
+    hesabatlar = sorted(set(summary["stale_reports"]) | set(forced))
+    if hesabatlar:
         print(
             "DİQQƏT — bu sessiyaların SAXLANMIŞ hesabatı köhnəlir "
-            f"(iştirakçı ID-ləri dəyişdi): {summary['stale_reports']}"
+            f"(iştirakçı ID-ləri dəyişdi): {hesabatlar}"
         )
         if args.apply and args.recompute_reports:
-            from server.live_session_store import LiveSessionStore
-            from server.question_set_store import QuestionSetStore
-
-            changed = recompute_reports(
-                LiveSessionStore(path=args.db),
-                QuestionSetStore(path=args.recompute_reports),
-                summary["stale_reports"],
-            )
-            print(f"Hesabat yenidən hesablandı: {changed}")
-        elif args.recompute_reports:
+            return _recompute(args, hesabatlar)
+        if args.recompute_reports:
             print("(hesabat yalnız --apply ilə birlikdə yenidən hesablanır)")
         else:
             print("Yenidən hesablamaq üçün: --recompute-reports question_sets.db")
     if not args.apply:
         print("Yazmaq üçün: --apply (ƏVVƏLCƏ BACKUP AL)")
+    return 0
+
+
+def _recompute(args, session_ids: list[int]) -> int:
+    """`server` idxalı BURADADIR, modul səviyyəsində yox: quru rejim və
+    sadə birləşmə yalnız stdlib ilə işləməlidir (VPS-də `python3` ilə
+    çağırıla bilir), `pipeline.models` isə venv tələb edir."""
+    from server.live_session_store import LiveSessionStore
+    from server.question_set_store import QuestionSetStore
+
+    changed = recompute_reports(
+        LiveSessionStore(path=args.db),
+        QuestionSetStore(path=args.recompute_reports),
+        session_ids,
+    )
+    print(f"Hesabat yenidən hesablandı: {changed}")
+    if not changed:
+        print("(saxlanmış hesabatı olan sessiya tapılmadı — heç nə dəyişmədi)")
     return 0
 
 
