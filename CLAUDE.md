@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1183 pytest + 183 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1185 pytest + 183 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-12-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -455,7 +455,7 @@ istinad edir) — `--recompute-reports question_sets.db` onu yenidən
 hesablayır; bu addım venv tələb edir, çünki `question_set_store`
 `pipeline.models`-u idxal edir. **Avtomatik miqrasiya QƏSDƏN edilmədi:** birləşdirməni geri
 qaytarmaq yalnız backup-dan mümkündür, servis start-ında sükutla
-işləməməlidir. 11 test (`tests/test_repair_duplicate_participants.py`).
+işləməməlidir. 13 test (`tests/test_repair_duplicate_participants.py`), CLI-nin özü subprocess kimi də sınanır — real VPS icrasında `sys.path` səhvi məhz buradan keçmişdi.
 
 ## Dərs: bütün Store sinifləri `threading.Lock`/`RLock` işlədir
 

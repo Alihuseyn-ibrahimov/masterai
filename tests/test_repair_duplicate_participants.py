@@ -13,6 +13,9 @@ düzəldildi (tap-və-ya-yarat). Bu skript YALNIZ həmin düzəlişdən
 from __future__ import annotations
 
 import json
+import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -215,3 +218,73 @@ class TestRecomputeReports:
 
         assert recompute_reports(store, question_sets, [session["id"]]) == []
         assert store.get(session["id"])["report_json"] is None
+
+
+class TestCommandLine:
+    """CLI-nin ÖZÜ — import yolu ilə deyil, subprocess kimi.
+
+    NİYƏ LAZIM OLDU: real VPS icrasında birləşmə yazıldı, sonra
+    `--recompute-reports` `ModuleNotFoundError: No module named 'server'`
+    ilə sındı. Birbaşa icrada `sys.path[0]` `deploy/` olur, layihə kökü
+    yox. Yuxarıdaki testlər bunu GÖRƏ BİLMƏZDİ, çünki pytest
+    `pythonpath = ["."]` ilə işləyir.
+
+    `cwd` qəsdən layihə kökündən KƏNARDIR — skript işlədiyi qovluqdan
+    asılı olmamalıdır.
+    """
+
+    def _script(self) -> pathlib.Path:
+        return pathlib.Path(__file__).resolve().parent.parent / "deploy" / "repair_duplicate_participants.py"
+
+    def test_dry_run_from_another_directory(self, store, tmp_path):
+        session = store.create_session(question_set_id=1)
+        _duplicate_row(store, session["id"], "Amil", 5)
+        _duplicate_row(store, session["id"], "Amil", 5)
+        # `store` fixture-u EYNİ `tmp_path`-dan istifadə edir.
+        db = str(tmp_path / "live_sessions.db")
+
+        result = subprocess.run(
+            [sys.executable, str(self._script()), db],
+            cwd=str(tmp_path), capture_output=True, text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Təkrarlanmış qrup: 1" in result.stdout
+        assert store.count_participants(session["id"]) == 2, "quru rejim yazmamalıdır"
+
+    def test_recompute_reports_runs_as_a_script(self, store, tmp_path):
+        """Məhz VPS-də sınan yol — `server` idxalı."""
+        qs_path = tmp_path / "question_sets.db"
+        qs_store = QuestionSetStore(path=str(qs_path))
+        qs = qs_store.create(
+            subject="mentiq", title="Bank", material_kind="link",
+            material_location="https://x.az", created_by=1,
+        )
+        qs_store.add_question(qs["id"], MCQQuestion(
+            question="Sual?", options=["A", "B", "C", "D", "E"],
+            correct_index=0, explanation="izah mətni burada",
+        ))
+        qs_store.mark_ready(qs["id"])
+
+        session = store.create_session(question_set_id=qs["id"])
+        keep = _duplicate_row(store, session["id"], "Amil", 5)
+        dup = _duplicate_row(store, session["id"], "Amil", 5)
+        store.record_answer(session["id"], dup, 0, 0, True)
+        store.save_report(session["id"], json.dumps({"rankings": [
+            {"rank": 1, "participant_id": dup, "display_name": "Amil", "score": 1},
+        ]}, ensure_ascii=False))
+
+        result = subprocess.run(
+            [sys.executable, str(self._script()), str(tmp_path / "live_sessions.db"),
+             "--apply", "--recompute-reports", str(qs_path)],
+            cwd=str(tmp_path), capture_output=True, text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "ModuleNotFoundError" not in result.stderr
+        assert f"Hesabat yenidən hesablandı: [{session['id']}]" in result.stdout
+
+        fresh = LiveSessionStore(path=str(tmp_path / "live_sessions.db"))
+        rankings = json.loads(fresh.get(session["id"])["report_json"])["rankings"]
+        assert [r["participant_id"] for r in rankings] == [keep]
+        assert rankings[0]["score"] == 1

@@ -37,6 +37,18 @@ import argparse
 import json
 import sqlite3
 import sys
+from pathlib import Path
+
+# LAYİHƏ KÖKÜ sys.path-a ƏLAVƏ OLUNUR. Birbaşa icrada (`python
+# deploy/repair_duplicate_participants.py`) `sys.path[0]` bu faylın
+# qovluğu — yəni `deploy/` — olur və `server`/`pipeline` idxalı
+# `ModuleNotFoundError` verir. Real VPS icrasında məhz bu baş verdi:
+# birləşmə yazıldı, hesabatın yenidən hesablanması isə sındı. pytest
+# bunu görə bilməzdi, çünki `pythonpath = ["."]` ilə işləyir — ona görə
+# indi CLI-ni subprocess kimi işlədən test də var.
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 
 def find_duplicates(conn: sqlite3.Connection) -> list[dict]:
