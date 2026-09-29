@@ -19,7 +19,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 from server.invite_code import generate_code, normalize_code
-from server.licensing import COURSE_STATUSES, STATUS_OWNER, STATUS_TRIAL
+from server.licensing import COURSE_STATUSES, STATUS_ACTIVE, STATUS_OWNER, STATUS_TRIAL
 
 DEFAULT_COURSE_ID = 1
 DEFAULT_COURSE_NAME = "MasterAI"
@@ -166,5 +166,15 @@ class CourseStore:
         with self._lock:
             self._conn.execute(
                 "UPDATE courses SET status = ? WHERE id = ?", (status, course_id)
+            )
+            self._conn.commit()
+
+    def set_paid_until(self, course_id: int, paid_until: datetime) -> None:
+        """Ödəniş qeydi: kurs `active` olur və `paid_until`-a qədər açıqdır.
+        Uzatma hesabı (nə qədər, hansı tarixdən) sahib paneli qatındadır."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE courses SET status = ?, paid_until = ? WHERE id = ?",
+                (STATUS_ACTIVE, paid_until.isoformat(), course_id),
             )
             self._conn.commit()

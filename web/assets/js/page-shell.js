@@ -1,8 +1,9 @@
 /* Daxil olmuş səhifələr üçün ortaq qabıq: mühafizə, başlıq, çıxış.
  * Faza 4-də tam naviqasiya çərçivəsi bunun üzərinə gələcək. */
 
-import { ApiError, clearSession, getUser, isLoggedIn } from './api.js';
+import { ApiError, clearSession, getUser, isLoggedIn, request } from './api.js';
 import { createIcon } from './icon.js';
+import { expiryBannerText, shouldShowExpiryBanner } from './license.js';
 import { renderNavigation } from './nav.js';
 
 /** Tokensiz istifadəçini giriş səhifəsinə göndərir. `replace` işlədilir
@@ -37,6 +38,34 @@ export function mountShell() {
     pathname: window.location.pathname,
     onLogout: logout,
   });
+  mountExpiryBanner();
+}
+
+/** Abunənin bitməsinə az qalıbsa müəllimə xəbərdarlıq (spec: 5 gün).
+ *  Tələbə üçün sorğu HEÇ GÖNDƏRİLMİR. Xəta səssiz udulur - banner
+ *  köməkçi məlumatdır, səhifəni sındırmamalıdır (402 isə `request`
+ *  içində onsuz da bağlı səhifəyə aparır). */
+async function mountExpiryBanner() {
+  const user = getUser();
+  if (!user || !user.is_teacher) return;
+  let course;
+  try {
+    course = await request('/me/course');
+  } catch {
+    return;
+  }
+  if (!shouldShowExpiryBanner(user, course)) return;
+  // Qorunan səhifələrdə `<main>` YOXDUR - ortaq konteyner `.app-shell`-dir
+  // (test_web_pages.py bunu hər səhifədə yoxlayır).
+  const shell = document.querySelector('.app-shell');
+  if (!shell) return;
+  const banner = document.createElement('div');
+  banner.className = 'notice notice--warning';
+  banner.setAttribute('role', 'status');
+  const text = document.createElement('span');
+  text.textContent = expiryBannerText(course.days_left);
+  banner.append(createIcon('alert'), text);
+  shell.prepend(banner);
 }
 
 /** Siyahı yükləmənin ÜÇ halını (yüklənir / xəta / məzmun) bir yerdə

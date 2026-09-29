@@ -113,7 +113,9 @@ onlara ayrıca qoşulur. Rədd: `accept()` + xəta mesajı + `close(4402)`
 qoşulur — bu, `app.py:1331`-də sənədləşib). `4402`
 `web/assets/js/socket.js`-dəki `FATAL_CLOSE_CODES`-a əlavə olunur.
 
-- **Çat WS**: hər mesajda yoxlanır, nəticə 60 saniyə keşlənir
+- **Çat WS**: hər mesajda bazadan yoxlanır. (İlk variantda 60 saniyəlik keş
+  nəzərdə tutulmuşdu; icrada ləğv edildi: bir PK sorğusudur, keş isə
+  dayandırmanı 60 saniyə gecikdirərdi.)
 - **Canlı sessiya**: qapı **yeni sessiya yaradılanda** yoxlanır. Lisenziya
   bitməzdən əvvəl başlamış sessiyaya qoşulma, yenidən qoşulma və həmin
   sessiyanın HTTP oxu endpoint-ləri sessiya bitənə qədər icazəlidir

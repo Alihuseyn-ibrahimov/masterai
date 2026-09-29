@@ -171,3 +171,11 @@ def test_user_store_courses_share_in_memory_db():
     course = users.courses.create("A", "english", trial_days=30, seat_limit=10, now=NOW)
     user = users.create("a@example.az", "h", "A", course_id=course["id"])
     assert users.courses.get(user["course_id"])["name"] == "A"
+
+
+def test_set_paid_until_activates_course(courses):
+    course = courses.create("A", "english", trial_days=30, seat_limit=10, now=NOW)
+    courses.set_paid_until(course["id"], NOW + timedelta(days=30))
+    fresh = courses.get(course["id"])
+    assert fresh["status"] == "active"
+    assert datetime.fromisoformat(fresh["paid_until"]) == NOW + timedelta(days=30)

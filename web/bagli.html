@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abunə bitib - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20260912a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax giris.html). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260912a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260912a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260912a">
+</head>
+<body>
+<!-- Server kursun abunəsi bitəndə HTTP 402 / WebSocket 4402 qaytarır,
+     client bura yönləndirir (bax assets/js/license.js). Səhifə QƏSDƏN
+     heç bir məlumat göstərmir - yalnız səbəb və iki çıxış yolu.
+     Sessiya silinmir: ödənişdən sonra «Yenidən yoxla» kifayətdir. -->
+<main class="page-centered">
+  <div class="stack stack--loose form-shell">
+
+    <div class="stack stack--tight stack--center" style="text-align: center">
+      <a class="brand" href="index.html">Master<span class="brand__accent">AI</span></a>
+    </div>
+
+    <div class="card stack">
+      <div class="state__icon" aria-hidden="true">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-alert"></use></svg>
+      </div>
+      <h1 style="font-size: var(--text-xl)">Kursun abunəsi bitib</h1>
+      <p class="text-muted">
+        Kursunuzun MasterAI-dan istifadə müddəti başa çatıb. Məlumatlarınız
+        silinməyib: abunə yeniləndikdən sonra hər şey olduğu kimi açılacaq.
+      </p>
+      <p class="text-muted">Davam etmək üçün kurs rəhbərliyi ilə əlaqə saxlayın.</p>
+
+      <div class="notice notice--info" id="statusBox" role="status" hidden></div>
+
+      <button class="btn btn--primary btn--block" type="button" id="retryBtn">Yenidən yoxla</button>
+      <button class="btn btn--secondary btn--block" type="button" id="logoutBtn">Başqa hesabla daxil ol</button>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+  import { ApiError, clearSession, getToken, request } from './assets/js/api.js';
+
+  const statusBox = document.getElementById('statusBox');
+  const retryBtn = document.getElementById('retryBtn');
+
+  function showStatus(text) {
+    statusBox.textContent = text;
+    statusBox.hidden = false;
+  }
+
+  retryBtn.addEventListener('click', async () => {
+    if (!getToken()) {
+      window.location.replace('giris.html');
+      return;
+    }
+    retryBtn.disabled = true;
+    try {
+      await request('/me/course');
+      window.location.replace('chatlar.html');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearSession();
+        window.location.replace('giris.html');
+        return;
+      }
+      showStatus(
+        error instanceof ApiError && error.status === 402
+          ? 'Abunə hələ yenilənməyib.'
+          : error.message,
+      );
+    } finally {
+      retryBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    clearSession();
+    window.location.replace('giris.html');
+  });
+</script>
+</body>
+</html>

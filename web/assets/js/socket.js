@@ -4,11 +4,13 @@
  * sessiya oyunçusu) - məntiq bir dəfə burada yazılır.
  */
 
+import { goToClosedPage, LICENSE_CLOSED_WS_CODE } from './license.js';
+
 /** Serverin "səni buraxmıram" cavabları - yenidən qoşulmaq MƏNASIZDIR
  *  və serveri boş yerə yükləyər. Backend bu kodları işlədir:
- *  4400 yararsız qoşulma mesajı, 4401 token, 4403 üzv deyil,
- *  4404 tapılmadı, 4409 sessiya qoşulmağa açıq deyil. */
-const FATAL_CLOSE_CODES = new Set([4400, 4401, 4403, 4404, 4409]);
+ *  4400 yararsız qoşulma mesajı, 4401 token, 4402 kursun abunəsi bitib,
+ *  4403 üzv deyil, 4404 tapılmadı, 4409 sessiya qoşulmağa açıq deyil. */
+const FATAL_CLOSE_CODES = new Set([4400, 4401, LICENSE_CLOSED_WS_CODE, 4403, 4404, 4409]);
 
 export function isFatalCloseCode(code) {
   return FATAL_CLOSE_CODES.has(code);
@@ -76,6 +78,7 @@ export class ReconnectingSocket {
       if (this.stopped) return;
       if (isFatalCloseCode(event && event.code)) {
         this._status('closed');
+        if (event.code === LICENSE_CLOSED_WS_CODE) goToClosedPage();
         return;
       }
       const delay = computeBackoffDelay(this.attempt);

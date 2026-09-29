@@ -30,6 +30,16 @@ class UserInfo(BaseModel):
     is_admin: bool
 
 
+class MeCourseInfo(BaseModel):
+    """Cari istifadəçinin kursu — müəllim banneri (bitməyə ≤5 gün) üçün.
+    `days_left` `owner` kursu üçün `None`-dur (müddət yoxdur)."""
+
+    name: str
+    status: str
+    days_left: int | None
+    is_open: bool
+
+
 class AuthResponse(BaseModel):
     token: str
     user: UserInfo

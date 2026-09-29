@@ -187,6 +187,18 @@ class TestShellContainers:
             f"{page.name}: mountShell() çağırılmır"
         )
 
+    def test_page_has_app_shell_container(self, page: Path):
+        """Abunə xəbərdarlığı banneri `.app-shell`-in əvvəlinə qoyulur.
+        REAL HADİSƏ (2026-09-29): banner əvvəl `<main>` axtarırdı -
+        heç bir qorunan səhifədə `<main>` YOXDUR, banner SÜKUTLA
+        görünmürdü. Yalnız brauzer yoxlaması tapdı."""
+        text = page.read_text(encoding="utf-8")
+        assert re.search(r'class="[^"]*\bapp-shell\b', text), f"{page.name}: .app-shell yoxdur"
+
+    def test_banner_targets_the_app_shell(self, page: Path):
+        shell = (WEB / "assets" / "js" / "page-shell.js").read_text(encoding="utf-8")
+        assert "querySelector('.app-shell')" in shell
+
 
 # JS-də hərfi yazılmış səhifə adları: `x.href = `suallar.html?id=...`` və
 # `window.location.replace('giris.html')` kimi. Dəyişəndən gələn ünvanlar

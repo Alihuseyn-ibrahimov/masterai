@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 
@@ -68,6 +68,7 @@ from .auth import InvalidToken, create_token, hash_password, token_secret, verif
 from .badge_store import BadgeStore
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
+from .licensing import course_is_open, days_left
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
 from .homework_store import AttemptAlreadyCompleted, HomeworkStore
@@ -90,6 +91,7 @@ from .message_store import MessageStore
 from .models import (
     HomeworkSummary,
     LastSessionSummary,
+    MeCourseInfo,
     NextDueAssignment,
     QuestionSetCounts,
     TeacherSummary,
@@ -327,7 +329,48 @@ def get_current_user(
     user = store.get_by_id(user_id)
     if user is None:
         raise _UNAUTHORIZED
+    _enforce_access(user, store)
     return user
+
+
+# ---- Lisenziya qapısı (spec 2026-09-29 §2) ---------------------------------
+
+LICENSE_CLOSED_DETAIL = (
+    "Kursunuzun abunəsi bitib. Davam etmək üçün kurs rəhbərliyi ilə əlaqə saxlayın."
+)
+# HTTP 402 «Payment Required» — client bunu 401-dən (yenidən giriş) və
+# 403-dən (icazə yoxdur) ayırıb «abunə bitib» ekranını göstərir.
+_LICENSE_CLOSED = HTTPException(status_code=402, detail=LICENSE_CLOSED_DETAIL)
+WS_CODE_LICENSE_CLOSED = 4402
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _access_problem(user: dict, users: UserStore) -> int | None:
+    """İstifadəçi sistemə buraxılmırsa səbəb kodu (401/402), buraxılırsa None.
+
+    Lisenziya HƏR SORĞUDA bazadan oxunur, JWT-yə yazılmır: dayandırma
+    dərhal təsir edir və 90 günlük token problem olmur. Platforma sahibi
+    kurs qapısından azaddır (öz paneli bağlı kursda da işləməlidir), amma
+    `is_active` ondan da yoxlanır.
+    """
+    if not user["is_active"]:
+        return 401
+    if user["is_platform_owner"]:
+        return None
+    if not course_is_open(users.courses.get(user["course_id"]), _utcnow()):
+        return 402
+    return None
+
+
+def _enforce_access(user: dict, users: UserStore) -> None:
+    problem = _access_problem(user, users)
+    if problem == 401:
+        raise _UNAUTHORIZED
+    if problem == 402:
+        raise _LICENSE_CLOSED
 
 
 def get_current_teacher(user: dict = Depends(get_current_user)) -> dict:
@@ -383,7 +426,34 @@ def auth_login(
     # qeydiyyatda olduğunu üzə çıxarmamaq üçün.
     if user is None or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="E-poçt və ya şifrə səhvdir")
+    # Kurs/aktivlik YALNIZ doğru şifrədən sonra yoxlanır — əks halda şifrəsiz
+    # «bu e-poçt bağlı kursdadır» öyrənmək olardı. Çıxarılmış istifadəçi
+    # naməlum e-poçtla EYNİ cavabı alır.
+    problem = _access_problem(user, store)
+    if problem == 401:
+        raise HTTPException(status_code=401, detail="E-poçt və ya şifrə səhvdir")
+    if problem == 402:
+        raise _LICENSE_CLOSED
     return AuthResponse(token=create_token(user["id"], secret=secret), user=_user_info(user))
+
+
+@app.get("/me/course", response_model=MeCourseInfo)
+def get_my_course(
+    user: dict = Depends(get_current_user),
+    users: UserStore = Depends(get_user_store),
+) -> MeCourseInfo:
+    """Bağlı kursun istifadəçisi bura ÇATMIR (qapı 402 qaytarır) — yəni
+    `is_open` praktikada həmişə True-dur; platforma sahibi istisnadır."""
+    course = users.courses.get(user["course_id"])
+    if course is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    now = _utcnow()
+    return MeCourseInfo(
+        name=course["name"],
+        status=course["status"],
+        days_left=days_left(course, now),
+        is_open=course_is_open(course, now),
+    )
 
 
 @app.post("/admin/teachers", response_model=UserInfo)
@@ -1352,6 +1422,21 @@ async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> Non
     await websocket.close(code=code)
 
 
+_WS_SESSION_EXPIRED = "Sessiyanız bitib. Yenidən daxil olun."
+
+
+def _ws_access_rejection(user: dict, users: UserStore) -> tuple[int, str] | None:
+    """HTTP qapısının (`_access_problem`) WebSocket ekvivalenti:
+    401 → 4401, 402 → 4402. WS marşrutları `get_current_user`-dən keçmir,
+    ona görə qapı burada AYRICA çağırılmalıdır."""
+    problem = _access_problem(user, users)
+    if problem == 401:
+        return 4401, _WS_SESSION_EXPIRED
+    if problem == 402:
+        return WS_CODE_LICENSE_CLOSED, LICENSE_CLOSED_DETAIL
+    return None
+
+
 @app.websocket("/ws/chat/{chat_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -1376,6 +1461,11 @@ async def chat_websocket(
         await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
 
+    rejection = _ws_access_rejection(user, users)
+    if rejection is not None:
+        await _reject_websocket(websocket, *rejection)
+        return
+
     chat = chats.get(chat_id)
     if chat is None:
         await _reject_websocket(websocket, 4404, "Bu çat tapılmadı.")
@@ -1398,6 +1488,20 @@ async def chat_websocket(
             except Exception:
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
                 continue
+
+            # Açıq bağlantı qapını YALNIZ qoşulanda keçib — kurs söhbət
+            # ortasında bağlana bilər. Hər mesajda yoxlanır (bir PK
+            # sorğusudur, keşə ehtiyac yoxdur).
+            fresh_user = users.get_by_id(user_id)
+            rejection = (
+                (4401, _WS_SESSION_EXPIRED) if fresh_user is None
+                else _ws_access_rejection(fresh_user, users)
+            )
+            if rejection is not None:
+                code, detail = rejection
+                await websocket.send_json({"type": "error", "detail": detail})
+                await websocket.close(code=code)
+                return
 
             if not isinstance(data, dict):
                 await websocket.send_json({"type": "error", "detail": "mesaj formatı düzgün deyil"})
@@ -2076,6 +2180,25 @@ def _live_session_membership(
     return user_id in chats.list_member_ids(session["chat_id"])
 
 
+def _live_access_rejection(
+    user: dict, users: UserStore, session: dict
+) -> tuple[int, str] | None:
+    """Canlı sessiya üçün qapı — istifadəçi qərarı: «başlamış sessiya
+    sonuna qədər getsin». Kurs bağlansa da `active` sessiyaya qoşulma
+    və yenidən qoşulma (telefon kilidlənib qayıdır) açıqdır; sessiyanın
+    özünün maksimum 10 dəqiqəlik vaxt büdcəsi onu məhdudlaşdırır.
+    Başlamamış (`waiting`) sessiya isə başladıla bilməz.
+    `is_active=0` HƏR HALDA rədd olunur — çıxarılmış tələbə yox."""
+    rejection = _ws_access_rejection(user, users)
+    if (
+        rejection is not None
+        and rejection[0] == WS_CODE_LICENSE_CLOSED
+        and session["status"] == "active"
+    ):
+        return None
+    return rejection
+
+
 @app.websocket("/ws/live/sessions/{session_id}/host")
 async def live_host_by_session_websocket(
     websocket: WebSocket,
@@ -2114,6 +2237,10 @@ async def live_host_by_session_websocket(
             websocket, 4404,
             "Bu sessiya artıq bitib və ya tapılmadı. Çatdan yenisini başladın.",
         )
+        return
+    rejection = _live_access_rejection(user, users, session)
+    if rejection is not None:
+        await _reject_websocket(websocket, *rejection)
         return
     if (
         not user["is_teacher"]
@@ -2180,6 +2307,10 @@ async def live_play_by_session_websocket(
         await _reject_websocket(
             websocket, 4404, "Bu sessiya artıq bitib və ya tapılmadı."
         )
+        return
+    rejection = _live_access_rejection(user, users, session)
+    if rejection is not None:
+        await _reject_websocket(websocket, *rejection)
         return
     if not _live_session_membership(session, user_id, chats):
         await _reject_websocket(websocket, 4403, "Bu sinfin üzvü deyilsiniz.")

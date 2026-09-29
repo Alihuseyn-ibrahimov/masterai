@@ -7,6 +7,7 @@
  */
 
 import { API_BASE_URL } from './config.js';
+import { goToClosedPage, LICENSE_CLOSED_STATUS } from './license.js';
 
 const TOKEN_KEY = 'masterai.token';
 const USER_KEY = 'masterai.user';
@@ -176,6 +177,10 @@ export async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    // Kursun abunəsi bitib: HƏR səhifədə eyni davranış olsun deyə
+    // yönləndirmə burada, tək yerdədir. Sessiya SİLİNMİR - ödənişdən
+    // sonra tələbə yenidən giriş etmədən davam edir.
+    if (response.status === LICENSE_CLOSED_STATUS) goToClosedPage();
     throw new ApiError(extractErrorMessage(response.status, payload), response.status);
   }
   return payload;
