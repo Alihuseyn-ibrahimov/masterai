@@ -140,8 +140,16 @@ class TestCreateAssignment:
 
 
 class TestListAssignments:
-    def test_non_member_gets_403(self, env):
+    def test_unknown_chat_gets_404(self, env):
+        # 2026-09-29: əvvəl 403 idi — endpoint çatın mövcudluğunu yoxlamırdı.
+        # Mövcud olmayan və başqa kursun çatı indi EYNİ 404-ü alır.
         r = env["client"].get("/homework/assignments", params={"chat_id": 999}, headers=_auth(env["teacher"]))
+        assert r.status_code == 404
+
+    def test_non_member_of_existing_chat_gets_403(self, env):
+        """Kurs DAXİLİNDƏ üzv olmayan üçün 403 qalır."""
+        outsider = env["users"].create("kenar2@x.az", "hash", "Kənar")
+        r = env["client"].get("/homework/assignments", params={"chat_id": env["chat"]["id"]}, headers=_auth(outsider))
         assert r.status_code == 403
 
     def test_lists_only_own_assignments(self, env):
@@ -259,7 +267,7 @@ class TestAnswer:
         )
         assert r.status_code == 404
 
-    def test_other_students_attempt_returns_403(self, env):
+    def test_other_students_attempt_gets_404(self, env):
         qs = _ready_question_set(env)
         a = env["homework"].create_assignment(env["chat"]["id"], qs["id"], "2026-09-14", created_by=env["teacher"]["id"])
         started = env["client"].post(f"/homework/assignments/{a['id']}/start", headers=_auth(env["student"])).json()
@@ -267,7 +275,9 @@ class TestAnswer:
             f"/homework/attempts/{started['attempt_id']}/answer",
             json={"question_index": 0, "chosen_index": 0}, headers=_auth(env["teacher"]),
         )
-        assert r.status_code == 403
+        # 2026-09-29: 403 -> 404. Tərəf olmayan üçün 403 «bu ID mövcuddur»
+        # deyirdi, ID-lər isə ardıcıldır (spec kurs lisenziyası §4).
+        assert r.status_code == 404
 
     def test_full_flow_ends_completed(self, env):
         qs = _ready_question_set(env, n_questions=2)

@@ -150,10 +150,12 @@ class TestAcceptFriendRequest:
         r = env["client"].post(f"/friends/requests/{created['id']}/accept", headers=_auth(env["ali"]))
         assert r.status_code == 403
 
-    def test_unrelated_user_cannot_accept(self, env):
+    def test_unrelated_user_gets_404(self, env):
         created = env["friendships"].create(env["ali"]["id"], env["vali"]["id"])
         r = env["client"].post(f"/friends/requests/{created['id']}/accept", headers=_auth(env["zaur"]))
-        assert r.status_code == 403
+        # 2026-09-29: 403 -> 404. Tərəf olmayan üçün 403 «bu ID mövcuddur»
+        # deyirdi, ID-lər isə ardıcıldır (spec kurs lisenziyası §4).
+        assert r.status_code == 404
 
     def test_unknown_id_returns_404(self, env):
         r = env["client"].post("/friends/requests/9999/accept", headers=_auth(env["vali"]))
@@ -236,12 +238,14 @@ class TestUnfriend:
         r = env["client"].post(f"/friends/{created['id']}/unfriend", headers=_auth(env["vali"]))
         assert r.status_code == 200
 
-    def test_unrelated_user_returns_403(self, env):
+    def test_unrelated_user_gets_404_on_unfriend(self, env):
         created = env["friendships"].create(env["ali"]["id"], env["vali"]["id"])
         env["friendships"].update_status(created["id"], "accepted")
 
         r = env["client"].post(f"/friends/{created['id']}/unfriend", headers=_auth(env["zaur"]))
-        assert r.status_code == 403
+        # 2026-09-29: 403 -> 404. Tərəf olmayan üçün 403 «bu ID mövcuddur»
+        # deyirdi, ID-lər isə ardıcıldır (spec kurs lisenziyası §4).
+        assert r.status_code == 404
 
     def test_non_accepted_returns_409(self, env):
         created = env["friendships"].create(env["ali"]["id"], env["vali"]["id"])  # hələ pending

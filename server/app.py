@@ -602,7 +602,8 @@ def send_friend_request(
         addressee = users.get_by_email(req.addressee_email)
     else:
         addressee = users.get_by_id(req.addressee_user_id)
-    if addressee is None:
+    # Başqa kursun istifadəçisi naməlum e-poçtla EYNİ cavabı alır.
+    if addressee is None or not _same_course(addressee["course_id"], user):
         raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
     if addressee["id"] == user["id"]:
         raise HTTPException(status_code=400, detail="Özünüzə dost sorğusu göndərə bilməzsiniz")
@@ -628,9 +629,13 @@ def list_friend_requests(
     ]
 
 
-def _get_friendship_or_404(friendship_id: int, friendships: FriendshipStore) -> dict:
+def _get_friendship_or_404(friendship_id: int, friendships: FriendshipStore, user: dict) -> dict:
+    """Tərəf olmayan istifadəçi «tapılmadı» alır (403 yox) — ID-lər ardıcıldır
+    və 403 başqalarının dostluq sorğularının mövcudluğunu açardı (spec §4)."""
     friendship = friendships.get(friendship_id)
-    if friendship is None:
+    if friendship is None or user["id"] not in (
+        friendship["requester_id"], friendship["addressee_id"]
+    ):
         raise HTTPException(status_code=404, detail="Dostluq sorğusu tapılmadı")
     return friendship
 
@@ -641,7 +646,7 @@ def accept_friend_request(
     user: dict = Depends(get_current_user),
     friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> FriendshipInfo:
-    friendship = _get_friendship_or_404(friendship_id, friendships)
+    friendship = _get_friendship_or_404(friendship_id, friendships, user)
     if friendship["addressee_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Yalnız ünvanlanan qəbul edə bilər")
     if friendship["status"] != "pending":
@@ -656,7 +661,7 @@ def decline_friend_request(
     user: dict = Depends(get_current_user),
     friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> FriendshipInfo:
-    friendship = _get_friendship_or_404(friendship_id, friendships)
+    friendship = _get_friendship_or_404(friendship_id, friendships, user)
     if friendship["addressee_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Yalnız ünvanlanan rədd edə bilər")
     if friendship["status"] != "pending":
@@ -671,7 +676,7 @@ def cancel_friend_request(
     user: dict = Depends(get_current_user),
     friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> FriendshipInfo:
-    friendship = _get_friendship_or_404(friendship_id, friendships)
+    friendship = _get_friendship_or_404(friendship_id, friendships, user)
     if friendship["requester_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Yalnız sorğunu göndərən ləğv edə bilər")
     if friendship["status"] != "pending":
@@ -698,7 +703,7 @@ def unfriend(
     user: dict = Depends(get_current_user),
     friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> FriendshipInfo:
-    friendship = _get_friendship_or_404(friendship_id, friendships)
+    friendship = _get_friendship_or_404(friendship_id, friendships, user)
     if user["id"] not in (friendship["requester_id"], friendship["addressee_id"]):
         raise HTTPException(status_code=403, detail="Bu dostluğa aid deyilsiniz")
     if friendship["status"] != "accepted":
@@ -722,7 +727,7 @@ def create_chat(
         chats.add_member(chat["id"], user["id"])
     else:
         peer = users.get_by_id(req.peer_user_id)
-        if peer is None:
+        if peer is None or not _same_course(peer["course_id"], user):
             raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
         if not friendships.are_friends(user["id"], req.peer_user_id):
             raise HTTPException(status_code=403, detail="Yalnız dostlarla birbaşa çat yaradıla bilər")
@@ -746,6 +751,65 @@ def list_chats(
 # olurdu. Yerini kod + təsdiq axını tutdu (aşağıda).
 
 
+# ---- Kurs sərhədi (spec 2026-09-29 §4) ------------------------------------
+# Başqa kursun obyekti «tapılmadı» ilə EYNİ cavabı alır: 403 «var, amma
+# sənin deyil» deməkdir, ID-lər isə ardıcıldır — 1-dən saymaqla digər
+# kursların nəyə sahib olduğu öyrənilərdi. Bütün yoxlamalar bu köməkçilərdən
+# keçir; `tests/server/test_course_boundary.py` hər ID marşrutunu sınayır.
+
+
+def _same_course(course_id: int | None, user: dict) -> bool:
+    return course_id is not None and course_id == user["course_id"]
+
+
+def _chat_in_course(chats: ChatStore, chat_id: int, user: dict) -> dict:
+    chat = chats.get(chat_id)
+    if chat is None or not _same_course(chat.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    return chat
+
+
+def _question_set_in_course(
+    question_sets: QuestionSetStore, question_set_id: int, user: dict
+) -> dict:
+    question_set = question_sets.get(question_set_id)
+    if question_set is None or not _same_course(question_set.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    return question_set
+
+
+def _question_in_course(question_sets: QuestionSetStore, question_id: int, user: dict) -> dict:
+    question = question_sets.get_question(question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    question_set = question_sets.get(question["question_set_id"])
+    if question_set is None or not _same_course(question_set.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    return question
+
+
+def _assignment_in_course(
+    homework: HomeworkStore, chats: ChatStore, assignment_id: int, user: dict
+) -> dict:
+    """Tapşırığın kursu çatından gəlir."""
+    assignment = homework.get_assignment(assignment_id)
+    chat = chats.get(assignment["chat_id"]) if assignment else None
+    if chat is None or not _same_course(chat.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Tapşırıq tapılmadı")
+    return assignment
+
+
+def _session_course_id(
+    session: dict, chats: ChatStore, question_sets: QuestionSetStore
+) -> int | None:
+    """Canlı sessiyanın kursu — çatdan; köhnə (çatsız PIN) sessiyada bankdan."""
+    if session.get("chat_id") is not None:
+        chat = chats.get(session["chat_id"])
+        return chat["course_id"] if chat else None
+    question_set = question_sets.get(session["question_set_id"])
+    return question_set["course_id"] if question_set else None
+
+
 def _require_chat_creator(chat_id: int, user: dict, chats: ChatStore) -> dict:
     """Çatı YARADAN olmaq şərti — üzv olmaq kifayət etmir.
 
@@ -753,9 +817,7 @@ def _require_chat_creator(chat_id: int, user: dict, chats: ChatStore) -> dict:
     yazılsa, biri unudulanda bu heç yerdə görünməzdi (bax `/live/*`-dakı
     beş qapısız endpoint hadisəsi).
     """
-    chat = chats.get(chat_id)
-    if chat is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    chat = _chat_in_course(chats, chat_id, user)
     if chat["created_by"] != user["id"]:
         raise HTTPException(status_code=403, detail="Yalnız çatı yaradan idarə edə bilər")
     return chat
@@ -798,7 +860,7 @@ def request_to_join_chat(
     chat = chats.get_by_invite_code(req.code)
     # Səhv kodda HƏMİŞƏ eyni cavab — cavab fərqinə baxıb kod təxmin
     # etmək mümkün olmamalıdır.
-    if chat is None:
+    if chat is None or not _same_course(chat.get("course_id"), user):
         raise HTTPException(status_code=404, detail="Belə kod tapılmadı")
     if user["id"] in chats.list_member_ids(chat["id"]):
         # «İstək göndərildi» yalançı olardı; üstəlik onsuz da üzv olan
@@ -821,7 +883,8 @@ def list_join_requests(
     rows = []
     for row in join_requests.list_pending(chat_id):
         requester = users.get_by_id(row["user_id"])
-        if requester is None:
+        # Başqa kursun istifadəçisi (köhnə/əl ilə yaranmış istək) göstərilmir.
+        if requester is None or not _same_course(requester["course_id"], user):
             # Hesab silinibsə sətri göstərmirik — müəllim qərar verə
             # bilməyəcəyi sətirlə qarşılaşmamalıdır.
             continue
@@ -844,6 +907,7 @@ def approve_join_requests(
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
     join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
+    users: UserStore = Depends(get_user_store),
 ) -> ApproveJoinRequestsResult:
     """Toplu təsdiq — «Hamısını təsdiqlə» bir sorğu göndərir.
 
@@ -851,9 +915,16 @@ def approve_join_requests(
     `user_ids` çağırandan gəldiyi üçün bu vacibdir: gözləyən istəyi
     olmayan adamı bu endpoint ilə çata salmaq mümkün olmamalıdır.
     """
-    _require_chat_creator(chat_id, user, chats)
+    chat = _require_chat_creator(chat_id, user, chats)
+    # Müdafiə dərinliyi: başqa kursun istifadəçisi istəyi olsa belə çata
+    # SALINMIR (qoşulma kodu onsuz da kurs daxilindədir).
+    same_course_ids = [
+        uid for uid in req.user_ids
+        if (member := users.get_by_id(uid)) is not None
+        and _same_course(member["course_id"], {"course_id": chat["course_id"]})
+    ]
     approved = join_requests.approve(
-        chat_id=chat_id, user_ids=req.user_ids, decided_by=user["id"]
+        chat_id=chat_id, user_ids=same_course_ids, decided_by=user["id"]
     )
     for user_id in approved:
         chats.add_member(chat_id, user_id)
@@ -902,8 +973,7 @@ def list_chat_members(
 ) -> list[ChatMemberInfo]:
     """Çatın üzv siyahısı — müəllimin Fərdi tələbə tarixçəsi ekranında
     tələbə seçmək üçün istifadə olunur (bax `/history/student/{id}`)."""
-    if chats.get(chat_id) is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     result = []
@@ -937,8 +1007,7 @@ def get_chat_leaderboard(
     Xalı olmayan üzvlər 0 ilə DAXİLDİR — hər iki mənbə metodu sıfır
     sətirləri qaytarmır (eyni müqavilə), doldurma burada olur.
     """
-    if chats.get(chat_id) is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
 
@@ -1005,7 +1074,9 @@ async def start_chat_quiz(
     attempts: QuizAttemptStore = Depends(get_quiz_attempt_store),
     messages: MessageStore = Depends(get_message_store),
     manager: ConnectionManager = Depends(get_connection_manager),
+    chats: ChatStore = Depends(get_chat_store),
 ) -> QuizSessionInfo:
+    _chat_in_course(chats, chat_id, user)
     material = materials.get(req.material_id)
     if material is None:
         raise HTTPException(status_code=404, detail="Material tapılmadı")
@@ -1127,9 +1198,7 @@ async def upload_material(
     generator=Depends(get_material_generator),
     upload_dir: str = Depends(get_upload_dir),
 ) -> MaterialInfo:
-    chat = chats.get(chat_id)
-    if chat is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
 
@@ -1182,9 +1251,7 @@ def list_materials(
     chats: ChatStore = Depends(get_chat_store),
     materials: MaterialStore = Depends(get_material_store),
 ) -> list[MaterialInfo]:
-    chat = chats.get(chat_id)
-    if chat is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     return [MaterialInfo(**m) for m in materials.list_by_chat(chat_id)]
@@ -1284,9 +1351,7 @@ def get_question_set(
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> QuestionSetInfo:
-    question_set = question_sets.get(question_set_id)
-    if question_set is None:
-        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
     count = question_sets.count_questions(question_set_id)
     return _question_set_info(question_set, question_count=count)
 
@@ -1299,6 +1364,7 @@ def list_question_sets(
     return [
         _question_set_info(qs, question_count=question_sets.count_questions(qs["id"]))
         for qs in question_sets.list_all()
+        if _same_course(qs["course_id"], user)
     ]
 
 
@@ -1318,7 +1384,7 @@ def teacher_summary(
     Sual banklarının sayı `GET /live/question-sets` ilə EYNİ əhatədədir
     (hamısı) ki, konsoldakı rəqəm siyahı ilə uyğun gəlsin.
     """
-    all_sets = question_sets.list_all()
+    all_sets = [qs for qs in question_sets.list_all() if _same_course(qs["course_id"], user)]
     counts = QuestionSetCounts(
         ready=sum(1 for qs in all_sets if qs["status"] == "ready"),
         processing=sum(1 for qs in all_sets if qs["status"] == "processing"),
@@ -1368,8 +1434,7 @@ def list_live_questions(
     müəllim redaktə ekranı üçün (bax Sual redaktə/təsdiq ekranı, Faza 5).
     Tələbələrə göndərilən oyun payload-u (`_question_payload`) bunu
     QƏSDƏN göstərmir."""
-    if question_sets.get(question_set_id) is None:
-        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    _question_set_in_course(question_sets, question_set_id, user)
     return [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
 
 
@@ -1389,8 +1454,7 @@ def question_set_quality(
 
     Sual nömrələri `GET .../questions` cavabının sırası ilə eynidir —
     hər ikisi `list_questions`-un çıxışını işlədir."""
-    if question_sets.get(question_set_id) is None:
-        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    _question_set_in_course(question_sets, question_set_id, user)
 
     rows = question_sets.list_questions(question_set_id)
     try:
@@ -1438,8 +1502,7 @@ def update_live_question(
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> LiveQuestionInfo:
-    if question_sets.get_question(question_id) is None:
-        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    _question_in_course(question_sets, question_id, user)
     updated = question_sets.update_question(
         question_id,
         question=req.question,
@@ -1456,8 +1519,7 @@ def delete_live_question(
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> None:
-    if question_sets.get_question(question_id) is None:
-        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    _question_in_course(question_sets, question_id, user)
     question_sets.delete_question(question_id)
 
 
@@ -1532,7 +1594,7 @@ async def chat_websocket(
         return
 
     chat = chats.get(chat_id)
-    if chat is None:
+    if chat is None or not _same_course(chat.get("course_id"), user):
         await _reject_websocket(websocket, 4404, "Bu çat tapılmadı.")
         return
     is_member = any(c["id"] == chat_id for c in chats.list_by_user(user_id))
@@ -1646,14 +1708,10 @@ async def create_live_session(
     sessiya aça bilərdi; yalnız ikincisi olsaydı, tələbə öz sinfində
     sessiya aça bilərdi. Spec qərarı: «çatdakı istənilən müəllim».
     """
-    chat = chats.get(req.chat_id)
-    if chat is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, req.chat_id, user)
     if user["id"] not in chats.list_member_ids(req.chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
-    question_set = question_sets.get(req.question_set_id)
-    if question_set is None:
-        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    question_set = _question_set_in_course(question_sets, req.question_set_id, user)
     if question_set["status"] != "ready":
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
 
@@ -1692,8 +1750,7 @@ def get_chat_live_session(
     NİYƏ YAYIMDAN ƏLAVƏ: WS yayımı yalnız O AN bağlı olanlara çatır.
     Sonradan çatı açan tələbə sessiyanı başqa cür görə bilməzdi.
     """
-    if chats.get(chat_id) is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
 
@@ -1718,9 +1775,12 @@ def get_live_session_report(
     user: dict = Depends(get_current_teacher),
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
 ) -> LiveSessionReport:
     session = live_sessions.get(session_id)
-    if session is None:
+    if session is None or not _same_course(
+        _session_course_id(session, chats, question_sets), user
+    ):
         raise HTTPException(status_code=404, detail="Sessiya tapılmadı")
     if session["status"] != "finished":
         raise HTTPException(status_code=400, detail="Sessiya hələ bitməyib")
@@ -1793,13 +1853,10 @@ def create_homework_assignment(
 ) -> HomeworkAssignmentInfo:
     if not user["is_teacher"]:
         raise HTTPException(status_code=403, detail="Yalnız müəllim tapşırıq təyin edə bilər")
-    if chats.get(req.chat_id) is None:
-        raise HTTPException(status_code=404, detail="Çat tapılmadı")
+    _chat_in_course(chats, req.chat_id, user)
     if user["id"] not in chats.list_member_ids(req.chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
-    question_set = question_sets.get(req.question_set_id)
-    if question_set is None:
-        raise HTTPException(status_code=404, detail="Sual bankı tapılmadı")
+    question_set = _question_set_in_course(question_sets, req.question_set_id, user)
     if question_set["status"] != "ready":
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
 
@@ -1816,6 +1873,7 @@ def list_homework_assignments(
     chats: ChatStore = Depends(get_chat_store),
     homework: HomeworkStore = Depends(get_homework_store),
 ) -> list[HomeworkAssignmentInfo]:
+    _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     assignments = [
@@ -1832,9 +1890,7 @@ def get_homework_report(
     users: UserStore = Depends(get_user_store),
     homework: HomeworkStore = Depends(get_homework_store),
 ) -> list[HomeworkReportRow]:
-    assignment = homework.get_assignment(assignment_id)
-    if assignment is None:
-        raise HTTPException(status_code=404, detail="Tapşırıq tapılmadı")
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
     if assignment["created_by"] != user["id"]:
         raise HTTPException(status_code=403, detail="Yalnız tapşırığı yaradan müəllim hesabata baxa bilər")
 
@@ -1966,11 +2022,15 @@ def get_student_history(
     live_sessions: LiveSessionStore = Depends(get_live_session_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     homework: HomeworkStore = Depends(get_homework_store),
+    users: UserStore = Depends(get_user_store),
 ) -> list[HistoryEntry]:
     """Müəllimin başqa bir tələbənin tarixçəsinə baxması — yalnız ortaq
     çatı olan (bax `list_chat_members`-in eyni naxışı) tələbələr üçün."""
     if not user["is_teacher"]:
         raise HTTPException(status_code=403, detail="Yalnız müəllim başqa tələbənin tarixçəsinə baxa bilər")
+    student = users.get_by_id(student_id)
+    if student is None or not _same_course(student["course_id"], user):
+        raise HTTPException(status_code=404, detail="Tələbə tapılmadı")
     shares_chat = any(
         student_id in chats.list_member_ids(chat["id"]) for chat in chats.list_by_user(user["id"])
     )
@@ -2066,9 +2126,7 @@ def start_homework_attempt(
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     homework: HomeworkStore = Depends(get_homework_store),
 ) -> HomeworkAttemptState:
-    assignment = homework.get_assignment(assignment_id)
-    if assignment is None:
-        raise HTTPException(status_code=404, detail="Tapşırıq tapılmadı")
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
     if user["id"] not in chats.list_member_ids(assignment["chat_id"]):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
 
@@ -2086,10 +2144,9 @@ def answer_homework_question(
     homework: HomeworkStore = Depends(get_homework_store),
 ) -> HomeworkAnswerResult:
     attempt = homework.get_attempt(attempt_id)
-    if attempt is None:
+    # Başqasının cəhdi «tapılmadı» — 403 cəhd ID-lərinin mövcudluğunu açardı.
+    if attempt is None or attempt["student_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="Cəhd tapılmadı")
-    if attempt["student_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Bu cəhd sizə aid deyil")
 
     assignment = homework.get_assignment(attempt["assignment_id"])
     questions = question_sets.list_questions(assignment["question_set_id"])
@@ -2307,6 +2364,9 @@ async def live_host_by_session_websocket(
     if rejection is not None:
         await _reject_websocket(websocket, *rejection)
         return
+    if not _same_course(_session_course_id(session, chats, question_sets), user):
+        await _reject_websocket(websocket, 4404, "Bu sessiya tapılmadı.")
+        return
     if (
         not user["is_teacher"]
         or session["created_by"] != user_id
@@ -2376,6 +2436,9 @@ async def live_play_by_session_websocket(
     rejection = _live_access_rejection(user, users, session)
     if rejection is not None:
         await _reject_websocket(websocket, *rejection)
+        return
+    if not _same_course(_session_course_id(session, chats, question_sets), user):
+        await _reject_websocket(websocket, 4404, "Bu sessiya tapılmadı.")
         return
     if not _live_session_membership(session, user_id, chats):
         await _reject_websocket(websocket, 4403, "Bu sinfin üzvü deyilsiniz.")

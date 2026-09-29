@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1367 pytest + 207 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1413 pytest + 207 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-29-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -728,6 +728,13 @@ bir-bir yoxlandı. Hazırkı vəziyyət:
 ilə 403 verir (başqasının cəhdini cavablamaq mümkün deyil);
 `POST /chats/{id}/quiz/start` → yalnız materialı yükləyən başlada bilir;
 çat endpointləri `member_ids` ilə üzvlüyü yoxlayır.
+
+**Kurs sərhədi (2026-09-29):** `tests/server/test_course_boundary.py` yol,
+sorğu VƏ gövdə ilə ID/kod/e-poçt qəbul edən HƏR marşrutu marşrut cədvəlindən
+tapır; hər biri başqa kursun obyektinə **404** qaytarmalıdır. Yeni belə
+endpoint yazanda həmin fayldakı `CASES`-ə hal əlavə et — əks halda test
+qırmızı olur. Köməkçilər: `_chat_in_course`, `_question_set_in_course`,
+`_question_in_course`, `_assignment_in_course`, `_session_course_id` (`app.py`).
 
 **`tests/server/test_endpoint_guards.py`** bu xəritəni qoruyur: hər yeni
 marşrut ya qapıdan keçməli, ya da SƏBƏBİ ilə `PUBLIC_ROUTES`-a
