@@ -251,3 +251,12 @@ class CourseStore:
         if now >= datetime.fromisoformat(row["expires_at"]):
             return None
         return dict(row)
+
+    def set_upload_limits(self, course_id: int, *, student: int, teacher: int) -> None:
+        """Gündəlik yükləmə limitləri (sahib paneli)."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE courses SET upload_limit_student = ?, upload_limit_teacher = ? WHERE id = ?",
+                (student, teacher, course_id),
+            )
+            self._conn.commit()

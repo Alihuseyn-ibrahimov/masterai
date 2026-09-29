@@ -86,6 +86,16 @@ class MaterialStore:
             )
             self._conn.commit()
 
+    def count_by_uploader_since(self, user_id: int, since_iso: str) -> int:
+        """Gündəlik yükləmə limiti üçün (spec §4.5). `created_at` UTC ISO
+        sətridir və eyni formatda `since_iso` ilə leksikoqrafik müqayisə
+        düzgün işləyir."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM materials WHERE uploaded_by = ? AND created_at >= ?",
+                (user_id, since_iso),
+            ).fetchone()[0]
+
     def count_all(self) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM materials").fetchone()[0]

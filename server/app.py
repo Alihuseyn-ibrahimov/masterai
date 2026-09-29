@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -185,6 +185,10 @@ app.state.chat_join_request_store = ChatJoinRequestStore(
 app.state.join_rate_limiter = RateLimiter()
 # Qeydiyyat: IP üzrə dəqiqədə 5 SƏHV kod/dəvət (uğurlu qeydiyyat sayılmır).
 app.state.register_rate_limiter = RateLimiter()
+# Giriş: (e-poçt, IP) üzrə 15 dəqiqədə 10 SƏHV cəhd (spec §4.2).
+LOGIN_MAX_FAILURES = 10
+LOGIN_WINDOW_SECONDS = 15 * 60
+app.state.login_rate_limiter = RateLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW_SECONDS)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
@@ -221,6 +225,11 @@ def get_chat_store() -> ChatStore:
 def get_chat_join_request_store() -> ChatJoinRequestStore:
     """Qoşulma istəkləri store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.chat_join_request_store
+
+
+def get_login_rate_limiter() -> RateLimiter:
+    """Giriş sürət limiti (bax `get_join_rate_limiter`)."""
+    return app.state.login_rate_limiter
 
 
 def get_register_rate_limiter() -> RateLimiter:
@@ -383,6 +392,41 @@ def _access_problem(user: dict, users: UserStore) -> int | None:
     return None
 
 
+# Azərbaycan 2016-dan yay vaxtını ləğv edib: sabit UTC+4. `zoneinfo`
+# QƏSDƏN işlədilmir — Windows-da tzdata paketi olmadan «Asia/Baku» tapılmır.
+_BAKU_TZ = timezone(timedelta(hours=4))
+
+
+def _baku_day_start_utc(now: datetime) -> datetime:
+    """Bakı təqvim gününün başlanğıcı, UTC-də (gündəlik limit sayğacı üçün)."""
+    local = now.astimezone(_BAKU_TZ)
+    start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.astimezone(timezone.utc)
+
+
+def _enforce_upload_quota(
+    user: dict, users: UserStore, materials: MaterialStore, question_sets: QuestionSetStore
+) -> None:
+    """Gündəlik yükləmə limiti (spec §4.5): hər yükləmə AI generasiyasıdır,
+    yəni xərc. Çat materialı VƏ sual bankı BİRLİKDƏ sayılır. Yeni sayğac
+    yoxdur — mövcud cədvəllərdən sayılır. Platforma sahibi azaddır."""
+    if user["is_platform_owner"]:
+        return
+    course = users.courses.get(user["course_id"])
+    if course is None:
+        return
+    limit = course["upload_limit_teacher"] if user["is_teacher"] else course["upload_limit_student"]
+    since = _baku_day_start_utc(_utcnow()).isoformat()
+    used = materials.count_by_uploader_since(user["id"], since) + question_sets.count_by_creator_since(
+        user["id"], since
+    )
+    if used >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Gündəlik yükləmə limiti ({limit}) dolub. Sabah yenidən cəhd edin.",
+        )
+
+
 def _enforce_access(user: dict, users: UserStore) -> None:
     problem = _access_problem(user, users)
     if problem == 401:
@@ -481,13 +525,24 @@ def auth_register(
 @app.post("/auth/login", response_model=AuthResponse)
 def auth_login(
     req: LoginRequest,
+    request: Request,
     store: UserStore = Depends(get_user_store),
     secret: str = Depends(get_token_secret),
+    limiter: RateLimiter = Depends(get_login_rate_limiter),
 ) -> AuthResponse:
+    # Açar (e-poçt, IP) CÜTÜDÜR: yalnız e-poçt olsaydı, tələbə müəllimin
+    # e-poçtuna səhv şifrə göndərib müəllimi bloklaya bilərdi. Blok doğru
+    # şifrəni də buraxmır; uğurlu giriş sayılmır.
+    limit_key = f"{req.email.strip().lower()}|{_client_ip(request)}"
+    if limiter.is_blocked(limit_key):
+        raise HTTPException(
+            status_code=429, detail="Çox sayda səhv cəhd. 15 dəqiqə sonra yenidən yoxlayın."
+        )
     user = store.get_by_email(req.email)
     # Naməlum e-poçt və səhv şifrə EYNİ cavabı verir — hansı e-poçtların
     # qeydiyyatda olduğunu üzə çıxarmamaq üçün.
     if user is None or not verify_password(req.password, user["password_hash"]):
+        limiter.record(limit_key)
         raise HTTPException(status_code=401, detail="E-poçt və ya şifrə səhvdir")
     # Kurs/aktivlik YALNIZ doğru şifrədən sonra yoxlanır — əks halda şifrəsiz
     # «bu e-poçt bağlı kursdadır» öyrənmək olardı. Çıxarılmış istifadəçi
@@ -1197,10 +1252,14 @@ async def upload_material(
     manager: ConnectionManager = Depends(get_connection_manager),
     generator=Depends(get_material_generator),
     upload_dir: str = Depends(get_upload_dir),
+    users: UserStore = Depends(get_user_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> MaterialInfo:
     _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    # Limit FAYL SAXLANMAZDAN əvvəl: rədd olunan yükləmə diskə yazılmamalıdır.
+    _enforce_upload_quota(user, users, materials, question_sets)
 
     if kind not in ("link", "pdf", "image"):
         raise HTTPException(status_code=400, detail="Naməlum material növü")
@@ -1297,7 +1356,10 @@ async def create_question_set(
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
     upload_dir: str = Depends(get_upload_dir),
+    users: UserStore = Depends(get_user_store),
+    materials: MaterialStore = Depends(get_material_store),
 ) -> QuestionSetInfo:
+    _enforce_upload_quota(user, users, materials, question_sets)
     if subject not in SUBJECTS:
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     if kind not in ("link", "pdf", "image"):

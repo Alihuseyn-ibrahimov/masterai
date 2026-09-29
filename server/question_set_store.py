@@ -203,6 +203,14 @@ class QuestionSetStore:
             )
             return [_question_row_to_dict(row) for row in cur.fetchall()]
 
+    def count_by_creator_since(self, user_id: int, since_iso: str) -> int:
+        """Gündəlik yükləmə limiti üçün (bax `MaterialStore.count_by_uploader_since`)."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM question_sets WHERE created_by = ? AND created_at >= ?",
+                (user_id, since_iso),
+            ).fetchone()[0]
+
     def count_questions(self, question_set_id: int) -> int:
         with self._lock:
             cur = self._conn.execute(
