@@ -20,6 +20,10 @@ const { chromium } = require('playwright-core');
 const token = process.argv[2];
 const questionSetId = Number(process.argv[3] || 1);
 const API = process.env.API_URL || 'http://127.0.0.1:8125';
+// Qeydiyyat qapalıdır (2026-09-29): tələbələr bu kursa yazılır. Kodu
+// sahib panelindən və ya `license_seed.py` çıxışından götür.
+const COURSE_CODE = process.env.COURSE_CODE || '';
+if (!COURSE_CODE) { console.error('COURSE_CODE mühit dəyişəni tələb olunur (kurs kodu)'); process.exit(1); }
 const SITE = process.env.SITE_URL || 'http://127.0.0.1:8123';
 if (!token) { console.error('İşlətmə: node chat_join_flow.mjs <token> [bankId]'); process.exit(1); }
 
@@ -66,7 +70,7 @@ const openAs = async (auth, viewport) => {
 const stamp = Date.now();
 const student = await api('/auth/register', {
   method: 'POST', bearer: null,
-  body: { email: `axin${stamp}@e2e.az`, password: 'Parol1234', display_name: 'Nərmin' },
+  body: { email: `axin${stamp}@e2e.az`, password: 'Parol1234', display_name: 'Nərmin', course_code: COURSE_CODE },
 });
 const teacher = { token, user: { id: 1, email: 'm@n.az', display_name: 'Müəllim', is_teacher: true, is_admin: false } };
 

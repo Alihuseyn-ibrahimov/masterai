@@ -69,6 +69,23 @@ class RateLimiter:
             attempts.append(now)
             return True
 
+    def is_blocked(self, key: str) -> bool:
+        """Yoxlayır, QEYD ETMİR. `record` ilə birlikdə «yalnız səhv
+        cəhdləri say» rejimi üçündür (qeydiyyat, giriş): uğurlu cəhd
+        heç vaxt sayılmır, amma limitə çatmış açar DOĞRU cəhdlə də
+        keçə bilmir."""
+        now = self._clock()
+        with self._lock:
+            self._prune_locked(now)
+            return len(self._attempts.get(key, ())) >= self.max_attempts
+
+    def record(self, key: str) -> None:
+        """Səhv cəhdi qeyd edir (bax `is_blocked`)."""
+        now = self._clock()
+        with self._lock:
+            self._prune_locked(now)
+            self._attempts.setdefault(key, deque()).append(now)
+
     def tracked_keys(self) -> int:
         """İzlənən açar sayı — yaddaş artımını yoxlamaq üçün."""
         with self._lock:

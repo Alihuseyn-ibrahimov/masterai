@@ -3,6 +3,7 @@
 İşlətmək (backend başlamazdan ƏVVƏL, eyni DB yolları ilə):
     USERS_DB_PATH=... CHATS_DB_PATH=... python deploy/diagnostics/license_seed.py seed
     python deploy/diagnostics/license_seed.py status <course_id> <trial|suspended>
+    python deploy/diagnostics/license_seed.py registration   # registration_flow.mjs üçün
 
 `seed` JSON çap edir: kurs id-si, e-poçt/şifrələr, çat id-si.
 """
@@ -47,6 +48,17 @@ def seed() -> None:
     }))
 
 
+def registration() -> None:
+    """1 yerlik kurs + müəllim dəvəti: qapalı qeydiyyatın brauzer yoxlaması."""
+    users = _users()
+    course = users.courses.create("E2E qeydiyyat", "english", trial_days=30, seat_limit=1)
+    invite = users.courses.create_teacher_invite(course["id"], created_by=0)
+    print(json.dumps({
+        "course_id": course["id"], "join_code": course["join_code"],
+        "invite": invite, "password": PASSWORD,
+    }))
+
+
 def set_status(course_id: int, status: str) -> None:
     _users().courses.set_status(course_id, status)
 
@@ -54,5 +66,7 @@ def set_status(course_id: int, status: str) -> None:
 if __name__ == "__main__":
     if sys.argv[1] == "seed":
         seed()
+    elif sys.argv[1] == "registration":
+        registration()
     elif sys.argv[1] == "status":
         set_status(int(sys.argv[2]), sys.argv[3])

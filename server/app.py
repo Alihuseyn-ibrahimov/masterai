@@ -55,7 +55,7 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import ValidationError
@@ -151,7 +151,7 @@ from .quiz_runner import (
 from .quiz_session_store import QuizAlreadyActive, QuizSessionStore
 from .rate_limit import RateLimiter
 from .uploads import PayloadTooLarge, save_upload
-from .user_store import DuplicateEmail, UserStore
+from .user_store import CourseFull, DuplicateEmail, InvalidInvite, UserStore
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 _DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -183,6 +183,8 @@ app.state.chat_join_request_store = ChatJoinRequestStore(
 # Dəvət kodu təxminini bağlayan sayğac. Proses-daxilidir — servis
 # QƏSDƏN tək worker-lə işləyir (bax `deploy/masterai.service`, `-w 1`).
 app.state.join_rate_limiter = RateLimiter()
+# Qeydiyyat: IP üzrə dəqiqədə 5 SƏHV kod/dəvət (uğurlu qeydiyyat sayılmır).
+app.state.register_rate_limiter = RateLimiter()
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
@@ -219,6 +221,22 @@ def get_chat_store() -> ChatStore:
 def get_chat_join_request_store() -> ChatJoinRequestStore:
     """Qoşulma istəkləri store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.chat_join_request_store
+
+
+def get_register_rate_limiter() -> RateLimiter:
+    """Qeydiyyat kodu/dəvəti üçün sürət limiti (bax `get_join_rate_limiter`)."""
+    return app.state.register_rate_limiter
+
+
+def _client_ip(request: Request) -> str:
+    """Real müştəri IP-si. Backend yalnız 127.0.0.1-də dinləyir və
+    nginx `X-Real-IP`-ni ÖZÜ yazır (bax `deploy/nginx-masterai.conf`) —
+    ona görə başlığa etibar etmək təhlükəsizdir; kənardan birbaşa
+    backend-ə çatmaq mümkün deyil."""
+    forwarded = request.headers.get("x-real-ip")
+    if forwarded:
+        return forwarded.strip()
+    return request.client.host if request.client else "naməlum"
 
 
 def get_join_rate_limiter() -> RateLimiter:
@@ -402,16 +420,61 @@ def _user_info(user: dict) -> UserInfo:
     )
 
 
+_COURSE_CODE_NOT_FOUND = "Kurs kodu tapılmadı"
+_INVITE_NOT_FOUND = "Dəvət linki etibarsızdır və ya müddəti bitib"
+
+
 @app.post("/auth/register", response_model=AuthResponse, status_code=201)
 def auth_register(
     req: RegisterRequest,
+    request: Request,
     store: UserStore = Depends(get_user_store),
     secret: str = Depends(get_token_secret),
+    limiter: RateLimiter = Depends(get_register_rate_limiter),
 ) -> AuthResponse:
-    try:
-        user = store.create(req.email, hash_password(req.password), req.display_name)
-    except DuplicateEmail:
-        raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
+    """Qapalı qeydiyyat (spec 2026-09-29 §4.1).
+
+    SIRA VACİBDİR: (1) IP bloku, (2) kod/dəvət, (3) e-poçt. Kod səhvdirsə
+    e-poçtun mövcudluğu açılmır. Səhv, bağlı və ya mövcud olmayan kurs
+    EYNİ 404-ü alır. Yalnız SƏHV cəhdlər sayılır — sinif eyni Wi-Fi-dan
+    qeydiyyatdan keçir.
+    """
+    ip = _client_ip(request)
+    if limiter.is_blocked(ip):
+        raise HTTPException(status_code=429, detail="Çox sayda səhv cəhd. Bir dəqiqə sonra yenidən yoxlayın.")
+    now = _utcnow()
+    password_hash = hash_password(req.password)
+
+    if req.invite_token:
+        invite = store.courses.peek_teacher_invite(req.invite_token, now=now)
+        if invite is None or not course_is_open(store.courses.get(invite["course_id"]), now):
+            limiter.record(ip)
+            raise HTTPException(status_code=404, detail=_INVITE_NOT_FOUND)
+        try:
+            user = store.create_teacher_from_invite(
+                req.email, password_hash, req.display_name, req.invite_token, now=now
+            )
+        except InvalidInvite:
+            limiter.record(ip)
+            raise HTTPException(status_code=404, detail=_INVITE_NOT_FOUND)
+        except DuplicateEmail:
+            raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
+    else:
+        course = store.courses.get_by_join_code(req.course_code)
+        if course is None or not course_is_open(course, now):
+            limiter.record(ip)
+            raise HTTPException(status_code=404, detail=_COURSE_CODE_NOT_FOUND)
+        try:
+            user = store.create_student(
+                req.email, password_hash, req.display_name, course_id=course["id"]
+            )
+        except CourseFull:
+            raise HTTPException(
+                status_code=409,
+                detail="Kursda boş yer qalmayıb. Müəlliminizə müraciət edin.",
+            )
+        except DuplicateEmail:
+            raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
     return AuthResponse(token=create_token(user["id"], secret=secret), user=_user_info(user))
 
 
@@ -472,7 +535,9 @@ def set_teacher_role(
     if not user["is_admin"]:
         raise HTTPException(status_code=403, detail="Yalnız admin müəllim təyin edə bilər")
     target = users.get_by_email(req.email)
-    if target is None:
+    # Başqa kursun istifadəçisi «tapılmadı» ilə EYNİ cavabı alır — admin
+    # yalnız öz kursunu idarə edir və başqa kursda kimin olduğunu öyrənmir.
+    if target is None or target["course_id"] != user["course_id"]:
         raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
     users.set_teacher(target["id"], req.is_teacher)
     return _user_info(users.get_by_id(target["id"]))
@@ -487,7 +552,7 @@ def list_teacher_role(
     idarəetməsi" ekranında siyahını görməsi üçün."""
     if not user["is_admin"]:
         raise HTTPException(status_code=403, detail="Yalnız admin müəllim siyahısına baxa bilər")
-    return [_user_info(t) for t in users.list_teachers()]
+    return [_user_info(t) for t in users.list_teachers(course_id=user["course_id"])]
 
 
 @app.get("/health")

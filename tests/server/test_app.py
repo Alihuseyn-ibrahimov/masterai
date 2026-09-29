@@ -17,10 +17,17 @@ def client():
     app.dependency_overrides.clear()
 
 
+
+def _default_course_code() -> str:
+    """Qeydiyyat qapalıdır (kurs kodu məcburi) — bu testlər mövcud
+    kurs #1-ə qeydiyyatdan keçir. Store testin override-ındadır."""
+    return app.dependency_overrides[get_user_store]().courses.get(1)["join_code"]
+
 def _register(client, email="ali@example.com", password="Parol1234", display_name="Əli"):
     return client.post(
         "/auth/register",
-        json={"email": email, "password": password, "display_name": display_name},
+        json={"email": email, "password": password, "display_name": display_name,
+              "course_code": _default_course_code()},
     )
 
 

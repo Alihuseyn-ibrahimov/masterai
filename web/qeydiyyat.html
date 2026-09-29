@@ -39,6 +39,20 @@
       <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
 
       <form class="stack" id="registerForm" novalidate>
+        <!-- Qeydiyyat QAPALIDIR: tələbə kursun kodunu müəllimdən alır.
+             Müəllim isə sahibin dəvət linki ilə gəlir (?invite=...) -
+             onda bu sahə gizlənir, çünki backend ikisini birlikdə qəbul
+             etmir. -->
+        <div class="field" id="courseCodeField">
+          <label class="field__label" for="courseCode">Kurs kodu</label>
+          <input class="field__input" id="courseCode" name="courseCode" type="text"
+                 autocomplete="off" autocapitalize="characters" required maxlength="16"
+                 placeholder="K7M-3QX">
+          <span class="text-xs text-muted">Kodu müəlliminizdən alın</span>
+        </div>
+        <div class="notice notice--info" id="inviteNote" hidden>
+          <span>Müəllim dəvəti ilə qeydiyyatdan keçirsiniz.</span>
+        </div>
         <div class="field">
           <label class="field__label" for="displayName">Ad, soyad</label>
           <input class="field__input" id="displayName" name="displayName" type="text"
@@ -73,12 +87,25 @@
   import { register } from './assets/js/api.js';
   import { redirectIfAlreadyLoggedIn, wireAuthForm } from './assets/js/auth-page.js';
 
+  // Müəllim dəvət linki: qeydiyyat.html?invite=<token>
+  const inviteToken = new URLSearchParams(window.location.search).get('invite') || '';
+  if (inviteToken) {
+    const codeField = document.getElementById('courseCodeField');
+    codeField.hidden = true;
+    // Gizli sahə `required` qalsa brauzer formanı göndərmir.
+    document.getElementById('courseCode').required = false;
+    document.getElementById('inviteNote').hidden = false;
+  }
+
   if (!redirectIfAlreadyLoggedIn()) {
     wireAuthForm({
       form: document.getElementById('registerForm'),
       errorBox: document.getElementById('errorBox'),
       submitButton: document.getElementById('submitBtn'),
-      submit: (data) => register(data.email, data.password, data.displayName),
+      submit: (data) => register(data.email, data.password, data.displayName, {
+        courseCode: data.courseCode,
+        inviteToken,
+      }),
     });
   }
 </script>

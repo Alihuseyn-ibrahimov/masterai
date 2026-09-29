@@ -198,11 +198,16 @@ export async function login(email, password) {
   return auth;
 }
 
-export async function register(email, password, displayName) {
+/** Qapalı qeydiyyat: tələbə kurs kodu, müəllim dəvət tokeni ilə.
+ *  Backend DƏQİQ BİRİNİ qəbul edir - dəvət varsa kod göndərilmir. */
+export async function register(email, password, displayName, { courseCode, inviteToken } = {}) {
+  const body = { email, password, display_name: displayName };
+  if (inviteToken) body.invite_token = inviteToken;
+  else body.course_code = courseCode || '';
   const auth = await request('/auth/register', {
     method: 'POST',
     auth: false,
-    body: { email, password, display_name: displayName },
+    body,
   });
   saveSession(auth);
   return auth;

@@ -43,6 +43,10 @@ const token = process.argv[2];
 const N = Number(process.argv[3] || 4);
 const questionSetId = Number(process.argv[4] || 1);
 const API = process.env.MASTERAI_API || 'http://127.0.0.1:8125';
+// Qeydiyyat qapalıdır (2026-09-29): tələbələr bu kursa yazılır. Kodu
+// sahib panelindən və ya `license_seed.py` çıxışından götür.
+const COURSE_CODE = process.env.COURSE_CODE || '';
+if (!COURSE_CODE) { console.error('COURSE_CODE mühit dəyişəni tələb olunur (kurs kodu)'); process.exit(1); }
 const SITE = process.env.MASTERAI_SITE || 'http://127.0.0.1:8123';
 
 if (!token) {
@@ -77,7 +81,7 @@ console.log(`çat: ${chat.id} | dəvət kodu: ${chat.invite_code}`);
 const students = await Promise.all(Array.from({ length: N }, async (u, i) => {
   const auth = await api('/auth/register', {
     method: 'POST', bearer: null,
-    body: { email: `yuk${stamp}_${i}@e2e.az`, password: 'Parol1234', display_name: ADLAR[i] },
+    body: { email: `yuk${stamp}_${i}@e2e.az`, password: 'Parol1234', display_name: ADLAR[i], course_code: COURSE_CODE },
   });
   // Sürət limiti istifadəçi ÜZRƏDİR (dəqiqədə 5), ona görə hər tələbənin
   // bir cəhdi limitə dəymir.

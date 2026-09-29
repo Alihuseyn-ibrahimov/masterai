@@ -106,3 +106,41 @@ class TestConfiguration:
         limiter = RateLimiter()
         assert limiter.max_attempts == 5
         assert limiter.window_seconds == 60
+
+
+class TestFailureOnlyCounting:
+    """Qeydiyyat və giriş üçün: YALNIZ SƏHV cəhdlər sayılır.
+
+    Səbəb: sinifdə 30 tələbə eyni Wi-Fi-dan (bir IP) qeydiyyatdan keçir.
+    Hər cəhd sayılsaydı, altıncı tələbə DOĞRU kodla bloklanardı. Blok
+    isə doğru cəhdə də şamil olunmalıdır - əks halda skript səhvlərdən
+    sonra düzgün kodu tapana qədər davam edərdi."""
+
+    def test_successes_do_not_count(self):
+        limiter = RateLimiter(max_attempts=5, window_seconds=60, clock=_Clock())
+        for _ in range(30):
+            assert limiter.is_blocked("ip") is False
+        assert limiter.tracked_keys() == 0
+
+    def test_blocked_after_max_failures(self):
+        limiter = RateLimiter(max_attempts=5, window_seconds=60, clock=_Clock())
+        for _ in range(4):
+            limiter.record("ip")
+        assert limiter.is_blocked("ip") is False
+        limiter.record("ip")
+        assert limiter.is_blocked("ip") is True
+
+    def test_block_expires_with_window(self):
+        clock = _Clock()
+        limiter = RateLimiter(max_attempts=2, window_seconds=60, clock=clock)
+        limiter.record("ip")
+        limiter.record("ip")
+        assert limiter.is_blocked("ip") is True
+        clock.advance(61)
+        assert limiter.is_blocked("ip") is False
+
+    def test_keys_are_independent(self):
+        limiter = RateLimiter(max_attempts=1, window_seconds=60, clock=_Clock())
+        limiter.record("a")
+        assert limiter.is_blocked("a") is True
+        assert limiter.is_blocked("b") is False

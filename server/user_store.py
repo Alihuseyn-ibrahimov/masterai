@@ -19,7 +19,12 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
-from server.course_store import DEFAULT_COURSE_ID, CourseStore, ensure_course_schema
+from server.course_store import (
+    DEFAULT_COURSE_ID,
+    CourseStore,
+    ensure_course_schema,
+    hash_invite_token,
+)
 
 # Hər SELECT eyni sütunları qaytarır — yeni sütun bir yerdə əlavə olunur.
 _COLUMNS = (
@@ -30,6 +35,14 @@ _COLUMNS = (
 
 class DuplicateEmail(Exception):
     """Bu e-poçt artıq qeydiyyatdadır."""
+
+
+class CourseFull(Exception):
+    """Kursun tələbə yeri limiti dolub."""
+
+
+class InvalidInvite(Exception):
+    """Müəllim dəvəti tapılmadı, istifadə olunub və ya müddəti bitib."""
 
 
 def _utc_now_iso() -> str:
@@ -115,6 +128,102 @@ class UserStore:
                 raise DuplicateEmail(normalized) from exc
             return self.get_by_id(cur.lastrowid)
 
+    def count_active_students(self, course_id: int) -> int:
+        """Yer tutan istifadəçilər: aktiv VƏ müəllim olmayan. Müəllim
+        limiti yoxdur (istifadəçi qərarı), çıxarılmış tələbə yer boşaldır."""
+        with self._lock:
+            return self._count_active_students_locked(course_id)
+
+    def _count_active_students_locked(self, course_id: int) -> int:
+        return self._conn.execute(
+            "SELECT COUNT(*) FROM users WHERE course_id = ? AND is_active = 1 AND is_teacher = 0",
+            (course_id,),
+        ).fetchone()[0]
+
+    def create_student(
+        self, email: str, password_hash: str, display_name: str, *, course_id: int
+    ) -> dict:
+        """Yer limiti yoxlanan tələbə qeydiyyatı.
+
+        `BEGIN IMMEDIATE`: yazma kilidi SAYMADAN ƏVVƏL alınır. Adi
+        (deferred) tranzaksiyada iki bağlantı eyni anda «29/30» sayıb
+        ikisi də yazardı. Proses-daxili `RLock` bunu tək prosesdə onsuz
+        da ardıcıllaşdırır — kilid ayrı prosesləri (gələcək worker-lər,
+        VPS skripti) də əhatə edir.
+        """
+        normalized = _normalize_email(email)
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = self._conn.execute(
+                    "SELECT seat_limit FROM courses WHERE id = ?", (course_id,)
+                ).fetchone()
+                seat_limit = row[0] if row else None
+                if seat_limit is not None and self._count_active_students_locked(course_id) >= seat_limit:
+                    raise CourseFull(course_id)
+                cur = self._conn.execute(
+                    "INSERT INTO users (email, password_hash, phone, display_name, created_at, course_id) "
+                    "VALUES (?, ?, NULL, ?, ?, ?)",
+                    (normalized, password_hash, display_name, _utc_now_iso(), course_id),
+                )
+            except sqlite3.IntegrityError as exc:
+                self._conn.rollback()
+                raise DuplicateEmail(normalized) from exc
+            except BaseException:
+                self._conn.rollback()
+                raise
+            self._conn.commit()
+            return self.get_by_id(cur.lastrowid)
+
+    def create_teacher_from_invite(
+        self,
+        email: str,
+        password_hash: str,
+        display_name: str,
+        token: str,
+        *,
+        now: datetime | None = None,
+    ) -> dict:
+        """Dəvətlə müəllim qeydiyyatı — dəvətin yoxlanması, istifadəçinin
+        yaradılması və dəvətin «istifadə olundu» qeydi BİR tranzaksiyadır.
+        E-poçt təkrarlanırsa dəvət YANMIR (müəllim başqa e-poçtla cəhd edə
+        bilər). Müəllim yer limitinə düşmür."""
+        if not token:
+            raise InvalidInvite()
+        now = now or datetime.now(timezone.utc)
+        normalized = _normalize_email(email)
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                invite = self._conn.execute(
+                    "SELECT id, course_id, expires_at, used_at FROM teacher_invites "
+                    "WHERE token_hash = ?",
+                    (hash_invite_token(token),),
+                ).fetchone()
+                if (
+                    invite is None
+                    or invite["used_at"] is not None
+                    or now >= datetime.fromisoformat(invite["expires_at"])
+                ):
+                    raise InvalidInvite()
+                cur = self._conn.execute(
+                    "INSERT INTO users (email, password_hash, phone, display_name, created_at, "
+                    "course_id, is_teacher) VALUES (?, ?, NULL, ?, ?, ?, 1)",
+                    (normalized, password_hash, display_name, _utc_now_iso(), invite["course_id"]),
+                )
+                self._conn.execute(
+                    "UPDATE teacher_invites SET used_at = ?, used_by = ? WHERE id = ?",
+                    (now.isoformat(), cur.lastrowid, invite["id"]),
+                )
+            except sqlite3.IntegrityError as exc:
+                self._conn.rollback()
+                raise DuplicateEmail(normalized) from exc
+            except BaseException:
+                self._conn.rollback()
+                raise
+            self._conn.commit()
+            return self.get_by_id(cur.lastrowid)
+
     def get_by_email(self, email: str) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
@@ -175,14 +284,15 @@ class UserStore:
             )
             self._conn.commit()
 
-    def list_teachers(self) -> list[dict]:
-        """Hazırda `is_teacher=1` olan bütün istifadəçilər — admin-in
-        "Müəllim idarəetməsi" ekranında siyahını görməsi üçün (bax
-        `app.py`, `GET /admin/teachers`)."""
+    def list_teachers(self, course_id: int) -> list[dict]:
+        """Kursun müəllimləri — admin-in "Müəllim idarəetməsi" ekranı üçün
+        (bax `app.py`, `GET /admin/teachers`). Kurs parametri MƏCBURİDİR:
+        platforma boyu siyahı başqa kursların e-poçtlarını açardı."""
         with self._lock:
             cur = self._conn.execute(
                 f"SELECT {_COLUMNS} "
-                "FROM users WHERE is_teacher = 1 ORDER BY display_name"
+                "FROM users WHERE is_teacher = 1 AND course_id = ? ORDER BY display_name",
+                (course_id,),
             )
             return [dict(row) for row in cur.fetchall()]
 

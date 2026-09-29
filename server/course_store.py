@@ -14,6 +14,8 @@ və kursu olmayan bütün istifadəçilər ona yazılır — kurs anlayışında
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
@@ -32,6 +34,9 @@ COURSE_PROFILES = (PROFILE_EXAM_PREP, PROFILE_ENGLISH)
 DEFAULT_UPLOAD_LIMIT_STUDENT = 5
 DEFAULT_UPLOAD_LIMIT_TEACHER = 30
 
+# Müəllim dəvət linki: birdəfəlik, 7 gün (spec §3).
+TEACHER_INVITE_TTL = timedelta(days=7)
+
 _COLUMNS = (
     "id, name, profile, status, trial_ends_at, paid_until, seat_limit, "
     "join_code, upload_limit_student, upload_limit_teacher, created_at"
@@ -44,6 +49,13 @@ class UnknownProfile(ValueError):
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def hash_invite_token(token: str) -> str:
+    """Dəvət tokeni bazada YALNIZ hash kimi saxlanır: baza sızsa belə
+    istifadə olunmamış link işlənə bilməz. Token 256 bit təsadüfidir,
+    ona görə duzsuz SHA-256 kifayətdir (şifrə deyil, lüğət hücumu yoxdur)."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def ensure_course_schema(conn: sqlite3.Connection) -> None:
@@ -62,6 +74,20 @@ def ensure_course_schema(conn: sqlite3.Connection) -> None:
             upload_limit_student INTEGER NOT NULL DEFAULT 5,
             upload_limit_teacher INTEGER NOT NULL DEFAULT 30,
             created_at           TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS teacher_invites (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            course_id  INTEGER NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at    TEXT,
+            used_by    INTEGER
         )
         """
     )
@@ -94,6 +120,15 @@ class CourseStore:
         self._lock = lock or threading.RLock()
         with self._lock:
             ensure_course_schema(self._conn)
+            # Qeydiyyat kodla olduğu üçün kodsuz kurs (kurs #1 yaradılanda
+            # kod verilmir) heç kimi qəbul edə bilməz — backfill.
+            for row in self._conn.execute(
+                "SELECT id FROM courses WHERE join_code IS NULL OR join_code = ''"
+            ).fetchall():
+                self._conn.execute(
+                    "UPDATE courses SET join_code = ? WHERE id = ?",
+                    (self._unique_code_locked(), row[0]),
+                )
             self._conn.commit()
 
     def create(
@@ -178,3 +213,41 @@ class CourseStore:
                 (STATUS_ACTIVE, paid_until.isoformat(), course_id),
             )
             self._conn.commit()
+
+    def create_teacher_invite(
+        self, course_id: int, *, created_by: int, now: datetime | None = None
+    ) -> str:
+        """Yeni dəvət; XAM tokeni qaytarır (yalnız bir dəfə, link üçün)."""
+        now = now or datetime.now(timezone.utc)
+        token = secrets.token_urlsafe(32)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO teacher_invites "
+                "(token_hash, course_id, created_by, created_at, expires_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    hash_invite_token(token), course_id, created_by,
+                    now.isoformat(), (now + TEACHER_INVITE_TTL).isoformat(),
+                ),
+            )
+            self._conn.commit()
+        return token
+
+    def peek_teacher_invite(self, token: str, *, now: datetime | None = None) -> dict | None:
+        """Etibarlı (istifadə olunmamış, müddəti bitməmiş) dəvət və ya None.
+        Yalnız ön yoxlama üçündür (kursun açıqlığı) — istifadə anında
+        `UserStore.create_teacher_from_invite` hər şeyi YENİDƏN yoxlayır."""
+        if not token:
+            return None
+        now = now or datetime.now(timezone.utc)
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, course_id, expires_at, used_at FROM teacher_invites "
+                "WHERE token_hash = ?",
+                (hash_invite_token(token),),
+            ).fetchone()
+        if row is None or row["used_at"] is not None:
+            return None
+        if now >= datetime.fromisoformat(row["expires_at"]):
+            return None
+        return dict(row)

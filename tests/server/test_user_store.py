@@ -87,7 +87,7 @@ def test_list_teachers(store):
     store.create("qonaq@example.az", "hash", "Qonaq")  # müəllim deyil
     store.set_teacher(ali["id"], True)
     store.set_teacher(vali["id"], True)
-    teachers = store.list_teachers()
+    teachers = store.list_teachers(course_id=1)
     assert [t["display_name"] for t in teachers] == ["Vəli", "Əli"]  # ada görə sıralanır
 
 

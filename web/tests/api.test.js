@@ -220,9 +220,27 @@ describe('auth axını', () => {
       return new Response(JSON.stringify({ token: 't', user: { id: 1 } }), { status: 201 });
     };
     try {
-      await register('yeni@numune.az', 'parol1234', 'Yeni İstifadəçi');
-      assert.deepEqual(Object.keys(body).sort(), ['display_name', 'email', 'password']);
+      await register('yeni@numune.az', 'parol1234', 'Yeni İstifadəçi', { courseCode: 'K7M-3QX' });
+      assert.deepEqual(Object.keys(body).sort(), ['course_code', 'display_name', 'email', 'password']);
       assert.equal(body.display_name, 'Yeni İstifadəçi');
+      assert.equal(body.course_code, 'K7M-3QX');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test('register dəvət linki ilə YALNIZ invite_token göndərir', async () => {
+    // Backend DƏQİQ BİRİNİ tələb edir (server/models.py RegisterRequest) -
+    // ikisi birlikdə gəlsə 422.
+    let body = null;
+    globalThis.fetch = async (_url, init) => {
+      body = JSON.parse(init.body);
+      return new Response(JSON.stringify({ token: 't', user: { id: 1 } }), { status: 201 });
+    };
+    try {
+      await register('m@numune.az', 'parol1234', 'Müəllim', { inviteToken: 'abc', courseCode: 'X' });
+      assert.equal(body.invite_token, 'abc');
+      assert.equal('course_code' in body, false);
     } finally {
       globalThis.fetch = originalFetch;
     }

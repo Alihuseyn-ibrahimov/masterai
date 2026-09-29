@@ -12,6 +12,18 @@ class RegisterRequest(BaseModel):
     # 8 simvol minimum — ümumi təhlükəsizlik gözləntisi (dildostu naxışı).
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(min_length=1, max_length=100)
+    # Qapalı qeydiyyat (spec 2026-09-29 §4): tələbə kurs kodu ilə, müəllim
+    # sahibin birdəfəlik dəvəti ilə. DƏQİQ BİRİ məcburidir.
+    course_code: str | None = Field(default=None, max_length=32)
+    invite_token: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def _exactly_one_entry(self) -> "RegisterRequest":
+        has_code = bool(self.course_code and self.course_code.strip())
+        has_invite = bool(self.invite_token and self.invite_token.strip())
+        if has_code == has_invite:
+            raise ValueError("Kurs kodu tələb olunur")
+        return self
 
 
 class LoginRequest(BaseModel):

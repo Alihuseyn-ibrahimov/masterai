@@ -58,6 +58,10 @@ if (!token) {
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const SITE = process.env.SITE_URL || 'http://127.0.0.1:8123';
 const API = process.env.API_URL || 'http://127.0.0.1:8125';
+// Qeydiyyat qapalıdır (2026-09-29): tələbələr bu kursa yazılır. Kodu
+// sahib panelindən və ya `license_seed.py` çıxışından götür.
+const COURSE_CODE = process.env.COURSE_CODE || '';
+if (!COURSE_CODE) { console.error('COURSE_CODE mühit dəyişəni tələb olunur (kurs kodu)'); process.exit(1); }
 
 const b = await chromium.launch({ executablePath: CHROME });
 const errs = [];
@@ -96,7 +100,7 @@ const accounts = {};
 for (const ad of ['Kəsilən', 'Sabit']) {
   const auth = await api('/auth/register', {
     method: 'POST', bearer: null,
-    body: { email: `dav${stamp}_${ad}@e2e.az`, password: 'Parol1234', display_name: ad },
+    body: { email: `dav${stamp}_${ad}@e2e.az`, password: 'Parol1234', display_name: ad, course_code: COURSE_CODE },
   });
   await api('/chats/join-requests', {
     method: 'POST', bearer: auth.token, body: { code: chat.invite_code },
