@@ -19,6 +19,14 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
+from server.course_store import DEFAULT_COURSE_ID, CourseStore, ensure_course_schema
+
+# Hər SELECT eyni sütunları qaytarır — yeni sütun bir yerdə əlavə olunur.
+_COLUMNS = (
+    "id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin, "
+    "course_id, is_active, is_platform_owner"
+)
+
 
 class DuplicateEmail(Exception):
     """Bu e-poçt artıq qeydiyyatdadır."""
@@ -39,6 +47,8 @@ class UserStore:
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         self._init_schema()
+        # Eyni bağlantı + kilid — bax `CourseStore` qeydi.
+        self.courses = CourseStore(conn=self._conn, lock=self._lock)
 
     def _init_schema(self) -> None:
         with self._lock:
@@ -66,6 +76,22 @@ class UserStore:
                 )
             except sqlite3.OperationalError:
                 pass  # sütun artıq var (mövcud DB)
+            # Kurs lisenziyası (spec 2026-09-29). `course_id` NULL buraxılır,
+            # sonra kurs #1-ə backfill olunur — ALTER TABLE sabit DEFAULT-u
+            # yalnız literal kimi qəbul edir, ona görə açıq UPDATE.
+            for ddl in (
+                "ALTER TABLE users ADD COLUMN course_id INTEGER",
+                "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
+                "ALTER TABLE users ADD COLUMN is_platform_owner INTEGER NOT NULL DEFAULT 0",
+            ):
+                try:
+                    self._conn.execute(ddl)
+                except sqlite3.OperationalError:
+                    pass  # sütun artıq var (mövcud DB)
+            ensure_course_schema(self._conn)
+            self._conn.execute(
+                "UPDATE users SET course_id = ? WHERE course_id IS NULL", (DEFAULT_COURSE_ID,)
+            )
             self._conn.commit()
 
     def create(
@@ -74,14 +100,15 @@ class UserStore:
         password_hash: str,
         display_name: str,
         phone: str | None = None,
+        course_id: int = DEFAULT_COURSE_ID,
     ) -> dict:
         normalized = _normalize_email(email)
         with self._lock:
             try:
                 cur = self._conn.execute(
-                    "INSERT INTO users (email, password_hash, phone, display_name, created_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (normalized, password_hash, phone, display_name, _utc_now_iso()),
+                    "INSERT INTO users (email, password_hash, phone, display_name, created_at, course_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (normalized, password_hash, phone, display_name, _utc_now_iso(), course_id),
                 )
                 self._conn.commit()
             except sqlite3.IntegrityError as exc:
@@ -91,7 +118,7 @@ class UserStore:
     def get_by_email(self, email: str) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
+                f"SELECT {_COLUMNS} "
                 "FROM users WHERE email = ?",
                 (_normalize_email(email),),
             )
@@ -101,7 +128,7 @@ class UserStore:
     def get_by_id(self, user_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
+                f"SELECT {_COLUMNS} "
                 "FROM users WHERE id = ?",
                 (user_id,),
             )
@@ -130,13 +157,31 @@ class UserStore:
             )
             self._conn.commit()
 
+    def set_active(self, user_id: int, is_active: bool) -> None:
+        """`is_active=0` — giriş bağlanır (token növbəti sorğuda işləmir)
+        və tələbə yeri boşalır. Data silinmir."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET is_active = ? WHERE id = ?", (int(is_active), user_id)
+            )
+            self._conn.commit()
+
+    def set_platform_owner(self, user_id: int, is_owner: bool) -> None:
+        """Platforma sahibi bayrağı — `set_admin` kimi YALNIZ VPS-də əl ilə
+        çağırılır. Bu bayrağı dəyişən API endpoint-i qəsdən YOXDUR."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET is_platform_owner = ? WHERE id = ?", (int(is_owner), user_id)
+            )
+            self._conn.commit()
+
     def list_teachers(self) -> list[dict]:
         """Hazırda `is_teacher=1` olan bütün istifadəçilər — admin-in
         "Müəllim idarəetməsi" ekranında siyahını görməsi üçün (bax
         `app.py`, `GET /admin/teachers`)."""
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, email, password_hash, phone, display_name, created_at, is_teacher, is_admin "
+                f"SELECT {_COLUMNS} "
                 "FROM users WHERE is_teacher = 1 ORDER BY display_name"
             )
             return [dict(row) for row in cur.fetchall()]

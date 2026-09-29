@@ -21,6 +21,7 @@ import threading
 from datetime import datetime, timezone
 
 from pipeline.models import MCQQuestion
+from server.course_store import DEFAULT_COURSE_ID
 
 SUBJECTS = (
     "mentiq",
@@ -76,6 +77,15 @@ class QuestionSetStore:
                 );
                 """
             )
+            # Kurs sərhədi (spec 2026-09-29 §4): köhnə banklar kurs #1-dədir.
+            try:
+                self._conn.execute("ALTER TABLE question_sets ADD COLUMN course_id INTEGER")
+            except sqlite3.OperationalError:
+                pass
+            self._conn.execute(
+                "UPDATE question_sets SET course_id = ? WHERE course_id IS NULL",
+                (DEFAULT_COURSE_ID,),
+            )
             self._conn.commit()
 
     def create(
@@ -85,13 +95,16 @@ class QuestionSetStore:
         material_kind: str,
         material_location: str,
         created_by: int,
+        course_id: int = DEFAULT_COURSE_ID,
     ) -> dict:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO question_sets "
-                "(subject, title, status, material_kind, material_location, error, created_by, created_at) "
-                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?)",
-                (subject, title, material_kind, material_location, created_by, _utc_now_iso()),
+                "(subject, title, status, material_kind, material_location, error, created_by, "
+                "created_at, course_id) "
+                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?, ?)",
+                (subject, title, material_kind, material_location, created_by, _utc_now_iso(),
+                 course_id),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -100,7 +113,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at FROM question_sets WHERE id = ?",
+                "error, created_by, created_at, course_id FROM question_sets WHERE id = ?",
                 (question_set_id,),
             )
             row = cur.fetchone()
@@ -110,7 +123,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at FROM question_sets ORDER BY created_at DESC"
+                "error, created_by, created_at, course_id FROM question_sets ORDER BY created_at DESC"
             )
             return [dict(row) for row in cur.fetchall()]
 

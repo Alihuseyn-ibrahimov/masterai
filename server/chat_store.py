@@ -14,6 +14,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
+from server.course_store import DEFAULT_COURSE_ID
 from server.invite_code import generate_code, normalize_code
 
 
@@ -54,6 +55,14 @@ class ChatStore:
                 self._conn.execute("ALTER TABLE chats ADD COLUMN invite_code TEXT")
             except sqlite3.OperationalError:
                 pass
+            # Kurs sərhədi (spec 2026-09-29 §4): köhnə çatlar kurs #1-dədir.
+            try:
+                self._conn.execute("ALTER TABLE chats ADD COLUMN course_id INTEGER")
+            except sqlite3.OperationalError:
+                pass
+            self._conn.execute(
+                "UPDATE chats SET course_id = ? WHERE course_id IS NULL", (DEFAULT_COURSE_ID,)
+            )
             self._conn.commit()
             self._backfill_invite_codes_locked()
 
@@ -83,15 +92,21 @@ class ChatStore:
             if cur.fetchone() is None:
                 return code
 
-    def create(self, kind: str, created_by: int, name: str | None = None) -> dict:
+    def create(
+        self,
+        kind: str,
+        created_by: int,
+        name: str | None = None,
+        course_id: int = DEFAULT_COURSE_ID,
+    ) -> dict:
         with self._lock:
             # Şəxsi çata kod ilə qoşulmaq anlayışı yoxdur — yalnız
             # qrup çatı dəvət kodu alır.
             code = self._unique_code_locked() if kind == "group" else None
             cur = self._conn.execute(
-                "INSERT INTO chats (kind, name, created_by, created_at, invite_code) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (kind, name, created_by, _utc_now_iso(), code),
+                "INSERT INTO chats (kind, name, created_by, created_at, invite_code, course_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (kind, name, created_by, _utc_now_iso(), code, course_id),
             )
             self._conn.commit()
             return self._get_locked(cur.lastrowid)
@@ -105,7 +120,7 @@ class ChatStore:
             return None
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, kind, name, created_by, created_at, invite_code "
+                "SELECT id, kind, name, created_by, created_at, invite_code, course_id "
                 "FROM chats WHERE invite_code = ?",
                 (code,),
             )
@@ -129,7 +144,7 @@ class ChatStore:
 
     def _get_locked(self, chat_id: int) -> dict | None:
         cur = self._conn.execute(
-            "SELECT id, kind, name, created_by, created_at, invite_code "
+            "SELECT id, kind, name, created_by, created_at, invite_code, course_id "
             "FROM chats WHERE id = ?",
             (chat_id,),
         )

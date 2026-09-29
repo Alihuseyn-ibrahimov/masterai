@@ -581,7 +581,9 @@ def create_chat(
     friendships: FriendshipStore = Depends(get_friendship_store),
 ) -> ChatInfo:
     if req.kind == "group":
-        chat = chats.create(kind="group", created_by=user["id"], name=req.name)
+        chat = chats.create(
+            kind="group", created_by=user["id"], name=req.name, course_id=user["course_id"]
+        )
         chats.add_member(chat["id"], user["id"])
     else:
         peer = users.get_by_id(req.peer_user_id)
@@ -589,7 +591,7 @@ def create_chat(
             raise HTTPException(status_code=404, detail="İstifadəçi tapılmadı")
         if not friendships.are_friends(user["id"], req.peer_user_id):
             raise HTTPException(status_code=403, detail="Yalnız dostlarla birbaşa çat yaradıla bilər")
-        chat = chats.create(kind="direct", created_by=user["id"])
+        chat = chats.create(kind="direct", created_by=user["id"], course_id=user["course_id"])
         chats.add_member(chat["id"], user["id"])
         chats.add_member(chat["id"], req.peer_user_id)
     return _chat_info_for(chat, user["id"])
@@ -1124,6 +1126,7 @@ async def create_question_set(
         material_kind=kind,
         material_location=source_location,
         created_by=user["id"],
+        course_id=user["course_id"],
     )
 
     task = asyncio.create_task(
