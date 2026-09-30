@@ -435,6 +435,16 @@ class BadgeInfo(BaseModel):
     earned_at: str | None
 
 
+class CourseDeadline(BaseModel):
+    """Bitmə xəbərdarlığı sətri (n8n → Telegram, spec 2026-09-29 §2)."""
+
+    id: int
+    name: str
+    status: str
+    days_left: int
+    ends_at: str | None
+
+
 class AdminStatsInfo(BaseModel):
     users_total: int
     materials_total: int
@@ -443,6 +453,9 @@ class AdminStatsInfo(BaseModel):
     questions_total: int
     quiz_sessions_total: int
     friendships_accepted: int
+    # Bitməyə ≤5 gün qalan açıq kurslar və müddəti keçib bağlanmış kurslar.
+    expiring_courses: list[CourseDeadline] = []
+    expired_courses: list[CourseDeadline] = []
 
 
 # ---- Müəllim konsolunun xülasəsi ----

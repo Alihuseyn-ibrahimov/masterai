@@ -92,6 +92,7 @@ from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
     AuditLogRow,
+    CourseDeadline,
     CourseActivity,
     CoursePaymentRequest,
     CreateCourseRequest,
@@ -932,7 +933,37 @@ def admin_stats(
         questions_total=questions.count_all(),
         quiz_sessions_total=sessions.count_all(),
         friendships_accepted=friendships.count_by_status("accepted"),
+        **_course_deadlines(users),
     )
+
+
+# Xəbərdarlıq həddi — müəllimin banneri ilə EYNİ (web/assets/js/license.js).
+EXPIRY_WARNING_DAYS = 5
+
+
+def _course_deadlines(users: UserStore) -> dict[str, list[CourseDeadline]]:
+    """Sahibə gündəlik Telegram xəbərdarlığı üçün (n8n «Gündəlik Statistika»).
+
+    Yalnız MÜDDƏTLİ kurslar (sınaq/ödənişli): `owner` müddətsizdir,
+    `suspended`-i isə sahib özü dayandırıb — onlar haqqında xəbərdarlıq
+    mənasızdır. Bağlanmış kurs ayrıca siyahıdadır: ödəniş gözlənilir."""
+    now = _utcnow()
+    expiring: list[CourseDeadline] = []
+    expired: list[CourseDeadline] = []
+    for course in users.courses.list_all():
+        if course["status"] not in (STATUS_TRIAL, STATUS_ACTIVE):
+            continue
+        ends_at = course["trial_ends_at"] if course["status"] == STATUS_TRIAL else course["paid_until"]
+        row = CourseDeadline(
+            id=course["id"], name=course["name"], status=course["status"],
+            days_left=days_left(course, now), ends_at=ends_at,
+        )
+        if not course_is_open(course, now):
+            expired.append(row)
+        elif row.days_left <= EXPIRY_WARNING_DAYS:
+            expiring.append(row)
+    expiring.sort(key=lambda row: row.days_left)
+    return {"expiring_courses": expiring, "expired_courses": expired}
 
 
 @app.post("/friends/requests", response_model=FriendshipInfo, status_code=201)
