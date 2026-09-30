@@ -31,6 +31,7 @@ import argparse
 import base64
 import json
 import os
+import secrets
 import sys
 import urllib.error
 import urllib.request
@@ -41,7 +42,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 PASSWORD = "Parol1234"
 # Mövcud olmayan, amma e-poçt validatorundan keçən ünvan (xüsusi domenlər
 # `.test`/`.invalid` rədd olunur). Parol sınağı yalnız bu açarı bloklayır.
-PROBE_EMAIL = "hucum-yoxlama@masterai-yoxlama.az"
+# HƏR QAÇIŞDA TƏZƏ: sabit olsaydı, 15 dəqiqə ərzində ikinci qaçışda açar
+# onsuz da bloklu olardı və saxta X-Real-IP bəndi heç nə yoxlamadan keçərdi.
+PROBE_EMAIL = f"hucum-yoxlama-{secrets.token_hex(4)}@masterai-yoxlama.az"
 LOGIN_LIMIT = 10  # server/app.py: login_rate_limiter (10 səhv / 15 dəq)
 
 

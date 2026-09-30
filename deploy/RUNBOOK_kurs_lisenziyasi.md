@@ -7,6 +7,11 @@ hücum yoxlaması işlədilir.
 
 **Server:** `root@<SERVER_IP>` · **Branch:** `claude/ai-engineering-monthly-project-g5cg2y`
 
+**Bu runbook əmr-əmr sınanıb (2026-09-30):** lokal «saxta VPS»-də (köhnə
+commit, köhnə kodla yaradılmış bazalar, certbot sətirli nginx faylı, köhnə
+sayt) bash blokları fayldan çıxarılıb yalnız yollar əvəzlənərək işlədildi:
+§1–§6, §8–§12 keçdi, §7 isə skriptin etdiyi kimi təqlid edildi.
+
 Hər addımdan sonra çıxışı oxu. Gözlənilən nəticə görünmürsə — DAYAN,
 növbəti addıma keçmə.
 
@@ -167,7 +172,7 @@ ssh root@<SERVER_IP> '
   .venv/bin/python deploy/nginx_add_api_routes.py "$CONF" || exit 1
   grep -n "location ~ \^/(" "$CONF"
   grep -c "managed by Certbot" "$CONF"
-  if nginx -t; then systemctl reload nginx && echo "nginx yeniləndi"; \
+  if nginx -t; then systemctl reload nginx && sleep 2 && echo "nginx yeniləndi"; \
   else echo "nginx -t UĞURSUZ - geri qaytarılır"; \
        cp -a /root/masterai-backup/<STAMP>/nginx-masterai.conf "$CONF" && nginx -t; fi
 '
@@ -208,8 +213,10 @@ Son sətir **`HAMISI TƏMİZ`** (lokalda repo nginx konfiqurasiyası arxasında
 Skript əvvəlcə `/me/course -> 401` yoxlayır; keçməsə DAYANIR (köhnə
 versiyada qeydiyyat açıqdır və sınaq real hesab yaradardı).
 
-Parol sınağı bəndi `hucum-yoxlama@masterai-yoxlama.az` ünvanını VPS-in
-IP-si üçün 15 dəqiqəlik bloklayır — belə hesab yoxdur, heç kimə təsir etmir.
+Parol sınağı bəndi mövcud olmayan `hucum-yoxlama-<təsadüfi>@masterai-yoxlama.az`
+ünvanını VPS-in IP-si üçün 15 dəqiqəlik bloklayır — heç kimə təsir etmir.
+**Təkrar işlədəndə 1 dəqiqə gözlə:** qeydiyyat limiti IP üzrə dəqiqədə 5
+səhvdir, hər qaçış 2 səhv qeydiyyat edir — üçüncü qaçış dərhal gəlsə, 429 alar.
 
 ### 8.2 Sayt yeni versiyadırmı
 
@@ -273,8 +280,13 @@ ssh root@<SERVER_IP> '
 '
 ```
 
-⚠️ Köhnə kodda qeydiyyat AÇIQDIR — geri qaytarma qapalı qeydiyyatı da
-aradan qaldırır. Qeydiyyat kodunu heç kimə verməmisənsə risk kiçikdir.
+⚠️ Köhnə kodda qeydiyyat AÇIQDIR və **kurs sərhədi YOXDUR** — İngilis kursu
+yaradılandan sonra geri qaytarsan, o kursun müəllim/tələbələri kurs #1-in
+çatlarını və banklarını görə bilər. Geri qaytarma müddətini qısa saxla.
+
+Geri qaytarma müddətində köhnə kodla yaranan istifadəçi və çatların
+`course_id`-si boş qalır; yenidən irəli deploy edəndə yeni kod başlanğıcda
+onları kurs #1-ə doldurur (simulyasiyada yoxlanıb: NULL sayı 0 oldu).
 
 nginx: `cp $B/nginx-masterai.conf "$(readlink -f /etc/nginx/sites-enabled/masterai)" && nginx -t && systemctl reload nginx`
 (köhnə nginx faylı yeni backend ilə də işləyir — sadəcə `/me`, `/owner` kök domendə açılmır).
