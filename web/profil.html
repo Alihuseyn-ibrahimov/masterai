@@ -70,6 +70,16 @@
     </div>
   </section>
 
+  <!-- Yalnız platforma sahibinə. Naviqasiyada deyil: bölmə sayı 5-lə
+       məhdudlaşıb (ölçülüb, bax nav.js). Bu link yalnız GÖRÜNÜŞDÜR -
+       qoruma serverdədir (`/owner/*` başqasına 404). -->
+  <section id="ownerExtras" hidden>
+    <a class="card card--interactive stack stack--tight" href="sahib.html">
+      <h4 class="row"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-tool"></use></svg>Sahib paneli</h4>
+      <p class="text-sm text-muted">Kurslar, ödənişlər və müəllim dəvətləri</p>
+    </a>
+  </section>
+
   <section>
     <div class="card stack">
       <h4>Hesabdan çıxış</h4>
@@ -115,6 +125,9 @@
     }
     if (!user.is_teacher) {
       document.getElementById('studentExtras').hidden = false;
+    }
+    if (user.is_platform_owner) {
+      document.getElementById('ownerExtras').hidden = false;
     }
 
     /* Hansı seçimin aktiv olduğu ƏVVƏL heç yerdə görünmürdü -

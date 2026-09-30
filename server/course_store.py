@@ -91,6 +91,20 @@ def ensure_course_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    # Sahib əməliyyatlarının jurnalı: «biz ödəmişdik, niyə bağlandı?»
+    # mübahisəsində tarix MƏNBƏDƏN görünsün (spec §3). Yalnız əlavə olunur.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS owner_audit_log (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            at        TEXT NOT NULL,
+            owner_id  INTEGER NOT NULL,
+            course_id INTEGER,
+            action    TEXT NOT NULL,
+            details   TEXT NOT NULL
+        )
+        """
+    )
     # `INSERT OR IGNORE` + sabit id: iki dəfə açılsa da tək kurs #1 olur.
     conn.execute(
         "INSERT OR IGNORE INTO courses (id, name, profile, status, seat_limit, created_at) "
@@ -260,3 +274,65 @@ class CourseStore:
                 (student, teacher, course_id),
             )
             self._conn.commit()
+
+    def update_settings(
+        self,
+        course_id: int,
+        *,
+        name: str | None = None,
+        seat_limit: int | None = None,
+        upload_limit_student: int | None = None,
+        upload_limit_teacher: int | None = None,
+    ) -> None:
+        """Yalnız verilən sahələr dəyişir (None = toxunma)."""
+        changes = {
+            "name": name,
+            "seat_limit": seat_limit,
+            "upload_limit_student": upload_limit_student,
+            "upload_limit_teacher": upload_limit_teacher,
+        }
+        changes = {k: v for k, v in changes.items() if v is not None}
+        if not changes:
+            return
+        assignments = ", ".join(f"{column} = ?" for column in changes)
+        with self._lock:
+            self._conn.execute(
+                f"UPDATE courses SET {assignments} WHERE id = ?", (*changes.values(), course_id)
+            )
+            self._conn.commit()
+
+    def regenerate_join_code(self, course_id: int) -> str:
+        """Kod kənara sızanda: köhnə kod dərhal işləməz olur."""
+        with self._lock:
+            code = self._unique_code_locked()
+            self._conn.execute("UPDATE courses SET join_code = ? WHERE id = ?", (code, course_id))
+            self._conn.commit()
+            return code
+
+    def log_owner_action(
+        self, *, owner_id: int, course_id: int | None, action: str, details: str,
+        now: datetime | None = None,
+    ) -> None:
+        now = now or datetime.now(timezone.utc)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO owner_audit_log (at, owner_id, course_id, action, details) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (now.isoformat(), owner_id, course_id, action, details),
+            )
+            self._conn.commit()
+
+    def list_audit_log(self, limit: int = 100) -> list[dict]:
+        """Ən yenisi birinci. Ad sütunları eyni fayldakı cədvəllərdən (JOIN)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT l.id, l.at, l.course_id, c.name AS course_name, l.action, l.details, "
+                "u.display_name AS owner_name "
+                "FROM owner_audit_log l "
+                "LEFT JOIN courses c ON c.id = l.course_id "
+                "LEFT JOIN users u ON u.id = l.owner_id "
+                "ORDER BY l.id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+

@@ -97,3 +97,18 @@ describe('activeHref', () => {
   });
 });
 
+
+describe('sahib paneli', () => {
+  /* Sahib linki alt paneldə YOXDUR (5 bölmə həddi ölçülüb, bax nav.js),
+     Profil səhifəsindədir. Ona görə sahib.html açıq olanda Profil
+     işıqlanmalıdır - əks halda istifadəçi «harda olduğunu» itirir. */
+  test('sahib.html açıq olanda Profil aktivdir (hər iki rolda)', () => {
+    for (const user of [{ is_teacher: true }, { is_teacher: false }]) {
+      assert.equal(activeHref(destinationsFor(user), '/sahib.html'), 'profil.html');
+    }
+  });
+
+  test('bölmə sayı sahib üçün də 5-i keçmir', () => {
+    assert.ok(destinationsFor({ is_teacher: true, is_platform_owner: true }).length <= 5);
+  });
+});

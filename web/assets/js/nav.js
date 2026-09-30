@@ -22,7 +22,7 @@ const STUDENT_DESTINATIONS = [
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
-  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
+  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
 
 /* Müəllimdə DƏ çat bölməsi var. Əvvəl yox idi və bu, funksional
@@ -36,7 +36,7 @@ const TEACHER_DESTINATIONS = [
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'sessiyalar.html', label: 'Sessiyalar', short: 'Sessiya', icon: 'target', matches: ['sessiyalar.html'] },
   { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },
-  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html'] },
+  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
 
 /** Alt paneldə göstəriləcək etiket: dar telefonda uzun ad iki sətrə

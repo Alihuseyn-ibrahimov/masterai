@@ -4,6 +4,7 @@
     USERS_DB_PATH=... CHATS_DB_PATH=... python deploy/diagnostics/license_seed.py seed
     python deploy/diagnostics/license_seed.py status <course_id> <trial|suspended>
     python deploy/diagnostics/license_seed.py registration   # registration_flow.mjs üçün
+    python deploy/diagnostics/license_seed.py owner          # owner_panel_flow.mjs üçün
 
 `seed` JSON çap edir: kurs id-si, e-poçt/şifrələr, çat id-si.
 """
@@ -59,6 +60,17 @@ def registration() -> None:
     }))
 
 
+def owner() -> None:
+    """Platforma sahibi (kurs #1) + sahib OLMAYAN admin-müəllim (404 yoxlaması)."""
+    users = _users()
+    boss = users.create("sahib@e2e.az", hash_password(PASSWORD), "Sahib")
+    users.set_platform_owner(boss["id"], True)
+    other = users.create("admin@e2e.az", hash_password(PASSWORD), "Admin müəllim")
+    users.set_teacher(other["id"], True)
+    users.set_admin(other["id"], True)
+    print(json.dumps({"owner": boss["email"], "other": other["email"], "password": PASSWORD}))
+
+
 def set_status(course_id: int, status: str) -> None:
     _users().courses.set_status(course_id, status)
 
@@ -66,6 +78,8 @@ def set_status(course_id: int, status: str) -> None:
 if __name__ == "__main__":
     if sys.argv[1] == "seed":
         seed()
+    elif sys.argv[1] == "owner":
+        owner()
     elif sys.argv[1] == "registration":
         registration()
     elif sys.argv[1] == "status":

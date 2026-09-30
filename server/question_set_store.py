@@ -211,6 +211,19 @@ class QuestionSetStore:
                 (user_id, since_iso),
             ).fetchone()[0]
 
+    def count_by_course_since(self, course_id: int, since_iso: str) -> int:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM question_sets WHERE course_id = ? AND created_at >= ?",
+                (course_id, since_iso),
+            ).fetchone()[0]
+
+    def last_created_in_course(self, course_id: int) -> str | None:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT MAX(created_at) FROM question_sets WHERE course_id = ?", (course_id,)
+            ).fetchone()[0]
+
     def count_questions(self, question_set_id: int) -> int:
         with self._lock:
             cur = self._conn.execute(

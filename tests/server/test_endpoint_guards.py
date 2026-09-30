@@ -35,6 +35,7 @@ _GUARD_MARKERS = (
     'user["is_admin"]',      # tətbiqdaxili admin
     'user["is_teacher"]',    # sətiriçi müəllim yoxlaması
     "get_current_user",      # ən azı giriş tələb olunur
+    "get_platform_owner",    # platforma sahibi (sahib paneli)
 )
 
 _ROUTE_RE = re.compile(r'@app\.(get|post|put|patch|delete|websocket)\(\s*"([^"]+)"')

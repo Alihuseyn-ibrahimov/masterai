@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sahib paneli - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20260912a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax muellim.html). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260912a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260912a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260912a">
+</head>
+<body>
+<header id="appBar"></header>
+<!-- Sahib paneli (spec 2026-09-29 §3). QORUMA SERVERDƏDİR: `/owner/*`
+     sahib olmayana 404 qaytarır. Səhifə `localStorage`-dakı bayrağa
+     görə YÖNLƏNDİRMİR - deploy-dan əvvəl daxil olmuş sahibin saxlanmış
+     istifadəçisində bayraq yoxdur və o, səhvən qovulardı. -->
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1>Sahib paneli</h1>
+      <span class="section-header__hint">Kurslar, ödənişlər, müəllim dəvətləri</span>
+    </div>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+
+    <!-- Dəvət linki YALNIZ indi görünür: bazada hash-dir, sonradan
+         yenidən göstərmək mümkün deyil. -->
+    <div class="card stack" id="inviteCard" hidden>
+      <h3>Müəllim dəvət linki</h3>
+      <p class="text-sm text-muted" id="inviteFor"></p>
+      <input class="field__input" id="inviteLink" readonly aria-label="Dəvət linki">
+      <div class="row">
+        <button class="btn btn--primary btn--sm" type="button" id="copyInvite">Linki kopyala</button>
+        <button class="btn btn--secondary btn--sm" type="button" id="closeInvite">Bağla</button>
+      </div>
+      <p class="text-xs text-muted">
+        Link bir dəfə işləyir və 7 gün etibarlıdır. Bu pəncərəni bağladıqdan sonra
+        onu yenidən göstərmək olmur - lazım olsa yeni dəvət yaradın.
+      </p>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header">
+      <h2>Kurslar</h2>
+      <button class="btn btn--secondary btn--sm" type="button" id="refreshBtn">Yenilə</button>
+    </div>
+    <div id="courses"></div>
+  </section>
+
+  <section id="createSection">
+    <details class="disclosure" id="createPanel">
+      <summary class="disclosure__summary">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-school"></use></svg>
+        Yeni kurs yarat
+      </summary>
+      <div class="disclosure__body stack">
+        <form class="stack" id="createForm">
+          <div class="grid" style="--grid-min: 200px">
+            <div class="field">
+              <label class="field__label" for="courseName">Kursun adı</label>
+              <input class="field__input" id="courseName" name="name" required maxlength="100"
+                     placeholder="English Club">
+            </div>
+            <div class="field">
+              <label class="field__label" for="courseProfile">Profil</label>
+              <select class="field__select" id="courseProfile" name="profile">
+                <option value="english">İngilis dili</option>
+                <option value="exam_prep">İmtahana hazırlıq</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="trialDays">Pulsuz sınaq (gün)</label>
+              <input class="field__input" id="trialDays" name="trial_days" type="number"
+                     min="1" max="365" value="30" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="seatLimit">Tələbə limiti</label>
+              <input class="field__input" id="seatLimit" name="seat_limit" type="number"
+                     min="1" max="10000" required>
+            </div>
+          </div>
+          <button class="btn btn--primary" type="submit" id="createBtn">Kursu yarat</button>
+        </form>
+      </div>
+    </details>
+  </section>
+
+  <section class="stack" id="auditSection">
+    <div class="section-header"><h2>Əməliyyat jurnalı</h2></div>
+    <p class="text-sm text-muted">
+      Hər ödəniş, dayandırma və dəyişiklik burada tarixi ilə qalır.
+    </p>
+    <div id="auditLog"></div>
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { ApiError, request } from './assets/js/api.js';
+  import { createIcon } from './assets/js/icon.js';
+  import { formatCode } from './assets/js/invite-code.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import {
+    activityText, auditActionLabel, daysLeftText, inviteUrl, lastActivityText,
+    profileLabel, seatsText, statusView,
+  } from './assets/js/owner.js';
+
+  if (requireLogin()) {
+    mountShell();
+
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const coursesBox = document.getElementById('courses');
+    const auditBox = document.getElementById('auditLog');
+
+    function flash(box, text) {
+      errorBox.hidden = true;
+      okBox.hidden = true;
+      box.textContent = text;
+      box.hidden = false;
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function button(label, variant, onClick) {
+      const node = el('button', `btn btn--${variant} btn--sm`, label);
+      node.type = 'button';
+      node.addEventListener('click', async () => {
+        node.disabled = true;
+        try {
+          await onClick();
+        } catch (error) {
+          flash(errorBox, error.message);
+        } finally {
+          node.disabled = false;
+        }
+      });
+      return node;
+    }
+
+    function stat(label, value) {
+      const box = el('div', 'stack stack--tight');
+      box.append(el('span', 'text-xs text-muted', label), el('strong', null, value));
+      return box;
+    }
+
+    async function act(path, options, message) {
+      await request(path, { method: 'POST', ...options });
+      flash(okBox, message);
+      await reload();
+    }
+
+    function showInvite(course, token) {
+      document.getElementById('inviteFor').textContent = `Kurs: ${course.name}`;
+      document.getElementById('inviteLink').value = inviteUrl(window.location.origin, token);
+      document.getElementById('inviteCard').hidden = false;
+      document.getElementById('inviteCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function limitsForm(course) {
+      const details = el('details', 'disclosure');
+      details.append(el('summary', 'disclosure__summary', 'Limitlər'));
+      const body = el('div', 'disclosure__body stack');
+      const grid = el('div', 'grid');
+      grid.style.setProperty('--grid-min', '160px');
+      const fields = [
+        ['seat_limit', 'Tələbə limiti', course.seat_limit, 1],
+        ['upload_limit_student', 'Tələbə yükləməsi / gün', course.upload_limit_student, 0],
+        ['upload_limit_teacher', 'Müəllim yükləməsi / gün', course.upload_limit_teacher, 0],
+      ];
+      const inputs = {};
+      for (const [name, label, value, min] of fields) {
+        const field = el('div', 'field');
+        const id = `${name}-${course.id}`;
+        const labelNode = el('label', 'field__label', label);
+        labelNode.htmlFor = id;
+        const input = el('input', 'field__input');
+        input.type = 'number';
+        input.min = String(min);
+        input.id = id;
+        input.value = value === null || value === undefined ? '' : String(value);
+        inputs[name] = input;
+        field.append(labelNode, input);
+        grid.append(field);
+      }
+      body.append(grid, button('Saxla', 'primary', async () => {
+        const payload = {};
+        for (const [name, input] of Object.entries(inputs)) {
+          if (input.value !== '') payload[name] = Number(input.value);
+        }
+        await request(`/owner/courses/${course.id}`, { method: 'PATCH', body: payload });
+        flash(okBox, `«${course.name}»: limitlər saxlanıldı.`);
+        await reload();
+      }));
+      details.append(body);
+      return details;
+    }
+
+    function courseCard(course) {
+      const card = el('article', 'card stack');
+      const head = el('div', 'row row--between');
+      const status = statusView(course);
+      head.append(el('h3', null, course.name), el('span', `badge badge--${status.tone}`, status.label));
+      card.append(head);
+      card.append(el('p', 'text-sm text-muted',
+        `${profileLabel(course.profile)} · ${daysLeftText(course.days_left)}`));
+
+      const stats = el('div', 'grid');
+      stats.style.setProperty('--grid-min', '120px');
+      stats.append(
+        stat('Tələbə', seatsText(course.students_active, course.seat_limit)),
+        stat('Müəllim', String(course.teachers)),
+        stat('Son aktivlik', lastActivityText(course.last_activity)),
+      );
+      card.append(stats);
+      card.append(el('p', 'text-sm', `Son 7 gün: ${activityText(course.activity_7d)}`));
+
+      const codeRow = el('div', 'row row--between');
+      codeRow.append(
+        el('span', 'text-sm', `Tələbə kodu: ${course.join_code ? formatCode(course.join_code) : '-'}`),
+        button('Kodu yenilə', 'secondary', async () => {
+          if (!window.confirm('Köhnə kod dərhal işləməz olacaq. Davam edilsin?')) return;
+          await act(`/owner/courses/${course.id}/join-code`, {}, `«${course.name}»: yeni tələbə kodu yaradıldı.`);
+        }),
+      );
+      card.append(codeRow);
+
+      const actions = el('div', 'row');
+      if (course.status !== 'owner') {
+        for (const months of [1, 3]) {
+          actions.append(button(`+${months} ay ödənildi`, 'primary', async () => {
+            if (!window.confirm(`«${course.name}» üçün +${months} ay ödəniş qeyd edilsin?`)) return;
+            await act(`/owner/courses/${course.id}/payments`, { body: { months } },
+              `«${course.name}»: ödəniş qeyd edildi.`);
+          }));
+        }
+        if (course.status === 'suspended') {
+          actions.append(button('Bərpa et', 'secondary', () =>
+            act(`/owner/courses/${course.id}/resume`, {}, `«${course.name}» bərpa edildi.`)));
+        } else {
+          actions.append(button('Dayandır', 'danger', async () => {
+            if (!window.confirm(`«${course.name}» DƏRHAL bağlanacaq: müəllim və tələbələr daxil ola bilməyəcək. Davam edilsin?`)) return;
+            await act(`/owner/courses/${course.id}/suspend`, {}, `«${course.name}» dayandırıldı.`);
+          }));
+        }
+      }
+      actions.append(button('Müəllim dəvəti', 'secondary', async () => {
+        const invite = await request(`/owner/courses/${course.id}/teacher-invites`, { method: 'POST' });
+        showInvite(course, invite.token);
+        await reload();
+      }));
+      card.append(actions, limitsForm(course));
+      return card;
+    }
+
+    function renderCourses(container, courses) {
+      container.innerHTML = '';
+      const list = el('div', 'stack');
+      for (const course of courses) list.append(courseCard(course));
+      container.append(list);
+    }
+
+    function renderAudit(container, rows) {
+      container.innerHTML = '';
+      if (!rows.length) {
+        container.append(el('p', 'text-sm text-muted', 'Hələ əməliyyat yoxdur.'));
+        return;
+      }
+      const list = el('div', 'card stack');
+      for (const row of rows) {
+        const line = el('div', 'stack stack--tight');
+        const when = new Date(row.at).toLocaleString('az-AZ');
+        line.append(
+          el('strong', 'text-sm', `${auditActionLabel(row.action)} · ${row.course_name || '-'}`),
+          el('span', 'text-xs text-muted', `${when} · ${row.details}`),
+        );
+        list.append(line);
+      }
+      container.append(list);
+    }
+
+    function renderNotFound(container) {
+      container.innerHTML = '';
+      const state = el('div', 'state');
+      const icon = el('div', 'state__icon');
+      icon.append(createIcon('alert'));
+      state.append(icon, el('div', 'state__title', 'Bu səhifə mövcud deyil'));
+      container.append(state);
+    }
+
+    async function reload() {
+      try {
+        const courses = await request('/owner/courses');
+        renderCourses(coursesBox, courses);
+        await loadInto(auditBox, () => request('/owner/audit-log'), renderAudit);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          renderNotFound(coursesBox);
+          // Sahib deyil: panelin qalan hissəsi də göstərilmir.
+          for (const id of ['createSection', 'auditSection', 'refreshBtn']) {
+            document.getElementById(id).hidden = true;
+          }
+          return;
+        }
+        flash(errorBox, error.message);
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', reload);
+
+    document.getElementById('copyInvite').addEventListener('click', async () => {
+      const input = document.getElementById('inviteLink');
+      try {
+        await navigator.clipboard.writeText(input.value);
+        flash(okBox, 'Link kopyalandı.');
+      } catch {
+        input.select();
+        flash(okBox, 'Linki seçdim - Ctrl+C ilə kopyalayın.');
+      }
+    });
+    document.getElementById('closeInvite').addEventListener('click', () => {
+      document.getElementById('inviteLink').value = '';
+      document.getElementById('inviteCard').hidden = true;
+    });
+
+    const form = document.getElementById('createForm');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const createBtn = document.getElementById('createBtn');
+      createBtn.disabled = true;
+      try {
+        const course = await request('/owner/courses', {
+          method: 'POST',
+          body: {
+            name: String(data.get('name')).trim(),
+            profile: data.get('profile'),
+            trial_days: Number(data.get('trial_days')),
+            seat_limit: Number(data.get('seat_limit')),
+          },
+        });
+        form.reset();
+        document.getElementById('createPanel').open = false;
+        flash(okBox, `«${course.name}» yaradıldı. Tələbə kodu: ${formatCode(course.join_code)}`);
+        await reload();
+      } catch (error) {
+        flash(errorBox, error.message);
+      } finally {
+        createBtn.disabled = false;
+      }
+    });
+
+    reload();
+  }
+</script>
+</body>
+</html>

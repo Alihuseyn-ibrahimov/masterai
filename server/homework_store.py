@@ -251,3 +251,31 @@ class HomeworkStore:
             )
             self._conn.commit()
             return self.get_attempt(attempt_id)
+
+    # ---- Sahib paneli: aktivlik (spec 2026-09-29 §3) ----
+
+    def count_answers_in_chats_since(self, chat_ids: list[int], since_iso: str) -> int:
+        if not chat_ids:
+            return 0
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM homework_answers ans "
+                "JOIN homework_attempts att ON att.id = ans.attempt_id "
+                "JOIN homework_assignments asg ON asg.id = att.assignment_id "
+                f"WHERE asg.chat_id IN ({marks}) AND ans.answered_at >= ?",
+                (*chat_ids, since_iso),
+            ).fetchone()[0]
+
+    def last_answer_in_chats(self, chat_ids: list[int]) -> str | None:
+        if not chat_ids:
+            return None
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                "SELECT MAX(ans.answered_at) FROM homework_answers ans "
+                "JOIN homework_attempts att ON att.id = ans.attempt_id "
+                "JOIN homework_assignments asg ON asg.id = att.assignment_id "
+                f"WHERE asg.chat_id IN ({marks})",
+                tuple(chat_ids),
+            ).fetchone()[0]

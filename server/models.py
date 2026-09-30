@@ -40,6 +40,9 @@ class UserInfo(BaseModel):
     created_at: str
     is_teacher: bool
     is_admin: bool
+    # Frontend sahib paneli linkini bununla göstərir. QORUMA serverdədir
+    # (`get_platform_owner`) — bu bayraq yalnız görünüş üçündür.
+    is_platform_owner: bool = False
 
 
 class MeCourseInfo(BaseModel):
@@ -471,3 +474,75 @@ class TeacherSummary(BaseModel):
     question_sets: QuestionSetCounts
     homework: HomeworkSummary
     last_session: LastSessionSummary | None
+
+
+# ---- Sahib paneli (spec 2026-09-29 §3) ----------------------------------
+
+
+class CourseActivity(BaseModel):
+    """Son 7 gün — mövcud cədvəllərdən sayılır (yeni izləmə kodu yoxdur)."""
+
+    sessions: int
+    question_sets: int
+    answers: int
+    messages: int
+
+
+class OwnerCourseInfo(BaseModel):
+    id: int
+    name: str
+    profile: str
+    status: str
+    is_open: bool
+    days_left: int | None
+    trial_ends_at: str | None
+    paid_until: str | None
+    seat_limit: int | None
+    students_active: int
+    teachers: int
+    upload_limit_student: int
+    upload_limit_teacher: int
+    join_code: str | None
+    activity_7d: CourseActivity
+    last_activity: str | None
+
+
+class CreateCourseRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    profile: Literal["exam_prep", "english"]
+    trial_days: int = Field(default=30, ge=1, le=365)
+    seat_limit: int | None = Field(default=None, ge=1, le=10000)
+
+
+class CoursePaymentRequest(BaseModel):
+    # Bir ay = 30 gün (proqnozlaşdırıla bilən; təqvim ayı fərqli uzunluqdadır).
+    months: int = Field(ge=1, le=12)
+
+
+class UpdateCourseRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    seat_limit: int | None = Field(default=None, ge=1, le=10000)
+    upload_limit_student: int | None = Field(default=None, ge=0, le=1000)
+    upload_limit_teacher: int | None = Field(default=None, ge=0, le=1000)
+
+
+class JoinCodeInfo(BaseModel):
+    join_code: str
+
+
+class TeacherInviteInfo(BaseModel):
+    """Xam token YALNIZ bu cavabda bir dəfə görünür — bazada hash-dir."""
+
+    token: str
+    expires_at: str
+
+
+class AuditLogRow(BaseModel):
+    id: int
+    at: str
+    course_id: int | None
+    course_name: str | None
+    action: str
+    details: str
+    owner_name: str | None
+

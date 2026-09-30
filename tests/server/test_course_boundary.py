@@ -198,6 +198,15 @@ EXEMPT = {
     ("POST", "/auth/register"): "kurs kodu ilə kurs SEÇİLİR - test_closed_registration.py",
     ("POST", "/auth/login"): "obyektə çıxış yoxdur, yalnız öz hesabı",
     ("POST", "/admin/teachers"): "test_admin_teacher_scope.py",
+    # Sahib paneli kursu ÖZÜ seçir — kurs sərhədi ona tətbiq olunmur. Qoruması
+    # «sahib deyilsənsə 404»-dür: test_owner_panel.py::test_non_owner_gets_404_everywhere
+    # HƏR /owner marşrutunu marşrut cədvəlindən tapıb sınayır.
+    ("PATCH", "/owner/courses/{course_id}"): "sahib paneli - test_owner_panel.py",
+    ("POST", "/owner/courses/{course_id}/join-code"): "sahib paneli - test_owner_panel.py",
+    ("POST", "/owner/courses/{course_id}/payments"): "sahib paneli - test_owner_panel.py",
+    ("POST", "/owner/courses/{course_id}/resume"): "sahib paneli - test_owner_panel.py",
+    ("POST", "/owner/courses/{course_id}/suspend"): "sahib paneli - test_owner_panel.py",
+    ("POST", "/owner/courses/{course_id}/teacher-invites"): "sahib paneli - test_owner_panel.py",
 }
 
 

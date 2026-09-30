@@ -463,3 +463,37 @@ class LiveSessionStore:
                 if row["participant_id"] in scores:
                     scores[row["participant_id"]] = row["c"]
             return scores
+
+    # ---- Sahib paneli: aktivlik (spec 2026-09-29 §3) ----
+
+    def count_sessions_in_chats_since(self, chat_ids: list[int], since_iso: str) -> int:
+        if not chat_ids:
+            return 0
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                f"SELECT COUNT(*) FROM live_sessions WHERE chat_id IN ({marks}) AND created_at >= ?",
+                (*chat_ids, since_iso),
+            ).fetchone()[0]
+
+    def count_answers_in_chats_since(self, chat_ids: list[int], since_iso: str) -> int:
+        if not chat_ids:
+            return 0
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM live_answers a JOIN live_sessions s ON s.id = a.session_id "
+                f"WHERE s.chat_id IN ({marks}) AND a.answered_at >= ?",
+                (*chat_ids, since_iso),
+            ).fetchone()[0]
+
+    def last_answer_in_chats(self, chat_ids: list[int]) -> str | None:
+        if not chat_ids:
+            return None
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                "SELECT MAX(a.answered_at) FROM live_answers a JOIN live_sessions s ON s.id = a.session_id "
+                f"WHERE s.chat_id IN ({marks})",
+                tuple(chat_ids),
+            ).fetchone()[0]

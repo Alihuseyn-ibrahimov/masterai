@@ -16,6 +16,7 @@ Disallow: /hesabatlar.html
 Disallow: /giris.html
 Disallow: /qeydiyyat.html
 Disallow: /bagli.html
+Disallow: /sahib.html
 Allow: /
 
 Sitemap: https://masterai.prdostu.com/sitemap.xml

@@ -70,3 +70,24 @@ class MessageStore:
             rows = [dict(row) for row in cur.fetchall()]
             rows.reverse()
             return rows
+
+    # ---- Sahib paneli: aktivlik (spec 2026-09-29 §3) ----
+
+    def count_in_chats_since(self, chat_ids: list[int], since_iso: str) -> int:
+        if not chat_ids:
+            return 0
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                f"SELECT COUNT(*) FROM messages WHERE chat_id IN ({marks}) AND created_at >= ?",
+                (*chat_ids, since_iso),
+            ).fetchone()[0]
+
+    def last_in_chats(self, chat_ids: list[int]) -> str | None:
+        if not chat_ids:
+            return None
+        marks = ",".join("?" for _ in chat_ids)
+        with self._lock:
+            return self._conn.execute(
+                f"SELECT MAX(created_at) FROM messages WHERE chat_id IN ({marks})", tuple(chat_ids)
+            ).fetchone()[0]

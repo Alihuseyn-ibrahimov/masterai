@@ -140,6 +140,14 @@ class UserStore:
             (course_id,),
         ).fetchone()[0]
 
+    def count_teachers(self, course_id: int) -> int:
+        """Sahib paneli: müəllim limiti yoxdur, amma sayı görünməlidir."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM users WHERE course_id = ? AND is_active = 1 AND is_teacher = 1",
+                (course_id,),
+            ).fetchone()[0]
+
     def create_student(
         self, email: str, password_hash: str, display_name: str, *, course_id: int
     ) -> dict:

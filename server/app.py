@@ -68,7 +68,8 @@ from .auth import InvalidToken, create_token, hash_password, token_secret, verif
 from .badge_store import BadgeStore
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
-from .licensing import course_is_open, days_left
+from .course_store import TEACHER_INVITE_TTL, UnknownProfile
+from .licensing import STATUS_ACTIVE, STATUS_OWNER, STATUS_SUSPENDED, STATUS_TRIAL, course_is_open, days_left
 from .connection_manager import ConnectionManager
 from .friendship_store import AlreadyFriends, DuplicateFriendship, FriendshipStore
 from .homework_store import AttemptAlreadyCompleted, HomeworkStore
@@ -89,6 +90,14 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    AuditLogRow,
+    CourseActivity,
+    CoursePaymentRequest,
+    CreateCourseRequest,
+    JoinCodeInfo,
+    OwnerCourseInfo,
+    TeacherInviteInfo,
+    UpdateCourseRequest,
     HomeworkSummary,
     LastSessionSummary,
     MeCourseInfo,
@@ -461,6 +470,7 @@ def _user_info(user: dict) -> UserInfo:
         created_at=user["created_at"],
         is_teacher=bool(user["is_teacher"]),
         is_admin=bool(user["is_admin"]),
+        is_platform_owner=bool(user["is_platform_owner"]),
     )
 
 
@@ -572,6 +582,283 @@ def get_my_course(
         days_left=days_left(course, now),
         is_open=course_is_open(course, now),
     )
+
+
+# ==== Sahib paneli (spec 2026-09-29 §3) ======================================
+
+
+def get_platform_owner(user: dict = Depends(get_current_user)) -> dict:
+    """Yalnız platforma sahibi. Başqasına FastAPI-nin naməlum marşrut
+    cavabı ilə EYNİ 404 qaytarılır — panelin varlığı belə açılmır (admin
+    də daxil). Bayraq API ilə dəyişdirilmir, yalnız VPS-də əl ilə."""
+    if not user["is_platform_owner"]:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return user
+
+
+_ACTIVITY_WINDOW = timedelta(days=7)
+
+# Jurnal İNSANA göstərilir — daxili dəyərlər (`english`, `active`,
+# `seat_limit`) orada görünməməlidir.
+_PROFILE_WORDS = {"english": "ingilis dili", "exam_prep": "imtahana hazırlıq"}
+_STATUS_WORDS = {STATUS_ACTIVE: "ödənişli", STATUS_TRIAL: "sınaq"}
+_SETTING_WORDS = {
+    "name": "ad",
+    "seat_limit": "tələbə limiti",
+    "upload_limit_student": "tələbə yükləməsi/gün",
+    "upload_limit_teacher": "müəllim yükləməsi/gün",
+}
+_DAYS_PER_PAID_MONTH = 30
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _owner_course_info(
+    course: dict,
+    *,
+    users: UserStore,
+    chats: ChatStore,
+    messages: MessageStore,
+    question_sets: QuestionSetStore,
+    live_sessions: LiveSessionStore,
+    homework: HomeworkStore,
+) -> OwnerCourseInfo:
+    """Aktivlik YENİ izləmə kodu olmadan mövcud cədvəllərdən sayılır —
+    yeni izləmə sistemi yeni sınma nöqtəsi olardı. Store-lar ayrı
+    fayllardadır, ona görə kursun çat ID-ləri ötürülür."""
+    now = _utcnow()
+    since = (now - _ACTIVITY_WINDOW).isoformat()
+    chat_ids = chats.list_ids_by_course(course["id"])
+    activity = CourseActivity(
+        sessions=live_sessions.count_sessions_in_chats_since(chat_ids, since),
+        question_sets=question_sets.count_by_course_since(course["id"], since),
+        answers=live_sessions.count_answers_in_chats_since(chat_ids, since)
+        + homework.count_answers_in_chats_since(chat_ids, since),
+        messages=messages.count_in_chats_since(chat_ids, since),
+    )
+    stamps = [
+        messages.last_in_chats(chat_ids),
+        live_sessions.last_answer_in_chats(chat_ids),
+        homework.last_answer_in_chats(chat_ids),
+        question_sets.last_created_in_course(course["id"]),
+    ]
+    parsed = [(p, raw) for raw in stamps if raw and (p := _parse_iso(raw))]
+    last_activity = max(parsed)[1] if parsed else None
+    return OwnerCourseInfo(
+        id=course["id"],
+        name=course["name"],
+        profile=course["profile"],
+        status=course["status"],
+        is_open=course_is_open(course, now),
+        days_left=days_left(course, now),
+        trial_ends_at=course["trial_ends_at"],
+        paid_until=course["paid_until"],
+        seat_limit=course["seat_limit"],
+        students_active=users.count_active_students(course["id"]),
+        teachers=users.count_teachers(course["id"]),
+        upload_limit_student=course["upload_limit_student"],
+        upload_limit_teacher=course["upload_limit_teacher"],
+        join_code=course["join_code"],
+        activity_7d=activity,
+        last_activity=last_activity,
+    )
+
+
+def _owner_course_or_404(users: UserStore, course_id: int) -> dict:
+    course = users.courses.get(course_id)
+    if course is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    return course
+
+
+def _reject_owner_course(course: dict) -> None:
+    """Kurs #1 (mövcud imtahan kursu) müddətsizdir — səhv kliklə bütün
+    mövcud istifadəçiləri bağlamaq mümkün olmamalıdır."""
+    if course["status"] == STATUS_OWNER:
+        raise HTTPException(status_code=400, detail="Bu kurs müddətsizdir, statusu dəyişdirilmir")
+
+
+class _OwnerDeps:
+    """Siyahı cavabı üçün lazım olan store-lar — hər endpoint-də eyni
+    uzun imzanı təkrarlamamaq üçün."""
+
+    def __init__(
+        self,
+        users: UserStore = Depends(get_user_store),
+        chats: ChatStore = Depends(get_chat_store),
+        messages: MessageStore = Depends(get_message_store),
+        question_sets: QuestionSetStore = Depends(get_question_set_store),
+        live_sessions: LiveSessionStore = Depends(get_live_session_store),
+        homework: HomeworkStore = Depends(get_homework_store),
+    ) -> None:
+        self.users = users
+        self.chats = chats
+        self.messages = messages
+        self.question_sets = question_sets
+        self.live_sessions = live_sessions
+        self.homework = homework
+
+    def info(self, course_id: int) -> OwnerCourseInfo:
+        return _owner_course_info(
+            self.users.courses.get(course_id),
+            users=self.users, chats=self.chats, messages=self.messages,
+            question_sets=self.question_sets, live_sessions=self.live_sessions,
+            homework=self.homework,
+        )
+
+
+@app.get("/owner/courses", response_model=list[OwnerCourseInfo])
+def owner_list_courses(
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> list[OwnerCourseInfo]:
+    return [deps.info(course["id"]) for course in deps.users.courses.list_all()]
+
+
+@app.post("/owner/courses", response_model=OwnerCourseInfo, status_code=201)
+def owner_create_course(
+    req: CreateCourseRequest,
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> OwnerCourseInfo:
+    try:
+        course = deps.users.courses.create(
+            req.name, req.profile, trial_days=req.trial_days, seat_limit=req.seat_limit,
+            now=_utcnow(),
+        )
+    except UnknownProfile:
+        raise HTTPException(status_code=422, detail="Naməlum kurs profili")
+    seats = req.seat_limit if req.seat_limit is not None else "limitsiz"
+    deps.users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course["id"], action="create",
+        details=f"{req.name}, {_PROFILE_WORDS[req.profile]}, sınaq {req.trial_days} gün, {seats} yer",
+    )
+    return deps.info(course["id"])
+
+
+@app.post("/owner/courses/{course_id}/payments", response_model=OwnerCourseInfo)
+def owner_record_payment(
+    course_id: int,
+    req: CoursePaymentRequest,
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> OwnerCourseInfo:
+    """Ödəniş əl ilə qeyd olunur. Yeni dövr İNDİDƏN yox, cari dövrün
+    sonundan başlayır: sınaqda ödəyən qalan sınaq günlərini, vaxtından
+    əvvəl uzadan qalan ödənişli günləri itirmir."""
+    course = _owner_course_or_404(deps.users, course_id)
+    _reject_owner_course(course)
+    now = _utcnow()
+    candidates = [now] + [
+        d for d in (_parse_iso(course["paid_until"]), _parse_iso(course["trial_ends_at"])) if d
+    ]
+    paid_until = max(candidates) + timedelta(days=_DAYS_PER_PAID_MONTH * req.months)
+    deps.users.courses.set_paid_until(course_id, paid_until)
+    deps.users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course_id, action="payment",
+        details=f"+{req.months} ay, {paid_until.date().isoformat()} tarixinədək",
+    )
+    return deps.info(course_id)
+
+
+@app.post("/owner/courses/{course_id}/suspend", response_model=OwnerCourseInfo)
+def owner_suspend_course(
+    course_id: int,
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> OwnerCourseInfo:
+    course = _owner_course_or_404(deps.users, course_id)
+    _reject_owner_course(course)
+    deps.users.courses.set_status(course_id, STATUS_SUSPENDED)
+    deps.users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course_id, action="suspend", details="dayandırıldı",
+    )
+    return deps.info(course_id)
+
+
+@app.post("/owner/courses/{course_id}/resume", response_model=OwnerCourseInfo)
+def owner_resume_course(
+    course_id: int,
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> OwnerCourseInfo:
+    """Ödəniş qeydi varsa `active`, yoxdursa `trial`-a qayıdır. Tarixlər
+    keçibsə kurs bərpadan sonra da BAĞLI qalır — onda «Ödənildi» lazımdır
+    (panel bunu `is_open` ilə göstərir)."""
+    course = _owner_course_or_404(deps.users, course_id)
+    _reject_owner_course(course)
+    status = STATUS_ACTIVE if course["paid_until"] else STATUS_TRIAL
+    deps.users.courses.set_status(course_id, status)
+    deps.users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course_id, action="resume",
+        details=f"bərpa edildi ({_STATUS_WORDS[status]})",
+    )
+    return deps.info(course_id)
+
+
+@app.patch("/owner/courses/{course_id}", response_model=OwnerCourseInfo)
+def owner_update_course(
+    course_id: int,
+    req: UpdateCourseRequest,
+    owner: dict = Depends(get_platform_owner),
+    deps: _OwnerDeps = Depends(),
+) -> OwnerCourseInfo:
+    _owner_course_or_404(deps.users, course_id)
+    changes = req.model_dump(exclude_none=True)
+    deps.users.courses.update_settings(course_id, **changes)
+    if changes:
+        details = ", ".join(f"{_SETTING_WORDS[key]} {value}" for key, value in changes.items())
+        deps.users.courses.log_owner_action(
+            owner_id=owner["id"], course_id=course_id, action="update", details=details,
+        )
+    return deps.info(course_id)
+
+
+@app.post("/owner/courses/{course_id}/join-code", response_model=JoinCodeInfo)
+def owner_regenerate_join_code(
+    course_id: int,
+    owner: dict = Depends(get_platform_owner),
+    users: UserStore = Depends(get_user_store),
+) -> JoinCodeInfo:
+    _owner_course_or_404(users, course_id)
+    code = users.courses.regenerate_join_code(course_id)
+    users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course_id, action="join_code",
+        details="tələbə kodu yeniləndi (köhnə kod artıq işləmir)",
+    )
+    return JoinCodeInfo(join_code=code)
+
+
+@app.post("/owner/courses/{course_id}/teacher-invites", response_model=TeacherInviteInfo, status_code=201)
+def owner_create_teacher_invite(
+    course_id: int,
+    owner: dict = Depends(get_platform_owner),
+    users: UserStore = Depends(get_user_store),
+) -> TeacherInviteInfo:
+    """Müəllimi YALNIZ sahib dəvət edir (istifadəçi qərarı). Token
+    jurnala YAZILMIR — jurnal oxuyan onu işlədə bilməməlidir."""
+    _owner_course_or_404(users, course_id)
+    now = _utcnow()
+    token = users.courses.create_teacher_invite(course_id, created_by=owner["id"], now=now)
+    expires_at = now + TEACHER_INVITE_TTL
+    users.courses.log_owner_action(
+        owner_id=owner["id"], course_id=course_id, action="teacher_invite",
+        details=f"müəllim dəvəti, {expires_at.date().isoformat()} tarixinədək etibarlı",
+    )
+    return TeacherInviteInfo(token=token, expires_at=expires_at.isoformat())
+
+
+@app.get("/owner/audit-log", response_model=list[AuditLogRow])
+def owner_audit_log(
+    owner: dict = Depends(get_platform_owner),
+    users: UserStore = Depends(get_user_store),
+) -> list[AuditLogRow]:
+    return [AuditLogRow(**row) for row in users.courses.list_audit_log()]
 
 
 @app.post("/admin/teachers", response_model=UserInfo)

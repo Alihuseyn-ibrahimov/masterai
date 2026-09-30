@@ -177,3 +177,13 @@ class ChatStore:
                 (user_id,),
             )
             return [dict(row) for row in cur.fetchall()]
+
+    def list_ids_by_course(self, course_id: int) -> list[int]:
+        """Sahib panelinin aktivlik sayğacları üçün (çatlar ayrı faylda,
+        JOIN mümkün deyil — digər store-lar çat ID-ləri ilə sayır)."""
+        with self._lock:
+            return [
+                row[0] for row in self._conn.execute(
+                    "SELECT id FROM chats WHERE course_id = ?", (course_id,)
+                ).fetchall()
+            ]
