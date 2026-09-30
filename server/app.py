@@ -172,7 +172,10 @@ _DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 _MIN_QUESTION_COUNT = 3
 _MAX_QUESTION_COUNT = 30
 
-app = FastAPI(title="MasterAI")
+# Sənədləşmə BAĞLIDIR: `api.` domeni hər yolu backend-ə ötürür, açıq
+# `/openapi.json` isə tələbəyə bütün endpoint-lərin (sahib paneli daxil)
+# hazır xəritəsini verərdi. Bax tests/server/test_api_docs_hidden.py.
+app = FastAPI(title="MasterAI", docs_url=None, redoc_url=None, openapi_url=None)
 # Host konsolu (`app/`-in veb build-i) brauzerdə işlədiyi üçün CORS
 # tələb olunur — mobil HTTP client-i buna məruz qalmır, YALNIZ veb
 # `flutter run -d chrome`/`flutter build web` üçün lazımdır (bax Faza 4

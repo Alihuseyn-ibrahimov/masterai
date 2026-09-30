@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1518 pytest + 233 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1538 pytest + 233 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-09-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -740,6 +740,16 @@ qırmızı olur. Köməkçilər: `_chat_in_course`, `_question_set_in_course`,
 marşrut ya qapıdan keçməli, ya da SƏBƏBİ ilə `PUBLIC_ROUTES`-a
 yazılmalıdır. Test qapını müvəqqəti çıxarmaqla real olaraq sınanıb —
 `GET /badges/me` dərhal tutuldu.
+
+**API sənədləşməsi BAĞLIDIR (2026-09-30):** `api.` domeni hər yolu backend-ə
+ötürür, ona görə FastAPI-nin `/docs`, `/redoc`, `/openapi.json`-u hamıya
+bütün API xəritəsini (sahib paneli daxil) verirdi. `test_api_docs_hidden.py`
+qoruyur — lokal sınaq üçün lazım olsa, müvəqqəti açıb geri bağla.
+
+**İşləyən serverə hücum yoxlaması:** `deploy/diagnostics/attack_check.py`
+(`public` — produksiya, anonim; `seed`+`full` — lokal, iki kurs). Kurs
+lisenziyası deploy-u: `deploy/RUNBOOK_kurs_lisenziyasi.md` (miqrasiya əvvəl
+SURƏTDƏ: `deploy/migration_rehearsal.py`; nginx canlı faylı üstünə YAZILMIR).
 
 ## Dərs: üç bug yalnız BRAUZER RENDER-i ilə tapıldı (2026-09-10)
 

@@ -102,12 +102,14 @@ Skript özü test qapısından keçirir, disk yoxlayır, atomik əvəzləmə edi
 icazələri düzəldir (`a+rX` — olmasa nginx 403 verir) və canlı ünvandan
 healthcheck edir.
 
-nginx konfiqurasiyası dəyişibsə (keş başlıqları):
+nginx konfiqurasiyası dəyişibsə:
 
-```bash
-scp deploy/nginx-masterai.conf root@<SERVER_IP>:/etc/nginx/sites-available/masterai
-ssh root@<SERVER_IP> 'nginx -t && systemctl reload nginx'
-```
+⚠️ **Repo faylını canlının üstünə `scp` ilə YAZMA.** Canlı fayla certbot
+HTTPS sətirlərini (`listen 443 ssl`, sertifikat yolları, http->https
+yönləndirmə) özü əlavə edib; `deploy/nginx-masterai.conf`-da onlar YOXDUR.
+Üstünə yazmaq saytı HTTPS-siz qoyar. Yalnız dəyişən sətri düzəlt, əvvəl
+backup al, `nginx -t` keçməsə backup-ı qaytar. Nümunə:
+`deploy/nginx_add_api_routes.py` və `deploy/RUNBOOK_kurs_lisenziyasi.md` §6.
 
 ---
 
