@@ -155,9 +155,24 @@ _MATERIAL_REFERENCE_PATTERNS = (
 )
 
 
-def _check_material_reference(question: MCQQuestion, number: int) -> list[Finding]:
+# İngilis kursu (spec 2026-09-29 §5): canlı sessiyada tələbənin qarşısında
+# mətn yoxdur — «according to the text» sualı dil biliyi yox, yaddaş yoxlayır.
+_EN_MATERIAL_REFERENCE_PATTERNS = (
+    "according to the text", "according to the passage", "according to the story",
+    "according to the article", "according to the material",
+    "in the text", "in the passage", "in the story", "in the article",
+    "the text says", "the passage says", "the story says",
+    "the author", "mentioned in the",
+)
+
+
+def _refers_to_material(question: MCQQuestion, patterns: tuple[str, ...]) -> bool:
     lowered = _normalize(question.question)
-    if not any(_normalize(pattern) in lowered for pattern in _MATERIAL_REFERENCE_PATTERNS):
+    return any(_normalize(pattern) in lowered for pattern in patterns)
+
+
+def _check_material_reference(question: MCQQuestion, number: int) -> list[Finding]:
+    if not _refers_to_material(question, _MATERIAL_REFERENCE_PATTERNS):
         return []
     return [
         Finding(
@@ -167,6 +182,28 @@ def _check_material_reference(question: MCQQuestion, number: int) -> list[Findin
             question_number=number,
         )
     ]
+
+
+def _check_material_reference_en(question: MCQQuestion, number: int) -> list[Finding]:
+    if not _refers_to_material(question, _EN_MATERIAL_REFERENCE_PATTERNS):
+        return []
+    return [
+        Finding(
+            code="materiala_istinad",
+            severity=Severity.HIGH,
+            message="sual mətnin məzmununu soruşur - canlı sessiyada mətn tələbənin qarşısında olmur",
+            question_number=number,
+        )
+    ]
+
+
+def recalls_material(question: MCQQuestion, profile: str, bank_kind: str) -> bool:
+    """Pipeline filtri: ingilis kursunun ADİ bankında mətnə istinad edən
+    sual cavablana bilməz (mətn göstərilmir) — belə sual bankdan atılır.
+    Digər profillərdə audit yalnız hesabatdır (mövcud davranış)."""
+    if (profile, bank_kind) != ("english", "practice"):
+        return False
+    return _refers_to_material(question, _EN_MATERIAL_REFERENCE_PATTERNS)
 
 
 # ---- Düzəliş tarixçəsindən qurulan suallar ----------------------------------
@@ -327,11 +364,33 @@ _SET_CHECKS = (_check_longest_option_giveaway, _check_position_bias, _check_dupl
 _SEVERITY_WEIGHT = {Severity.HIGH: 3, Severity.MEDIUM: 2, Severity.LOW: 1}
 
 
-def audit_questions(questions: list[MCQQuestion]) -> QualityReport:
+# Profil üzrə yoxlama dəsti. e-qanun metadata və düzəliş yoxlamaları hüquqi
+# mətnə aiddir — ingilis kursunda mənasızdır. Reading bankında mətnə
+# istinad NORMALDIR (tələbə mətni görür).
+_CHECKS_BY_PROFILE = {
+    ("exam_prep", "practice"): _PER_QUESTION_CHECKS,
+    ("english", "practice"): (
+        _check_duplicate_options,
+        _check_weak_explanation,
+        _check_material_reference_en,
+        _check_self_answering,
+    ),
+    ("english", "reading"): (
+        _check_duplicate_options,
+        _check_weak_explanation,
+        _check_self_answering,
+    ),
+}
+
+
+def audit_questions(
+    questions: list[MCQQuestion], profile: str = "exam_prep", bank_kind: str = "practice"
+) -> QualityReport:
     findings: list[Finding] = []
+    checks = _CHECKS_BY_PROFILE[(profile, bank_kind)]
 
     for number, question in enumerate(questions, start=1):
-        for check in _PER_QUESTION_CHECKS:
+        for check in checks:
             findings.extend(check(question, number))
 
     for set_check in _SET_CHECKS:

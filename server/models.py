@@ -53,6 +53,7 @@ class MeCourseInfo(BaseModel):
     status: str
     days_left: int | None
     is_open: bool
+    profile: str
 
 
 class AuthResponse(BaseModel):
@@ -187,6 +188,10 @@ class QuestionSetInfo(BaseModel):
     question_count: int
     created_by: int
     created_at: str
+    # Kurs profili (spec 2026-09-29 §5): `practice` hər yerdə, `reading`
+    # yalnız ev tapşırığında (mətn tələbənin qarşısında olanda).
+    profile: str = "exam_prep"
+    bank_kind: str = "practice"
 
 
 class LiveQuestionInfo(BaseModel):
@@ -336,6 +341,8 @@ class HomeworkAttemptState(BaseModel):
     score: int
     # `None` — cəhd artıq tamamlanıb, göstəriləcək sual yoxdur.
     question: HomeworkQuestionPayload | None
+    # Reading bankı: sualların ÜSTÜNDƏ göstərilən mətn; digərlərində None.
+    passage: str | None = None
 
 
 class HomeworkAnswerRequest(BaseModel):

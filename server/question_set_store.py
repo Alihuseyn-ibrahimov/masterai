@@ -86,6 +86,18 @@ class QuestionSetStore:
                 "UPDATE question_sets SET course_id = ? WHERE course_id IS NULL",
                 (DEFAULT_COURSE_ID,),
             )
+            # Kurs profili (spec 2026-09-29 §5). Profil bankda SAXLANILIR:
+            # kursun profili sonra dəyişsə, köhnə bankın hansı promptla
+            # yaradıldığı bilinməlidir. Köhnə banklar imtahan profilindədir.
+            for ddl in (
+                "ALTER TABLE question_sets ADD COLUMN profile TEXT NOT NULL DEFAULT 'exam_prep'",
+                "ALTER TABLE question_sets ADD COLUMN bank_kind TEXT NOT NULL DEFAULT 'practice'",
+                "ALTER TABLE question_sets ADD COLUMN passage TEXT",
+            ):
+                try:
+                    self._conn.execute(ddl)
+                except sqlite3.OperationalError:
+                    pass
             self._conn.commit()
 
     def create(
@@ -96,15 +108,17 @@ class QuestionSetStore:
         material_location: str,
         created_by: int,
         course_id: int = DEFAULT_COURSE_ID,
+        profile: str = "exam_prep",
+        bank_kind: str = "practice",
     ) -> dict:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO question_sets "
                 "(subject, title, status, material_kind, material_location, error, created_by, "
-                "created_at, course_id) "
-                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?, ?)",
+                "created_at, course_id, profile, bank_kind) "
+                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?, ?, ?, ?)",
                 (subject, title, material_kind, material_location, created_by, _utc_now_iso(),
-                 course_id),
+                 course_id, profile, bank_kind),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -113,7 +127,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at, course_id FROM question_sets WHERE id = ?",
+                "error, created_by, created_at, course_id, profile, bank_kind FROM question_sets WHERE id = ?",
                 (question_set_id,),
             )
             row = cur.fetchone()
@@ -123,7 +137,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at, course_id FROM question_sets ORDER BY created_at DESC"
+                "error, created_by, created_at, course_id, profile, bank_kind FROM question_sets ORDER BY created_at DESC"
             )
             return [dict(row) for row in cur.fetchall()]
 
@@ -202,6 +216,22 @@ class QuestionSetStore:
                 (question_set_id,),
             )
             return [_question_row_to_dict(row) for row in cur.fetchall()]
+
+    def set_passage(self, question_set_id: int, passage: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE question_sets SET passage = ? WHERE id = ?", (passage, question_set_id)
+            )
+            self._conn.commit()
+
+    def get_passage(self, question_set_id: int) -> str | None:
+        """Reading mətni ayrıca oxunur — siyahı sorğularına (hər bank ~3000
+        simvol) qatılmır."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT passage FROM question_sets WHERE id = ?", (question_set_id,)
+            ).fetchone()
+            return row[0] if row else None
 
     def count_by_creator_since(self, user_id: int, since_iso: str) -> int:
         """Gündəlik yükləmə limiti üçün (bax `MaterialStore.count_by_uploader_since`)."""

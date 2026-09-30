@@ -20,7 +20,7 @@ from server.user_store import UserStore
 _SECRET = "test-secret-key-32-chars-minimum!!"
 
 
-def _fake_generator_success(source, question_count=10):
+def _fake_generator_success(source, question_count=10, **_options):
     return PipelineResult(
         questions=[
             MCQQuestion(
@@ -38,7 +38,7 @@ def _fake_generator_success(source, question_count=10):
     )
 
 
-def _fake_generator_failure(source, question_count=10):
+def _fake_generator_failure(source, question_count=10, **_options):
     raise PipelineError("real test üçün süni xəta")
 
 
@@ -156,7 +156,7 @@ class TestQuestionCountValidation:
     def test_requested_count_is_passed_through_to_generator(self, env):
         captured = {}
 
-        def capturing_generator(source, question_count=10):
+        def capturing_generator(source, question_count=10, **_options):
             captured["question_count"] = question_count
             return _fake_generator_success(source, question_count)
 

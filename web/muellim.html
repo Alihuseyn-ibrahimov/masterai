@@ -62,6 +62,16 @@
             <label class="field__label" for="subject">Fənn</label>
             <select class="field__select" id="subject" name="subject" required></select>
           </div>
+          <!-- Yalnız ingilis dili kursunda görünür (/me/course profili).
+               Reading: suallar mətnə əsaslanır, mətn tələbəyə göstərilir -
+               ona görə yalnız ev tapşırığında işlədilir. -->
+          <div class="field" id="bankKindField" hidden>
+            <label class="field__label" for="bankKind">Sual növü</label>
+            <select class="field__select" id="bankKind" name="bank_kind">
+              <option value="practice">Lüğət və qrammatika</option>
+              <option value="reading">Reading (yalnız ev tapşırığı)</option>
+            </select>
+          </div>
           <div class="field">
             <label class="field__label" for="questionCount">Neçə sual?</label>
             <!-- min/maks backend-in yoxlaması ilə eynidir
@@ -141,6 +151,13 @@
       option.textContent = subject.label;
       subjectSelect.append(option);
     }
+
+    // İngilis dili kursu: sual növü seçimi görünür, fənn «Xarici dil» olur.
+    request('/me/course').then((course) => {
+      if (course.profile !== 'english') return;
+      document.getElementById('bankKindField').hidden = false;
+      subjectSelect.value = 'xarici_dil';
+    }).catch(() => { /* seçim gizli qalır - adi bank yaradılır */ });
 
     const kindSelect = document.getElementById('kind');
     const linkField = document.getElementById('linkField');
@@ -349,6 +366,7 @@
       body.append('title', document.getElementById('title').value);
       body.append('kind', kind);
       body.append('question_count', document.getElementById('questionCount').value);
+      body.append('bank_kind', document.getElementById('bankKind').value);
       if (kind === 'link') body.append('location', document.getElementById('location').value);
       else body.append('file', file);
 

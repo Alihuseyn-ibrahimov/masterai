@@ -38,7 +38,7 @@ from server.user_store import UserStore
 _SECRET = "test-secret-key-32-chars-minimum!!"
 
 
-def _generator(source, question_count=10):
+def _generator(source, question_count=10, **_options):
     return PipelineResult(
         questions=[MCQQuestion(question="Q?", options=["A", "B", "C", "D", "E"],
                                correct_index=0, explanation="izah")],

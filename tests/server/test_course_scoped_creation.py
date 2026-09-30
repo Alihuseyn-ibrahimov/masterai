@@ -30,7 +30,7 @@ _SECRET = "test-secret-key-32-chars-minimum!!"
 _NOW = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
 
-def _generator(source, question_count=10):
+def _generator(source, question_count=10, **_options):
     return PipelineResult(
         questions=[
             MCQQuestion(question="Q?", options=["A", "B", "C", "D", "E"],

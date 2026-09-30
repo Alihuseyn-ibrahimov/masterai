@@ -31,3 +31,6 @@ class PipelineResult(BaseModel):
     # (material qısadırsa), çağıran (server) bu fərqi istifadəçiyə
     # bildirmək üçün istifadə edir.
     requested_question_count: int
+    # Reading bankı (spec 2026-09-29 §5): tələbəyə sualların üstündə
+    # göstəriləcək mətn. Digər banklarda None.
+    passage: str | None = None

@@ -907,3 +907,14 @@
   background: var(--color-primary-soft);
   border-radius: var(--radius-sm);
 }
+
+/* ---- Reading mətni (ev tapşırığı, spec 2026-09-29 §5) ----
+ * Sənəd şrifti: bu, tələbənin OXUDUĞU mətndir, interfeys yazısı deyil.
+ * `pre-line`: materialdakı abzaslar qorunur (mətn textContent ilə gəlir). */
+.passage__text {
+  font-family: var(--font-document);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  white-space: pre-line;
+}
+

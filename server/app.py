@@ -8,6 +8,7 @@ POST /chats/join-requests + təsdiq axını, WS /ws/chat/{id}) + AI quiz orkestr
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import json
 import logging
 import os
@@ -581,6 +582,7 @@ def get_my_course(
         status=course["status"],
         days_left=days_left(course, now),
         is_open=course_is_open(course, now),
+        profile=course["profile"],
     )
 
 
@@ -1100,6 +1102,12 @@ def list_chats(
 # keçir; `tests/server/test_course_boundary.py` hər ID marşrutunu sınayır.
 
 
+def _course_profile(users: UserStore, course_id: int) -> str:
+    """Kursun generasiya profili (spec §5); kurs tapılmasa imtahan profili."""
+    course = users.courses.get(course_id)
+    return course["profile"] if course else "exam_prep"
+
+
 def _same_course(course_id: int | None, user: dict) -> bool:
     return course_id is not None and course_id == user["course_id"]
 
@@ -1491,11 +1499,16 @@ async def _process_material(
     message_store: MessageStore,
     connection_manager: ConnectionManager,
     question_count: int = 10,
+    profile: str = "exam_prep",
 ) -> None:
     """Materialı fon thread-ində emal edir — nəticə/xəta çata sistem mesajı
     kimi bildirilir, HEÇ vaxt səssiz udulmur (spec bölmə 5-6)."""
     try:
-        result = await asyncio.to_thread(generator, source, question_count)
+        # Profil çatın kursundan gəlir (spec 2026-09-29 §5). Çat quiz-i
+        # canlıdır — mətn göstərilmir, ona görə həmişə `practice`.
+        result = await asyncio.to_thread(
+            partial(generator, source, question_count, profile=profile, bank_kind="practice")
+        )
     except Exception as exc:
         # `str(exc)` çat mesajında yalnız QISA görünür — tam traceback
         # (chained `__cause__` daxil) yalnız burada, journalctl-də qalır.
@@ -1542,7 +1555,7 @@ async def upload_material(
     users: UserStore = Depends(get_user_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
 ) -> MaterialInfo:
-    _chat_in_course(chats, chat_id, user)
+    chat = _chat_in_course(chats, chat_id, user)
     if user["id"] not in chats.list_member_ids(chat_id):
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     # Limit FAYL SAXLANMAZDAN əvvəl: rədd olunan yükləmə diskə yazılmamalıdır.
@@ -1583,6 +1596,7 @@ async def upload_material(
             message_store=messages,
             connection_manager=manager,
             question_count=question_count,
+            profile=_course_profile(users, chat["course_id"]),
         )
     )
     app.state.active_material_tasks[material["id"]] = task
@@ -1614,18 +1628,24 @@ async def _process_question_set(
     generator,
     question_set_store: QuestionSetStore,
     question_count: int = 10,
+    profile: str = "exam_prep",
+    bank_kind: str = "practice",
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
     deyil (nəticə `question_sets.status`+`error` sahələrindən polling
     ilə oxunur, bax dizayn sənədi)."""
     try:
-        result = await asyncio.to_thread(generator, source, question_count)
+        result = await asyncio.to_thread(
+            partial(generator, source, question_count, profile=profile, bank_kind=bank_kind)
+        )
     except Exception as exc:
         logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
         question_set_store.mark_failed(question_set_id, str(exc))
         return
 
+    if result.passage:
+        question_set_store.set_passage(question_set_id, result.passage)
     for mcq in result.questions:
         question_set_store.add_question(question_set_id, mcq)
     question_set_store.mark_ready(question_set_id)
@@ -1639,6 +1659,7 @@ async def create_question_set(
     location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     question_count: int = Form(default=10),
+    bank_kind: str = Form(default="practice"),
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
@@ -1647,6 +1668,11 @@ async def create_question_set(
     materials: MaterialStore = Depends(get_material_store),
 ) -> QuestionSetInfo:
     _enforce_upload_quota(user, users, materials, question_sets)
+    profile = _course_profile(users, user["course_id"])
+    if bank_kind not in ("practice", "reading"):
+        raise HTTPException(status_code=400, detail="Naməlum bank növü")
+    if bank_kind == "reading" and profile != "english":
+        raise HTTPException(status_code=400, detail="Reading bankı yalnız ingilis dili kursunda mövcuddur")
     if subject not in SUBJECTS:
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     if kind not in ("link", "pdf", "image"):
@@ -1678,6 +1704,8 @@ async def create_question_set(
         material_location=source_location,
         created_by=user["id"],
         course_id=user["course_id"],
+        profile=profile,
+        bank_kind=bank_kind,
     )
 
     task = asyncio.create_task(
@@ -1687,6 +1715,8 @@ async def create_question_set(
             generator=generator,
             question_set_store=question_sets,
             question_count=question_count,
+            profile=profile,
+            bank_kind=bank_kind,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task
@@ -1803,7 +1833,7 @@ def question_set_quality(
 
     Sual nömrələri `GET .../questions` cavabının sırası ilə eynidir —
     hər ikisi `list_questions`-un çıxışını işlədir."""
-    _question_set_in_course(question_sets, question_set_id, user)
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
 
     rows = question_sets.list_questions(question_set_id)
     try:
@@ -1826,7 +1856,11 @@ def question_set_quality(
             status_code=409,
             detail="Bu bankdakı sual formatı gözlənilən deyil - audit hesablana bilmir.",
         ) from error
-    report = audit_questions(questions)
+    # Yoxlama dəsti bankın profilinə görədir: ingilis bankında e-qanun
+    # yoxlamaları mənasızdır, reading bankında mətnə istinad normaldır.
+    report = audit_questions(
+        questions, profile=question_set["profile"], bank_kind=question_set["bank_kind"]
+    )
     return QuestionSetQuality(
         question_count=report.question_count,
         findings=[
@@ -2063,6 +2097,13 @@ async def create_live_session(
     question_set = _question_set_in_course(question_sets, req.question_set_id, user)
     if question_set["status"] != "ready":
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
+    if question_set["bank_kind"] == "reading":
+        # Canlı sessiyada mətn tələbənin qarşısında olmur — reading sualları
+        # cavablana bilməz (istifadəçi qərarı: yalnız ev tapşırığında).
+        raise HTTPException(
+            status_code=400,
+            detail="Reading bankı yalnız ev tapşırığı üçündür - canlı sessiyada mətn göstərilmir",
+        )
 
     session = live_sessions.create_session(
         req.question_set_id, chat_id=req.chat_id, created_by=user["id"]
@@ -2169,7 +2210,9 @@ def _homework_question_payload(index: int, total: int, question: dict) -> Homewo
     )
 
 
-def _homework_attempt_state(attempt: dict, questions: list[dict]) -> HomeworkAttemptState:
+def _homework_attempt_state(
+    attempt: dict, questions: list[dict], passage: str | None = None
+) -> HomeworkAttemptState:
     question = None
     if attempt["status"] != "completed":
         question = _homework_question_payload(
@@ -2181,6 +2224,7 @@ def _homework_attempt_state(attempt: dict, questions: list[dict]) -> HomeworkAtt
         current_question_index=attempt["current_question_index"],
         score=attempt["score"],
         question=question,
+        passage=passage,
     )
 
 
@@ -2481,7 +2525,9 @@ def start_homework_attempt(
 
     questions = question_sets.list_questions(assignment["question_set_id"])
     attempt = homework.get_or_create_attempt(assignment_id, student_id=user["id"])
-    return _homework_attempt_state(attempt, questions)
+    return _homework_attempt_state(
+        attempt, questions, passage=question_sets.get_passage(assignment["question_set_id"])
+    )
 
 
 @app.post("/homework/attempts/{attempt_id}/answer", response_model=HomeworkAnswerResult)

@@ -13,6 +13,19 @@
 
 import { statusBadge, subjectColorVar, subjectLabel } from './subjects.js';
 
+/** Canlı sessiyada işlədilə bilən bank: hazırdır VƏ reading deyil.
+ *  Reading sualları mətnə əsaslanır, canlı sessiyada isə mətn tələbənin
+ *  qarşısında olmur (spec 2026-09-29 §5). Server də 400 qaytarır - bu
+ *  süzgəc müəllimin əvvəlcə seçib sonra xəta görməməsi üçündür. */
+export function isLiveEligible(set) {
+  return set.status === 'ready' && set.bank_kind !== 'reading';
+}
+
+/** Bank növü haqqında qısa qeyd (adi bank üçün boş). */
+export function bankKindNote(set) {
+  return set.bank_kind === 'reading' ? 'Reading - yalnız ev tapşırığı üçün' : '';
+}
+
 /** Bir hərəkət: `{ label, href }` keçid, `{ label, onClick }` düymə.
  *  `primary: true` əsas hərəkəti bildirir (kartda ən çox biri olmalıdır). */
 function createAction(action) {
@@ -60,6 +73,14 @@ export function createBankCard(set, options = {}) {
   meta.className = 'bank__meta';
   meta.textContent = `${subjectLabel(set.subject)} · ${set.question_count} sual`;
   card.append(head, meta);
+
+  const kindNote = bankKindNote(set);
+  if (kindNote) {
+    const kind = document.createElement('p');
+    kind.className = 'bank__meta';
+    kind.textContent = kindNote;
+    card.append(kind);
+  }
 
   if (options.note) {
     const note = document.createElement('p');

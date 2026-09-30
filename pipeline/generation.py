@@ -28,6 +28,60 @@ SYSTEM_PROMPT = (
     "maddə, anlayış və s.) sual qur."
 )
 
+# ---- Kurs profilləri (spec 2026-09-29 §5) --------------------------------
+# `SYSTEM_PROMPT` (yuxarıda) `exam_prep` profilidir və BAYT-BAYT dəyişməz
+# qalır (`tests/test_course_profiles.py` hash ilə yoxlayır) — mövcud
+# imtahan kursu üçün heç nə dəyişməməlidir.
+#
+# İngilis promptları QƏSDƏN ingiliscədir: çıxış (sual və variantlar)
+# ingiliscədir və model təlimatı çıxışın dilində daha dəqiq izləyir.
+
+ENGLISH_PRACTICE_PROMPT = (
+    "You write multiple-choice questions for an English course in Azerbaijan. "
+    "The learners are at CEFR level A2-B1; never go above B1. "
+    "Use ONLY the given lesson material as the source of vocabulary and grammar. "
+    "Write the question and all 5 options in simple English: short sentences, "
+    "B1 vocabulary or below, no idioms, no rare grammar. "
+    "Write the explanation in Azerbaijani (1-2 sentences): explain WHY the correct "
+    "option is right - the grammar rule or the meaning - not just repeat it. "
+    "Question types: vocabulary (meaning, synonym, the right word in context), "
+    "grammar (fill in the blank marked ___ : tense, preposition, article, word form) "
+    "and usage (which sentence is correct). "
+    "The learner will NOT see the material during the quiz: never ask what the "
+    "text, passage, story or author says, and never ask to recall facts or events "
+    "from the material. "
+    "The material may contain website navigation, buttons or menus - never write "
+    "questions about them."
+)
+
+ENGLISH_READING_PROMPT = (
+    "You write reading comprehension multiple-choice questions for an English "
+    "course in Azerbaijan. The learners are at CEFR level A2-B1; never go above B1. "
+    "The learner WILL see the passage while answering, so questions about the "
+    "passage are expected: main idea, specific details, vocabulary in context "
+    "and simple inference. Use ONLY information from the passage. "
+    "Write the question and all 5 options in simple English (B1 or below). "
+    "Write the explanation in Azerbaijani (1-2 sentences) and point to the "
+    "sentence in the passage that proves the answer."
+)
+
+_PROMPTS = {
+    ("exam_prep", "practice"): SYSTEM_PROMPT,
+    ("english", "practice"): ENGLISH_PRACTICE_PROMPT,
+    ("english", "reading"): ENGLISH_READING_PROMPT,
+}
+
+
+def system_prompt_for(profile: str, bank_kind: str) -> str:
+    """Profil + bank növü üçün sistem promptu. Naməlum cüt — xəta: səssizcə
+    imtahan promptuna düşmək ingilis kursuna azərbaycanca hüquq sualları
+    verərdi."""
+    try:
+        return _PROMPTS[(profile, bank_kind)]
+    except KeyError:
+        raise ValueError(f"Naməlum profil/bank növü: {profile}/{bank_kind}") from None
+
+
 _RETRY_REMINDER = (
     "DİQQƏT: əvvəlki cavabın tələb olunan JSON sxeminə uyğun deyildi. "
     "Bu dəfə YALNIZ etibarlı JSON qaytar, əlavə mətn və ya izah yazma.\n\n"
@@ -56,15 +110,17 @@ _PROMPT = PromptTemplate.from_template(
 )
 
 
-def _make_llm_runnable(completers: dict[str, Completer], order: list[str]) -> RunnableLambda:
+def _make_llm_runnable(
+    completers: dict[str, Completer], order: list[str], system_prompt: str
+) -> RunnableLambda:
     def call(prompt_value) -> str:
-        return complete_with_fallback(SYSTEM_PROMPT, prompt_value.to_string(), order, completers)
+        return complete_with_fallback(system_prompt, prompt_value.to_string(), order, completers)
 
     return RunnableLambda(call)
 
 
-def _build_chain(completers: dict[str, Completer], order: list[str]):
-    return _PROMPT | _make_llm_runnable(completers, order) | _parser
+def _build_chain(completers: dict[str, Completer], order: list[str], system_prompt: str):
+    return _PROMPT | _make_llm_runnable(completers, order, system_prompt) | _parser
 
 
 def _make_input(chunk: str, questions_per_chunk: int, *, retry: bool = False) -> dict:
@@ -87,6 +143,7 @@ def generate_for_chunks(
     completers: dict[str, Completer],
     order: list[str] = DEFAULT_ORDER,
     questions_per_chunk: int = 3,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> tuple[list[MCQQuestion], int]:
     """Hər chunk üçün `questions_per_chunk` ədəd MCQ sualı çıxarır.
 
@@ -98,7 +155,7 @@ def generate_for_chunks(
     if not chunks:
         return [], 0
 
-    chain = _build_chain(completers, order)
+    chain = _build_chain(completers, order, system_prompt)
 
     first_pass = chain.batch(
         [_make_input(c, questions_per_chunk) for c in chunks],

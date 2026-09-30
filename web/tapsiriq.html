@@ -38,6 +38,15 @@
     <div id="loading"><div class="state"><div class="spinner"></div>
       <div class="state__text">Yüklənir…</div></div></div>
 
+    <!-- Reading bankı: mətn sualların ÜSTÜNDƏ və cavab verərkən də görünür.
+         Açılıb-bağlanan blokdur: uzun mətn telefonda sualı aşağı itələyir. -->
+    <details class="disclosure" id="passageCard" open hidden>
+      <summary class="disclosure__summary">Mətn</summary>
+      <div class="disclosure__body">
+        <p class="passage__text" id="passageText"></p>
+      </div>
+    </details>
+
     <div class="card stack" id="questionCard" hidden>
       <div class="quiz-head">
         <span class="quiz-counter" id="counter">Sual</span>
@@ -113,9 +122,11 @@
       done: document.getElementById('doneCard'),
     };
 
+    const passageCard = document.getElementById('passageCard');
     const show = (name) => {
       loading.hidden = true;
       for (const [key, card] of Object.entries(cards)) card.hidden = key !== name;
+      passageCard.hidden = !document.getElementById('passageText').textContent || name === 'done';
     };
     const showError = (text) => {
       loading.hidden = true;
@@ -243,6 +254,7 @@
         .then((state) => {
           attemptId = state.attempt_id;
           score = state.score || 0;
+          if (state.passage) document.getElementById('passageText').textContent = state.passage;
           if (!state.question) {
             // Cəhd artıq tamamlanıb - göstəriləcək sual yoxdur. Ümumi
             // sual sayı da yoxdur, ona görə faiz uydurulmur.

@@ -28,7 +28,7 @@ from server.user_store import UserStore
 _SECRET = "test-secret-key-32-chars-minimum!!"
 
 
-def _fake_generator_success(source, question_count=10):
+def _fake_generator_success(source, question_count=10, **_options):
     return PipelineResult(
         questions=[
             MCQQuestion(
@@ -46,11 +46,11 @@ def _fake_generator_success(source, question_count=10):
     )
 
 
-def _fake_generator_failure(source, question_count=10):
+def _fake_generator_failure(source, question_count=10, **_options):
     raise PipelineError("real test üçün süni xəta")
 
 
-def _fake_generator_echoes_request(source, question_count=10):
+def _fake_generator_echoes_request(source, question_count=10, **_options):
     """`question_count`-un REST-dən düzgün ötürüldüyünü yoxlamaq üçün —
     tam istənilən sayda sual "yaradır", çatışmazlıq mesajı yaranmır."""
     return PipelineResult(

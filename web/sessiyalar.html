@@ -106,7 +106,7 @@
 <script type="module">
   import { getToken, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { createBankCard } from './assets/js/bank-card.js';
+  import { createBankCard, isLiveEligible } from './assets/js/bank-card.js';
   import { statusBadge } from './assets/js/subjects.js';
   import {
     DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
@@ -163,7 +163,8 @@
     /* ---- Sual bankı seçimi ---- */
 
     function renderSets(container, sets) {
-      const ready = sets.filter((set) => set.status === 'ready');
+      // Reading bankı canlı sessiyada işlədilmir (mətn göstərilmir).
+      const ready = sets.filter(isLiveEligible);
       container.innerHTML = '';
       if (!ready.length) {
         container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-books"></use></svg></div>'
@@ -206,7 +207,8 @@
             const requested = sets.find((set) => set.id === requestedSetId);
             // Müəllim "Sessiya başlat" düyməsindən gəlibsə, əl ilə yenidən
             // seçməsinə ehtiyac yoxdur.
-            if (requested && requested.status === 'ready') startSession(requested);
+            if (requested && isLiveEligible(requested)) startSession(requested);
+            else if (requested && requested.bank_kind === 'reading') showError(`"${requested.title}" reading bankıdır - yalnız ev tapşırığı kimi verilə bilər.`);
             else if (requested) showError(`"${requested.title}" hələ hazır deyil (${statusBadge(requested.status).label}).`);
           }
         });

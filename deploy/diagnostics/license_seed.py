@@ -5,6 +5,7 @@
     python deploy/diagnostics/license_seed.py status <course_id> <trial|suspended>
     python deploy/diagnostics/license_seed.py registration   # registration_flow.mjs üçün
     python deploy/diagnostics/license_seed.py owner          # owner_panel_flow.mjs üçün
+    python deploy/diagnostics/license_seed.py english        # english_profile_flow.mjs üçün
 
 `seed` JSON çap edir: kurs id-si, e-poçt/şifrələr, çat id-si.
 """
@@ -71,6 +72,59 @@ def owner() -> None:
     print(json.dumps({"owner": boss["email"], "other": other["email"], "password": PASSWORD}))
 
 
+def english() -> None:
+    """İngilis kursu + imtahan kursunun müəllimi, reading və adi bank, ev tapşırığı.
+
+    Banklar LLM-siz birbaşa yazılır: bu skript generasiyanı yox, profilin
+    EKRANDA necə göründüyünü yoxlayır (bu mühitdə LLM açarı yoxdur)."""
+    from pipeline.models import MCQQuestion
+    from server.homework_store import HomeworkStore
+    from server.question_set_store import QuestionSetStore
+
+    users = _users()
+    chats = ChatStore(os.environ["CHATS_DB_PATH"])
+    banks = QuestionSetStore(os.environ["QUESTION_SETS_DB_PATH"])
+    homework = HomeworkStore(os.environ["HOMEWORK_DB_PATH"])
+    course = users.courses.create("E2E English", "english", trial_days=30, seat_limit=30)
+    teacher = users.create("en-muellim@e2e.az", hash_password(PASSWORD), "İngilis müəllimi",
+                           course_id=course["id"])
+    users.set_teacher(teacher["id"], True)
+    exam_teacher = users.create("imtahan@e2e.az", hash_password(PASSWORD), "İmtahan müəllimi")
+    users.set_teacher(exam_teacher["id"], True)
+    student = users.create("en-telebe@e2e.az", hash_password(PASSWORD), "Tələbə",
+                           course_id=course["id"])
+    chat = chats.create(kind="group", created_by=teacher["id"], name="English A2",
+                        course_id=course["id"])
+    for member in (teacher, student):
+        chats.add_member(chat["id"], member["id"])
+    passage = ("Tom lives in Baku with his family.\n\n"
+               "Every morning he takes the bus to school. He likes English because "
+               "his teacher tells funny stories.")
+    ids = {}
+    for kind, title in (("practice", "Unit 1 grammar"), ("reading", "Unit 1 reading")):
+        qs = banks.create("xarici_dil", title, "link", "https://x", created_by=teacher["id"],
+                          course_id=course["id"], profile="english", bank_kind=kind)
+        banks.add_question(qs["id"], MCQQuestion(
+            question="Why does Tom like English?" if kind == "reading" else "She ___ to school every day.",
+            options=["Funny stories", "Short lessons", "Easy tests", "Free books", "Long breaks"]
+            if kind == "reading" else ["goes", "go", "going", "gone", "went"],
+            correct_index=0,
+            explanation="Mətndə müəllimin maraqlı hekayələr danışdığı yazılıb."
+            if kind == "reading" else "He/She/It ilə indiki zamanda fel -s/-es alır.",
+        ))
+        if kind == "reading":
+            banks.set_passage(qs["id"], passage)
+        banks.mark_ready(qs["id"])
+        ids[kind] = qs["id"]
+    assignment = homework.create_assignment(chat["id"], ids["reading"], "2099-01-01",
+                                            created_by=teacher["id"])
+    print(json.dumps({
+        "teacher": teacher["email"], "exam_teacher": exam_teacher["email"], "student": student["email"],
+        "password": PASSWORD, "chat_id": chat["id"], "reading_id": ids["reading"],
+        "practice_id": ids["practice"], "assignment_id": assignment["id"], "passage_start": "Tom lives in Baku",
+    }))
+
+
 def set_status(course_id: int, status: str) -> None:
     _users().courses.set_status(course_id, status)
 
@@ -78,6 +132,8 @@ def set_status(course_id: int, status: str) -> None:
 if __name__ == "__main__":
     if sys.argv[1] == "seed":
         seed()
+    elif sys.argv[1] == "english":
+        english()
     elif sys.argv[1] == "owner":
         owner()
     elif sys.argv[1] == "registration":
