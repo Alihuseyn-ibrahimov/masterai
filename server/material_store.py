@@ -100,6 +100,16 @@ class MaterialStore:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM materials").fetchone()[0]
 
+    def fail_interrupted(self) -> int:
+        """Başlanğıcda: `processing` qalmış materialların emalı servislə
+        birlikdə ölüb (bax `QuestionSetStore.fail_interrupted`)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE materials SET status = 'failed' WHERE status = 'processing'"
+            )
+            self._conn.commit()
+            return cur.rowcount
+
     def count_by_status(self, status: str) -> int:
         with self._lock:
             cur = self._conn.execute(

@@ -156,6 +156,17 @@ class QuestionSetStore:
             )
             self._conn.commit()
 
+    def fail_interrupted(self, error: str) -> int:
+        """Başlanğıcda: `processing` qalmış bankların emal task-ı servislə
+        birlikdə ölüb (task proses-daxilidir, `-w 1`). Qaytarır: neçə sətir."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE question_sets SET status = 'failed', error = ? WHERE status = 'processing'",
+                (error,),
+            )
+            self._conn.commit()
+            return cur.rowcount
+
     def add_question(self, question_set_id: int, mcq: MCQQuestion) -> dict:
         with self._lock:
             cur = self._conn.execute(

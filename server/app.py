@@ -215,6 +215,20 @@ app.state.live_session_store = LiveSessionStore(os.environ.get("LIVE_SESSIONS_DB
 app.state.live_connection_manager = LiveConnectionManager()
 app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "homework.db"))
 app.state.badge_store = BadgeStore(os.environ.get("BADGES_DB_PATH", "badges.db"))
+# Yarımçıq emallar: fon task-ları proses-daxilidir, servis restart olanda
+# ölürlər və status əbədi `processing` qalırdı (produksiyada 3 həftə
+# «Hazırlanır» göstərən iki bank tapıldı). Bu, YALNIZ tək worker-lə
+# düzgündür (`-w 1`, bax deploy/masterai.service) - başqa worker-in
+# davam edən emalını «ölü» saymaq olardı.
+_interrupted_banks = app.state.question_set_store.fail_interrupted(
+    "Server yenidən başladığı üçün emal yarımçıq qaldı. Materialı yenidən yükləyin."
+)
+_interrupted_materials = app.state.material_store.fail_interrupted()
+if _interrupted_banks or _interrupted_materials:
+    logger.warning(
+        "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
+        _interrupted_banks, _interrupted_materials,
+    )
 # chat_id -> planlaşdırılmış timeout task-ı (strong reference — Python-un
 # arayışsız task-ı vaxtından əvvəl çöp yığmaması üçün).
 app.state.active_quiz_timeouts = {}
