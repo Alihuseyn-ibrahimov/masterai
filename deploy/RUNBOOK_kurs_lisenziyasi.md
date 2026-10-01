@@ -5,6 +5,8 @@ Fərqlər: miqrasiya əvvəlcə SURƏTDƏ sınanır, backup servis DAYANMIŞ hal
 alınır, nginx faylı üstünə yazılmır (cərrahi düzəliş), deploy-dan sonra
 hücum yoxlaması işlədilir.
 
+**Windows-dan icra:** `DEPLOY_ADDIMLAR_powershell.md` (eyni addımlar, SSH sessiyasına yapışdırmaq üçün).
+
 **Server:** `root@<SERVER_IP>` · **Branch:** `claude/ai-engineering-monthly-project-g5cg2y`
 
 **Bu runbook əmr-əmr sınanıb (2026-09-30):** lokal «saxta VPS»-də (köhnə
