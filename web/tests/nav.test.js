@@ -6,7 +6,7 @@ import { activeHref, allDestinations, destinationsFor, shortLabel } from '../ass
 describe('destinationsFor', () => {
   test('tələbə öz bölmələrini görür', () => {
     const hrefs = destinationsFor({ is_teacher: false }).map((d) => d.href);
-    assert.deepEqual(hrefs, ['chatlar.html', 'tapsiriqlar.html', 'tarixce.html', 'profil.html']);
+    assert.deepEqual(hrefs, ['chatlar.html', 'tapsiriqlar.html', 'xulaseler.html', 'tarixce.html', 'profil.html']);
   });
 
   test('müəllim öz bölmələrini görür', () => {

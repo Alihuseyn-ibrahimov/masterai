@@ -17,6 +17,8 @@ Disallow: /giris.html
 Disallow: /qeydiyyat.html
 Disallow: /bagli.html
 Disallow: /sahib.html
+Disallow: /xulaseler.html
+Disallow: /xulase.html
 Allow: /
 
 Sitemap: https://masterai.prdostu.com/sitemap.xml

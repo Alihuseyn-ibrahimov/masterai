@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xülasələr - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section>
+    <div class="section-header">
+      <h1>Dərs xülasələri</h1>
+      <span class="section-header__hint">Müəllimin dərc etdiyi qısa konspektlər</span>
+    </div>
+    <div id="content"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+
+  if (requireLogin()) {
+    mountShell();
+
+    function renderSummaries(container, summaries) {
+      container.innerHTML = '';
+      if (!summaries.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-file-text"></use></svg></div>'
+          + '<div class="state__title">Xülasə yoxdur</div>'
+          + '<div class="state__text">Müəlliminiz dərs xülasəsini çata dərc edəndə burada görünəcək.</div></div>';
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const summary of summaries) {
+        const card = document.createElement('div');
+        card.className = 'card card--subject stack stack--tight';
+        card.style.setProperty('--subject', subjectColorVar(summary.subject));
+
+        const title = document.createElement('h4');
+        title.textContent = (summary.content && summary.content.title) || summary.title;
+        const meta = document.createElement('p');
+        meta.className = 'text-sm text-muted';
+        const date = (summary.published_at || '').slice(0, 10);
+        meta.textContent = [subjectLabel(summary.subject), summary.chat_name, date].filter(Boolean).join(' · ');
+        const link = document.createElement('a');
+        link.className = 'btn btn--primary btn--sm';
+        link.href = `xulase.html?id=${encodeURIComponent(summary.id)}`;
+        link.textContent = 'Oxu';
+        card.append(title, meta, link);
+        grid.append(card);
+      }
+      container.append(grid);
+    }
+
+    loadInto(document.getElementById('content'), () => request('/me/summaries'), renderSummaries);
+  }
+</script>
+</body>
+</html>
