@@ -35,6 +35,7 @@ from server.app import (
     get_quiz_attempt_store,
     get_quiz_session_store,
     get_register_rate_limiter,
+    get_summary_store,
     get_token_secret,
     get_upload_dir,
     get_user_store,
@@ -55,6 +56,7 @@ from server.question_store import QuestionStore
 from server.quiz_attempt_store import QuizAttemptStore
 from server.quiz_session_store import QuizSessionStore
 from server.rate_limit import RateLimiter
+from server.summary_store import SummaryStore
 from server.user_store import UserStore
 
 _SECRET = "test-secret-key-32-chars-minimum!!"
@@ -82,6 +84,7 @@ def world(tmp_path):
         get_live_connection_manager: LiveConnectionManager(),
         get_homework_store: HomeworkStore(":memory:"),
         get_badge_store: BadgeStore(":memory:"),
+        get_summary_store: SummaryStore(":memory:"),
         get_join_rate_limiter: RateLimiter(max_attempts=1000),
         get_register_rate_limiter: RateLimiter(max_attempts=1000),
         get_upload_dir: str(tmp_path),
@@ -145,6 +148,11 @@ def world(tmp_path):
                                                     student_id=w["student_a"]["id"])
     w["friendship_a"] = friendships.create(w["teacher_a"]["id"], w["student_a"]["id"])
     w["material_a"] = materials.create(w["chat_a"]["id"], w["teacher_a"]["id"], "link", "https://x.az")
+    summaries = stores[get_summary_store]
+    summary = summaries.start(w["qs_a"]["id"], created_by=w["teacher_a"]["id"], course_id=a["id"])
+    summaries.mark_ready(summary["id"], '{"title": "t", "intro": "i", "key_points": ["a", "b"]}')
+    summaries.publish(summary["id"], w["chat_a"]["id"])
+    w["summary_a"] = summaries.get(summary["id"])
     w["client"] = TestClient(app)
     yield w
     app.dependency_overrides.clear()
@@ -188,6 +196,13 @@ CASES = {
     ("GET", "/history/student/{student_id}"): ("teacher_b", {"student_id": "student_a.id"}, None, None, None),
     ("POST", "/homework/assignments/{assignment_id}/start"): ("student_b", {"assignment_id": "assignment_a.id"}, None, None, None),
     ("POST", "/homework/attempts/{attempt_id}/answer"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"question_index": 0, "chosen_index": 0}, None),
+    ("POST", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("GET", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("PUT", "/live/summaries/{summary_id}"): ("teacher_b", {"summary_id": "summary_a.id"}, None,
+        {"title": "Oğurlandı", "intro": "x", "key_points": ["a", "b"]}, None),
+    ("POST", "/live/summaries/{summary_id}/publish"): ("teacher_b", {"summary_id": "summary_a.id"}, None, {"chat_id": "chat_b.id"}, None),
+    ("POST", "/live/summaries/{summary_id}/unpublish"): ("teacher_b", {"summary_id": "summary_a.id"}, None, None, None),
+    ("GET", "/me/summaries/{summary_id}"): ("student_b", {"summary_id": "summary_a.id"}, None, None, None),
     ("WS", "/ws/chat/{chat_id}"): ("student_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/host"): ("teacher_b", {"session_id": "session_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/play"): ("student_b", {"session_id": "session_a.id"}, None, None, None),
@@ -372,3 +387,22 @@ def test_homework_with_foreign_chat(world):
                                    "due_date": "2099-01-01"},
                              headers=_auth(world["teacher_b"]))
     assert r.status_code == 404
+
+
+def test_published_summary_stays_in_its_chat_and_course(world):
+    """Kurs B-nin tələbəsi kurs A-nın dərc olunmuş xülasəsini siyahıda görmür."""
+    r = world["client"].get("/me/summaries", headers=_auth(world["student_b"]))
+    assert r.json() == []
+    r = world["client"].get("/me/summaries", headers=_auth(world["student_a"]))
+    assert [s["id"] for s in r.json()] == [world["summary_a"]["id"]]
+
+
+def test_foreign_teacher_cannot_publish_own_summary_into_other_course_chat(world):
+    summaries = app.dependency_overrides[get_summary_store]()
+    own = summaries.start(world["qs_b"]["id"], created_by=world["teacher_b"]["id"],
+                          course_id=world["teacher_b"]["course_id"])
+    summaries.mark_ready(own["id"], '{"title": "t", "intro": "i", "key_points": ["a", "b"]}')
+    r = world["client"].post(f"/live/summaries/{own['id']}/publish", json={"chat_id": world["chat_a"]["id"]},
+                             headers=_auth(world["teacher_b"]))
+    assert r.status_code == 404
+    assert summaries.get(own["id"])["chat_id"] is None

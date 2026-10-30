@@ -66,9 +66,11 @@ from pipeline.difficulty import DEFAULT_MIX, validate_mix as validate_difficulty
 from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
+from pipeline.summary import LessonSummary, summarize_material
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
+from .summary_store import SummaryStore
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
 from .course_store import TEACHER_INVITE_TTL, UnknownProfile
@@ -93,6 +95,8 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    PublishSummaryRequest,
+    SummaryInfo,
     AuditLogRow,
     CourseDeadline,
     CourseActivity,
@@ -222,6 +226,7 @@ app.state.live_session_store = LiveSessionStore(os.environ.get("LIVE_SESSIONS_DB
 app.state.live_connection_manager = LiveConnectionManager()
 app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "homework.db"))
 app.state.badge_store = BadgeStore(os.environ.get("BADGES_DB_PATH", "badges.db"))
+app.state.summary_store = SummaryStore(os.environ.get("SUMMARIES_DB_PATH", "summaries.db"))
 # Yarımçıq emallar: fon task-ları proses-daxilidir, servis restart olanda
 # ölürlər və status əbədi `processing` qalırdı (produksiyada 3 həftə
 # «Hazırlanır» göstərən iki bank tapıldı). Bu, YALNIZ tək worker-lə
@@ -231,6 +236,9 @@ _interrupted_banks = app.state.question_set_store.fail_interrupted(
     "Server yenidən başladığı üçün emal yarımçıq qaldı. Materialı yenidən yükləyin."
 )
 _interrupted_materials = app.state.material_store.fail_interrupted()
+app.state.summary_store.fail_interrupted(
+    "Server yenidən başladığı üçün xülasə yarımçıq qaldı. Yenidən hazırlayın."
+)
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -243,6 +251,8 @@ app.state.active_quiz_timeouts = {}
 app.state.active_material_tasks = {}
 # question_set_id -> planlaşdırılmış fon emalı task-ı (eyni naxış).
 app.state.active_question_set_tasks = {}
+# summary_id -> xülasə emalı task-ı (eyni naxış).
+app.state.active_summary_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
 app.state.active_live_timeouts = {}
 
@@ -356,6 +366,16 @@ def get_homework_store() -> HomeworkStore:
 def get_badge_store() -> BadgeStore:
     """Nailiyyət nişanları store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.badge_store
+
+
+def get_summary_store() -> SummaryStore:
+    """Dərs xülasələri store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.summary_store
+
+
+def get_summarizer():
+    """Material→xülasə funksiyası (testdə fake funksiya ilə override olunur)."""
+    return summarize_material
 
 
 def get_material_generator():
@@ -1691,6 +1711,7 @@ async def _process_question_set(
     profile: str = "exam_prep",
     bank_kind: str = "practice",
     difficulty_mix: tuple[int, int, int] | None = None,
+    summary_job: tuple[int, object, SummaryStore] | None = None,
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
@@ -1706,13 +1727,19 @@ async def _process_question_set(
     except Exception as exc:
         logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
         question_set_store.mark_failed(question_set_id, str(exc))
-        return
+    else:
+        if result.passage:
+            question_set_store.set_passage(question_set_id, result.passage)
+        for mcq in result.questions:
+            question_set_store.add_question(question_set_id, mcq)
+        question_set_store.mark_ready(question_set_id)
 
-    if result.passage:
-        question_set_store.set_passage(question_set_id, result.passage)
-    for mcq in result.questions:
-        question_set_store.add_question(question_set_id, mcq)
-    question_set_store.mark_ready(question_set_id)
+    # Xülasə (Faza 3) suallardan SONRA, ardıcıl: link materialında hər
+    # emal Chrome açır və VPS-in yaddaşı iki paralel Chrome-a çatmır.
+    # Suallar alınmasa da xülasə sınanır — səbəb fərqli ola bilər.
+    if summary_job is not None:
+        summary_id, summarizer, summaries = summary_job
+        await _process_summary(summary_id, source, summarizer=summarizer, summaries=summaries)
 
 
 @app.post("/live/question-sets", response_model=QuestionSetInfo, status_code=202)
@@ -1729,12 +1756,16 @@ async def create_question_set(
     easy_percent: int = Form(default=DEFAULT_MIX[0]),
     medium_percent: int = Form(default=DEFAULT_MIX[1]),
     hard_percent: int = Form(default=DEFAULT_MIX[2]),
+    # Dərs xülasəsi də hazırlansın (Faza 3, 2026-10-30).
+    make_summary: bool = Form(default=False),
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
     upload_dir: str = Depends(get_upload_dir),
     users: UserStore = Depends(get_user_store),
     materials: MaterialStore = Depends(get_material_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    summarizer=Depends(get_summarizer),
 ) -> QuestionSetInfo:
     _enforce_upload_quota(user, users, materials, question_sets)
     profile = _course_profile(users, user["course_id"])
@@ -1782,6 +1813,10 @@ async def create_question_set(
         bank_kind=bank_kind,
         difficulty_mix="/".join(str(p) for p in difficulty_mix),
     )
+    summary_job = None
+    if make_summary:
+        summary = summaries.start(question_set["id"], created_by=user["id"], course_id=user["course_id"])
+        summary_job = (summary["id"], summarizer, summaries)
 
     task = asyncio.create_task(
         _process_question_set(
@@ -1793,6 +1828,7 @@ async def create_question_set(
             profile=profile,
             bank_kind=bank_kind,
             difficulty_mix=difficulty_mix,
+            summary_job=summary_job,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task
@@ -1981,6 +2017,185 @@ def delete_live_question(
 ) -> None:
     _question_in_course(question_sets, question_id, user)
     question_sets.delete_question(question_id)
+
+
+# ---- Dərs xülasəsi (Faza 3, 2026-10-30) ---------------------------------
+# Müəllim bankın materialından xülasə hazırladır, baxır/redaktə edir, sonra
+# bir qrup çatına DƏRC edir. Tələbə yalnız dərc olunmuş xülasəni, yalnız
+# üzvü olduğu çatda görür.
+
+
+def _summary_info(summary: dict, question_set: dict | None, chats: ChatStore) -> SummaryInfo:
+    chat = chats.get(summary["chat_id"]) if summary["chat_id"] else None
+    return SummaryInfo(
+        id=summary["id"],
+        question_set_id=summary["question_set_id"],
+        title=question_set["title"] if question_set else "",
+        subject=question_set["subject"] if question_set else "",
+        status=summary["status"],
+        error=summary["error"],
+        content=LessonSummary.model_validate_json(summary["content"]) if summary["content"] else None,
+        chat_id=summary["chat_id"],
+        chat_name=chat["name"] if chat else None,
+        published_at=summary["published_at"],
+        updated_at=summary["updated_at"],
+    )
+
+
+def _summary_in_course(summaries: SummaryStore, question_sets: QuestionSetStore,
+                       summary_id: int, user: dict) -> tuple[dict, dict]:
+    summary = summaries.get(summary_id)
+    question_set = question_sets.get(summary["question_set_id"]) if summary else None
+    if summary is None or question_set is None or not _same_course(question_set.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Xülasə tapılmadı")
+    return summary, question_set
+
+
+async def _process_summary(summary_id: int, source: MaterialSource, *, summarizer,
+                           summaries: SummaryStore) -> None:
+    try:
+        result = await asyncio.to_thread(summarizer, source)
+    except Exception as exc:
+        logger.exception("Xülasə emalı uğursuz oldu (summary_id=%s)", summary_id)
+        summaries.mark_failed(summary_id, str(exc))
+        return
+    summaries.mark_ready(summary_id, result.model_dump_json())
+
+
+@app.post("/live/question-sets/{question_set_id}/summary", response_model=SummaryInfo, status_code=202)
+async def create_summary(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+    summarizer=Depends(get_summarizer),
+) -> SummaryInfo:
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    existing = summaries.get_for_question_set(question_set_id)
+    if existing and existing["status"] == "processing":
+        raise HTTPException(status_code=409, detail="Xülasə artıq hazırlanır")
+    if existing and existing["published_at"]:
+        # Dərc olunmuş mətni sükutla əvəzləmək tələbənin oxuduğunu dəyişərdi.
+        raise HTTPException(status_code=409, detail="Xülasə dərc olunub - əvvəlcə dərcdən çıxarın")
+
+    summary = summaries.start(question_set_id, created_by=user["id"], course_id=user["course_id"])
+    task = asyncio.create_task(
+        _process_summary(
+            summary["id"],
+            MaterialSource(kind=question_set["material_kind"], location=question_set["material_location"]),
+            summarizer=summarizer,
+            summaries=summaries,
+        )
+    )
+    app.state.active_summary_tasks[summary["id"]] = task
+    return _summary_info(summary, question_set, chats)
+
+
+@app.get("/live/question-sets/{question_set_id}/summary", response_model=SummaryInfo)
+def get_question_set_summary(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> SummaryInfo:
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    summary = summaries.get_for_question_set(question_set_id)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Xülasə tapılmadı")
+    return _summary_info(summary, question_set, chats)
+
+
+@app.put("/live/summaries/{summary_id}", response_model=SummaryInfo)
+def update_summary(
+    summary_id: int,
+    req: LessonSummary,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> SummaryInfo:
+    summary, question_set = _summary_in_course(summaries, question_sets, summary_id, user)
+    if summary["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Xülasə hələ hazır deyil")
+    summaries.set_content(summary_id, req.model_dump_json())
+    return _summary_info(summaries.get(summary_id), question_set, chats)
+
+
+@app.post("/live/summaries/{summary_id}/publish", response_model=SummaryInfo)
+def publish_summary(
+    summary_id: int,
+    req: PublishSummaryRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> SummaryInfo:
+    summary, question_set = _summary_in_course(summaries, question_sets, summary_id, user)
+    chat = _chat_in_course(chats, req.chat_id, user)
+    if chat["kind"] != "group":
+        raise HTTPException(status_code=400, detail="Xülasə yalnız qrup çatına dərc oluna bilər")
+    if user["id"] not in chats.list_member_ids(req.chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    if summary["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Xülasə hələ hazır deyil")
+    summaries.publish(summary_id, req.chat_id)
+    return _summary_info(summaries.get(summary_id), question_set, chats)
+
+
+@app.post("/live/summaries/{summary_id}/unpublish", response_model=SummaryInfo)
+def unpublish_summary(
+    summary_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> SummaryInfo:
+    summary, question_set = _summary_in_course(summaries, question_sets, summary_id, user)
+    summaries.unpublish(summary_id)
+    return _summary_info(summaries.get(summary_id), question_set, chats)
+
+
+@app.get("/me/summaries", response_model=list[SummaryInfo])
+def list_my_summaries(
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> list[SummaryInfo]:
+    """İstifadəçinin üzvü olduğu çatlara dərc olunmuş xülasələr."""
+    # `list_by_user` kurs sahəsini qaytarmır — hər çat ayrıca yoxlanır.
+    chat_ids = [
+        c["id"] for c in chats.list_by_user(user["id"])
+        if _same_course((chats.get(c["id"]) or {}).get("course_id"), user)
+    ]
+    return [
+        _summary_info(s, question_sets.get(s["question_set_id"]), chats)
+        for s in summaries.list_published_for_chats(chat_ids)
+    ]
+
+
+@app.get("/me/summaries/{summary_id}", response_model=SummaryInfo)
+def get_my_summary(
+    summary_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> SummaryInfo:
+    # Dərc olunmamış, başqa çatın və ya başqa kursun xülasəsi — hamısı
+    # eyni 404: «var, amma sənin deyil» demirik.
+    summary = summaries.get(summary_id)
+    if (
+        summary is None
+        or not summary["published_at"]
+        or summary["status"] != "ready"
+        or user["id"] not in chats.list_member_ids(summary["chat_id"])
+    ):
+        raise HTTPException(status_code=404, detail="Xülasə tapılmadı")
+    _chat_in_course(chats, summary["chat_id"], user)
+    return _summary_info(summary, question_sets.get(summary["question_set_id"]), chats)
 
 
 async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> None:

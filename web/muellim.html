@@ -110,6 +110,11 @@
           <span class="text-xs text-muted" id="difficultyHint" aria-live="polite">Cəmi: 100%</span>
         </div>
 
+        <label class="row row--tight">
+          <input type="checkbox" id="makeSummary" checked>
+          <span>Dərs xülasəsi də hazırla</span>
+        </label>
+
         <div class="field" id="linkField">
           <label class="field__label" for="location">Sayt linki</label>
           <input class="field__input" id="location" name="location"
@@ -325,6 +330,7 @@
         }
         if (set.status === 'ready') {
           actions.push({ label: 'Suallara bax', href: `suallar.html?id=${encodeURIComponent(set.id)}` });
+          actions.push({ label: 'Xülasə', href: `xulase.html?bank=${encodeURIComponent(set.id)}` });
           actions.push({
             label: 'Sessiya başlat',
             primary: true,
@@ -410,6 +416,7 @@
       body.append('easy_percent', percentInputs[0].value);
       body.append('medium_percent', percentInputs[1].value);
       body.append('hard_percent', percentInputs[2].value);
+      if (document.getElementById('makeSummary').checked) body.append('make_summary', 'true');
       if (kind === 'link') body.append('location', document.getElementById('location').value);
       else body.append('file', file);
 

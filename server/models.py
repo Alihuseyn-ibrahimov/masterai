@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from pipeline.models import Difficulty
+from pipeline.summary import LessonSummary
 
 
 class RegisterRequest(BaseModel):
@@ -587,3 +588,24 @@ class AuditLogRow(BaseModel):
     details: str
     owner_name: str | None
 
+
+
+class SummaryInfo(BaseModel):
+    """Dərs xülasəsi (Faza 3, 2026-10-30). `content` yalnız `ready`-də var.
+    Tələbəyə YALNIZ dərc olunmuş xülasə qaytarılır (bax `summary_store`)."""
+
+    id: int
+    question_set_id: int
+    title: str
+    subject: str
+    status: str
+    error: str | None = None
+    content: LessonSummary | None = None
+    chat_id: int | None = None
+    chat_name: str | None = None
+    published_at: str | None = None
+    updated_at: str
+
+
+class PublishSummaryRequest(BaseModel):
+    chat_id: int

@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1581 pytest + 239 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1647 pytest + 244 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -47,6 +47,42 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
 | Canlı sessiya fərdi tempo (sinxron model ləğvi) | Hər tələbə öz "Növbəti sual" düyməsi ilə öz sürəti ilə irəliləyir, müəllim ÜMUMİ vaxt limiti (1-10 dəqiqə) təyin edir, `.planning/2026-09-08-masterai-live-session-pacing/` | ✅ Tam uc-uca REAL test edilib — bax yuxarı "Canlı Sinif Sessiyası" bölməsi |
 | İngestion keyfiyyəti (link JS-render) + sual sayı seçimi | Müəllim hər material yükləməsində ÜMUMİ sual sayını (3-30) təyin edir, JS-render olunan saytlar (SPA) universal gözləmə ilə oxunur, sayt UI naviqasiyası sual generasiyasından xaric edilir, `docs/superpowers/specs/2026-09-08-masterai-ingestion-question-count-design.md`, `.planning/2026-09-08-masterai-ingestion-question-count/` | ✅ Tam uc-uca REAL test edilib (VPS-də) — bax aşağı "İngestion keyfiyyəti" bölməsi |
+
+## Dərs xülasəsi (Faza 3, 2026-10-30)
+
+Müəllim sual bankının materialından AI ilə qısa konspekt hazırlatdırır:
+başlıq + giriş, 5-8 əsas fikir, açar terminlər, yadda saxlanmalı
+rəqəm/tarix/maddələr, 3 özünü yoxla sualı (cavabı gizli).
+
+**Axın:** yükləmə formasında «Dərs xülasəsi də hazırla» (defolt açıq)
+və ya bank kartındakı «Xülasə» → `xulase.html?bank=ID`. Xülasə əvvəlcə
+YALNIZ müəllimə görünür; müəllim oxuyur, lazım olsa redaktə edir, sonra
+bir qrup çatına DƏRC edir. Tələbə onu `xulaseler.html`-də (alt panelin
+5-ci bölməsi) görür, `xulase.html?id=ID`-də oxuyur, «Çap et / PDF» ilə
+çap edir (`<style media="print">` qabığı gizlədir).
+
+**Backend:** `pipeline/summary.py` (`summarize_material`),
+`server/summary_store.py` (bir bank = bir xülasə, `summaries.db`,
+`SUMMARIES_DB_PATH`). Müəllim marşrutları `/live/...summary*`, tələbə
+marşrutları `/me/summaries` — QƏSDƏN `/me` altında: yeni üst səviyyəli
+yol nginx siyahısına düşməli olardı, canlı nginx faylı isə avtomatik
+yazılmır.
+
+**Uzun material:** 12 000 simvoldan uzun mətndə sənəd boyu bərabər
+paylanmış 6 hissədən qeyd çıxarılır, sonra bir xülasədə birləşir
+(7 LLM çağırışı). Bütün sənədi bir sorğuya vermək Groq limitini aşır.
+
+**Uydurmaya qarşı:** rəqəm daşıyan əsas fikir və faktda HƏR rəqəm
+mənbə mətnində olmalıdır, yoxdursa maddə atılır (`ground`). Rəqəmsiz
+cümlələrin doğruluğunu bu yoxlama tutmur — ona görə dərc müəllimin
+əlindədir.
+
+**Ardıcıllıq qəsdəndir:** yükləmədə xülasə suallardan SONRA işləyir,
+paralel yox — link materialında hər emal Chrome açır və VPS-in yaddaşı
+iki paralel Chrome-a çatmır. Dərc olunmuş xülasə yenidən yaradıla
+bilmir (409): tələbənin oxuduğu mətn sükutla dəyişməməlidir.
+
+**Hələ YOXDUR:** real AI ilə yoxlama, çatda «yeni xülasə» bildirişi.
 
 ## Çətinlik bölgüsü (Faza 2, 2026-10-30)
 

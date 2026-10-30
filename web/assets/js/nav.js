@@ -21,6 +21,7 @@ const STUDENT_DESTINATIONS = [
   // halda istifadəçi "harda olduğunu" itirir.
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
+  { href: 'xulaseler.html', label: 'Xülasələr', short: 'Xülasə', icon: 'file-text', matches: ['xulaseler.html', 'xulase.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
@@ -32,7 +33,7 @@ const STUDENT_DESTINATIONS = [
  * tapşırığı təyin edə bilmirdi. Çat həm də müəllimin sinifə mesaj
  * yazdığı yerdir. */
 const TEACHER_DESTINATIONS = [
-  { href: 'muellim.html', label: 'Sual bankları', short: 'Banklar', icon: 'books', matches: ['muellim.html'] },
+  { href: 'muellim.html', label: 'Sual bankları', short: 'Banklar', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'sessiyalar.html', label: 'Sessiyalar', short: 'Sessiya', icon: 'target', matches: ['sessiyalar.html'] },
   { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },

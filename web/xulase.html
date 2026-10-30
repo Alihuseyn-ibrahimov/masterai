@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dərs xülasəsi - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+<!-- Çap (və «PDF kimi saxla»): yalnız xülasənin özü qalır. Ölçü və
+     rəng yoxdur - token qaydası pozulmur. -->
+<style media="print">
+  #appBar, #bottomNav, .no-print { display: none !important; }
+</style>
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1 id="pageTitle">Dərs xülasəsi</h1>
+      <a class="btn btn--ghost btn--sm no-print" id="backLink" href="xulaseler.html">← Xülasələr</a>
+    </div>
+    <p class="text-sm text-muted" id="meta" hidden></p>
+    <div class="notice notice--danger no-print" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success no-print" id="okBox" role="status" hidden></div>
+
+    <!-- Müəllim paneli: hazırla / dərc et / redaktə. Tələbədə yoxdur. -->
+    <div class="card stack no-print" id="teacherPanel" hidden></div>
+
+    <div id="content"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { ApiError, request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectLabel } from './assets/js/subjects.js';
+  import {
+    contentError, contentFromForm, listToLines, pairsToLines, renderSummary,
+  } from './assets/js/summary.js';
+
+  const POLL_MS = 5000;
+
+  if (requireLogin()) {
+    mountShell();
+
+    const params = new URLSearchParams(window.location.search);
+    const summaryId = Number(params.get('id'));
+    const bankId = Number(params.get('bank'));
+    const content = document.getElementById('content');
+    const meta = document.getElementById('meta');
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const panel = document.getElementById('teacherPanel');
+
+    function showError(text) { errorBox.textContent = text; errorBox.hidden = false; }
+    function flash(text) {
+      okBox.textContent = text;
+      okBox.hidden = false;
+      setTimeout(() => { okBox.hidden = true; }, 4000);
+    }
+
+    function button(label, variant, onClick) {
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = `btn ${variant} btn--sm`;
+      node.textContent = label;
+      node.addEventListener('click', onClick);
+      return node;
+    }
+
+    function showReadView(summary) {
+      document.getElementById('pageTitle').textContent = summary.content.title;
+      document.title = `${summary.content.title} - MasterAI`;
+      meta.textContent = [subjectLabel(summary.subject), summary.chat_name].filter(Boolean).join(' · ');
+      meta.hidden = false;
+      content.innerHTML = '';
+      content.append(renderSummary(summary.content));
+      const print = button('Çap et / PDF', 'btn--secondary', () => window.print());
+      print.classList.add('no-print');
+      content.append(print);
+    }
+
+    /* ---- Tələbə (və ya müəllim) oxu görünüşü: ?id= ---- */
+    if (Number.isInteger(summaryId) && summaryId > 0) {
+      loadInto(content, () => request(`/me/summaries/${summaryId}`), (_c, summary) => showReadView(summary));
+    } else if (Number.isInteger(bankId) && bankId > 0) {
+      document.getElementById('backLink').href = 'muellim.html';
+      document.getElementById('backLink').textContent = '← Sual bankları';
+      manage();
+    } else {
+      showError('Xülasə ünvanı düzgün deyil.');
+    }
+
+    /* ---- Müəllim: ?bank= ---- */
+    function manage() {
+      let pollTimer = null;
+      let chatsPromise = null;
+
+      async function load() {
+        clearTimeout(pollTimer);
+        try {
+          const summary = await request(`/live/question-sets/${bankId}/summary`);
+          renderTeacher(summary);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404 && error.message === 'Xülasə tapılmadı') {
+            renderEmpty();
+          } else {
+            showError(error.message);
+          }
+        }
+      }
+
+      async function generate() {
+        errorBox.hidden = true;
+        try {
+          renderTeacher(await request(`/live/question-sets/${bankId}/summary`, { method: 'POST' }));
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      function renderEmpty() {
+        panel.innerHTML = '';
+        const text = document.createElement('p');
+        text.textContent = 'Bu bank üçün hələ xülasə yoxdur. AI materialdan qısa konspekt hazırlayacaq: '
+          + 'əsas fikirlər, terminlər, yadda saxlanmalı rəqəmlər və 3 özünü yoxla sualı.';
+        panel.append(text, button('Xülasə hazırla', 'btn--primary', generate));
+        panel.hidden = false;
+        content.innerHTML = '';
+      }
+
+      function renderTeacher(summary) {
+        document.getElementById('pageTitle').textContent = summary.title || 'Dərs xülasəsi';
+        panel.innerHTML = '';
+        panel.hidden = false;
+        content.innerHTML = '';
+
+        if (summary.status === 'processing') {
+          const text = document.createElement('p');
+          text.textContent = 'AI xülasəni hazırlayır, adətən 1 dəqiqəyə qədər. Səhifə özü yenilənir.';
+          panel.append(text);
+          pollTimer = setTimeout(load, POLL_MS);
+          return;
+        }
+        if (summary.status === 'failed') {
+          const text = document.createElement('p');
+          text.className = 'text-sm';
+          text.textContent = `Xülasə alınmadı: ${summary.error || 'naməlum xəta'}`;
+          panel.append(text, button('Yenidən cəhd et', 'btn--primary', generate));
+          return;
+        }
+
+        renderPublishControls(summary);
+        content.append(renderSummary(summary.content));
+        content.append(buildEditForm(summary));
+      }
+
+      function renderPublishControls(summary) {
+        const status = document.createElement('p');
+        status.className = 'text-sm';
+        if (summary.published_at) {
+          status.textContent = `Dərc olunub: «${summary.chat_name || 'çat'}». Tələbələr «Xülasələr» bölməsində görür.`;
+          panel.append(status, button('Dərcdən çıxar', 'btn--secondary', async () => {
+            try {
+              renderTeacher(await request(`/live/summaries/${summary.id}/unpublish`, { method: 'POST' }));
+              flash('Xülasə dərcdən çıxarıldı.');
+            } catch (error) { showError(error.message); }
+          }));
+          return;
+        }
+        status.textContent = 'Hələ dərc olunmayıb - tələbələr görmür. Oxuyun, lazım olsa düzəldin, sonra çata dərc edin.';
+        const row = document.createElement('div');
+        row.className = 'row';
+        const select = document.createElement('select');
+        select.className = 'field__select';
+        select.setAttribute('aria-label', 'Hansı çata');
+        const publish = button('Çata dərc et', 'btn--primary', async () => {
+          if (!select.value) return;
+          try {
+            renderTeacher(await request(`/live/summaries/${summary.id}/publish`, {
+              method: 'POST', body: { chat_id: Number(select.value) },
+            }));
+            flash('Xülasə dərc olundu.');
+          } catch (error) { showError(error.message); }
+        });
+        publish.disabled = true;
+        row.append(select, publish);
+        panel.append(status, row);
+
+        chatsPromise = chatsPromise || request('/chats');
+        chatsPromise.then((chats) => {
+          const groups = chats.filter((chat) => chat.kind === 'group');
+          if (!groups.length) {
+            const option = document.createElement('option');
+            option.textContent = 'Qrup çatınız yoxdur';
+            select.append(option);
+            select.disabled = true;
+            return;
+          }
+          for (const chat of groups) {
+            const option = document.createElement('option');
+            option.value = String(chat.id);
+            option.textContent = chat.name || `Çat ${chat.id}`;
+            select.append(option);
+          }
+          publish.disabled = false;
+        }).catch((error) => showError(error.message));
+      }
+
+      function field(labelText, element) {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        const label = document.createElement('label');
+        label.className = 'field__label';
+        label.textContent = labelText;
+        label.append(element);
+        wrap.append(label);
+        return wrap;
+      }
+
+      function area(value) {
+        const node = document.createElement('textarea');
+        node.className = 'field__textarea';
+        node.value = value;
+        node.rows = Math.min(10, Math.max(3, value.split('\n').length + 1));
+        return node;
+      }
+
+      function buildEditForm(summary) {
+        const details = document.createElement('details');
+        details.className = 'card no-print';
+        const head = document.createElement('summary');
+        head.textContent = 'Redaktə et';
+        details.append(head);
+
+        const c = summary.content;
+        const inputs = {
+          title: Object.assign(document.createElement('input'), { className: 'field__input', value: c.title }),
+          intro: area(c.intro),
+          keyPoints: area(listToLines(c.key_points)),
+          terms: area(pairsToLines(c.terms, 'term', 'definition')),
+          facts: area(listToLines(c.facts)),
+          selfCheck: area(pairsToLines(c.self_check, 'question', 'answer')),
+        };
+        const form = document.createElement('form');
+        form.className = 'stack';
+        form.append(
+          field('Başlıq', inputs.title),
+          field('Giriş', inputs.intro),
+          field('Əsas fikirlər (hər sətir bir fikir)', inputs.keyPoints),
+          field('Açar terminlər (termin - izah)', inputs.terms),
+          field('Yadda saxla (hər sətir bir fakt)', inputs.facts),
+          field('Özünü yoxla (sual - cavab)', inputs.selfCheck),
+        );
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.className = 'btn btn--primary btn--sm';
+        save.textContent = 'Yadda saxla';
+        form.append(save);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const values = Object.fromEntries(Object.entries(inputs).map(([key, node]) => [key, node.value]));
+          const body = contentFromForm(values);
+          const problem = contentError(body);
+          if (problem) { showError(problem); return; }
+          save.disabled = true;
+          try {
+            renderTeacher(await request(`/live/summaries/${summary.id}`, { method: 'PUT', body }));
+            flash('Xülasə yadda saxlanıldı.');
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            save.disabled = false;
+          }
+        });
+        details.append(form);
+        return details;
+      }
+
+      load();
+    }
+  }
+</script>
+</body>
+</html>
