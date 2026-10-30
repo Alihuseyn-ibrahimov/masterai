@@ -171,6 +171,17 @@ class HomeworkStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def answer_stats_for_assignment(self, assignment_id: int) -> dict[int, tuple[int, int]]:
+        """`{question_index: (düzgün, cəmi)}` — tapşırığın bütün cəhdləri üzrə."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT a.question_index AS idx, SUM(a.is_correct) AS correct, COUNT(*) AS total "
+                "FROM homework_answers a JOIN homework_attempts t ON t.id = a.attempt_id "
+                "WHERE t.assignment_id = ? GROUP BY a.question_index",
+                (assignment_id,),
+            ).fetchall()
+            return {row["idx"]: (row["correct"], row["total"]) for row in rows}
+
     def get_chat_leaderboard(self, chat_id: int) -> dict[int, int]:
         """Çatın hər üzvünün TAMAMLANMIŞ ev tapşırıqlarının cəm xalı —
         `student_id -> total_score`. Cəhdi olmayan üzvlər burada

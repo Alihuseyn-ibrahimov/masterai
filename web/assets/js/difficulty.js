@@ -61,3 +61,47 @@ export function summaryLine(questions, mixText) {
   if (mix) line += ` (istənilən ${mix.join('/')})`;
   return line;
 }
+
+/* ---- Hesabat: səviyyə üzrə nəticə (canlı sessiya + ev tapşırığı) ---- */
+
+/** Düzgün cavab faizi; cavab yoxdursa `null` (0% ilə qarışmasın). */
+export function statPercent(stat) {
+  if (!stat || !stat.total_answers) return null;
+  return Math.round((stat.correct_count / stat.total_answers) * 100);
+}
+
+/** Bir sətir mətni: [sol, sağ]. */
+export function statLine(stat) {
+  const left = `${levelLabel(stat.level)} · ${stat.question_count} sual`;
+  const percent = statPercent(stat);
+  return [left, percent === null ? 'cavab yoxdur' : `${percent}% düzgün`];
+}
+
+/** Göstəriləcək bir şey varmı? Yalnız səviyyəsiz suallar (köhnə bank)
+ *  olanda blok mənasızdır - müqayisə ediləcək səviyyə yoxdur. */
+export function hasLevelStats(stats) {
+  return (stats || []).some((stat) => LEVELS.includes(stat.level));
+}
+
+export function renderDifficultyStats(stats) {
+  const wrap = document.createElement('div');
+  wrap.className = 'stack stack--tight';
+  const title = document.createElement('p');
+  title.className = 'text-sm text-muted';
+  title.textContent = 'Çətinlik üzrə nəticə';
+  wrap.append(title);
+  for (const stat of stats) {
+    const [leftText, rightText] = statLine(stat);
+    const line = document.createElement('div');
+    line.className = 'row row--between';
+    const left = document.createElement('span');
+    left.className = levelBadgeClass(stat.level);
+    left.textContent = leftText;
+    const right = document.createElement('span');
+    right.className = 'text-sm';
+    right.textContent = rightText;
+    line.append(left, right);
+    wrap.append(line);
+  }
+  return wrap;
+}

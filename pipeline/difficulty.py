@@ -88,3 +88,23 @@ def select_by_mix(
             chosen.update(spare)
             shortfall -= len(spare)
     return [questions[i] for i in sorted(chosen)]
+
+
+def breakdown(rows) -> list[dict]:
+    """Hesabat üçün səviyyə üzrə nəticə (plan addımı 5): AI-nın «çətin»
+    dediyi sualın real çətin olub-olmadığını tələbələrin cavabları göstərir.
+
+    `rows` — hər sual üçün `difficulty`, `correct_count`, `total_answers`.
+    Səviyyəsiz (köhnə) suallar `None` sətrində ayrıca sayılır, heç bir
+    səviyyəyə qatılmır — yoxsa «orta» nəticəsi köhnə suallarla qarışar.
+    Sualı olmayan səviyyə qaytarılmır."""
+    order = [*DIFFICULTY_LEVELS, None]
+    stats = {level: {"level": level, "question_count": 0, "correct_count": 0, "total_answers": 0}
+             for level in order}
+    for row in rows:
+        level = row.get("difficulty")
+        stat = stats[level if level in DIFFICULTY_LEVELS else None]
+        stat["question_count"] += 1
+        stat["correct_count"] += row.get("correct_count", 0)
+        stat["total_answers"] += row.get("total_answers", 0)
+    return [stats[level] for level in order if stats[level]["question_count"]]

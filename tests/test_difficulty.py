@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from pipeline.difficulty import prompt_note, quotas, select_by_mix, validate_mix
+from pipeline.difficulty import breakdown, prompt_note, quotas, select_by_mix, validate_mix
 from pipeline.ingestion import pdf_extractor
 from pipeline.models import MaterialSource, MCQQuestion, RawMaterial
 from pipeline.pipeline import generate_quiz
@@ -134,3 +134,21 @@ def test_generate_quiz_without_mix_sends_no_difficulty_note(monkeypatch):
     generate_quiz(MaterialSource(kind="pdf", location="x.pdf"), target_question_count=3,
                   completers={"groq": completer}, order=["groq"])
     assert "Çətinlik bölgüsü" not in prompts[0]
+
+
+def test_breakdown_groups_by_level_and_keeps_unlabelled_apart():
+    rows = [
+        {"difficulty": "asan", "correct_count": 4, "total_answers": 5},
+        {"difficulty": "çətin", "correct_count": 1, "total_answers": 5},
+        {"difficulty": "çətin", "correct_count": 3, "total_answers": 5},
+        {"difficulty": None, "correct_count": 2, "total_answers": 2},
+    ]
+    assert breakdown(rows) == [
+        {"level": "asan", "question_count": 1, "correct_count": 4, "total_answers": 5},
+        {"level": "çətin", "question_count": 2, "correct_count": 4, "total_answers": 10},
+        {"level": None, "question_count": 1, "correct_count": 2, "total_answers": 2},
+    ]
+
+
+def test_breakdown_of_nothing_is_empty():
+    assert breakdown([]) == []

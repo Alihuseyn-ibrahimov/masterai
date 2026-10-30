@@ -75,6 +75,7 @@
 
 <script type="module">
   import { request } from './assets/js/api.js';
+  import { hasLevelStats, renderDifficultyStats } from './assets/js/difficulty.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { homeworkProgressBadge } from './assets/js/subjects.js';
 
@@ -125,6 +126,9 @@
             list.append(line);
           }
           target.append(list);
+          request(`/homework/assignments/${assignment.id}/difficulty`)
+            .then((stats) => { if (hasLevelStats(stats)) target.append(renderDifficultyStats(stats)); })
+            .catch(() => {});
         },
       );
     }

@@ -23,6 +23,8 @@ import asyncio
 import json
 from datetime import datetime, timezone
 
+from pipeline.difficulty import breakdown
+
 DEFAULT_SESSION_DURATION_SECONDS = 180
 
 
@@ -132,6 +134,7 @@ def compute_report(session_id: int, *, session_store, question_set_store) -> dic
                 "correct_count": correct_count,
                 "total_answers": len(answers),
                 "most_common_wrong_index": most_common_wrong_index,
+                "difficulty": question.get("difficulty"),
             }
         )
 
@@ -140,6 +143,7 @@ def compute_report(session_id: int, *, session_store, question_set_store) -> dic
         "total_questions": len(questions),
         "rankings": rankings,
         "per_question": per_question,
+        "by_difficulty": breakdown(per_question),
     }
 
 

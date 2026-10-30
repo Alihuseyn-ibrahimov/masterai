@@ -61,7 +61,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import ValidationError
 
-from pipeline.difficulty import DEFAULT_MIX, validate_mix as validate_difficulty_mix
+from pipeline.difficulty import DEFAULT_MIX, breakdown as difficulty_breakdown, validate_mix as validate_difficulty_mix
 from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
@@ -94,6 +94,7 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    DifficultyStat,
     PublishSummaryRequest,
     SummaryInfo,
     AuditLogRow,
@@ -2583,6 +2584,29 @@ def get_homework_report(
             )
         )
     return rows
+
+
+@app.get("/homework/assignments/{assignment_id}/difficulty", response_model=list[DifficultyStat])
+def get_homework_difficulty_stats(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[DifficultyStat]:
+    """Tapşırıq üzrə çətinlik səviyyəsinə görə düzgün cavab payı.
+    Ayrıca marşrutdur: `/report` siyahı qaytarır və köhnə client-lər onu
+    siyahı kimi oxuyur — ona sahə əlavə etmək mümkün deyil."""
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
+    if assignment["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız tapşırığı yaradan müəllim hesabata baxa bilər")
+    stats = homework.answer_stats_for_assignment(assignment_id)
+    rows = [
+        {"difficulty": q.get("difficulty"), "correct_count": stats.get(i, (0, 0))[0],
+         "total_answers": stats.get(i, (0, 0))[1]}
+        for i, q in enumerate(question_sets.list_questions(assignment["question_set_id"]))
+    ]
+    return [DifficultyStat(**row) for row in difficulty_breakdown(rows)]
 
 
 @app.get("/homework/my-assignments", response_model=list[MyAssignmentInfo])

@@ -310,6 +310,17 @@ class LiveQuestionReport(BaseModel):
     correct_count: int
     total_answers: int
     most_common_wrong_index: int | None
+    # 2026-10-30-dan əvvəl saxlanmış hesabatlarda yoxdur.
+    difficulty: Difficulty | None = None
+
+
+class DifficultyStat(BaseModel):
+    """Səviyyə üzrə nəticə: `level=None` — səviyyəsiz (köhnə) suallar."""
+
+    level: Difficulty | None
+    question_count: int
+    correct_count: int
+    total_answers: int
 
 
 class LiveSessionReport(BaseModel):
@@ -317,6 +328,7 @@ class LiveSessionReport(BaseModel):
     total_questions: int
     rankings: list[LiveRankingRow]
     per_question: list[LiveQuestionReport]
+    by_difficulty: list[DifficultyStat] = []
 
 
 class CreateHomeworkAssignmentRequest(BaseModel):

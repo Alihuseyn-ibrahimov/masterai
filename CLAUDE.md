@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1647 pytest + 244 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1653 pytest + 245 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -111,9 +111,15 @@ köhnə hash ilə müqayisə edir.
 `assets/js/difficulty.js`. «Asan» nişanı QƏSDƏN yaşıl deyil — sual
 kartında yaşıl «Düzgün» siqnalıdır.
 
-**Hələ YOXDUR:** hesabatda səviyyə üzrə düzgün cavab faizi (növbəti
-addım). AI-nın verdiyi səviyyə subyektivdir — müəllim onu redaktədə
-düzəldə bilər.
+**Hesabatda səviyyə üzrə nəticə:** canlı sessiyanın sonunda (host
+ekranı, `report.by_difficulty`) və ev tapşırığı hesabatında
+(`GET /homework/assignments/{id}/difficulty`) «Asan · 3 sual — 83%
+düzgün». AI-nın «çətin» dediyi sualın real çətin olub-olmadığını
+tələbələrin cavabları göstərir. Ev tapşırığı üçün AYRI marşrut qəsdəndir:
+`/report` siyahı qaytarır, ona sahə əlavə etmək köhnə client-i sındırar.
+Səviyyəsiz (köhnə) suallar ayrı sətirdədir, «orta»ya qatılmır; yalnız
+səviyyəsiz sualı olan bankda blok göstərilmir. 2026-10-30-dan əvvəl
+saxlanmış canlı hesabatlarda `by_difficulty` boşdur.
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 
