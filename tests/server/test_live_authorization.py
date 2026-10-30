@@ -190,7 +190,13 @@ class TestNoLiveEndpointForgetsTheGate:
 
         assert len(routes) >= 6, "regex sınıb ola bilər - /live/ endpointləri tapılmadı"
 
-        ungated = [path for path, signature in routes if "get_current_teacher" not in signature]
+        # PIN yoxlaması qonaq üçündür (tokeni yoxdur) — qəsdən açıqdır,
+        # sürət limiti ilə qorunur (test_live_pin_join.py).
+        public = {"/live/pin/{pin}"}
+        ungated = [
+            path for path, signature in routes
+            if "get_current_teacher" not in signature and path not in public
+        ]
         assert not ungated, (
             "bu /live/ endpointləri müəllim qapısından keçmir: " + ", ".join(ungated)
         )

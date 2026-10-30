@@ -26,6 +26,7 @@ PUBLIC_ROUTES = {
     ("POST", "/auth/register"): "qeydiyyat - hesab hələ yoxdur",
     ("POST", "/auth/login"): "giriş - token hələ yoxdur",
     ("GET", "/health"): "monitorinq - məlumat daşımır",
+    ("GET", "/live/pin/{pin}"): "qonaq PIN-i - tokeni yoxdur, sürət limiti ilə qorunur",
 }
 
 # Gövdədə və ya imzada tanınan qapı işarələri.
