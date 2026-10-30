@@ -7,7 +7,7 @@
 # tələlər", bənd 6). Ona görə əvvəl ÖLÇ, sonra sil.
 #
 # Maşında BEŞ layihə var: masterai, dildostu-live, masternr1 (aktiv
-# pilot), n8n, mediapulse (saas_core — nazirlik müştərisi). Diskin
+# pilot), n8n, mediapulse (saas_core — dövlət qurumu müştərisi). Diskin
 # dolması və ya səhv restart hamısını birdən öldürür.
 #
 # İşlətmə:  bash deploy/vps_disk_report.sh

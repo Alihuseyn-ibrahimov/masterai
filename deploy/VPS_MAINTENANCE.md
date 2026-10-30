@@ -2,7 +2,7 @@
 
 `<SERVER_IP>` (DigitalOcean, 8.65 GB disk, 512 MB RAM). **Bu maşında
 BEŞ layihə var:** masterai, dildostu-live, masternr1 (aktiv pilot),
-n8n, mediapulse (`saas_core`, nazirlik müştərisi). Diskin dolması və ya
+n8n, mediapulse (`saas_core`, dövlət qurumu müştərisi). Diskin dolması və ya
 səhv restart hamısını **birdən** öldürür — bax `CLAUDE.md`, "Dərs: real
 deploy zamanı rast gəlinən tələlər", bənd 4 və 6.
 

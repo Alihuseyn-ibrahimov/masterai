@@ -468,7 +468,7 @@ Sistemimiz üç növ materialı dəstəkləyir:
 
 ## Dərs: təkrarlanan iştirakçı — hər WS bağlantısı yeni sətir yazırdı (2026-09-12)
 
-Real dərsdə tapıldı. Tələbə (Amil) sessiyaya qoşuldu, səhifəni bir neçə
+Real dərsdə tapıldı. Tələbə A sessiyaya qoşuldu, səhifəni bir neçə
 dəfə yenilədi. Bazada:
 
 ```
@@ -543,7 +543,7 @@ səbəbdən: skript yalnız import edilərək sınanmışdı.
 |---|---|---|
 | Sessiya #31 iştirakçı sətri | 3 (id 20, 21, 22) | 1 (id 20) |
 | Cavab | 10 (5 real + 5 təkrar) | 5 |
-| Hesabat sıralaması | üç «Amil», bölünmüş bal | bir Amil, 1/5 |
+| Hesabat sıralaması | üç eyni ad, bölünmüş bal | bir tələbə, 1/5 |
 
 Saxlanılan sətrin `joined_at`-i ilk qoşulmadır (07:02:48). Backup:
 `/root/backup-live-2026-09-12-0827.db`. Servis restart edilib, yəni
@@ -625,7 +625,7 @@ sadə `Lock`).
    sadalamırdı — halbuki `saas_core/CLAUDE.md` onun da eyni serverdə
    olduğunu göstərir. Bu, risk qiymətləndirməsini dəyişir: mediapulse-un
    aktiv müştərisi dövlət qurumudur, yəni bu maşında disk dolması
-   və ya abunəlik kəsilməsi nazirlik müştərisi olan sistemi də çökdürür. Real hadisə: abunəlik bitdi,
+   və ya abunəlik kəsilməsi dövlət qurumu müştərisi olan sistemi də çökdürür. Real hadisə: abunəlik bitdi,
    VPS tam əlçatmaz oldu (SSH/HTTPS/ping — HAMISI timeout), Flutter
    app-da real telefonda "Bağlantı xətası" bununla izah olundu (kod
    bug-ı DEYİL). Bu VPS-in abunəlik/ödəniş statusu digər layihələrdən
