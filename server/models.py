@@ -267,8 +267,10 @@ class CreateLiveSessionRequest(BaseModel):
 class LiveSessionInfo(BaseModel):
     id: int
     question_set_id: int
-    # `pin` BURADAN ÇIXARILDI (2026-09-11, Faza 4): PIN axını silindi,
-    # heç bir ekran onu göstərmir. DB sütunu qalır (köhnə sessiyalar).
+    # PIN 2026-09-11-də çıxarılmış, 2026-10-30-da qayıtmışdır: hesabsız
+    # tələbə PIN və ya `qosul.html?pin=...` linki ilə qonaq kimi qoşulur.
+    # 09-11 - 10-30 arası yaradılmış sessiyalarda boş sətirdir.
+    pin: str = ""
     status: str
     current_question_index: int
     created_at: str
@@ -280,9 +282,9 @@ class LiveSessionInfo(BaseModel):
 class ChatLiveSessionInfo(BaseModel):
     """Çatda görünən sessiya kartı.
 
-    `pin` QƏSDƏN YOXDUR — tələbə artıq heç nə yazmır, qoşulma çat
-    üzvlüyü ilə olur. PIN-i cavaba qoymaq silinən axını diri
-    saxlayardı.
+    `pin` YALNIZ müəllimə qaytarılır (başqalarına `None`): sinif üzvü
+    PIN-ə ehtiyac duymur, «Qoşul» düyməsi ilə hesabla girir. PIN
+    müəllimin sinifdən kənar tələbələrə paylaşması üçündür.
     """
 
     session_id: int
@@ -294,6 +296,17 @@ class ChatLiveSessionInfo(BaseModel):
     # başladan müəllim konsola, qalanları oynamağa gedir. Adla
     # müqayisə kövrəkdir - eyni adlı iki müəllim ola bilər.
     started_by_user_id: int | None = None
+    pin: str | None = None
+
+
+class LivePinLookup(BaseModel):
+    """`qosul.html` PIN-i ad soruşmazdan ƏVVƏL yoxlayır: səhv PIN-lə
+    ad yazdırıb sonra rədd etmək tələbəni çaşdırar. Sessiya ID-si
+    QAYTARILMIR — qonaq ona yalnız PIN ilə çatır."""
+
+    title: str
+    subject: str
+    status: str
 
 
 class LiveRankingRow(BaseModel):

@@ -4,7 +4,7 @@ Dövlət qulluğu və magistratura imtahanlarına hazırlaşan tələbələr ü�
 materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualları
 çıxarır → şəxsi/qrup çatında dostlarla birgə canlı "quiz" kimi həll edilir.
 
-**Status: canlı və real istifadəyə hazır.** «Qrup çatı = sinif» dəyişikliyi 2026-09-12-də deploy olundu (PIN axını silindi, qoşulma dəvət kodu + müəllim təsdiqi ilədir). `https://masterai.prdostu.com`
+**Status: canlı və real istifadəyə hazır.** «Qrup çatı = sinif» dəyişikliyi 2026-09-12-də deploy olundu (qoşulma dəvət kodu + müəllim təsdiqi ilədir). **PIN 2026-10-30-da qayıtdı** (istifadəçi qərarı): hesabsız tələbə `qosul.html`-də PIN və ya `qosul.html?pin=...` linki ilə ad yazıb qonaq kimi qoşulur, bax «PIN ilə qonaq qoşulması». `https://masterai.prdostu.com`
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
@@ -199,6 +199,29 @@ büdcəsi (defolt/seçim: 1-10 dəqiqə) təyin edir. Real Windows mühitində
 (host konsolu vaxt limiti seçici + fərdi tərəqqi siyahısı, tələbə
 mənual keçid) TAM TƏSDİQLƏNDİ. Ətraflı bax
 `.planning/2026-09-08-masterai-live-session-pacing/progress.md`.
+
+## PIN ilə qonaq qoşulması (2026-10-30)
+
+09-11-də silinmiş PIN axını istifadəçinin istəyi ilə qayıtdı, çat axını
+DA qalır. Sessiya yaranan kimi 6 rəqəmli PIN alır (`secrets`, bitməmiş
+sessiyalar arasında unikal); müəllim konsolunda (`sessiyalar.html`)
+PIN, link və «Linki kopyala» görünür.
+
+- `GET /live/pin/{pin}` (hesabsız) — başlıq; sessiya ID-si qaytarılmır.
+- `WS /ws/live/pin/{pin}/play?name=&guest=&token=` — token keçərlidir
+  və tələbə sinif üzvüdürsə HESABLI qoşulur, əks halda ad + brauzer
+  açarı (`guest_key`) ilə qonaq. Açar `live-pin.js`-də yaranır və
+  `localStorage`-da qalır: yeniləyən qonaq EYNİ sətrə düşür.
+- Qonaq sayı kursun `seat_limit`-i ilə (yoxdursa 200) məhdudlaşır;
+  qayıdan qonaq limitə sayılmır. Səhv PIN: IP üzrə dəqiqədə 10.
+- Lisenziya bağlıdırsa `waiting` sessiyaya qonaq buraxılmır, `active`
+  sessiya sonuna qədər gedir (hesablı yolun eyni qaydası).
+- Qonağın nəticəsi hesabatdadır; tarixçə, nişan, liderlik lövhəsi
+  `user_id` üzrə qurulduğu üçün ora düşmür.
+- 09-11 - 10-30 arası sessiyaların PIN-i boşdur — `get_by_pin('')`
+  heç vaxt tapmır, konsolda PIN kartı gizli qalır.
+
+Testlər: `tests/server/test_live_pin_join.py`, `web/tests/live-pin.test.js`.
 
 ## Ev Təkrarı Rejimi (Faza 2 — asinxron fərdi məşq)
 

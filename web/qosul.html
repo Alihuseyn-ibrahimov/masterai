@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIN ilə qoşul - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+</head>
+<body>
+<!-- HESABSIZ səhifədir (2026-10-30): naviqasiya zolağı yoxdur, çünki
+     qonaq tələbənin gedəcəyi başqa səhifə yoxdur. Kartlar və ekran
+     məntiqi `sessiya.html` ilə ORTAQDIR (`live-play-screen.js`). -->
+<main class="container app-shell stack stack--loose">
+
+  <section class="stack quiz-shell">
+    <div class="stack stack--tight stack--center" style="text-align: center">
+      <a class="brand" href="index.html">Master<span class="brand__accent">AI</span></a>
+      <p class="text-muted text-sm">Müəlliminizin verdiyi PIN ilə qoşulun - hesab lazım deyil</p>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+    <!-- 1. Qoşulma. Link ilə gələndə PIN artıq doludur, yalnız ad yazılır. -->
+    <div class="card stack form-shell" id="joinCard">
+      <h1 style="font-size: var(--text-xl)" id="joinTitle">Canlı sessiyaya qoşul</h1>
+      <form class="stack" id="joinForm" novalidate>
+        <div class="field">
+          <label class="field__label" for="pin">Sessiya PIN-i</label>
+          <input class="field__input" id="pin" name="pin" inputmode="numeric"
+                 autocomplete="off" required maxlength="7" placeholder="123456">
+        </div>
+        <div class="field">
+          <label class="field__label" for="displayName">Adınız</label>
+          <input class="field__input" id="displayName" name="displayName"
+                 autocomplete="name" required maxlength="40" placeholder="Ad Soyad">
+        </div>
+        <button class="btn btn--primary btn--block btn--lg" type="submit" id="joinBtn">Qoşul</button>
+      </form>
+      <p class="text-xs text-muted">
+        Hesabınız var? <a href="giris.html">Daxil olun</a> - sinifinizin çatından qoşulsanız nəticə tarixçənizə yazılır.
+      </p>
+    </div>
+
+    <!-- 2. Gözləmə -->
+    <div class="card stack" id="waitCard" hidden style="text-align: center">
+      <div class="spinner" style="margin: 0 auto"></div>
+      <h3>Qoşuldunuz</h3>
+      <p class="text-sm text-muted">Müəllim sessiyanı başladanda suallar görünəcək.</p>
+    </div>
+
+    <!-- 3. Sual
+         `--quiz-accent` fənn rəngini ötürür: tərəqyi seqmentləri və
+         xal dairəsi ondan rəng alır. Fənn bilinməsə əsas rəng işləyir. -->
+    <div class="card stack" id="questionCard" hidden>
+      <div class="quiz-head">
+        <span class="quiz-counter" id="questionCounter">Sual</span>
+        <span class="quiz-timer" id="countdown">-</span>
+      </div>
+      <!-- Sual-sual tərəqqi: zolaq yox, SEQMENT. «7-dən 5-ini
+           bitirdin» məlumatı imtahan hazırlığında faizdən faydalıdır. -->
+      <div id="quizSteps" class="quiz-steps" aria-hidden="true"></div>
+      <h2 class="quiz-question" id="questionText"></h2>
+      <div id="options" class="option-list"></div>
+    </div>
+
+    <!-- 4. Nəticə
+         Əsas mesaj `verdict` blokudur - əvvəl kiçik bir nişan idi və
+         düzgün/səhv hissini ötürmürdü. -->
+    <div class="card stack" id="resultCard" hidden>
+      <div class="verdict" id="verdict">
+        <span class="verdict__icon" id="verdictIcon" aria-hidden="true"></span>
+        <span class="stack stack--tight">
+          <span class="verdict__title" id="verdictTitle"></span>
+          <span class="verdict__note" id="verdictNote"></span>
+        </span>
+      </div>
+      <!-- Ardıcıl düzgün cavab. İKİDƏN başlayaraq görünür. -->
+      <div class="row"><span class="streak" id="streak" hidden></span></div>
+      <!-- Sual mətni təkrarlanır: izah suala istinad edir, sual isə
+           artıq ekrandan getmişdi. -->
+      <p class="text-sm text-muted" id="resultQuestion"></p>
+      <p id="chosenText" hidden></p>
+      <p id="correctText"></p>
+      <p class="text-sm text-muted" id="explanationText"></p>
+      <button class="btn btn--primary btn--block btn--lg" type="button" id="nextBtn">Növbəti sual</button>
+    </div>
+
+    <!-- 5. Şəxsi bitiş
+         Xal dairəsi `conic-gradient` ilə çəkilir - SVG və ya kitabxana
+         yoxdur, «build addımı yoxdur» qaydası qorunur. -->
+    <div class="card stack stack--center" id="personalCard" hidden>
+      <div class="score-ring" id="scoreRing">
+        <div class="score-ring__inner">
+          <span class="score-ring__value" id="scoreRingValue">-</span>
+        </div>
+      </div>
+      <span class="score-ring__label" id="scoreRingLabel"></span>
+      <h3>Siz bitirdiniz</h3>
+      <p id="personalScore"></p>
+      <p class="text-sm text-muted">Sessiya bitəndə ümumi nəticələr görünəcək.</p>
+    </div>
+
+    <!-- 6. Sessiya bitdi -->
+    <div class="card stack" id="finishedCard" hidden>
+      <h3>Sessiya bitdi</h3>
+      <div id="leaderboard"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<script type="module">
+  import { getToken, request } from './assets/js/api.js';
+  import {
+    GUEST_NAME_MAX, LivePinPlaySocket, guestKey, isValidPin, normalizePin,
+  } from './assets/js/live-pin.js';
+  import { PlayScreen } from './assets/js/live-play-screen.js?v=20260930a';
+
+  const joinCard = document.getElementById('joinCard');
+  const joinBtn = document.getElementById('joinBtn');
+  const pinInput = document.getElementById('pin');
+  const nameInput = document.getElementById('displayName');
+
+  const fromLink = normalizePin(new URLSearchParams(window.location.search).get('pin'));
+  if (fromLink) {
+    pinInput.value = fromLink;
+    nameInput.focus();
+  }
+  try {
+    const savedName = localStorage.getItem('masterai-guest-name');
+    if (savedName) nameInput.value = savedName;
+  } catch { /* yaddaş bloklanıb */ }
+
+  let socket = null;
+  let joined = false;
+  let rejected = false;
+  const screen = new PlayScreen({
+    root: document,
+    onNext: () => {
+      if (!socket.next()) screen.showError('Bağlantı hazır deyil - bir azdan cəhd edin.');
+    },
+  });
+
+  function resetButton() {
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Qoşul';
+  }
+
+  document.getElementById('joinForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    screen.clearError();
+
+    const pin = normalizePin(pinInput.value);
+    const name = nameInput.value.trim().replace(/\s+/g, ' ');
+    if (!isValidPin(pin)) {
+      screen.showError('PIN 6 rəqəmdən ibarətdir.');
+      return;
+    }
+    if (!name || name.length > GUEST_NAME_MAX) {
+      screen.showError(`Adınızı yazın (ən çox ${GUEST_NAME_MAX} simvol).`);
+      return;
+    }
+
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Yoxlanılır…';
+    rejected = false;
+
+    /* PIN əvvəlcə yoxlanır: səhv PIN-lə soket açıb sonra rədd etmək
+       səbəbi itirərdi, burada isə serverin mətni dərhal görünür. */
+    let info;
+    try {
+      info = await request(`/live/pin/${encodeURIComponent(pin)}`, { auth: false });
+    } catch (error) {
+      resetButton();
+      screen.showError(error.message);
+      return;
+    }
+    try { localStorage.setItem('masterai-guest-name', name); } catch { /* bloklanıb */ }
+
+    joinBtn.textContent = 'Qoşulur…';
+    document.title = `${info.title} - MasterAI`;
+
+    socket = new LivePinPlaySocket({
+      pin,
+      name,
+      guest: guestKey(pin),
+      token: getToken() || '',
+      onStatus: (status) => {
+        if (status === 'closed') {
+          resetButton();
+          if (!joined) joinCard.hidden = false;
+          // Server rədd edəndə səbəbi `error` mesajı ilə ƏVVƏLCƏDƏN
+          // göndərir (doludur, ad yoxdur...) - onu ümumi mətnlə örtmə.
+          if (!rejected) screen.showError(joined ? 'Bağlantı bağlandı.' : 'Qoşulmaq alınmadı.');
+        }
+      },
+      onMessage: (data) => {
+        if (data && data.type === 'error') rejected = true;
+        if (data && data.type === 'joined') {
+          joined = true;
+          joinCard.hidden = true;
+          screen.clearError();
+        }
+        screen.handle(data);
+      },
+    });
+    screen.onAnswer = (index, chosen) => socket.answer(index, chosen);
+    socket.connect();
+  });
+
+  window.addEventListener('beforeunload', () => { if (socket) socket.close(); });
+</script>
+</body>
+</html>

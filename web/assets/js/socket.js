@@ -9,8 +9,9 @@ import { goToClosedPage, LICENSE_CLOSED_WS_CODE } from './license.js';
 /** Serverin "səni buraxmıram" cavabları - yenidən qoşulmaq MƏNASIZDIR
  *  və serveri boş yerə yükləyər. Backend bu kodları işlədir:
  *  4400 yararsız qoşulma mesajı, 4401 token, 4402 kursun abunəsi bitib,
- *  4403 üzv deyil, 4404 tapılmadı, 4409 sessiya qoşulmağa açıq deyil. */
-const FATAL_CLOSE_CODES = new Set([4400, 4401, LICENSE_CLOSED_WS_CODE, 4403, 4404, 4409]);
+ *  4403 üzv deyil, 4404 tapılmadı, 4409 sessiya doludur və ya açıq deyil,
+ *  4429 çox sayda səhv PIN. */
+const FATAL_CLOSE_CODES = new Set([4400, 4401, LICENSE_CLOSED_WS_CODE, 4403, 4404, 4409, 4429]);
 
 export function isFatalCloseCode(code) {
   return FATAL_CLOSE_CODES.has(code);

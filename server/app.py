@@ -12,6 +12,7 @@ from functools import partial
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -136,6 +137,7 @@ from .models import (
     JoinRequestRow,
     LeaderboardRow,
     LiveQuestionInfo,
+    LivePinLookup,
     LiveSessionInfo,
     LiveSessionReport,
     LoginRequest,
@@ -208,6 +210,10 @@ app.state.register_rate_limiter = RateLimiter()
 LOGIN_MAX_FAILURES = 10
 LOGIN_WINDOW_SECONDS = 15 * 60
 app.state.login_rate_limiter = RateLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW_SECONDS)
+# PIN: IP üzrə dəqiqədə 10 SƏHV PIN. 6 rəqəm = 1 milyon variant; limitsiz
+# halda skript aktiv sessiyanı saniyələrlə tapardı.
+PIN_MAX_FAILURES = 10
+app.state.pin_rate_limiter = RateLimiter(PIN_MAX_FAILURES, 60)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
@@ -285,6 +291,11 @@ def _client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.strip()
     return request.client.host if request.client else "naməlum"
+
+
+def get_pin_rate_limiter() -> RateLimiter:
+    """PIN təxmini üçün sürət limiti (bax `get_join_rate_limiter`)."""
+    return app.state.pin_rate_limiter
 
 
 def get_join_rate_limiter() -> RateLimiter:
@@ -2437,6 +2448,7 @@ def get_chat_live_session(
         subject=question_set["subject"] if question_set else "",
         started_by=starter["display_name"] if starter else "Müəllim",
         started_by_user_id=session["created_by"],
+        pin=(session["pin"] or None) if user["is_teacher"] else None,
     )
 
 
@@ -3060,6 +3072,7 @@ async def live_host_by_session_websocket(
             "type": "state",
             "session_id": session["id"],
             "status": session["status"],
+            "pin": session["pin"],
             "participants": live_sessions.list_participants(session["id"]),
         }
     )
@@ -3130,6 +3143,17 @@ async def live_play_by_session_websocket(
         await websocket.send_json({"type": "error", "detail": str(exc)})
         await websocket.close(code=4404)
         return
+    await _serve_player(
+        websocket, session, participant,
+        question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+    )
+
+
+async def _serve_player(
+    websocket: WebSocket, session: dict, participant: dict,
+    *, question_sets, live_sessions, manager,
+) -> None:
+    """Qoşulmadan SONRAKI hissə — hesablı və PIN (qonaq) yolu üçün eyni."""
     manager.connect_player(session["id"], participant["id"], websocket)
     await websocket.send_json(
         {"type": "joined", "participant_id": participant["id"], "session_id": session["id"]}
@@ -3160,9 +3184,167 @@ async def live_play_by_session_websocket(
         manager.disconnect_player(session["id"], participant["id"], websocket)
 
 
-# PIN marşrutları (`/ws/live/{pin}/host` və `/ws/live/{pin}/play`) BURADAN
-# SİLİNDİ (2026-09-11, Faza 4). Sessiya artıq bir sinfə (qrup çatına)
-# bağlıdır: müəllim çatdan başladır, tələbə çatdakı «Qoşul» düyməsindən
-# girir. Anonim (tokensiz) iştirakçı yolu da onunla birlikdə getdi —
-# indi hər nəticə bir hesaba bağlanır və tələbənin tarixçəsinə düşür.
-# `live_sessions.pin` SÜTUNU qalır (köhnə sessiyaların tarixçəsi).
+# ==== PIN ilə qonaq qoşulması (2026-10-30, istifadəçi qərarı) ==========
+# 2026-09-11-də silinmişdi, «əvvəlki formada» qayıdır: hesabsız tələbə
+# `qosul.html`-də PIN (və ya `qosul.html?pin=...` linki) + ad yazır.
+# Host konsolu PIN-lə AÇILMIR — o, sessiya ID-si və müəllim tokeni ilə
+# qalır. Qonağın nəticəsi sessiya hesabatına düşür, tarixçəyə, nişanlara
+# və liderlik lövhəsinə isə düşmür (bunlar `user_id` üzrə qurulub).
+
+# Kursda `seat_limit` yoxdursa da qonaq sayı sonsuz olmamalıdır.
+GUEST_HARD_CAP = 200
+GUEST_NAME_MAX = 40
+_GUEST_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+_PIN_RE = re.compile(r"^[0-9]{6}$")
+_PIN_NOT_FOUND = "Bu PIN ilə aktiv sessiya tapılmadı. Rəqəmləri yoxlayın."
+_PIN_TOO_MANY = "Çox sayda səhv PIN. Bir dəqiqə sonra yenidən yoxlayın."
+
+
+def _ws_client_ip(websocket: WebSocket) -> str:
+    """`_client_ip`-in WebSocket ekvivalenti (eyni nginx fərziyyəsi)."""
+    forwarded = websocket.headers.get("x-real-ip")
+    if forwarded:
+        return forwarded.strip()
+    return websocket.client.host if websocket.client else "naməlum"
+
+
+def _clean_guest_name(name: str) -> str | None:
+    cleaned = " ".join((name or "").split())
+    if not cleaned or len(cleaned) > GUEST_NAME_MAX:
+        return None
+    return cleaned
+
+
+def _pin_session(
+    pin: str, users: UserStore, chats: ChatStore,
+    question_sets: QuestionSetStore, live_sessions: LiveSessionStore,
+) -> tuple[dict, dict] | None:
+    """PIN-in sessiyası və kursu — qonaq üçün ikisi birlikdə lazımdır.
+
+    Kurs lisenziyası bağlıdırsa YENİ sessiyaya qonaq buraxılmır;
+    işləyən (`active`) sessiya isə sonuna qədər gedir — hesablı yolun
+    eyni qaydası (bax `_live_access_rejection`).
+    """
+    if not _PIN_RE.match(pin or ""):
+        return None
+    session = live_sessions.get_by_pin(pin)
+    if session is None:
+        return None
+    course = users.courses.get(_session_course_id(session, chats, question_sets))
+    if course is None:
+        return None
+    if session["status"] != "active" and not course_is_open(course, _utcnow()):
+        return None
+    return session, course
+
+
+@app.get("/live/pin/{pin}", response_model=LivePinLookup)
+def lookup_live_pin(
+    pin: str,
+    request: Request,
+    users: UserStore = Depends(get_user_store),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    limiter: RateLimiter = Depends(get_pin_rate_limiter),
+) -> LivePinLookup:
+    """Hesabsız — qonağın tokeni yoxdur. Yalnız başlıq qaytarılır."""
+    ip = _client_ip(request)
+    if limiter.is_blocked(ip):
+        raise HTTPException(status_code=429, detail=_PIN_TOO_MANY)
+    found = _pin_session(pin, users, chats, question_sets, live_sessions)
+    if found is None:
+        limiter.record(ip)
+        raise HTTPException(status_code=404, detail=_PIN_NOT_FOUND)
+    session, _course = found
+    question_set = question_sets.get(session["question_set_id"])
+    return LivePinLookup(
+        title=question_set["title"] if question_set else "Canlı sessiya",
+        subject=question_set["subject"] if question_set else "",
+        status=session["status"],
+    )
+
+
+@app.websocket("/ws/live/pin/{pin}/play")
+async def live_play_by_pin_websocket(
+    websocket: WebSocket,
+    pin: str,
+    name: str = Query(default=""),
+    guest: str = Query(default=""),
+    token: str = Query(default=""),
+    secret: str = Depends(get_token_secret),
+    users: UserStore = Depends(get_user_store),
+    chats: ChatStore = Depends(get_chat_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    manager: LiveConnectionManager = Depends(get_live_connection_manager),
+    limiter: RateLimiter = Depends(get_pin_rate_limiter),
+) -> None:
+    """PIN ilə qoşulma. İki hal:
+
+    1. Token var, keçərlidir və tələbə həmin sinfin üzvüdür — hesablı
+       iştirakçı kimi qoşulur (nəticə tarixçəsinə düşür). Çatdakı
+       «Qoşul» düyməsi ilə eyni nəticə.
+    2. Əks halda — qonaq: ad və brauzer açarı (`guest`) məcburidir.
+    """
+    ip = _ws_client_ip(websocket)
+    if limiter.is_blocked(ip):
+        await _reject_websocket(websocket, 4429, _PIN_TOO_MANY)
+        return
+    found = _pin_session(pin, users, chats, question_sets, live_sessions)
+    if found is None:
+        limiter.record(ip)
+        await _reject_websocket(websocket, 4404, _PIN_NOT_FOUND)
+        return
+    session, course = found
+
+    member = None
+    if token:
+        try:
+            user = users.get_by_id(verify_token(token, secret=secret))
+        except InvalidToken:
+            user = None
+        if (
+            user is not None
+            and _live_access_rejection(user, users, session) is None
+            and _same_course(course["id"], user)
+            and _live_session_membership(session, user["id"], chats)
+        ):
+            member = user
+
+    if member is not None:
+        join_kwargs = {"user_id": member["id"]}
+        display_name = member["display_name"]
+    else:
+        display_name = _clean_guest_name(name)
+        if display_name is None:
+            await _reject_websocket(
+                websocket, 4400, f"Adınızı yazın (ən çox {GUEST_NAME_MAX} simvol)."
+            )
+            return
+        if not _GUEST_KEY_RE.match(guest):
+            await _reject_websocket(websocket, 4400, "Brauzer açarı düzgün deyil. Səhifəni yeniləyin.")
+            return
+        if live_sessions.find_guest(session["id"], guest) is None:
+            cap = min(course["seat_limit"] or GUEST_HARD_CAP, GUEST_HARD_CAP)
+            if live_sessions.count_guests(session["id"]) >= cap:
+                await _reject_websocket(
+                    websocket, 4409, "Sessiya doludur - müəllimə yaxınlaşın."
+                )
+                return
+        join_kwargs = {"guest_key": guest}
+
+    await websocket.accept()
+    try:
+        session, participant = await join_live_session(
+            session["id"], display_name,
+            session_store=live_sessions, connection_manager=manager, **join_kwargs,
+        )
+    except LiveSessionError as exc:
+        await websocket.send_json({"type": "error", "detail": str(exc)})
+        await websocket.close(code=4404)
+        return
+    await _serve_player(
+        websocket, session, participant,
+        question_sets=question_sets, live_sessions=live_sessions, manager=manager,
+    )
