@@ -68,9 +68,18 @@
       <p class="text-sm text-muted">Sessiya bu sinifdə elan olundu</p>
       <div class="announced" id="chatName">-</div>
       <p class="text-sm text-muted" id="joinHint">
-        Tələbələr çatda «Qoşul» düyməsini görür - PIN yazmağa ehtiyac yoxdur.
+        Sinif üzvləri çatda «Qoşul» düyməsini görür. Hesabı olmayanlar PIN və ya linklə qoşulur.
       </p>
       <a class="btn btn--secondary" id="openChat" href="#">Çatı aç</a>
+    </div>
+
+    <!-- PIN + link (2026-10-30). Hesabsız tələbə `qosul.html`-də PIN
+         yazır və ya linki açır; adını özü daxil edir. -->
+    <div class="card stack" id="pinCard" hidden style="text-align: center">
+      <p class="text-sm text-muted">Sessiya PIN-i</p>
+      <div class="announced" id="pinValue">-</div>
+      <p class="text-sm" style="overflow-wrap: anywhere" id="pinLink"></p>
+      <button class="btn btn--secondary" type="button" id="copyLinkBtn">Linki kopyala</button>
     </div>
 
     <div class="card stack" id="startCard">
@@ -111,6 +120,7 @@
   import {
     DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
   } from './assets/js/live-socket.js';
+  import { joinLink } from './assets/js/live-pin.js';
 
   const STATUS_LABELS = {
     connecting: ['Qoşulur…', 'badge badge--neutral'],
@@ -306,6 +316,26 @@
       container.append(list);
     }
 
+    /** 09-11 - 10-30 arası yaradılmış sessiyaların PIN-i boşdur -
+     *  onda kart gizli qalır, çat axını işləməyə davam edir. */
+    function showPin(pin) {
+      const card = document.getElementById('pinCard');
+      if (!pin) { card.hidden = true; return; }
+      const link = joinLink(pin, window.location.origin);
+      document.getElementById('pinValue').textContent = pin;
+      document.getElementById('pinLink').textContent = link;
+      card.hidden = false;
+      document.getElementById('copyLinkBtn').onclick = async () => {
+        const button = document.getElementById('copyLinkBtn');
+        try {
+          await navigator.clipboard.writeText(link);
+          button.textContent = 'Kopyalandı';
+        } catch {
+          button.textContent = 'Linki əl ilə kopyalayın';
+        }
+      };
+    }
+
     function tickCountdown() {
       remainingSeconds -= 1;
       countdownEl.textContent = formatCountdown(remainingSeconds);
@@ -360,6 +390,7 @@
         },
         onMessage: (data) => {
           if (data.type === 'state') {
+            showPin(data.pin);
             participants = data.participants || [];
             startBtn.disabled = participants.length === 0;
             document.getElementById('startHint').textContent = participants.length

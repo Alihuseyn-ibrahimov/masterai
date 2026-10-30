@@ -89,8 +89,8 @@ def test_creates_session_bound_to_the_chat(env):
     body = r.json()
     assert body["question_set_id"] == qs["id"]
     assert body["status"] == "waiting"
-    # `pin` cavabdan ÇIXARILDI (Faza 4) — PIN axını silindi.
-    assert "pin" not in body
+    # PIN 2026-10-30-da qayıtdı: hesabsız tələbə onunla qonaq kimi qoşulur.
+    assert len(body["pin"]) == 6 and body["pin"].isdigit()
     assert body["chat_id"] == env["chat"]["id"]
 
 
