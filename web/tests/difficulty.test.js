@@ -41,3 +41,16 @@ test('labels and badge classes', () => {
   assert.equal(levelBadgeClass('asan'), 'badge badge--info');
   assert.equal(levelBadgeClass(undefined), 'text-xs text-faint');
 });
+
+test('stat percent and line', async () => {
+  const { statLine, statPercent, hasLevelStats } = await import('../assets/js/difficulty.js');
+  assert.equal(statPercent({ correct_count: 2, total_answers: 5 }), 40);
+  assert.equal(statPercent({ correct_count: 0, total_answers: 0 }), null);
+  assert.deepEqual(statLine({ level: 'çətin', question_count: 3, correct_count: 2, total_answers: 5 }),
+    ['Çətin · 3 sual', '40% düzgün']);
+  assert.deepEqual(statLine({ level: null, question_count: 1, correct_count: 0, total_answers: 0 }),
+    ['Səviyyəsiz · 1 sual', 'cavab yoxdur']);
+  assert.equal(hasLevelStats([{ level: null }]), false);
+  assert.equal(hasLevelStats([{ level: 'asan' }, { level: null }]), true);
+  assert.equal(hasLevelStats(undefined), false);
+});

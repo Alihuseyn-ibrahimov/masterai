@@ -117,6 +117,7 @@
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createBankCard, isLiveEligible } from './assets/js/bank-card.js';
   import { statusBadge } from './assets/js/subjects.js';
+  import { hasLevelStats, renderDifficultyStats } from './assets/js/difficulty.js';
   import {
     DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
   } from './assets/js/live-socket.js';
@@ -336,6 +337,18 @@
       };
     }
 
+    /* AI-nın «çətin» dediyi sual real çətin idimi? Sinifin cavabları
+       bunu göstərir. Hesabat alınmasa blok sadəcə görünmür - sıralama
+       onsuz da ekrandadır. */
+    function showDifficultyStats(sessionId) {
+      request(`/live/sessions/${sessionId}/report`)
+        .then((report) => {
+          if (!hasLevelStats(report.by_difficulty)) return;
+          document.getElementById('leaderboard').after(renderDifficultyStats(report.by_difficulty));
+        })
+        .catch(() => {});
+    }
+
     function tickCountdown() {
       remainingSeconds -= 1;
       countdownEl.textContent = formatCountdown(remainingSeconds);
@@ -430,6 +443,7 @@
             startCard.hidden = true;
             finishedCard.hidden = false;
             renderLeaderboard(data.leaderboard);
+            showDifficultyStats(sessionId);
             return;
           }
           if (data.type === 'error') showError(data.detail || 'Xəta');

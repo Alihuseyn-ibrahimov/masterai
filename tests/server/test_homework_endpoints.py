@@ -192,6 +192,36 @@ class TestReport:
         assert rows2[env["student"]["id"]]["score"] == 1
 
 
+
+class TestDifficultyStats:
+    def test_owner_sees_per_level_results(self, env):
+        qs = _ready_question_set(env, n_questions=2)
+        q0, q1 = env["question_sets"].list_questions(qs["id"])
+        for q, level in ((q0, "asan"), (q1, "çətin")):
+            env["question_sets"].update_question(
+                q["id"], question=q["question"], options=q["options"], correct_index=0,
+                explanation="i", difficulty=level,
+            )
+        a = env["homework"].create_assignment(env["chat"]["id"], qs["id"], "2026-09-14", created_by=env["teacher"]["id"])
+        env["client"].post(f"/homework/assignments/{a['id']}/start", headers=_auth(env["student"]))
+        attempt = env["homework"].get_attempt_for_student(a["id"], env["student"]["id"])
+        env["homework"].answer(attempt["id"], 0, 0, True, total_questions=2)
+        env["homework"].answer(attempt["id"], 1, 2, False, total_questions=2)
+
+        r = env["client"].get(f"/homework/assignments/{a['id']}/difficulty", headers=_auth(env["teacher"]))
+        assert r.status_code == 200
+        assert r.json() == [
+            {"level": "asan", "question_count": 1, "correct_count": 1, "total_answers": 1},
+            {"level": "çətin", "question_count": 1, "correct_count": 0, "total_answers": 1},
+        ]
+
+    def test_non_owner_gets_403(self, env):
+        qs = _ready_question_set(env)
+        a = env["homework"].create_assignment(env["chat"]["id"], qs["id"], "2026-09-14", created_by=env["teacher"]["id"])
+        r = env["client"].get(f"/homework/assignments/{a['id']}/difficulty", headers=_auth(env["student"]))
+        assert r.status_code == 403
+
+
 class TestMyAssignments:
     def test_empty_when_no_assignments(self, env):
         r = env["client"].get("/homework/my-assignments", headers=_auth(env["student"]))

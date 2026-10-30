@@ -409,6 +409,27 @@ class TestComputeReport:
         assert q0["most_common_wrong_index"] == 2
 
     @pytest.mark.asyncio
+    async def test_report_groups_results_by_difficulty(self, env):
+        """Sual 1 «asan», Sual 2 səviyyəsiz (köhnə) — ayrı sətirlərdə."""
+        env["question_sets"].update_question(
+            env["q1"]["id"], question="Sual 1?", options=["A", "B", "C", "D", "E"],
+            correct_index=0, explanation="izah 1", difficulty="asan",
+        )
+        session = env["sessions"].create_session(env["question_set_id"])
+        _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
+        _, p2 = await join_session(session["id"], "Vəli", user_id=2, session_store=env["sessions"], connection_manager=env["manager"])
+        await start_session(session["id"], 180, **_kwargs(env))
+        await record_answer(session["id"], p1["id"], 0, chosen_index=0, **_kwargs(env))
+        await record_answer(session["id"], p2["id"], 0, chosen_index=3, **_kwargs(env))
+
+        report = compute_report(session["id"], session_store=env["sessions"], question_set_store=env["question_sets"])
+        assert report["per_question"][0]["difficulty"] == "asan"
+        assert report["by_difficulty"] == [
+            {"level": "asan", "question_count": 1, "correct_count": 1, "total_answers": 2},
+            {"level": None, "question_count": 1, "correct_count": 0, "total_answers": 0},
+        ]
+
+    @pytest.mark.asyncio
     async def test_most_common_wrong_index_is_none_when_no_wrong_answers(self, env):
         session = env["sessions"].create_session(env["question_set_id"])
         _, p1 = await join_session(session["id"], "Əli", user_id=1, session_store=env["sessions"], connection_manager=env["manager"])
