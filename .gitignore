@@ -1,2 +1,14 @@
 *.db
 server/uploads/
+
+# Sirlər — VPS-dəki .env heç vaxt commit olunmamalıdır (repo public-dir)
+.env
+.env.*
+!.env.example
+
+# Python / alət artıqları
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+node_modules/

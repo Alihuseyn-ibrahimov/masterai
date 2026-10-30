@@ -42,7 +42,10 @@ echo "=== 1/7 sistem paketleri ==="
 # "tesseract is not installed" xetasi ile ugursuz oldu (bax masterai/
 # CLAUDE.md, "Derse: real deploy zamani rast gelinen telelar", bend 5).
 apt-get update -qq
-apt-get install -y -qq tesseract-ocr
+# tesseract-ocr yalniz eng+osd getirir; pipeline "aze+eng" isledir
+# (pipeline/ingestion/image_extractor.py) - aze paketi olmasa OCR
+# sukutla yalniz ingilis modeli ile isleyir ve az. herfleri pozur.
+apt-get install -y -qq tesseract-ocr tesseract-ocr-aze
 
 echo "=== 2/7 venv + asililiqlar ==="
 cd "$SRV"
