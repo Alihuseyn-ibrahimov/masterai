@@ -128,6 +128,33 @@ done
 curl -sf http://127.0.0.1:8110/health || { journalctl -u masterai -n 40 --no-pager; exit 1; }
 echo
 
+step "7b/9 gündəlik backup (03:00 UTC)"
+# 2026-10-30: droplet silindi, kənarda surət yox idi. Telegram açarları
+# .env-də yoxdursa surət yalnız serverdə qalır (jurnalda xəbərdarlıq).
+cat > /etc/systemd/system/masterai-backup.service <<UNIT
+[Unit]
+Description=MasterAI data backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=$SRV
+EnvironmentFile=$SRV/.env
+ExecStart=$SRV/.venv/bin/python $SRV/deploy/backup_data.py --data $SRV/data --out /var/backups/masterai --keep 14
+UNIT
+cat > /etc/systemd/system/masterai-backup.timer <<UNIT
+[Unit]
+Description=MasterAI gündəlik backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable -q --now masterai-backup.timer
+
 step "8/9 statik sayt + nginx"
 rsync -a --delete --exclude tests "$SRV/web/" "$WEB/"
 chmod -R a+rX "$WEB"
