@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,10 @@ from pipeline.models import MaterialSource
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+# tesseract sistem binary-sidir (pip paketi deyil). Yoxdursa test mühit
+# səbəbindən sınır, kod səbəbindən yox — ona görə atlanır. CI onu
+# tesseract-ocr-aze ilə birgə quraşdırır, ona görə orada mütləq işləyir.
+@pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract quraşdırılmayıb")
 def test_extracts_text_from_image():
     source = MaterialSource(kind="image", location=str(FIXTURES / "sample_image.png"))
     raw = extract(source)

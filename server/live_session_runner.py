@@ -148,15 +148,19 @@ def compute_report(session_id: int, *, session_store, question_set_store) -> dic
 
 
 async def join_session(
-    session_id: int, display_name: str, *, session_store, connection_manager, user_id: int
+    session_id: int, display_name: str, *, session_store, connection_manager,
+    user_id: int | None = None, guest_key: str | None = None,
 ) -> tuple[dict, dict]:
     """İştirakçını sessiyaya əlavə edir və host-a bildirir.
 
     PIN yerinə SESSİYA ID-si (2026-09-11): sessiya artıq bir sinfə
     bağlıdır, üzvlüyü çağıran (endpoint) çat üzərindən yoxlayır.
-    `user_id` MƏCBURİDİR — anonim iştirakçı yolu silindi, yəni hər
-    nəticə bir hesaba bağlanır və tələbənin tarixçəsinə düşür.
+    Ya `user_id` (hesablı üzv), ya da `guest_key` (PIN ilə qonaq,
+    2026-10-30) verilməlidir — ikisi birdən yox. Qonağın nəticəsi
+    sessiya hesabatında görünür, tarixçəyə isə düşmür.
     """
+    if (user_id is None) == (guest_key is None):
+        raise ValueError("user_id və ya guest_key - yalnız biri verilməlidir")
     session = session_store.get(session_id)
     if session is None:
         raise SessionNotFound(session_id)
@@ -164,7 +168,10 @@ async def join_session(
         raise SessionNotJoinable(session_id)
 
     known = session_store.count_participants(session["id"])
-    participant = session_store.add_participant(session["id"], display_name, user_id=user_id)
+    if user_id is not None:
+        participant = session_store.add_participant(session["id"], display_name, user_id=user_id)
+    else:
+        participant = session_store.add_guest_participant(session["id"], display_name, guest_key)
     count = session_store.count_participants(session["id"])
 
     # TƏKRAR QOŞULMADA HOST-A HEÇ NƏ GETMİR (2026-09-12): `add_participant`

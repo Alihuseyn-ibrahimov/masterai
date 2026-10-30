@@ -2,8 +2,14 @@
 
 Sessiya BİR SİNFƏ (qrup çatına) bağlıdır: `chat_id` müəllimin hansı
 sinifdə başlatdığını, `created_by` isə host konsolunun kimə açılacağını
-saxlayır. PIN ilə qoşulma axını 2026-09-11-də tamamilə silindi; `pin`
-sütunu yalnız köhnə sətirlər üçün qalır və heç yerdə oxunmur.
+saxlayır.
+
+PIN TARİXÇƏSİ: PIN ilə qoşulma 2026-09-11-də silinmişdi, 2026-10-30-da
+istifadəçi qərarı ilə QAYIDIB. İndi iki yol yanaşı işləyir: sinif üzvü
+çatdan (hesabla) qoşulur, hesabsız tələbə isə PIN və ya linklə, öz
+adını yazaraq «qonaq» kimi qoşulur. Qonaq `user_id`-siz, `guest_key`
+ilə saxlanılır — açar brauzerdə yaranır və səhifə yenilənəndə eyni
+sətrə qayıtmağa imkan verir (bax `add_guest_participant`).
 
 `live_sessions`/`live_participants`/`live_answers` `question_sets`-dən
 (bax `question_set_store.py`) ayrıdır — bu, "hansı sual bankı" ilə "hansı
@@ -18,6 +24,7 @@ Səbəb üçün bax `user_store.py`-nin modul qeydi.
 
 from __future__ import annotations
 
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -103,15 +110,26 @@ class LiveSessionStore:
                 self._conn.execute("ALTER TABLE live_sessions ADD COLUMN created_by INTEGER")
             except sqlite3.OperationalError:
                 pass
+            # Qonaq (PIN ilə hesabsız) iştirakçının brauzer açarı. Hesablı
+            # iştirakçıda NULL-dur, qonaqda isə `user_id` NULL-dur.
+            try:
+                self._conn.execute("ALTER TABLE live_participants ADD COLUMN guest_key TEXT")
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
 
     # ---- sessiyalar ------------------------------------------------
 
-    # `_generate_unique_pin` BURADAN SİLİNDİ (2026-09-11, Faza 4).
-    # PIN ilə qoşulma axını tamamilə getdi: sessiya artıq bir sinfə
-    # (qrup çatına) bağlıdır və tələbə çatdakı «Qoşul» düyməsindən
-    # girir. `pin` SÜTUNU qalır, çünki canlı bazadakı köhnə sessiyalar
-    # onu daşıyır və tarixçə həmin sətirlərə söykənir.
+    def _generate_unique_pin(self) -> str:
+        """6 rəqəmli PIN, BİTMƏMİŞ sessiyalar arasında unikal.
+
+        Bitmiş sessiyaların PIN-i təkrar işlənə bilər: `get_by_pin`
+        onları onsuz da qaytarmır. `secrets` — PIN təxmin edilməməlidir.
+        """
+        while True:
+            pin = f"{secrets.randbelow(1_000_000):06d}"
+            if self.get_by_pin(pin) is None:
+                return pin
 
     def create_session(
         self,
@@ -131,15 +149,11 @@ class LiveSessionStore:
         """
         with self._lock:
             cur = self._conn.execute(
-                # `pin` sütunu `NOT NULL`-dur və sqlite-da bunu ləğv
-                # etmək cədvəlin yenidən qurulmasını tələb edərdi.
-                # Yeni sessiyalar BOŞ SƏTİR yazır — dəyər heç yerdə
-                # oxunmur (axtarış metodları silinib).
                 "INSERT INTO live_sessions "
                 "(question_set_id, pin, status, current_question_index, report_json, "
                 "created_at, chat_id, created_by) "
-                "VALUES (?, '', 'waiting', 0, NULL, ?, ?, ?)",
-                (question_set_id, _utc_now_iso(), chat_id, created_by),
+                "VALUES (?, ?, 'waiting', 0, NULL, ?, ?, ?)",
+                (question_set_id, self._generate_unique_pin(), _utc_now_iso(), chat_id, created_by),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -200,9 +214,21 @@ class LiveSessionStore:
             row = cur.fetchone()
             return dict(row) if row else None
 
-    # `get_by_pin` BURADAN SİLİNDİ (2026-09-11, Faza 4) — PIN ilə
-    # axtarış anlayışı qalmadı. Sessiya ID-si ilə `get()` işlədilir,
-    # üzvlük isə çat üzərindən yoxlanılır.
+    def get_by_pin(self, pin: str) -> dict | None:
+        """BİTMƏMİŞ sessiya PIN ilə. Boş PIN (09-11 - 10-30 arası
+        yaradılmış sessiyalar boş sətir yazırdı) heç vaxt tapılmır."""
+        if not pin:
+            return None
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, question_set_id, pin, status, current_question_index, "
+                "report_json, created_at, duration_seconds, started_at, chat_id, created_by "
+                "FROM live_sessions WHERE pin = ? AND status != 'finished' "
+                "ORDER BY id DESC LIMIT 1",
+                (pin,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     def start(self, session_id: int, duration_seconds: int) -> dict:
         """Sessiyanı 'active' edir, ümumi vaxt büdcəsini (saniyə) və
@@ -292,6 +318,44 @@ class LiveSessionStore:
             )
             self._conn.commit()
             return self.get_participant(cur.lastrowid)
+
+    def find_guest(self, session_id: int, guest_key: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id FROM live_participants WHERE session_id = ? AND guest_key = ? "
+                "ORDER BY id LIMIT 1",
+                (session_id, guest_key),
+            ).fetchone()
+            return self.get_participant(row["id"]) if row else None
+
+    def add_guest_participant(self, session_id: int, display_name: str, guest_key: str) -> dict:
+        """Qonaq üçün TAP-VƏ-YA-YARAT — `add_participant`-in eyni
+        səbəbi (sessiya #31 təkrar sətir bug-ı): səhifəni yeniləyən
+        qonaq brauzerdəki eyni `guest_key` ilə qayıdır və köhnə
+        sətrinə (cavabları ilə birlikdə) düşür."""
+        with self._lock:
+            existing = self.find_guest(session_id, guest_key)
+            if existing is not None:
+                self._conn.execute(
+                    "UPDATE live_participants SET display_name = ? WHERE id = ?",
+                    (display_name, existing["id"]),
+                )
+                self._conn.commit()
+                return self.get_participant(existing["id"])
+            cur = self._conn.execute(
+                "INSERT INTO live_participants (session_id, display_name, joined_at, user_id, guest_key) "
+                "VALUES (?, ?, ?, NULL, ?)",
+                (session_id, display_name, _utc_now_iso(), guest_key),
+            )
+            self._conn.commit()
+            return self.get_participant(cur.lastrowid)
+
+    def count_guests(self, session_id: int) -> int:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM live_participants WHERE session_id = ? AND guest_key IS NOT NULL",
+                (session_id,),
+            ).fetchone()[0]
 
     def get_participant(self, participant_id: int) -> dict | None:
         with self._lock:

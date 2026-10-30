@@ -5,6 +5,7 @@ import pytest
 from server.app import (
     LOGIN_MAX_FAILURES,
     LOGIN_WINDOW_SECONDS,
+    PIN_MAX_FAILURES,
     app,
     get_material_store,
     get_question_set_store,
@@ -24,6 +25,7 @@ def _fresh_rate_limiters():
     app.state.join_rate_limiter = RateLimiter()
     app.state.register_rate_limiter = RateLimiter()
     app.state.login_rate_limiter = RateLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW_SECONDS)
+    app.state.pin_rate_limiter = RateLimiter(PIN_MAX_FAILURES, 60)
     yield
 
 

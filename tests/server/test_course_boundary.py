@@ -214,6 +214,11 @@ EXEMPT = {
     ("POST", "/auth/register"): "kurs kodu ilə kurs SEÇİLİR - test_closed_registration.py",
     ("POST", "/auth/login"): "obyektə çıxış yoxdur, yalnız öz hesabı",
     ("POST", "/admin/teachers"): "test_admin_teacher_scope.py",
+    # PIN qonaq yoludur: istifadəçi kursu YOXDUR, PIN özü sessiyanı (və
+    # kursunu) seçir. Hesablı üzv yolu isə kurs yoxlamasından keçir —
+    # test_live_pin_join.py::test_member_of_other_course_joins_as_guest.
+    ("GET", "/live/pin/{pin}"): "qonaq PIN-i - test_live_pin_join.py",
+    ("WS", "/ws/live/pin/{pin}/play"): "qonaq PIN-i - test_live_pin_join.py",
     # Sahib paneli kursu ÖZÜ seçir — kurs sərhədi ona tətbiq olunmur. Qoruması
     # «sahib deyilsənsə 404»-dür: test_owner_panel.py::test_non_owner_gets_404_everywhere
     # HƏR /owner marşrutunu marşrut cədvəlindən tapıb sınayır.
