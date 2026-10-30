@@ -12,7 +12,7 @@ from pipeline.generation import generate_for_chunks, system_prompt_for
 from pipeline.ingestion import image_extractor, pdf_extractor, web_extractor
 from pipeline.models import MaterialSource, PipelineResult, RawMaterial
 from pipeline.providers import Completer, DEFAULT_ORDER, build_completers
-from pipeline.quality import recalls_material
+from pipeline.quality import prefer_balanced, recalls_material
 
 _MIN_QUESTIONS = 3
 DEFAULT_TARGET_QUESTION_COUNT = 10
@@ -25,6 +25,10 @@ DEFAULT_TARGET_QUESTION_COUNT = 10
 # sual sayına görə LAZIM OLAN qədər chunk seçmək (dedup itkisinə qarşı
 # bir qədər ehtiyatla), bütün sənədi deyil.
 _CHUNKS_PER_QUESTION_BUFFER = 2
+
+# Uzunluğu ilə düzgün cavabı göstərən suallar (bax `quality.prefer_balanced`)
+# yalnız ARTIQ sual olanda düşə bilər - ona görə ~25% çox istənilir.
+_SURPLUS_FACTOR = 1.25
 
 
 # Reading mətni tələbəyə telefonda göstərilir: ~3000 simvol (≈500 söz)
@@ -115,7 +119,7 @@ def generate_quiz(
 
     if passage is None:
         chunks = _select_chunks(chunks, target_question_count)
-    questions_per_chunk = max(1, math.ceil(target_question_count / len(chunks)))
+    questions_per_chunk = max(1, math.ceil(target_question_count * _SURPLUS_FACTOR / len(chunks)))
     questions, chunks_failed = generate_for_chunks(
         chunks, completers, order=order, questions_per_chunk=questions_per_chunk,
         system_prompt=system_prompt,
@@ -123,6 +127,7 @@ def generate_quiz(
     )
     questions = filter_duplicates(questions)
     questions = [q for q in questions if not recalls_material(q, profile, bank_kind)]
+    questions = prefer_balanced(questions)
 
     if len(questions) < _MIN_QUESTIONS:
         raise PipelineError(

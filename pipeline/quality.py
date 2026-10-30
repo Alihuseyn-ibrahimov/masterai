@@ -206,6 +206,39 @@ def recalls_material(question: MCQQuestion, profile: str, bank_kind: str) -> boo
     return _refers_to_material(question, _EN_MATERIAL_REFERENCE_PATTERNS)
 
 
+# ---- Düzgün cavab uzunluğu ilə özünü verir --------------------------------
+# Real istifadədə (2026-10-30): düzgün variant səhvlərdən xeyli uzun idi,
+# baxan kimi bilinirdi. Qısa variantlarda («5 il» / «10 il») fərq təbii
+# olduğu üçün nisbətlə yanaşı mütləq fərq də tələb olunur.
+
+_STANDS_OUT_RATIO = 1.4
+_STANDS_OUT_MIN_CHARS = 10
+
+
+def answer_stands_out(question: MCQQuestion) -> bool:
+    """Düzgün variant ən uzundur VƏ səhvlərin ortasından nəzərəçarpacaq
+    dərəcədə uzundur."""
+    lengths = [len(option.strip()) for option in question.options]
+    correct = lengths[question.correct_index]
+    others = [n for i, n in enumerate(lengths) if i != question.correct_index]
+    mean = sum(others) / len(others)
+    return (
+        correct > max(others)
+        and correct >= mean * _STANDS_OUT_RATIO
+        and correct - mean >= _STANDS_OUT_MIN_CHARS
+    )
+
+
+def prefer_balanced(questions: list[MCQQuestion]) -> list[MCQQuestion]:
+    """Uzunluğu ilə özünü verən sualları sona keçirir (sabit sıra ilə).
+    Seçim siyahının əvvəlindən aparıldığı üçün artıq sual olanda onlar
+    düşür; sual çatmayanda isə bank boş qalmasın deyə saxlanılır."""
+    return (
+        [q for q in questions if not answer_stands_out(q)]
+        + [q for q in questions if answer_stands_out(q)]
+    )
+
+
 # ---- Düzəliş tarixçəsindən qurulan suallar ----------------------------------
 # e-qanun səhifələrinin altında düzəliş siyahısı var: «504-IIIQD nömrəli
 # Qanun». Model oradan sual qurur. DİQQƏT: e-qanun adi defis (-) YOX,
