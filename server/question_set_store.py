@@ -93,6 +93,11 @@ class QuestionSetStore:
                 "ALTER TABLE question_sets ADD COLUMN profile TEXT NOT NULL DEFAULT 'exam_prep'",
                 "ALTER TABLE question_sets ADD COLUMN bank_kind TEXT NOT NULL DEFAULT 'practice'",
                 "ALTER TABLE question_sets ADD COLUMN passage TEXT",
+                # Çətinlik bölgüsü (Faza 2, 2026-10-30): müəllimin istədiyi
+                # faizlər «30/50/20» kimi; köhnə banklarda NULL. Sualın öz
+                # səviyyəsi `live_questions.difficulty`-dədir.
+                "ALTER TABLE question_sets ADD COLUMN difficulty_mix TEXT",
+                "ALTER TABLE live_questions ADD COLUMN difficulty TEXT",
             ):
                 try:
                     self._conn.execute(ddl)
@@ -110,15 +115,16 @@ class QuestionSetStore:
         course_id: int = DEFAULT_COURSE_ID,
         profile: str = "exam_prep",
         bank_kind: str = "practice",
+        difficulty_mix: str | None = None,
     ) -> dict:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO question_sets "
                 "(subject, title, status, material_kind, material_location, error, created_by, "
-                "created_at, course_id, profile, bank_kind) "
-                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?, ?, ?, ?)",
+                "created_at, course_id, profile, bank_kind, difficulty_mix) "
+                "VALUES (?, ?, 'processing', ?, ?, NULL, ?, ?, ?, ?, ?, ?)",
                 (subject, title, material_kind, material_location, created_by, _utc_now_iso(),
-                 course_id, profile, bank_kind),
+                 course_id, profile, bank_kind, difficulty_mix),
             )
             self._conn.commit()
             return self.get(cur.lastrowid)
@@ -127,7 +133,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at, course_id, profile, bank_kind FROM question_sets WHERE id = ?",
+                "error, created_by, created_at, course_id, profile, bank_kind, difficulty_mix FROM question_sets WHERE id = ?",
                 (question_set_id,),
             )
             row = cur.fetchone()
@@ -137,7 +143,7 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "SELECT id, subject, title, status, material_kind, material_location, "
-                "error, created_by, created_at, course_id, profile, bank_kind FROM question_sets ORDER BY created_at DESC"
+                "error, created_by, created_at, course_id, profile, bank_kind, difficulty_mix FROM question_sets ORDER BY created_at DESC"
             )
             return [dict(row) for row in cur.fetchall()]
 
@@ -171,8 +177,8 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO live_questions "
-                "(question_set_id, question, options, correct_index, explanation, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "(question_set_id, question, options, correct_index, explanation, created_at, difficulty) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     question_set_id,
                     mcq.question,
@@ -180,6 +186,7 @@ class QuestionSetStore:
                     mcq.correct_index,
                     mcq.explanation,
                     _utc_now_iso(),
+                    mcq.difficulty,
                 ),
             )
             self._conn.commit()
@@ -188,7 +195,7 @@ class QuestionSetStore:
     def get_question(self, question_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at "
+                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, difficulty "
                 "FROM live_questions WHERE id = ?",
                 (question_id,),
             )
@@ -202,14 +209,17 @@ class QuestionSetStore:
         options: list[str],
         correct_index: int,
         explanation: str,
+        difficulty: str | None = None,
     ) -> dict | None:
         """Müəllimin sual redaktəsi (bax Sual redaktə/təsdiq ekranı, Faza 5)
-        — sual sayı/sırası dəyişmir, yalnız məzmun yenilənir."""
+        — sual sayı/sırası dəyişmir, yalnız məzmun yenilənir.
+        `difficulty=None` səviyyəyə TOXUNMUR (köhnə client onu göndərmir)."""
         with self._lock:
             self._conn.execute(
                 "UPDATE live_questions SET question = ?, options = ?, correct_index = ?, "
-                "explanation = ? WHERE id = ?",
-                (question, json.dumps(options, ensure_ascii=False), correct_index, explanation, question_id),
+                "explanation = ?, difficulty = COALESCE(?, difficulty) WHERE id = ?",
+                (question, json.dumps(options, ensure_ascii=False), correct_index, explanation,
+                 difficulty, question_id),
             )
             self._conn.commit()
             return self.get_question(question_id)
@@ -222,7 +232,7 @@ class QuestionSetStore:
     def list_questions(self, question_set_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at "
+                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, difficulty "
                 "FROM live_questions WHERE question_set_id = ? ORDER BY id",
                 (question_set_id,),
             )

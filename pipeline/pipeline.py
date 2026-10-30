@@ -7,6 +7,7 @@ import math
 
 from pipeline.chunking import split
 from pipeline.dedup import filter_duplicates
+from pipeline.difficulty import prompt_note, select_by_mix, validate_mix
 from pipeline.generation import generate_for_chunks, system_prompt_for
 from pipeline.ingestion import image_extractor, pdf_extractor, web_extractor
 from pipeline.models import MaterialSource, PipelineResult, RawMaterial
@@ -77,6 +78,7 @@ def generate_quiz(
     order: list[str] = DEFAULT_ORDER,
     profile: str = "exam_prep",
     bank_kind: str = "practice",
+    difficulty_mix: tuple[int, int, int] | None = None,
 ) -> PipelineResult:
     """`target_question_count` — çağıranın (müəllimin) istədiyi ÜMUMİ sual
     sayı (bax dizayn sənədi, 2026-09-08). Material neçə chunk-a bölünürsə,
@@ -84,7 +86,13 @@ def generate_quiz(
     ehtimalına qarşı "bir az artıq" istəmək lazımdır), dedup-dan sonra
     `target`-dan çox qalarsa İLK `target` sual saxlanılır. Material qısadırsa
     (target-a çatmasa) olduğu kimi qəbul edilir — yalnız `_MIN_QUESTIONS`
-    alt həddi məcburidir."""
+    alt həddi məcburidir.
+
+    `difficulty_mix` — (asan, orta, çətin) faizləri, cəmi 100. Verilsə,
+    model hər suala səviyyə yazır və son seçim kvota üzrə aparılır
+    (bax `pipeline.difficulty`); verilməsə, köhnə davranış dəyişmir."""
+    if difficulty_mix is not None:
+        validate_mix(difficulty_mix)
     # Profil/bank cütü ƏVVƏLCƏ yoxlanır: yanlış cüt (məs. imtahan kursunda
     # reading) material yüklənib LLM-ə pul xərclənmədən rədd olunmalıdır.
     system_prompt = system_prompt_for(profile, bank_kind)
@@ -111,6 +119,7 @@ def generate_quiz(
     questions, chunks_failed = generate_for_chunks(
         chunks, completers, order=order, questions_per_chunk=questions_per_chunk,
         system_prompt=system_prompt,
+        difficulty_note=prompt_note(questions_per_chunk, difficulty_mix) if difficulty_mix else "",
     )
     questions = filter_duplicates(questions)
     questions = [q for q in questions if not recalls_material(q, profile, bank_kind)]
@@ -121,7 +130,9 @@ def generate_quiz(
             f"({len(questions)} < {_MIN_QUESTIONS}): {source.location}"
         )
 
-    if len(questions) > target_question_count:
+    if difficulty_mix is not None:
+        questions = select_by_mix(questions, min(target_question_count, len(questions)), difficulty_mix)
+    elif len(questions) > target_question_count:
         questions = questions[:target_question_count]
 
     return PipelineResult(

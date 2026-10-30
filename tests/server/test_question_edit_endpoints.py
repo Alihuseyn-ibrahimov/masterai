@@ -118,6 +118,31 @@ class TestUpdateQuestion:
         assert env["question_sets"].get_question(env["question"]["id"])["question"] == "Yeni sual?"
 
 
+    def test_difficulty_is_listed_and_editable(self, env):
+        qid = env["question"]["id"]
+        listed = env["client"].get(
+            f"/live/question-sets/{env['qs']['id']}/questions", headers=_auth(env["teacher"])
+        ).json()
+        assert listed[0]["difficulty"] is None  # köhnə sual — səviyyəsiz
+
+        r = env["client"].patch(
+            f"/live/questions/{qid}", json={**self._payload, "difficulty": "çətin"},
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 200 and r.json()["difficulty"] == "çətin"
+
+        # Səviyyə göndərilməyən redaktə onu SİLMİR.
+        r = env["client"].patch(f"/live/questions/{qid}", json=self._payload, headers=_auth(env["teacher"]))
+        assert r.json()["difficulty"] == "çətin"
+
+    def test_unknown_difficulty_returns_422(self, env):
+        r = env["client"].patch(
+            f"/live/questions/{env['question']['id']}", json={**self._payload, "difficulty": "super"},
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 422
+
+
 class TestDeleteQuestion:
     def test_requires_auth(self, env):
         assert env["client"].delete(f"/live/questions/{env['question']['id']}").status_code == 401

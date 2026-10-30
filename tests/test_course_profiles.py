@@ -40,7 +40,9 @@ def _q(question: str, explanation: str = "Bu cavab doğrudur, çünki qayda bel�
 class TestPrompts:
     def test_exam_prep_prompt_is_byte_identical(self):
         assert _sha(SYSTEM_PROMPT) == _EXAM_SYSTEM_SHA
-        assert _sha(_PROMPT.template) == _EXAM_HUMAN_SHA
+        # Çətinlik qeydi (Faza 2, 2026-10-30) boş olanda şablon köhnə
+        # şablonla BAYT-BAYT eynidir — bölgü seçilməyən yükləmə dəyişmir.
+        assert _sha(_PROMPT.template.replace("{difficulty_note}", "")) == _EXAM_HUMAN_SHA
         assert system_prompt_for("exam_prep", "practice") is SYSTEM_PROMPT
 
     def test_english_practice_prompt(self):

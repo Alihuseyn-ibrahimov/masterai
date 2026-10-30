@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
+from pipeline.models import Difficulty
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -192,6 +194,9 @@ class QuestionSetInfo(BaseModel):
     # yalnız ev tapşırığında (mətn tələbənin qarşısında olanda).
     profile: str = "exam_prep"
     bank_kind: str = "practice"
+    # Müəllimin istədiyi çətinlik bölgüsü «asan/orta/çətin» faizləri ilə,
+    # məs. «30/50/20». Faza 2-dən (2026-10-30) əvvəlki banklarda None.
+    difficulty_mix: str | None = None
 
 
 class LiveQuestionInfo(BaseModel):
@@ -207,6 +212,7 @@ class LiveQuestionInfo(BaseModel):
     correct_index: int
     explanation: str
     created_at: str
+    difficulty: Difficulty | None = None
 
 
 class UpdateQuestionRequest(BaseModel):
@@ -218,6 +224,8 @@ class UpdateQuestionRequest(BaseModel):
     options: list[str] = Field(min_length=5, max_length=5)
     correct_index: int = Field(ge=0, le=4)
     explanation: str
+    # Göndərilməsə səviyyə dəyişmir (Faza 2-dən əvvəlki client).
+    difficulty: Difficulty | None = None
 
 
 class QualityFinding(BaseModel):

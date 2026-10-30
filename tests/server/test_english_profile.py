@@ -54,7 +54,10 @@ class _Generator:
     def __init__(self):
         self.calls = []
 
-    def __call__(self, source, question_count=10, *, profile="exam_prep", bank_kind="practice"):
+    def __call__(
+        self, source, question_count=10, *, profile="exam_prep", bank_kind="practice",
+        difficulty_mix=None,
+    ):
         self.calls.append({"profile": profile, "bank_kind": bank_kind})
         return PipelineResult(
             questions=[_QUESTION], source=source, chunks_processed=1, chunks_failed=0,

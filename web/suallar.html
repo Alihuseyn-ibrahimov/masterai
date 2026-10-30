@@ -56,6 +56,7 @@
     findingsByQuestion, orderedIndexes, setWideFindings,
     severityBadge, suspiciousCount,
   } from './assets/js/question-review.js';
+  import { LEVELS, levelBadgeClass, levelLabel, summaryLine } from './assets/js/difficulty.js';
 
   const LETTERS = 'ABCDE';
 
@@ -78,8 +79,11 @@
       errorBox.textContent = 'Sual bankı ünvanı düzgün deyil.';
       errorBox.hidden = false;
     } else {
+      let bankMix = null;     // «30/50/20»; köhnə bankda `null`
       request(`/live/question-sets/${setId}`)
         .then((set) => {
+          bankMix = set.difficulty_mix || null;
+          renderDifficultySummary();
           document.getElementById('setTitle').textContent = set.title;
           const hint = document.createElement('span');
           hint.className = 'section-header__hint';
@@ -94,6 +98,18 @@
          mətn textarea-nın içində idi, və hansından başlamalı olduğunu
          bilmirdi. İndi suallar OXUNAQLI kart kimi göstərilir, redaktə
          yalnız tələb olunanda açılır, sıra isə auditə görə qurula bilir. */
+
+      /* Çətinlik xülasəsi: AI bölgünü həmişə DƏQİQ tuta bilmir (material
+         qısadırsa qonşu səviyyədən doldurur), müəllim fərqi burada görür. */
+      const difficultySummary = document.createElement('p');
+      difficultySummary.className = 'text-sm text-muted';
+      difficultySummary.hidden = true;
+      auditBox.before(difficultySummary);
+      function renderDifficultySummary() {
+        if (!questions.length) { difficultySummary.hidden = true; return; }
+        difficultySummary.textContent = `Çətinlik: ${summaryLine(questions, bankMix)}`;
+        difficultySummary.hidden = false;
+      }
 
       let quality = null;      // `GET .../quality` cavabı, uğursuz olsa `null`
       let questions = [];
@@ -193,6 +209,10 @@
           chip.title = finding.message;
           tools.append(chip);
         }
+        const level = document.createElement('span');
+        level.className = levelBadgeClass(question.difficulty);
+        level.textContent = levelLabel(question.difficulty);
+        tools.append(level);
         const editBtn = document.createElement('button');
         editBtn.className = 'btn btn--secondary btn--sm';
         editBtn.type = 'button';
@@ -289,6 +309,17 @@
         }
         form.append(labelledField(`q-${question.id}-correct`, 'Düzgün cavab', correctSelect));
 
+        const difficultySelect = document.createElement('select');
+        difficultySelect.className = 'field__select';
+        for (const value of LEVELS) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = levelLabel(value);
+          if (value === (question.difficulty || 'orta')) option.selected = true;
+          difficultySelect.append(option);
+        }
+        form.append(labelledField(`q-${question.id}-level`, 'Çətinlik', difficultySelect));
+
         const explanationInput = document.createElement('textarea');
         explanationInput.className = 'field__textarea';
         explanationInput.value = question.explanation || '';
@@ -332,6 +363,7 @@
                 options: optionInputs.map((input) => input.value),
                 correct_index: Number(correctSelect.value),
                 explanation: explanationInput.value,
+                difficulty: difficultySelect.value,
               },
             });
             say('Yadda saxlanıldı.', 'qcard__saved');
@@ -369,6 +401,7 @@
       function renderList() {
         content.innerHTML = '';
         renderAudit();
+        renderDifficultySummary();
         if (!questions.length) {
           content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
             + '<div class="state__title">Bu bankda sual yoxdur</div></div>';
