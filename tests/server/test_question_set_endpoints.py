@@ -175,6 +175,45 @@ class TestQuestionCountValidation:
         assert captured["question_count"] == 20
 
 
+
+class TestDifficultyMix:
+    """Faza 2 (2026-10-30): müəllim asan/orta/çətin faizini yazır."""
+
+    _base = {"subject": "mentiq", "title": "A", "kind": "link", "location": "https://x.az"}
+
+    def test_mix_not_summing_to_100_returns_400(self, env):
+        r = env["client"].post(
+            "/live/question-sets",
+            data={**self._base, "easy_percent": 50, "medium_percent": 50, "hard_percent": 10},
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 400
+        assert "Çətinlik" in r.json()["detail"]
+
+    def test_mix_is_stored_and_passed_to_generator(self, env):
+        captured = {}
+
+        def capturing_generator(source, question_count=10, **options):
+            captured.update(options)
+            return _fake_generator_success(source, question_count)
+
+        app.dependency_overrides[get_material_generator] = lambda: capturing_generator
+        r = env["client"].post(
+            "/live/question-sets",
+            data={**self._base, "easy_percent": 20, "medium_percent": 50, "hard_percent": 30},
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 202
+        assert r.json()["difficulty_mix"] == "20/50/30"
+        _wait_until_not_processing(env["question_sets"], r.json()["id"])
+        assert captured["difficulty_mix"] == (20, 50, 30)
+
+    def test_default_mix_is_30_50_20(self, env):
+        r = env["client"].post("/live/question-sets", data=self._base, headers=_auth(env["teacher"]))
+        assert r.json()["difficulty_mix"] == "30/50/20"
+        _wait_until_not_processing(env["question_sets"], r.json()["id"])
+
+
 class TestCreateAccepted:
     def test_link_returns_202_processing(self, env):
         r = env["client"].post(

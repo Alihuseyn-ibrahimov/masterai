@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1548 pytest + 233 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1581 pytest + 239 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-09-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -47,6 +47,37 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
 | Canlı sessiya fərdi tempo (sinxron model ləğvi) | Hər tələbə öz "Növbəti sual" düyməsi ilə öz sürəti ilə irəliləyir, müəllim ÜMUMİ vaxt limiti (1-10 dəqiqə) təyin edir, `.planning/2026-09-08-masterai-live-session-pacing/` | ✅ Tam uc-uca REAL test edilib — bax yuxarı "Canlı Sinif Sessiyası" bölməsi |
 | İngestion keyfiyyəti (link JS-render) + sual sayı seçimi | Müəllim hər material yükləməsində ÜMUMİ sual sayını (3-30) təyin edir, JS-render olunan saytlar (SPA) universal gözləmə ilə oxunur, sayt UI naviqasiyası sual generasiyasından xaric edilir, `docs/superpowers/specs/2026-09-08-masterai-ingestion-question-count-design.md`, `.planning/2026-09-08-masterai-ingestion-question-count/` | ✅ Tam uc-uca REAL test edilib (VPS-də) — bax aşağı "İngestion keyfiyyəti" bölməsi |
+
+## Çətinlik bölgüsü (Faza 2, 2026-10-30)
+
+Müəllim sual bankı yaradanda üç faiz yazır: asan / orta / çətin (cəmi
+100, defolt 30/50/20). Bölgü `question_sets.difficulty_mix`-də
+(«30/50/20») saxlanır, hər sualın səviyyəsi `live_questions.difficulty`-də.
+
+**Necə işləyir:** `pipeline/difficulty.py` hər chunk üçün saylı
+təlimat (`prompt_note`) yazır, AI hər suala `difficulty` sahəsi
+qoyur. Dedup və filtrdən sonra `select_by_mix` kvotaya görə seçir
+(ən böyük qalıq metodu). Bir səviyyədə sual çatmasa, boşluq QONŞU
+səviyyənin ARTIQ suallarından dolur, onun öz kvotasına toxunulmur.
+Səviyyəsiz sual «orta» sayılır.
+
+**Model səviyyəni səhv yazsa sual İTMİR:** `MCQQuestion`-dakı
+validator dəyəri normallaşdırır (`cetin`, `hard` → `çətin`),
+tanımadığını `None` edir.
+
+**Bölgü seçilməyəndə prompt BAYT-BAYT köhnədir** —
+`test_course_profiles` şablonu `{difficulty_note}` çıxarılmış halda
+köhnə hash ilə müqayisə edir.
+
+**Veb:** `muellim.html` formasında üç sahə + canlı «Cəmi» yoxlaması,
+`suallar.html`-də hər kartda səviyyə nişanı, redaktədə seçici, yuxarıda
+«N asan · N orta · N çətin (istənilən 30/50/20)». Ortaq məntiq
+`assets/js/difficulty.js`. «Asan» nişanı QƏSDƏN yaşıl deyil — sual
+kartında yaşıl «Düzgün» siqnalıdır.
+
+**Hələ YOXDUR:** hesabatda səviyyə üzrə düzgün cavab faizi (növbəti
+addım). AI-nın verdiyi səviyyə subyektivdir — müəllim onu redaktədə
+düzəldə bilər.
 
 ## Canlı Sinif Sessiyası (Faza 1 — Master NR 1 pilotu)
 

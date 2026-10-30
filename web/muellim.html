@@ -89,6 +89,27 @@
           </div>
         </div>
 
+        <!-- Çətinlik bölgüsü (2026-10-30). Cəmi 100 olmalıdır - backend
+             eyni yoxlamanı edir (`pipeline/difficulty.py::validate_mix`). -->
+        <div class="stack stack--tight" id="difficultyField" role="group" aria-labelledby="difficultyLabel">
+          <span class="field__label" id="difficultyLabel">Çətinlik bölgüsü (%)</span>
+          <div class="grid" style="--grid-min: 90px">
+            <div class="field">
+              <label class="field__label" for="easyPercent">Asan</label>
+              <input class="field__input" id="easyPercent" type="number" min="0" max="100" value="30" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="mediumPercent">Orta</label>
+              <input class="field__input" id="mediumPercent" type="number" min="0" max="100" value="50" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="hardPercent">Çətin</label>
+              <input class="field__input" id="hardPercent" type="number" min="0" max="100" value="20" required>
+            </div>
+          </div>
+          <span class="text-xs text-muted" id="difficultyHint" aria-live="polite">Cəmi: 100%</span>
+        </div>
+
         <div class="field" id="linkField">
           <label class="field__label" for="location">Sayt linki</label>
           <input class="field__input" id="location" name="location"
@@ -138,6 +159,7 @@
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createBankCard } from './assets/js/bank-card.js';
   import { SUBJECTS } from './assets/js/subjects.js';
+  import { mixError } from './assets/js/difficulty.js';
 
   const POLL_INTERVAL_MS = 10000;
 
@@ -339,6 +361,17 @@
     const createError = document.getElementById('createError');
     const createOk = document.getElementById('createOk');
 
+    const percentInputs = ['easyPercent', 'mediumPercent', 'hardPercent']
+      .map((id) => document.getElementById(id));
+    const difficultyHint = document.getElementById('difficultyHint');
+    function percentValues() { return percentInputs.map((input) => input.value); }
+    function updateDifficultyHint() {
+      const error = mixError(percentValues());
+      const sum = percentValues().reduce((a, b) => a + (Number(b) || 0), 0);
+      difficultyHint.textContent = error || `Cəmi: ${sum}%`;
+    }
+    for (const input of percentInputs) input.addEventListener('input', updateDifficultyHint);
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       createError.hidden = true;
@@ -361,12 +394,22 @@
         return;
       }
 
+      const difficultyError = mixError(percentValues());
+      if (difficultyError) {
+        createError.textContent = difficultyError;
+        createError.hidden = false;
+        return;
+      }
+
       const body = new FormData();
       body.append('subject', subjectSelect.value);
       body.append('title', document.getElementById('title').value);
       body.append('kind', kind);
       body.append('question_count', document.getElementById('questionCount').value);
       body.append('bank_kind', document.getElementById('bankKind').value);
+      body.append('easy_percent', percentInputs[0].value);
+      body.append('medium_percent', percentInputs[1].value);
+      body.append('hard_percent', percentInputs[2].value);
       if (kind === 'link') body.append('location', document.getElementById('location').value);
       else body.append('file', file);
 

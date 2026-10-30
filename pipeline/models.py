@@ -1,6 +1,26 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Sualın çətinlik səviyyəsi (2026-10-30, Faza 2). Müəllim yükləmədə
+# faiz bölgüsü seçir, AI hər suala səviyyə yazır.
+DIFFICULTY_LEVELS = ("asan", "orta", "çətin")
+Difficulty = Literal["asan", "orta", "çətin"]
+
+# Model bəzən ingiliscə, böyük hərflə və ya "ə"-siz yazır — bunlar
+# sualı RƏDD etmək üçün səbəb deyil, düzgün dəyərə çevrilir.
+_DIFFICULTY_ALIASES = {
+    "asan": "asan", "easy": "asan",
+    "orta": "orta", "medium": "orta", "moderate": "orta",
+    "çətin": "çətin", "cetin": "çətin", "çetin": "çətin", "hard": "çətin", "difficult": "çətin",
+}
+
+
+def normalize_difficulty(value) -> str | None:
+    """Tanınmayan dəyər `None` olur (səviyyəsiz sual), xəta yox."""
+    if not isinstance(value, str):
+        return None
+    return _DIFFICULTY_ALIASES.get(value.strip().lower())
 
 
 class MaterialSource(BaseModel):
@@ -19,6 +39,13 @@ class MCQQuestion(BaseModel):
     options: list[str] = Field(min_length=5, max_length=5)
     correct_index: int = Field(ge=0, le=4)
     explanation: str
+    # Köhnə suallarda və səviyyə yazmayan cavablarda `None`.
+    difficulty: Difficulty | None = None
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def _normalize_difficulty(cls, value):
+        return normalize_difficulty(value)
 
 
 class PipelineResult(BaseModel):

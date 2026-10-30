@@ -62,6 +62,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import ValidationError
 
+from pipeline.difficulty import DEFAULT_MIX, validate_mix as validate_difficulty_mix
 from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
@@ -1689,6 +1690,7 @@ async def _process_question_set(
     question_count: int = 10,
     profile: str = "exam_prep",
     bank_kind: str = "practice",
+    difficulty_mix: tuple[int, int, int] | None = None,
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
@@ -1696,7 +1698,10 @@ async def _process_question_set(
     ilə oxunur, bax dizayn sənədi)."""
     try:
         result = await asyncio.to_thread(
-            partial(generator, source, question_count, profile=profile, bank_kind=bank_kind)
+            partial(
+                generator, source, question_count, profile=profile, bank_kind=bank_kind,
+                difficulty_mix=difficulty_mix,
+            )
         )
     except Exception as exc:
         logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
@@ -1719,6 +1724,11 @@ async def create_question_set(
     file: UploadFile | None = File(default=None),
     question_count: int = Form(default=10),
     bank_kind: str = Form(default="practice"),
+    # Çətinlik bölgüsü (Faza 2, 2026-10-30) — cəmi 100. Köhnə client
+    # göndərmirsə defolt bölgü işləyir (istifadəçi qərarı: 30/50/20).
+    easy_percent: int = Form(default=DEFAULT_MIX[0]),
+    medium_percent: int = Form(default=DEFAULT_MIX[1]),
+    hard_percent: int = Form(default=DEFAULT_MIX[2]),
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
@@ -1741,6 +1751,11 @@ async def create_question_set(
             status_code=400,
             detail=f"Sual sayı {_MIN_QUESTION_COUNT}-{_MAX_QUESTION_COUNT} arasında olmalıdır",
         )
+    difficulty_mix = (easy_percent, medium_percent, hard_percent)
+    try:
+        validate_difficulty_mix(difficulty_mix)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Çətinlik bölgüsü: {exc}") from exc
 
     if kind == "link":
         if not location:
@@ -1765,6 +1780,7 @@ async def create_question_set(
         course_id=user["course_id"],
         profile=profile,
         bank_kind=bank_kind,
+        difficulty_mix="/".join(str(p) for p in difficulty_mix),
     )
 
     task = asyncio.create_task(
@@ -1776,6 +1792,7 @@ async def create_question_set(
             question_count=question_count,
             profile=profile,
             bank_kind=bank_kind,
+            difficulty_mix=difficulty_mix,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task
@@ -1951,6 +1968,7 @@ def update_live_question(
         options=req.options,
         correct_index=req.correct_index,
         explanation=req.explanation,
+        difficulty=req.difficulty,
     )
     return LiveQuestionInfo(**updated)
 
