@@ -12,8 +12,8 @@
 $ErrorActionPreference = "Stop"
 
 $KEY    = "$env:USERPROFILE\.ssh\id_rsa"
+$SERVER = $env:MASTERAI_SERVER
 if (-not $SERVER) { Write-Host 'XETA: əvvəlcə $env:MASTERAI_SERVER = "root@<SERVER_IP>" təyin et' -ForegroundColor Red; exit 1 }
-if (-not $SERVER) { Write-Host "XETA: əvvəlcə \$env:MASTERAI_SERVER = \"root@<SERVER_IP>\" təyin et" -ForegroundColor Red; exit 1 }
 $LOCAL  = Split-Path -Parent $PSScriptRoot     # masterai/
 $REMOTE = "/opt/masterai-web"
 

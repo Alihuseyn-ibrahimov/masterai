@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1687 pytest + 253 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1693 pytest + 253 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -47,6 +47,24 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
 | Canlı sessiya fərdi tempo (sinxron model ləğvi) | Hər tələbə öz "Növbəti sual" düyməsi ilə öz sürəti ilə irəliləyir, müəllim ÜMUMİ vaxt limiti (1-10 dəqiqə) təyin edir, `.planning/2026-09-08-masterai-live-session-pacing/` | ✅ Tam uc-uca REAL test edilib — bax yuxarı "Canlı Sinif Sessiyası" bölməsi |
 | İngestion keyfiyyəti (link JS-render) + sual sayı seçimi | Müəllim hər material yükləməsində ÜMUMİ sual sayını (3-30) təyin edir, JS-render olunan saytlar (SPA) universal gözləmə ilə oxunur, sayt UI naviqasiyası sual generasiyasından xaric edilir, `docs/superpowers/specs/2026-09-08-masterai-ingestion-question-count-design.md`, `.planning/2026-09-08-masterai-ingestion-question-count/` | ✅ Tam uc-uca REAL test edilib (VPS-də) — bax aşağı "İngestion keyfiyyəti" bölməsi |
+
+## Server silindi, sıfırdan qurulma (2026-10-30)
+
+DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
+birlikdə bütün bazalar (`data/*.db`) və eyni maşındakı digər servislər.
+Yeni droplet üçün bir skript: `deploy/rebuild_droplet.sh` (firewall,
+swap, jurnal limiti, tesseract-aze, rəsmi Chrome .deb, repo klonu
+`/opt/masterai`-ə, `.env` - VARSA toxunulmur, systemd, sayt
+`/opt/masterai-web`-ə, real nginx faylı, certbot). Təkrar işlətmək
+təhlükəsizdir, yeniləmə yolu da odur. Monorepo (`/opt/pr-agent/repo`)
+artıq İŞLƏDİLMİR.
+
+Təzə bazada admin yoxdur: saytda qeydiyyat → `deploy/bootstrap_admin.py`
+(müəllim + admin + sahib bayraqları birdən).
+
+**Dərs:** serverdən kənarda backup YOX idi. Hesab dayandırılanda data
+da getdi. Yeni serverdə `data/`-nın kənar backup-ı və DigitalOcean
+Backups açılmalıdır.
 
 ## Dərs xülasəsi (Faza 3, 2026-10-30)
 
