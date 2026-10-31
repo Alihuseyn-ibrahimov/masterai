@@ -49,7 +49,9 @@ Intent = Literal["explain", "quiz", "offtopic"]
 
 _QUIZ_WORDS = ("yoxla", "sual ver", "test ver", "quiz", "sına", "imtahan et", "soruş məndən", "məndən soruş")
 _GREETINGS = {"salam", "sağol", "sagol", "təşəkkür", "tesekkur", "çox", "sağ", "olun", "hello", "hi", "ok", "oldu",
-              "yaxşı", "necəsən", "salamlar", "aleykum", "əleykum"}
+              "yaxşı", "necəsən", "salamlar", "aleykum", "əleykum",
+              # eval dəstində tapıldı (gün 13): «Təşəkkür edirəm», «Çox sağ ol» izah sayılırdı
+              "edirəm", "edirik", "ol", "minnətdaram", "çoxsağol", "thanks", "thank", "you"}
 _FOLLOW_UP = re.compile(r"^\s*(bəs|və|həmçinin|onda|o|onu|onun|bu|bunu|bunun|ikincisi|üçüncüsü|daha)\b",
                         re.IGNORECASE)
 
