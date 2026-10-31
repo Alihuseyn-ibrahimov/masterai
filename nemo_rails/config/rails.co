@@ -1,0 +1,20 @@
+# Colang 1.0. Action-lar nemo_rails/rails.py-dədir və pipeline/guardrails.py-ni çağırır:
+# qaydalar serverdəki tutorla EYNİDİR, burada yalnız NeMo axını ilə bağlanır.
+
+define flow masterai check input
+  $blocked = execute masterai_check_input
+  if $blocked
+    bot refuse injection
+    stop
+
+define flow masterai check output
+  $blocked = execute masterai_check_output
+  if $blocked
+    bot refuse unsafe output
+    stop
+
+define bot refuse injection
+  "Bu sorğunu emal edə bilmirəm: mətn tutorun iş qaydalarını dəyişməyə çalışır. Dərs mövzusu üzrə sualınızı adi şəkildə yazın."
+
+define bot refuse unsafe output
+  "Cavab təhlükəsizlik yoxlamasından keçmədi. Sualı başqa sözlərlə yazın."

@@ -1,0 +1,3 @@
+# NeMo Guardrails (gün 20) - YALNIZ nümayiş/lokal; server pipeline/guardrails.py işlədir.
+-r requirements.txt
+nemoguardrails==0.24.1

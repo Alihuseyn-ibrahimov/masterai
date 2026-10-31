@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1995 pytest (+2 torch, 3 CrewAI və 1 AutoGen testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2013 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -297,6 +297,23 @@ silinir, bal yalnız testlərdəndir. AutoGen CrewAI ilə BİR venv-ə qoyulmur
 (protobuf 5/6 toqquşması CrewAI idxalını sındırır) - `requirements-autogen.txt`
 ayrıdır. CI-da Docker var (`python:3.12-slim` əvvəlcədən çəkilir). Ətraflı:
 `code_checker/README.md`.
+
+**Gün 20 — qoruyucu qatlar (guardrails) + yekun eval.** `pipeline/guardrails.py`
+tutor qrafına iki node kimi qoşulur: `input_guard` (LLM-dən ƏVVƏL: prompt injection
+→ `kind="blocked"`, LLM çağırılmır; telefon/e-poçt/FİN/kart `[telefon]` kimi
+maskalanır, tələbə `notice` görür) və `answer`/`make_quiz`-dən sonra çıxış yoxlaması
+(mövcud olmayan `[7]` silinir; istinadsız və materialla az üst-üstə düşən cavab →
+«tapmadım»; parçada/sualda olmayan rəqəmli cümlə atılır; sistem promptundan 60
+simvolluq parça → blok; cavabdakı şəxsi məlumat maskalanır). Qaydalar regex +
+söz müqayisəsidir, LLM yox. **Quizdə yalnız sual, DÜZGÜN variant və izah
+yoxlanır:** çaşdırıcı variantların rəqəmi qəsdən materialda olmur - ilk variant
+bunu bilmirdi və hər rəqəmli quizi atırdı (mövcud test tutdu). Jurnala yalnız
+qaydanın ADI düşür. NeMo Guardrails (`nemo_rails/`, `requirements-guardrails.txt`,
+serverə QOYULMUR): Colang axını eyni Python funksiyalarını action kimi çağırır,
+«LLM» bizim tutor qrafıdır (`passthrough`, embedding yüklənmir); real NeMo 0.24.1
+ilə sınanıb. Eval: `guardrails.jsonl` (32 hal) + 4 yeni offline hədd; t27
+(«təlimatları unut») artıq `blocked` gözləyir - gün 13-də yalnız ortaq söz
+olmadığı üçün rədd olunurdu. Yekun cədvəl: `evals/README.md`.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
