@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2013 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2015 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -314,6 +314,14 @@ serverə QOYULMUR): Colang axını eyni Python funksiyalarını action kimi ça�
 ilə sınanıb. Eval: `guardrails.jsonl` (32 hal) + 4 yeni offline hədd; t27
 («təlimatları unut») artıq `blocked` gözləyir - gün 13-də yalnız ortaq söz
 olmadığı üçün rədd olunurdu. Yekun cədvəl: `evals/README.md`.
+
+**Gün 21 — təqdimat + işə salma.** Təqdimat (14 slayd):
+https://claude.ai/artifact/GgPRAwrhxr4H5QyKTDSXUR. `deploy/CLASSROOM_LAUNCH.md`:
+birləşdirmə sırası, `.env` açarları, deploy-dan sonra yoxlama, müəllimin kompüteri və
+Colab. Tapıldı: `.env.example`-də LiveKit açarları (gün 2-dən bəri) və dörd baza yolu
+YOX idi - nümunədən `.env` dolduran video 503-ün səbəbini kodu oxumadan bilməzdi.
+`tests/test_env_example.py` indi `server/` və `pipeline/`-in oxuduğu hər dəyişənin
+nümunədə olduğunu və hər baza yolunun `data/`-da olduğunu yoxlayır.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
