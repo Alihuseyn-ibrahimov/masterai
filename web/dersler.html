@@ -113,6 +113,16 @@
         <a class="btn btn--secondary btn--sm" id="quizSummaryLink">Konspekt</a>
         <button class="btn btn--ghost btn--sm" type="button" id="quizAgainButton">Yenidən hazırla</button>
       </div>
+      <!-- Gün 5: hazır bankı və konspekti bir düymə ilə tələbələrin dərs
+           səhifəsinə ver. Konspekti əvvəlcə oxumaq müəllimin işidir. -->
+      <div class="grid">
+        <div class="field">
+          <label class="field__label" for="handoutDue">Quizin son tarixi</label>
+          <input class="field__input" id="handoutDue" type="date">
+        </div>
+      </div>
+      <button class="btn btn--primary" type="button" id="handoutButton">Tələbələrə göndər</button>
+      <p class="text-sm text-muted" id="handoutStatus" role="status"></p>
     </div>
   </section>
 </div>
@@ -143,6 +153,14 @@
       node.className = `btn ${className} btn--sm`;
       node.textContent = label;
       node.addEventListener('click', onClick);
+      return node;
+    }
+
+    function link(label, href) {
+      const node = document.createElement('a');
+      node.className = 'btn btn--ghost btn--sm';
+      node.href = href;
+      node.textContent = label;
       return node;
     }
 
@@ -222,7 +240,8 @@
             () => act(`/me/lessons/${lesson.id}/attend`, { method: 'POST' })));
         }
       }
-      if (actions.childElementCount) card.append(actions);
+      actions.append(link('Dərs səhifəsi', `dersim.html?id=${encodeURIComponent(lesson.id)}`));
+      card.append(actions);
       return card;
     }
 
@@ -328,6 +347,59 @@
         document.getElementById('quizSummaryLink').href = `xulase.html?bank=${id}`;
       }
     }
+
+    /* ---- Gün 5: tələbələrə göndər ---- */
+    const handoutDue = document.getElementById('handoutDue');
+    const handoutStatus = document.getElementById('handoutStatus');
+    function inDays(days) {
+      const d = new Date(Date.now() + days * 86400000);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    handoutDue.value = inDays(7);
+
+    document.getElementById('handoutButton').addEventListener('click', async () => {
+      const lesson = quizLesson;
+      const button = document.getElementById('handoutButton');
+      button.disabled = true;
+      showError('');
+      handoutStatus.textContent = '';
+      const done = [];
+      try {
+        // Eyni bankı ikinci dəfə tapşırıq etməmək üçün dərs səhifəsinə bax.
+        const cabinet = await request(`/me/lessons/${lesson.id}/cabinet`);
+        if (cabinet.assignments.length) {
+          done.push('quiz artıq verilib');
+        } else {
+          await request('/homework/assignments', {
+            method: 'POST',
+            body: { chat_id: lesson.chat_id, question_set_id: lesson.question_set_id, due_date: handoutDue.value || inDays(7) },
+          });
+          done.push('quiz verildi');
+        }
+        let summary = null;
+        try {
+          summary = await request(`/live/question-sets/${lesson.question_set_id}/summary`);
+        } catch (error) {
+          if (error.status !== 404) throw error;
+        }
+        if (!summary || summary.status === 'failed') {
+          done.push('konspekt yoxdur');
+        } else if (summary.status !== 'ready') {
+          done.push('konspekt hələ hazırlanır, sonra yenidən basın');
+        } else if (summary.published_at && summary.chat_id === lesson.chat_id) {
+          done.push('konspekt artıq paylaşılıb');
+        } else {
+          await request(`/live/summaries/${summary.id}/publish`, { method: 'POST', body: { chat_id: lesson.chat_id } });
+          done.push('konspekt paylaşıldı');
+        }
+        handoutStatus.textContent = `Hazırdır: ${done.join(', ')}. Tələbələr bunu dərsin səhifəsində görür.`;
+      } catch (error) {
+        handoutStatus.textContent = done.length ? `Alındı: ${done.join(', ')}.` : '';
+        showError(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     // Fənn səhv seçilibsə və ya suallar zəifdirsə: formanı yenidən aç.
     document.getElementById('quizAgainButton').addEventListener('click', () => {

@@ -102,7 +102,10 @@ from .models import (
     DifficultyStat,
     LessonAttendanceRow,
     LessonCreate,
+    LessonCabinet,
+    LessonCabinetSummary,
     LessonInfo,
+    LessonNote,
     LessonQuizCreate,
     LessonUpdate,
     LessonTranscript,
@@ -2390,6 +2393,66 @@ def attend_lesson(
         raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb və ya bitib")
     lessons.mark_attendance(lesson_id, user["id"], "online" if lesson["mode"] == "online" else "offline")
     return _lesson_info(lesson, chats, attended=True)
+
+
+@app.get("/me/lessons/{lesson_id}/cabinet", response_model=LessonCabinet)
+def lesson_cabinet(
+    lesson_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> LessonCabinet:
+    """Tələbə kabineti (gün 5): bir dərsə aid hər şey bir cavabda.
+
+    Konspekt və tapşırıq YALNIZ müəllim tələbələrə verəndən sonra görünür:
+    konspekt bu sinfə dərc olunmalı, quiz bu sinfə tapşırıq kimi təyin
+    olunmalıdır. Hazır olub verilməmiş bank tələbəyə göstərilmir."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    attended = any(a["user_id"] == user["id"] for a in lessons.list_attendance(lesson_id))
+    summary = None
+    assignments: list[MyAssignmentInfo] = []
+    bank_id = lesson.get("question_set_id")
+    question_set = question_sets.get(bank_id) if bank_id else None
+    if question_set is not None:
+        found = summaries.get_for_question_set(bank_id)
+        if (found and found["status"] == "ready" and found["published_at"]
+                and found["chat_id"] == lesson["chat_id"]):
+            summary = LessonCabinetSummary(id=found["id"], title=question_set["title"])
+        for assignment in homework.list_assignments_for_chat(lesson["chat_id"]):
+            if assignment["question_set_id"] != bank_id:
+                continue
+            status, score = _homework_status_and_score(
+                homework.get_attempt_for_student(assignment["id"], user["id"])
+            )
+            assignments.append(MyAssignmentInfo(
+                assignment_id=assignment["id"], chat_id=lesson["chat_id"],
+                subject=question_set["subject"], title=question_set["title"],
+                due_date=assignment["due_date"], status=status, score=score,
+                question_count=question_sets.count_questions(bank_id),
+            ))
+    note = lessons.get_note(lesson_id, user["id"]) or {}
+    return LessonCabinet(
+        lesson=_lesson_info(lesson, chats, attended=attended),
+        summary=summary, assignments=assignments,
+        note=LessonNote(text=note.get("text", ""), updated_at=note.get("updated_at")),
+    )
+
+
+@app.put("/me/lessons/{lesson_id}/note", response_model=LessonNote)
+def save_lesson_note(
+    lesson_id: int,
+    body: LessonNote,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonNote:
+    """Şəxsi qeyd: yalnız özü üçün, istənilən vaxt (dərsdən əvvəl də)."""
+    _lesson_for_member(lessons, chats, lesson_id, user)
+    saved = lessons.set_note(lesson_id, user["id"], body.text) or {}
+    return LessonNote(text=saved.get("text", ""), updated_at=saved.get("updated_at"))
 
 
 @app.post("/me/lessons/{lesson_id}/video", response_model=LessonVideoAccess)
