@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,19 +20,27 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
 </head>
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
   <section class="stack">
+    <!-- SİYAHI ƏVVƏL (2026-10-31): yeni tapşırıq forması siyahının
+         üstündə idi. İndi başlıqdakı düymə ilə vərəqdə açılır. -->
     <div class="section-header">
       <h1>Ev tapşırıqları</h1>
-      <span class="section-header__hint">Çat seçin - həmin çatdakı tapşırıqlar və nəticələr</span>
+      <span class="page-actions">
+        <button class="btn btn--primary btn--sm" type="button" id="newAssignButton">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>
+          Yeni tapşırıq
+        </button>
+      </span>
     </div>
+    <p class="text-sm text-muted">Çat seçin - həmin çatdakı tapşırıqlar və nəticələr.</p>
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
     <div class="notice notice--success" id="okBox" role="status" hidden></div>
@@ -46,30 +54,35 @@
   </section>
 
   <section class="stack">
-    <div class="section-header"><h2>Yeni tapşırıq</h2></div>
-    <div class="card stack">
-      <form class="stack" id="assignForm">
-        <div class="grid" style="--grid-min: 220px">
-          <div class="field">
-            <label class="field__label" for="questionSetSelect">Sual bankı</label>
-            <select class="field__select" id="questionSetSelect" required></select>
-          </div>
-          <div class="field">
-            <label class="field__label" for="dueDate">Son tarix</label>
-            <input class="field__input" id="dueDate" type="date" required>
-          </div>
-        </div>
-        <button class="btn btn--primary" type="submit" id="assignBtn">Təyin et</button>
-      </form>
-    </div>
-  </section>
-
-  <section class="stack">
     <div class="section-header"><h2>Təyin edilmiş tapşırıqlar</h2></div>
     <div id="content"></div>
   </section>
 
 </div>
+
+<dialog class="sheet" id="assignSheet" aria-labelledby="assignSheetTitle">
+  <div class="sheet__head">
+    <h2 id="assignSheetTitle">Yeni tapşırıq</h2>
+    <button class="btn btn--ghost btn--sm" type="button" data-sheet-close aria-label="Bağla">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-x"></use></svg>
+    </button>
+  </div>
+  <div class="sheet__body stack">
+    <p class="text-sm text-muted" id="assignChatNote"></p>
+    <div class="notice notice--danger" id="assignError" role="alert" hidden></div>
+    <form class="stack" id="assignForm">
+      <div class="field">
+        <label class="field__label" for="questionSetSelect">Sual bankı</label>
+        <select class="field__select" id="questionSetSelect" required></select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="dueDate">Son tarix</label>
+        <input class="field__input" id="dueDate" type="date" required>
+      </div>
+      <button class="btn btn--primary" type="submit" id="assignBtn">Təyin et</button>
+    </form>
+  </div>
+</dialog>
 
 <nav id="bottomNav"></nav>
 
@@ -77,6 +90,7 @@
   import { request } from './assets/js/api.js';
   import { hasLevelStats, renderDifficultyStats } from './assets/js/difficulty.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
   import { homeworkProgressBadge } from './assets/js/subjects.js';
 
   const STATUS_BADGE = {
@@ -211,10 +225,23 @@
           return;
         }
         reloadAssignments();
+        if (sheetKeyFromHash(location.hash, ['yeni'])) sheet.open();
       })
       .catch((error) => flash(errorBox, error.message));
 
     chatSelect.addEventListener('change', reloadAssignments);
+
+    const assignError = document.getElementById('assignError');
+    const sheet = bindSheet(document.getElementById('assignSheet'), {
+      openers: [document.getElementById('newAssignButton')],
+      onOpen: () => {
+        assignError.hidden = true;
+        // Tapşırıq seçilmiş çata gedir - vərəqdə hansı çat olduğu yazılır.
+        const chosen = chatSelect.selectedOptions[0];
+        document.getElementById('assignChatNote').textContent = chosen
+          ? `Çat: ${chosen.textContent}` : 'Əvvəlcə çat seçin.';
+      },
+    });
 
     document.getElementById('assignForm').addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -229,10 +256,12 @@
             due_date: document.getElementById('dueDate').value,
           },
         });
+        sheet.close();
         flash(okBox, 'Tapşırıq təyin edildi.');
         reloadAssignments();
       } catch (error) {
-        flash(errorBox, error.message);
+        assignError.textContent = error.message;
+        assignError.hidden = false;
       } finally {
         button.disabled = false;
       }

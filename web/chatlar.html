@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,72 +20,90 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
 </head>
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
 
-  <section>
-    <div class="section-header">
-      <h1>Çatlar</h1>
-      <span class="section-header__hint">Qrup çatında dostlarla birgə test həll edin</span>
-    </div>
-    <div id="content"></div>
-  </section>
-
-  <!-- AYRICA BÖLMƏ BAŞLIĞI: əvvəl bu iki forma çat kartları ilə eyni
-       şəbəkədə idi və siyahının davamı kimi oxunurdu. -->
+  <!-- SİYAHI ƏVVƏL (2026-10-31): əvvəl səhifənin yarısını «yeni çat» və
+       «qoşul» formaları tuturdu, tələbə «çat yarat»ı əsas hərəkət kimi
+       görürdü. İndi ikisi də başlıqdakı düymələrlə vərəqdə açılır;
+       tələbədə əsas düymə «Koda görə qoşul», müəllimdə «Yeni sinif». -->
   <section class="stack">
     <div class="section-header">
-      <h2>Yeni çat və ya qoşulma</h2>
+      <h1>Çatlar</h1>
+      <span class="page-actions">
+        <button class="btn btn--primary btn--sm" type="button" id="joinOpen">Koda görə qoşul</button>
+        <button class="btn btn--secondary btn--sm" type="button" id="createOpen">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>
+          <span id="createOpenLabel">Yeni çat</span>
+        </button>
+      </span>
     </div>
-    <div class="grid" style="--grid-min: 280px">
-    <div class="card stack">
-      <h4>Yeni qrup çatı</h4>
-      <div class="notice notice--danger" id="createError" role="alert" hidden></div>
-      <form class="stack stack--tight" id="createForm">
-        <div class="field">
-          <label class="field__label" for="chatName">Çatın adı</label>
-          <input class="field__input" id="chatName" name="name" required maxlength="100"
-                 placeholder="Məsələn: Qanunvericilik qrupu">
-        </div>
-        <button class="btn btn--primary" type="submit" id="createBtn">Yarat</button>
-      </form>
-    </div>
-
-    <div class="card stack">
-      <h4>Mövcud çata qoşul</h4>
-      <p class="text-sm text-muted">
-        Müəllimin verdiyi 6 simvollu dəvət kodunu yazın. Qoşulma müəllim
-        təsdiqlədikdən sonra tamamlanır - müəllimin ekranında istəyiniz
-        10 saniyə ərzində görünür.
-      </p>
-      <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
-      <div class="notice notice--success" id="joinOk" role="status" hidden></div>
-      <form class="stack stack--tight" id="joinForm">
-        <div class="field">
-          <label class="field__label" for="inviteCode">Dəvət kodu</label>
-          <input class="field__input invite-code" id="inviteCode" name="code"
-                 autocomplete="off" autocapitalize="characters" spellcheck="false"
-                 required maxlength="7" placeholder="K7M-3QX">
-        </div>
-        <button class="btn btn--secondary" type="submit" id="joinBtn">İstək göndər</button>
-      </form>
-    </div>
-    </div>
+    <p class="text-sm text-muted">Qrup çatında dostlarla birgə test həll edin.</p>
+    <div class="notice notice--success" id="joinOk" role="status" hidden></div>
+    <div id="content"></div>
   </section>
 </div>
+
+<dialog class="sheet" id="joinSheet" aria-labelledby="joinSheetTitle">
+  <div class="sheet__head">
+    <h2 id="joinSheetTitle">Mövcud çata qoşul</h2>
+    <button class="btn btn--ghost btn--sm" type="button" data-sheet-close aria-label="Bağla">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-x"></use></svg>
+    </button>
+  </div>
+  <div class="sheet__body stack">
+    <p class="text-sm text-muted">
+      Müəllimin verdiyi 6 simvollu dəvət kodunu yazın. Qoşulma müəllim
+      təsdiqlədikdən sonra tamamlanır - müəllimin ekranında istəyiniz
+      10 saniyə ərzində görünür.
+    </p>
+    <div class="notice notice--danger" id="joinError" role="alert" hidden></div>
+    <form class="stack stack--tight" id="joinForm">
+      <div class="field">
+        <label class="field__label" for="inviteCode">Dəvət kodu</label>
+        <input class="field__input invite-code" id="inviteCode" name="code"
+               autocomplete="off" autocapitalize="characters" spellcheck="false"
+               required maxlength="7" placeholder="K7M-3QX">
+      </div>
+      <button class="btn btn--primary" type="submit" id="joinBtn">İstək göndər</button>
+    </form>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="createSheet" aria-labelledby="createSheetTitle">
+  <div class="sheet__head">
+    <h2 id="createSheetTitle">Yeni qrup çatı</h2>
+    <button class="btn btn--ghost btn--sm" type="button" data-sheet-close aria-label="Bağla">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-x"></use></svg>
+    </button>
+  </div>
+  <div class="sheet__body stack">
+    <p class="text-sm text-muted" id="createHint">Dostlarınızla birgə məşq üçün qrup çatı. Yaradandan sonra dəvət kodunu paylaşın.</p>
+    <div class="notice notice--danger" id="createError" role="alert" hidden></div>
+    <form class="stack stack--tight" id="createForm">
+      <div class="field">
+        <label class="field__label" for="chatName">Çatın adı</label>
+        <input class="field__input" id="chatName" name="name" required maxlength="100"
+               placeholder="Məsələn: Qanunvericilik qrupu">
+      </div>
+      <button class="btn btn--primary" type="submit" id="createBtn">Yarat</button>
+    </form>
+  </div>
+</dialog>
 
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { request } from './assets/js/api.js';
+  import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createIcon } from './assets/js/icon.js';
   import { formatCode, isCompleteCode, normalizeCode } from './assets/js/invite-code.js';
+  import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
 
   if (requireLogin()) {
     mountShell();
@@ -109,8 +127,8 @@
       title.textContent = 'Hələ çatınız yoxdur';
       const hint = document.createElement('div');
       hint.className = 'state__text';
-      hint.textContent = 'Aşağıdan yeni qrup çatı yaradın və ya müəlliminizin '
-        + 'verdiyi dəvət kodu ilə istək göndərin.';
+      hint.textContent = 'Müəlliminizin verdiyi dəvət kodu ilə «Koda görə qoşul» '
+        + 'düyməsindən istək göndərin və ya yeni qrup çatı yaradın.';
       state.append(iconWrap, title, hint);
       return state;
     }
@@ -346,8 +364,41 @@
       });
     }
 
+    /* Rola görə əsas hərəkət: tələbə adətən müəllimin koduna qoşulur,
+       müəllim sinif yaradır. İkisi də hər iki rolda mövcuddur. */
+    const isTeacher = Boolean((getUser() || {}).is_teacher);
+    const joinOpen = document.getElementById('joinOpen');
+    const createOpen = document.getElementById('createOpen');
+    if (isTeacher) {
+      joinOpen.className = 'btn btn--secondary btn--sm';
+      createOpen.className = 'btn btn--primary btn--sm';
+      document.getElementById('createOpenLabel').textContent = 'Yeni sinif';
+      document.getElementById('createSheetTitle').textContent = 'Yeni sinif (qrup çatı)';
+      document.getElementById('createHint').textContent =
+        'Sinif bir qrup çatıdır: tələbələr dəvət kodu ilə qoşulur, siz təsdiqləyirsiniz.';
+      createOpen.parentElement.prepend(createOpen);
+    }
+    const joinSheet = bindSheet(document.getElementById('joinSheet'), {
+      openers: [joinOpen],
+      onOpen: () => {
+        document.getElementById('joinError').hidden = true;
+        document.getElementById('inviteCode').focus();
+      },
+    });
+    const createSheet = bindSheet(document.getElementById('createSheet'), {
+      openers: [createOpen],
+      onOpen: () => {
+        document.getElementById('createError').hidden = true;
+        document.getElementById('chatName').focus();
+      },
+    });
+    const fromHash = sheetKeyFromHash(location.hash, ['qosul', 'yeni']);
+    if (fromHash === 'qosul') joinSheet.open();
+    if (fromHash === 'yeni') createSheet.open();
+
     wire('createForm', 'createBtn', 'createError', (data) =>
-      request('/chats', { method: 'POST', body: { kind: 'group', name: data.name } }));
+      request('/chats', { method: 'POST', body: { kind: 'group', name: data.name } }),
+    () => createSheet.close());
 
     const codeInput = document.getElementById('inviteCode');
     const joinOk = document.getElementById('joinOk');
@@ -369,6 +420,7 @@
         body: { code: normalizeCode(data.code) },
       });
     }, (result) => {
+      joinSheet.close();
       joinOk.textContent = result.chat_name
         ? `«${result.chat_name}» çatına istəyiniz göndərildi. Müəllim təsdiqləyəndən sonra görünəcək.`
         : 'İstəyiniz göndərildi. Müəllim təsdiqləyəndən sonra çat görünəcək.';

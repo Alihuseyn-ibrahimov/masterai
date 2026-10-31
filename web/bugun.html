@@ -6,7 +6,7 @@
 <title>Bu gün - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax `assets/js/theme.js`). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
 </head>
 <body>
 <header id="appBar"></header>
@@ -83,7 +83,7 @@
         ? 'Növbəti dərsi planlaşdırın - tələbələr onu «Bu gün»də görəcək.'
         : 'Müəllim dərs planlaşdıranda burada görünəcək.'));
       const go = el('a', 'btn btn--primary btn--lg', isTeacher ? 'Dərs planla' : 'Bütün dərslər');
-      go.href = 'dersler.html';
+      go.href = isTeacher ? 'dersler.html#yeni' : 'dersler.html';
       card.append(go);
       container.append(card);
       return;
@@ -216,7 +216,7 @@
     actions.append(sectionTitle('Sürətli hərəkətlər'));
     const grid = el('div', 'quick-actions');
     for (const [label, href, cls] of [
-      ['Dərs planla', 'dersler.html', 'btn--primary'],
+      ['Dərs planla', 'dersler.html#yeni', 'btn--primary'],
       ['Quiz yarat', 'muellim.html', 'btn--accent'],
       ['Canlı quiz sessiyası', 'sessiyalar.html', 'btn--secondary'],
       ['Hesabatlar', 'hesabatlar.html', 'btn--secondary'],

@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 320 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 323 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -362,6 +362,15 @@ Məntiq `lesson-tabs.js`-dədir: səhifə ən faydalı tab-la açılır
 SÜRÜŞMÜR (son tab görünməz qalırdı) - bərabər sütunlardır. Dərs otağı
 düyməsi YALNIZ canlı onlayn dərsdədir. Tutor tab-ının hazır sualları
 `tutor.html?q=` ilə dərhal göndərilir, sual linkdən silinir.
+**PR 4 - siyahı əvvəl, forma vərəqdə:** «Dərslər», «Ev tapşırıqları» və
+«Çatlar»da forma artıq səhifənin başında deyil, başlıqdakı düymə ilə
+`<dialog class="sheet">`-də açılır (`sheet.js`; telefonda altdan çıxır,
+Esc/pərdə bağlayır, `#yeni`/`#qosul` linki birbaşa açır - «Bu gün»dəki
+«Dərs planla» `dersler.html#yeni`-dir). Çatlarda tələbənin əsas düyməsi
+«Koda görə qoşul», müəllimin «Yeni sinif»; tələbə çat yarada BİLİR
+(backend icazə verir), sadəcə ikinci dərəcəlidir. **«Quiz yarat»
+(`muellim.html`) İSTİSNADIR:** forma yuxarıda və açıq qalır - bunu
+istifadəçi pilotdan sonra özü seçib, `sheet.test.js` qoruyur.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
