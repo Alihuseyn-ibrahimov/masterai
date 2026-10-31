@@ -28,6 +28,7 @@
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
   <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+  <div class="notice notice--success" id="qrDone" role="status" hidden>Davamiyyətiniz qeyd olundu. Uğurlu dərs!</div>
   <a class="btn btn--ghost btn--sm" href="dersler.html">Bütün dərslər</a>
 
   <div id="content"></div>
@@ -118,18 +119,9 @@
       if (!isTeacher && lesson.attended) {
         actions.append(el('span', 'badge badge--success', 'Davamiyyət qeyd olundu'));
       } else if (!isTeacher && lesson.status === 'live' && lesson.mode === 'offline') {
-        const join = el('button', 'btn btn--primary btn--sm', 'Dərsə qoşul');
-        join.type = 'button';
-        join.addEventListener('click', async () => {
-          showError('');
-          try {
-            await request(`/me/lessons/${lesson.id}/attend`, { method: 'POST' });
-            reload();
-          } catch (error) {
-            showError(error.message);
-          }
-        });
-        actions.append(join);
+        // Gün 6: sinif dərsində davamiyyət yalnız müəllimin ekranındakı QR ilə.
+        card.append(el('p', 'notice notice--info',
+          'Davamiyyət üçün lövhədəki QR kodu telefonun kamerası ilə skan edin.'));
       }
       if (actions.childElementCount) card.append(actions);
       if (isTeacher) {
@@ -212,7 +204,22 @@
       });
     }
 
+    /* Gün 6: QR linki ilə gəlinib. Kod linkdən silinir: geri düyməsi və
+       ya yeniləmə köhnəlmiş kodu təkrar göndərib xəta göstərməsin. */
+    async function attendByQr(code) {
+      history.replaceState(null, '', `dersim.html?id=${encodeURIComponent(lessonId)}`);
+      try {
+        await request(`/me/lessons/${lessonId}/attend`, { method: 'POST', body: { code } });
+        const done = document.getElementById('qrDone');
+        done.hidden = false;
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    const qrCode = new URLSearchParams(location.search).get('qr');
     if (!lessonId) showError('Dərs seçilməyib.');
+    else if (qrCode) attendByQr(qrCode).then(reload);
     else reload();
   }
 </script>

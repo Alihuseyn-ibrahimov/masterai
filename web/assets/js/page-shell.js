@@ -5,11 +5,14 @@ import { ApiError, clearSession, getUser, isLoggedIn, request } from './api.js';
 import { createIcon } from './icon.js';
 import { expiryBannerText, shouldShowExpiryBanner } from './license.js';
 import { renderNavigation } from './nav.js';
+import { rememberNext } from './next-path.js';
 
 /** Tokensiz istifadəçini giriş səhifəsinə göndərir. `replace` işlədilir
  *  ki, geri düyməsi qorunan səhifəyə qaytarmasın. */
 export function requireLogin() {
   if (!isLoggedIn()) {
+    // Girişdən sonra bu səhifəyə qayıt (məs. sinifdə skan edilən QR linki).
+    rememberNext(window.sessionStorage, window.location.pathname.split('/').pop() + window.location.search);
     window.location.replace('giris.html');
     return false;
   }

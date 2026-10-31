@@ -984,3 +984,13 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* QR davamiyyət (gün 6): proyektorda uzaqdan oxunsun deyə böyük.
+   Kodun öz ağ fonu var - tünd rejimdə də kamera oxuyur. */
+.qr-card { align-items: center; text-align: center; }
+.qr-card__image {
+  width: 100%;
+  max-width: var(--width-form);
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+}

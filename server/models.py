@@ -662,6 +662,22 @@ class LessonInfo(BaseModel):
     question_set_id: int | None = None
 
 
+class LessonAttendRequest(BaseModel):
+    """Sinif dərsində davamiyyət QR koddan gəlir (gün 6)."""
+
+    code: str | None = Field(default=None, max_length=32)
+
+
+class LessonQr(BaseModel):
+    """Müəllimin ekranındakı QR (gün 6). `svg` serverdə yaranan
+    şəkildir, `expires_in` saniyədən sonra kod dəyişir."""
+
+    code: str
+    url: str
+    svg: str
+    expires_in: int
+
+
 class LessonAttendanceRow(BaseModel):
     user_id: int
     display_name: str

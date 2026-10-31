@@ -108,11 +108,16 @@ def test_attendance_only_while_live_and_only_once(env):
     assert env["client"].post(url, headers=_auth(env["vali"])).status_code == 409
 
 
-def test_offline_lesson_marks_offline_method(env):
+def test_offline_lesson_needs_qr_code(env):
+    # Gün 6: sinif dərsində kodsuz «gəldim» evdən də basıla bilərdi.
     lesson = _create(env, mode="offline")
     env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
-    env["client"].post(f"/me/lessons/{lesson['id']}/attend", headers=_auth(env["vali"]))
-    assert env["lessons"].list_attendance(lesson["id"])[0]["method"] == "offline"
+    url = f"/me/lessons/{lesson['id']}/attend"
+    assert env["client"].post(url, headers=_auth(env["vali"])).status_code == 403
+    assert env["client"].post(url, json={"code": "YANLIS"}, headers=_auth(env["vali"])).status_code == 403
+    code = env["client"].get(f"/live/lessons/{lesson['id']}/qr", headers=_auth(env["teacher"])).json()["code"]
+    assert env["client"].post(url, json={"code": code.lower()}, headers=_auth(env["vali"])).status_code == 200
+    assert env["lessons"].list_attendance(lesson["id"])[0]["method"] == "qr"
 
 
 def test_restart_keeps_first_start_time(env):
