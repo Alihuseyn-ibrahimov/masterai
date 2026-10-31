@@ -4,7 +4,7 @@
  * bloklanır (ikiqat göndərmənin qarşısı), xəta ekran oxuyucusuna da
  * çatır (`role="alert"`), uğurdan sonra rola görə yönləndirmə. */
 
-import { getUser, isLoggedIn } from './api.js';
+import { isLoggedIn } from './api.js';
 import { takeNext } from './next-path.js';
 
 /** Daxil olmuş istifadəçini öz səhifəsinə göndərir - müəllim və tələbə
@@ -12,9 +12,9 @@ import { takeNext } from './next-path.js';
 export function homePathForCurrentUser() {
   const next = takeNext(window.sessionStorage);
   if (next) return next;
-  const user = getUser();
-  if (user && user.is_teacher) return 'muellim.html';
-  return 'chatlar.html';
+  /* Hər iki rol «Bu gün»dən başlayır (2026-10-31): rol fərqi səhifənin
+     İÇİNDƏDİR, giriş yolu bir olur. */
+  return 'bugun.html';
 }
 
 /** Auth səhifəsinə ARTIQ daxil olmuş istifadəçi düşərsə, formanı

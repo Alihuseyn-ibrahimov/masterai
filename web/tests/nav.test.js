@@ -6,13 +6,13 @@ import { activeHref, allDestinations, destinationsFor, shortLabel } from '../ass
 describe('destinationsFor', () => {
   test('tələbə öz bölmələrini görür', () => {
     const hrefs = destinationsFor({ is_teacher: false }).map((d) => d.href);
-    assert.deepEqual(hrefs, ['chatlar.html', 'tapsiriqlar.html', 'dersler.html', 'tarixce.html', 'profil.html']);
+    assert.deepEqual(hrefs, ['bugun.html', 'dersler.html', 'tapsiriqlar.html', 'chatlar.html', 'profil.html']);
   });
 
   test('müəllim öz bölmələrini görür', () => {
     const hrefs = destinationsFor({ is_teacher: true }).map((d) => d.href);
     assert.deepEqual(hrefs,
-      ['muellim.html', 'chatlar.html', 'dersler.html', 'hesabatlar.html', 'profil.html']);
+      ['bugun.html', 'dersler.html', 'muellim.html', 'chatlar.html', 'hesabatlar.html']);
   });
 
   test('MÜƏLLİMDƏ DƏ çat bölməsi var', () => {
@@ -26,8 +26,8 @@ describe('destinationsFor', () => {
   });
 
   test('istifadəçi məlum deyilsə tələbə bölmələri (təhlükəsiz defolt)', () => {
-    assert.equal(destinationsFor(null)[0].href, 'chatlar.html');
-    assert.equal(destinationsFor(undefined)[0].href, 'chatlar.html');
+    assert.equal(destinationsFor(null), destinationsFor({ is_teacher: false }));
+    assert.equal(destinationsFor(undefined), destinationsFor({ is_teacher: false }));
   });
 
   test('hər rolda ən çox 5 bölmə - mobil alt panelə sığmalıdır', () => {
@@ -71,7 +71,7 @@ describe('activeHref', () => {
 
   test('tam yolda da işləyir', () => {
     // Səhifələr həm `file://`, həm serverdən açıla bilər.
-    assert.equal(activeHref(student, '/masterai/web/tarixce.html'), 'tarixce.html');
+    assert.equal(activeHref(student, '/masterai/web/tapsiriqlar.html'), 'tapsiriqlar.html');
     assert.equal(activeHref(student, 'C:/Quantum/masterai/web/profil.html'), 'profil.html');
   });
 
@@ -102,9 +102,22 @@ describe('sahib paneli', () => {
   /* Sahib linki alt paneldə YOXDUR (5 bölmə həddi ölçülüb, bax nav.js),
      Profil səhifəsindədir. Ona görə sahib.html açıq olanda Profil
      işıqlanmalıdır - əks halda istifadəçi «harda olduğunu» itirir. */
-  test('sahib.html açıq olanda Profil aktivdir (hər iki rolda)', () => {
+  test('sahib.html açıq olanda tələbədə Profil aktivdir', () => {
+    assert.equal(activeHref(destinationsFor({ is_teacher: false }), '/sahib.html'), 'profil.html');
+  });
+
+  test('müəllimdə Profil bölmə deyil: profil/sahib heç bir bölməni işıqlandırmır', () => {
+    /* 2026-10-31: müəllimin 5 yeri «Bu gün», Dərslər, Quiz, Çatlar,
+       Hesabatlar oldu; profilə üst zolaqdakı avatar aparır. Səhv bölməni
+       işıqlandırmaqdansa heç birini işıqlandırmamaq düzgündür. */
+    const teacher = destinationsFor({ is_teacher: true });
+    assert.equal(activeHref(teacher, '/sahib.html'), null);
+    assert.equal(activeHref(teacher, '/profil.html'), null);
+  });
+
+  test('«Bu gün» hər iki rolda birinci bölmədir', () => {
     for (const user of [{ is_teacher: true }, { is_teacher: false }]) {
-      assert.equal(activeHref(destinationsFor(user), '/sahib.html'), 'profil.html');
+      assert.equal(destinationsFor(user)[0].href, 'bugun.html');
     }
   });
 

@@ -19,13 +19,17 @@ const STUDENT_DESTINATIONS = [
   // `matches` - hansı səhifələrdə bu bölmə aktiv sayılır. Detal
   // səhifəsi (məs. `chat.html`) öz bölməsini işıqlandırmalıdır, əks
   // halda istifadəçi "harda olduğunu" itirir.
-  { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
-  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
-  /* Dərslər (2026-10-31) xülasələri də əhatə edir: tələbə kabinetinin
+  /* «Bu gün» (2026-10-31) ilk bölmədir: auditdə ana ekran yox idi,
+     tələbə girişdən sonra çat siyahısına düşürdü. Tarixçə və nişanlar
+     «Profil»in altına keçdi - «Bu gün» onsuz da seriya və nişanı
+     göstərir. */
+  { href: 'bugun.html', label: 'Bu gün', icon: 'home', matches: ['bugun.html'] },
+  /* Dərslər xülasələri və tutoru da əhatə edir: tələbə kabinetinin
      əsas bölməsidir, xülasə isə dərsin bir hissəsidir. */
-  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'tutor.html', 'xulaseler.html', 'xulase.html'] },
-  { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
-  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'dars.html', 'tutor.html', 'xulaseler.html', 'xulase.html'] },
+  { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html', 'tapsiriq.html'] },
+  { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html', 'sessiya.html'] },
+  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'tarixce.html', 'nailiyyetler.html', 'sahib.html'] },
 ];
 
 /* Müəllimdə DƏ çat bölməsi var. Əvvəl yox idi və bu, funksional
@@ -33,15 +37,18 @@ const STUDENT_DESTINATIONS = [
  * TƏLƏB EDİR («əvvəlcə qrup çatına üzv olun»), amma müəllimin çat
  * siyahısına çatmaq yolu yox idi - yəni təzə müəllim hesabı ev
  * tapşırığı təyin edə bilmirdi. Çat həm də müəllimin sinifə mesaj
- * yazdığı yerdir. */
+ * yazdığı yerdir.
+ *
+ * 2026-10-31: «Bu gün» birinci oldu, «Profil» bölmədən çıxdı - üst
+ * zolaqdakı avatar profilə aparır (5 bölmə həddi qalır). */
 const TEACHER_DESTINATIONS = [
+  { href: 'bugun.html', label: 'Bu gün', icon: 'home', matches: ['bugun.html'] },
+  /* Canlı quiz sessiyası dərsin bir hissəsidir: sessiyalar dərs
+     bölməsindən linklə açılır. */
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'dars.html', 'sessiyalar.html', 'tutor.html'] },
   { href: 'muellim.html', label: 'Quiz yarat', short: 'Quiz', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
-  /* Canlı quiz sessiyası dərsin bir hissəsidir (2026-10-31): bölmə
-     yerini dərs cədvəlinə verdi, sessiyalar səhifədən linklə açılır. */
-  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'sessiyalar.html'] },
-  { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },
-  { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
+  { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html', 'tarixce.html'] },
 ];
 
 /** Alt paneldə göstəriləcək etiket: dar telefonda uzun ad iki sətrə
@@ -126,7 +133,11 @@ export function renderNavigation({ bar, bottom, user, pathname, onLogout }) {
   const right = document.createElement('div');
   right.className = 'app-bar__user';
   const name = (user && user.display_name) || 'İstifadəçi';
-  const avatar = document.createElement('span');
+  /* Avatar profilə aparır - müəllim naviqasiyasında «Profil» bölməsi
+     yoxdur (5 bölmə həddi), yol isə qalmalıdır. */
+  const avatar = document.createElement('a');
+  avatar.href = 'profil.html';
+  avatar.setAttribute('aria-label', 'Profil');
   avatar.className = 'avatar';
   avatar.textContent = name.trim().charAt(0).toUpperCase() || '?';
   avatar.title = name;

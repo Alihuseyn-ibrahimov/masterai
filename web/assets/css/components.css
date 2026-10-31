@@ -242,6 +242,7 @@
   font-weight: var(--weight-bold);
   font-size: var(--text-sm);
 }
+a.avatar:hover { text-decoration: none; }
 .avatar--lg { width: var(--space-12); height: var(--space-12); font-size: var(--text-lg); }
 
 /* ---- Xəbərdarlıq lövhəsi ---- */
@@ -1043,3 +1044,131 @@
   background: var(--color-surface-alt);
   border-radius: var(--radius-md);
 }
+
+/* ==== «Bu gün» ana ekranı (2026-10-31, «oyun enerjisi») ====
+ * Enerji burada MAKSİMALDIR: qara «canlı dərs» kartı, böyük CTA,
+ * seriya/XP/hədəf xanaları. Formalar və hesabatlar sakit qalır. */
+
+.today-greeting { color: var(--color-text-muted); font-weight: var(--weight-semibold); }
+
+/* Qara kart: canlı və ya növbəti dərs. Üst zolaqla eyni qara səth -
+ * səhifədəki ən güclü element budur. */
+.hero-lesson {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-ink-surface);
+  color: var(--color-on-ink);
+}
+.hero-lesson__chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.hero-lesson__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-soft);
+  color: var(--color-on-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+.hero-lesson__chip .icon { width: var(--space-4); height: var(--space-4); }
+.hero-lesson__chip--live { background: var(--color-cta); color: var(--color-on-cta); }
+.hero-lesson__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-on-ink);
+}
+.hero-lesson__meta { color: var(--color-on-ink-muted); font-size: var(--text-sm); }
+.hero-lesson .btn { margin-top: var(--space-2); }
+.hero-lesson .btn--secondary { --btn-edge: var(--color-ink-edge); }
+
+/* Canlı nöqtə - nəbz. Hərəkət azaldılıbsa dayanır (base.css-dəki
+ * ümumi qayda ilə yanaşı burada da açıq yazılır). */
+.live-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: currentColor;
+  animation: live-pulse 1.4s ease-out infinite;
+}
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--color-cta); }
+  100% { box-shadow: 0 0 0 var(--space-2) transparent; }
+}
+
+/* Üç xana: seriya, bu gün XP, həftəlik hədəf. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.tile__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--icon-tile);
+  height: var(--icon-tile);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+}
+.tile__icon .icon { width: var(--space-6); height: var(--space-6); }
+.tile__icon--flame  { background: var(--color-accent-soft); color: var(--color-flame); }
+.tile__icon--xp     { background: var(--color-accent); color: var(--color-accent-ink); }
+.tile__value {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tile__label { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: var(--weight-semibold); }
+
+/* Hədəf halqası - xal dairəsinin (`.score-ring`) kiçik qardaşı. */
+.goal-ring {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: var(--icon-tile);
+  height: var(--icon-tile);
+  border-radius: var(--radius-full);
+  background: conic-gradient(var(--color-cta) calc(var(--pct, 0) * 1%), var(--color-surface-alt) 0);
+}
+.goal-ring__inner {
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--icon-tile) - var(--space-3));
+  height: calc(var(--icon-tile) - var(--space-3));
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-black);
+}
+
+/* Telefonda xanalar sütun-sütun: üç xana 390px-də sıxılır. */
+@media (max-width: 600px) {
+  .tiles { grid-template-columns: 1fr; }
+}
+
+/* Böyük, toxunula bilən sətir-kart (növbəti tapşırıq, nişan). */
+.today-card { display: flex; flex-direction: column; gap: var(--space-3); color: var(--color-text); text-decoration: none; }
+.today-card:hover { text-decoration: none; border-color: var(--color-border-strong); }
+.today-card__title { font-family: var(--font-heading); font-size: var(--text-lg); font-weight: var(--weight-black); }
+.today-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Müəllimin sürətli hərəkətləri. */
+.quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr)); gap: var(--space-3); }

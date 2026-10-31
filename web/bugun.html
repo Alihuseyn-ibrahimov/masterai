@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bu gün - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261031c" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax `assets/js/theme.js`). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031c">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031c">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031c">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+  <section class="stack stack--tight">
+    <span class="today-greeting" id="greeting">Salam</span>
+    <h1>Bu gün</h1>
+  </section>
+
+  <div id="hero"></div>
+  <div id="content" class="stack stack--loose"></div>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getUser, request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { createIcon } from './assets/js/icon.js';
+  import { formatLessonTime, groupLessons } from './assets/js/lessons.js';
+  import { deadlineNote, sortByUrgency, todayIso } from './assets/js/deadline.js';
+  import { BADGES, describeBadge } from './assets/js/badges.js';
+  import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import {
+    WEEKLY_GOAL_XP, earnedCount, goalPercent, greeting, heroAction, heroLesson,
+    nextBadge, nextHomework, streakDays, xpSince,
+  } from './assets/js/today.js';
+
+  /* Kiçik DOM köməkçisi. İstifadəçi/server mətni HƏMİŞƏ textContent
+     ilə yazılır (innerHTML yox). */
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function sectionTitle(text, linkText, href) {
+    const head = el('div', 'section-header');
+    head.append(el('h2', '', text));
+    if (linkText) {
+      const link = el('a', 'section-header__hint', linkText);
+      link.href = href;
+      head.append(link);
+    }
+    return head;
+  }
+
+  function chip(text, icon, modifier) {
+    const node = el('span', `hero-lesson__chip${modifier ? ` hero-lesson__chip--${modifier}` : ''}`);
+    if (icon === 'live') node.append(el('span', 'live-dot'));
+    else if (icon) node.append(createIcon(icon));
+    node.append(document.createTextNode(text));
+    return node;
+  }
+
+  function renderHero(container, lessons, isTeacher) {
+    container.innerHTML = '';
+    const hero = heroLesson(groupLessons(lessons));
+    const card = el('article', 'hero-lesson');
+    if (!hero) {
+      card.append(el('div', 'hero-lesson__title', 'Bu gün canlı dərs yoxdur'));
+      card.append(el('p', 'hero-lesson__meta', isTeacher
+        ? 'Növbəti dərsi planlaşdırın - tələbələr onu «Bu gün»də görəcək.'
+        : 'Müəllim dərs planlaşdıranda burada görünəcək.'));
+      const go = el('a', 'btn btn--primary btn--lg', isTeacher ? 'Dərs planla' : 'Bütün dərslər');
+      go.href = 'dersler.html';
+      card.append(go);
+      container.append(card);
+      return;
+    }
+    const { lesson } = hero;
+    const chips = el('div', 'hero-lesson__chips');
+    chips.append(hero.kind === 'live' ? chip('Canlı', 'live', 'live') : chip('Növbəti dərs', 'clock'));
+    chips.append(chip(lesson.mode === 'online' ? 'Onlayn' : 'Sinifdə', lesson.mode === 'online' ? 'video' : 'school'));
+    if (hero.kind === 'live' && lesson.mode === 'offline' && !isTeacher) {
+      chips.append(chip(lesson.attended ? 'Davamiyyət qeyd olundu' : 'QR ilə davamiyyət', 'qrcode'));
+    }
+    card.append(chips);
+    card.append(el('div', 'hero-lesson__title', lesson.title));
+    const meta = [lesson.chat_name, formatLessonTime(lesson.starts_at), `${lesson.duration_min} dəq`].filter(Boolean).join(' · ');
+    card.append(el('p', 'hero-lesson__meta', meta));
+    if (hero.kind === 'live' && lesson.mode === 'offline' && !isTeacher && !lesson.attended) {
+      card.append(el('p', 'hero-lesson__meta', 'Davamiyyət üçün lövhədəki QR kodu telefonla skan edin.'));
+    }
+    const action = isTeacher
+      ? { label: hero.kind === 'live' ? 'Dərsi idarə et' : 'Dərslərə bax', href: 'dersler.html', primary: true }
+      : heroAction(hero);
+    const button = el('a', `btn ${action.primary ? 'btn--primary' : 'btn--secondary'} btn--lg btn--block`);
+    button.href = action.href;
+    if (action.label === 'Qoşul') button.append(createIcon('bolt'));
+    button.append(document.createTextNode(action.label));
+    card.append(button);
+    container.append(card);
+  }
+
+  function tile(iconNode, value, label) {
+    const card = el('div', 'card tile');
+    const text = el('div', 'stack stack--tight');
+    text.style.gap = '0';
+    text.append(el('div', 'tile__value', value), el('div', 'tile__label', label));
+    card.append(iconNode, text);
+    return card;
+  }
+
+  function iconTile(name, modifier) {
+    const wrap = el('span', `tile__icon tile__icon--${modifier}`);
+    wrap.append(createIcon(name));
+    return wrap;
+  }
+
+  function renderStudent(container, data) {
+    const [history, assignments, badges] = data;
+    const today = todayIso();
+    container.innerHTML = '';
+
+    const streak = streakDays(history, today);
+    const weekXp = xpSince(history, today, 7);
+    const pct = goalPercent(weekXp);
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(iconTile('flame', 'flame'), `${streak} gün`, 'Seriya'));
+    tiles.append(tile(iconTile('bolt', 'xp'), `+${xpSince(history, today, 1)}`, 'Bu gün XP'));
+    const ring = el('span', 'goal-ring');
+    ring.style.setProperty('--pct', String(pct));
+    ring.append(el('span', 'goal-ring__inner', `${pct}%`));
+    tiles.append(tile(ring, `${weekXp} / ${WEEKLY_GOAL_XP}`, 'Həftəlik hədəf (XP)'));
+    container.append(tiles);
+    container.append(el('p', 'text-xs text-faint', 'Hər düzgün cavab 10 XP. Seriya - ardıcıl məşq etdiyiniz günlər.'));
+
+    const next = nextHomework(sortByUrgency(assignments || [], today));
+    const homeworkSection = el('section');
+    homeworkSection.append(sectionTitle('Növbəti tapşırıq', 'Hamısı', 'tapsiriqlar.html'));
+    if (next) {
+      const card = el('a', 'card card--interactive today-card');
+      card.href = `tapsiriq.html?id=${encodeURIComponent(next.assignment_id)}`;
+      const top = el('div', 'today-card__top');
+      const subject = el('span', 'chip-subject', subjectLabel(next.subject));
+      subject.style.setProperty('--subject', subjectColorVar(next.subject));
+      top.append(subject);
+      const note = deadlineNote(next.due_date, today);
+      if (note) top.append(el('span', note.className, note.label));
+      card.append(top, el('div', 'today-card__title', next.title));
+      card.append(el('div', 'text-sm text-muted', `${next.question_count} sual · ${next.status}`));
+      const go = el('span', 'btn btn--primary btn--block', next.status === 'davam edir' ? 'Davam et' : 'Başla');
+      card.append(go);
+      homeworkSection.append(card);
+    } else {
+      homeworkSection.append(el('div', 'card card--flat text-muted', 'Açıq tapşırıq yoxdur. Afərin!'));
+    }
+    container.append(homeworkSection);
+
+    const described = BADGES.map((badge) => describeBadge(
+      (badges || []).find((row) => row.badge_type === badge.key) || { badge_type: badge.key, earned: false },
+    ));
+    const target = nextBadge(described);
+    const badgeSection = el('section');
+    badgeSection.append(sectionTitle('Növbəti nişan', `${earnedCount(described)} / ${described.length}`, 'nailiyyetler.html'));
+    if (target) {
+      const card = el('a', 'card card--interactive today-card');
+      card.href = 'nailiyyetler.html';
+      const row = el('div', 'tile');
+      row.append(iconTile(target.icon, 'xp'));
+      const text = el('div');
+      text.append(el('div', 'today-card__title', target.label), el('div', 'text-sm text-muted', target.criteria));
+      row.append(text);
+      card.append(row);
+      badgeSection.append(card);
+    } else {
+      badgeSection.append(el('div', 'card card--flat', 'Bütün nişanlar qazanılıb!'));
+    }
+    container.append(badgeSection);
+  }
+
+  function renderTeacher(container, summary) {
+    container.innerHTML = '';
+    const sets = (summary && summary.question_sets) || {};
+    const homework = (summary && summary.homework) || {};
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(iconTile('books', 'xp'), String(sets.ready || 0), 'Hazır sual bankı'));
+    tiles.append(tile(iconTile('notes', 'flame'), String(homework.active || 0), 'Aktiv tapşırıq'));
+    tiles.append(tile(iconTile('refresh', 'xp'), String(sets.processing || 0), 'Hazırlanan bank'));
+    container.append(tiles);
+
+    if (homework.next_due) {
+      const due = homework.next_due;
+      const section = el('section');
+      section.append(sectionTitle('Ən yaxın son tarix', 'Hesabatlar', 'hesabatlar.html'));
+      const card = el('a', 'card card--interactive today-card');
+      card.href = 'hesabatlar.html';
+      card.append(el('div', 'today-card__title', due.title));
+      card.append(el('div', 'text-sm text-muted', `Son tarix ${due.due_date} · ${due.started} tələbə başlayıb`));
+      section.append(card);
+      container.append(section);
+    }
+
+    const actions = el('section');
+    actions.append(sectionTitle('Sürətli hərəkətlər'));
+    const grid = el('div', 'quick-actions');
+    for (const [label, href, cls] of [
+      ['Dərs planla', 'dersler.html', 'btn--primary'],
+      ['Quiz yarat', 'muellim.html', 'btn--accent'],
+      ['Canlı quiz sessiyası', 'sessiyalar.html', 'btn--secondary'],
+      ['Hesabatlar', 'hesabatlar.html', 'btn--secondary'],
+    ]) {
+      const link = el('a', `btn ${cls} btn--block`, label);
+      link.href = href;
+      grid.append(link);
+    }
+    actions.append(grid);
+    container.append(actions);
+  }
+
+  if (requireLogin()) {
+    mountShell();
+    const user = getUser() || {};
+    const isTeacher = Boolean(user.is_teacher);
+    document.getElementById('greeting').textContent = greeting(user.display_name);
+
+    loadInto(document.getElementById('hero'), () => request('/me/lessons'),
+      (box, lessons) => renderHero(box, lessons, isTeacher));
+
+    const content = document.getElementById('content');
+    if (isTeacher) {
+      loadInto(content, () => request('/live/teacher-summary'), renderTeacher);
+    } else {
+      loadInto(content, () => Promise.all([
+        request('/history/me'),
+        request('/homework/my-assignments'),
+        request('/badges/me'),
+      ]), renderStudent);
+    }
+  }
+</script>
+</body>
+</html>
