@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031c" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031c">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031c">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031c">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
 </head>
 <body>
 <header id="appBar"></header>
@@ -33,34 +33,42 @@
 
   <div id="content"></div>
 
-  <!-- Dərs yükləndikdən sonra açılır. -->
-  <div class="stack stack--loose" id="cabinet" hidden>
-    <section class="stack">
-      <div class="section-header">
-        <h2>Konspekt</h2>
-        <span class="section-header__hint">Dərsin qısa xülasəsi</span>
-      </div>
+  <!-- Dərs yükləndikdən sonra açılır. Tab-lar rola görə JS ilə qurulur
+       (`assets/js/lesson-tabs.js`): «Mətn» yalnız müəllimdədir. -->
+  <div class="stack" id="cabinet" hidden>
+    <div class="tabs" role="tablist" aria-label="Dərs bölmələri" id="tabList"></div>
+
+    <section class="tab-panel stack" role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" tabindex="0" hidden>
       <div class="card stack stack--tight" id="summaryBox"></div>
     </section>
 
-    <section class="stack">
-      <div class="section-header">
-        <h2>Quiz</h2>
-        <span class="section-header__hint">Dərsdən sonra özünü yoxla</span>
-      </div>
+    <section class="tab-panel stack" role="tabpanel" id="panel-quiz" aria-labelledby="tab-quiz" tabindex="0" hidden>
       <div class="stack" id="quizBox"></div>
     </section>
 
-    <section class="stack">
-      <div class="section-header">
-        <h2>Mənim qeydlərim</h2>
-        <span class="section-header__hint" id="noteState">Yalnız siz görürsünüz</span>
-      </div>
+    <section class="tab-panel stack" role="tabpanel" id="panel-note" aria-labelledby="tab-note" tabindex="0" hidden>
       <div class="card stack stack--tight">
-        <label class="field__label" for="note">Dərs zamanı və ya sonra öz qeydlərinizi yazın. Özü saxlanır.</label>
-        <textarea class="field__textarea" id="note" rows="10" maxlength="20000"
+        <div class="section-header">
+          <label class="field__label" for="note">Dərs zamanı və ya sonra öz qeydlərinizi yazın</label>
+          <span class="section-header__hint" id="noteState">Yalnız siz görürsünüz</span>
+        </div>
+        <textarea class="field__textarea" id="note" rows="12" maxlength="20000"
                   placeholder="Məs. Maddə 7: dövlət hakimiyyəti üç qola bölünür..."></textarea>
+        <p class="text-xs text-faint">Özü saxlanır.</p>
       </div>
+    </section>
+
+    <section class="tab-panel stack" role="tabpanel" id="panel-tutor" aria-labelledby="tab-tutor" tabindex="0" hidden>
+      <div class="card stack">
+        <h3>Bu dərs üzrə AI tutor</h3>
+        <p class="text-sm text-muted">Tutor sinfinizin keçilmiş dərslərindən və paylaşılan konspektlərdən cavab verir, hər cavabda mənbəni göstərir. Materialda olmayanı uydurmur.</p>
+        <div class="prompt-chips" id="tutorPrompts"></div>
+        <a class="btn btn--primary btn--block" id="tutorLink" href="tutor.html">Öz sualımı yazım</a>
+      </div>
+    </section>
+
+    <section class="tab-panel stack" role="tabpanel" id="panel-text" aria-labelledby="tab-text" tabindex="0" hidden>
+      <div class="card stack stack--tight" id="textBox"></div>
     </section>
   </div>
 </div>
@@ -70,8 +78,15 @@
 <script type="module">
   import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { createIcon } from './assets/js/icon.js';
   import { MODE_LABELS, STATUS_LABELS, formatLessonTime } from './assets/js/lessons.js';
   import { createAutosave } from './assets/js/note-autosave.js';
+  import {
+    initialTab, lessonPrimaryAction, lessonStatusNote, nextTabKey, openQuizCount, visibleTabs,
+  } from './assets/js/lesson-tabs.js';
+
+  /* Tutor tab-ındakı hazır suallar - `tutor.html?q=` ilə dərhal göndərilir. */
+  const TUTOR_PROMPTS = ['Məni yoxla', 'Dərsin əsas fikirləri hansılardır?', 'Ən vacib terminləri izah et'];
 
   if (requireLogin()) {
     mountShell();
@@ -92,81 +107,175 @@
     }
 
     function link(label, href, className) {
-      const node = el('a', `btn ${className} btn--sm`, label);
+      const node = el('a', `btn ${className}`, label);
       node.href = href;
       return node;
     }
 
-    function renderHeader(box, lesson) {
-      box.innerHTML = '';
-      const card = el('div', 'card stack stack--tight');
-      const head = el('div', 'section-header');
-      head.append(el('h1', '', lesson.title),
-        el('span', `badge ${lesson.status === 'live' ? 'badge--success' : 'badge--neutral'}`,
-          STATUS_LABELS[lesson.status] || lesson.status));
-      card.append(head, el('p', 'text-sm text-muted', [
-        formatLessonTime(lesson.starts_at), `${lesson.duration_min} dəq`,
-        MODE_LABELS[lesson.mode] || lesson.mode, lesson.chat_name,
-      ].filter(Boolean).join(' · ')));
-      if (lesson.description) card.append(el('p', 'text-sm', lesson.description));
+    function chip(text, modifier) {
+      const node = el('span', `hero-lesson__chip${modifier ? ` hero-lesson__chip--${modifier}` : ''}`);
+      if (modifier === 'live') node.append(el('span', 'live-dot'));
+      node.append(document.createTextNode(text));
+      return node;
+    }
 
-      const actions = el('div', 'bank__actions');
-      if (lesson.mode === 'online' && lesson.status !== 'ended') {
-        actions.append(link(lesson.status === 'live' ? 'Dərs otağına gir' : 'Dərs otağı',
-          `dars.html?id=${encodeURIComponent(lesson.id)}`,
-          lesson.status === 'live' ? 'btn--primary' : 'btn--secondary'));
-      }
-      if (!isTeacher && lesson.attended) {
-        actions.append(el('span', 'badge badge--success', 'Davamiyyət qeyd olundu'));
-      } else if (!isTeacher && lesson.status === 'live' && lesson.mode === 'offline') {
+    function renderHeader(box, lesson, shared) {
+      box.innerHTML = '';
+      const card = el('article', 'hero-lesson');
+      const chips = el('div', 'hero-lesson__chips');
+      chips.append(chip(STATUS_LABELS[lesson.status] || lesson.status, lesson.status === 'live' ? 'live' : ''));
+      chips.append(chip(MODE_LABELS[lesson.mode] || lesson.mode));
+      if (!isTeacher && lesson.attended) chips.append(chip('Davamiyyət qeyd olundu'));
+      card.append(chips);
+      card.append(el('h1', 'hero-lesson__title', lesson.title));
+      card.append(el('p', 'hero-lesson__meta', [
+        lesson.chat_name, formatLessonTime(lesson.starts_at), `${lesson.duration_min} dəq`,
+      ].filter(Boolean).join(' · ')));
+      if (lesson.description) card.append(el('p', 'hero-lesson__meta', lesson.description));
+      if (!isTeacher && lesson.status === 'live' && lesson.mode === 'offline' && !lesson.attended) {
         // Gün 6: sinif dərsində davamiyyət yalnız müəllimin ekranındakı QR ilə.
-        card.append(el('p', 'notice notice--info',
-          'Davamiyyət üçün lövhədəki QR kodu telefonun kamerası ilə skan edin.'));
+        card.append(el('p', 'lesson-hero__note', 'Davamiyyət üçün lövhədəki QR kodu telefonun kamerası ilə skan edin.'));
       }
-      // Gün 8: bu dərsin materialı üzrə AI tutor.
-      actions.append(link('AI tutordan soruş', `tutor.html?lesson=${encodeURIComponent(lesson.id)}`, 'btn--secondary'));
-      card.append(actions);
-      if (isTeacher) {
-        card.append(el('p', 'text-sm text-muted',
-          'Tələbələr dərsi belə görür. Konspekt və quiz burada «Dərslər» səhifəsindəki «Tələbələrə göndər» düyməsindən sonra görünür.'));
+      const note = lessonStatusNote(lesson, isTeacher, shared);
+      if (note) card.append(el('p', 'lesson-hero__note', note));
+
+      const action = lessonPrimaryAction(lesson);
+      const actions = el('div', 'lesson-hero__actions');
+      if (action) {
+        const button = link('', action.href, 'btn--primary btn--lg');
+        button.append(createIcon('video'), document.createTextNode(isTeacher ? 'Dərs otağına gir' : action.label));
+        actions.append(button);
       }
+      if (isTeacher) actions.append(link('Dərsi idarə et', 'dersler.html', 'btn--accent'));
+      if (actions.childElementCount) card.append(actions);
       box.append(card);
+    }
+
+    /* ---- Tab-lar ---- */
+    let currentTab = null;
+    let tabKeys = [];
+    const loadedText = { done: false };
+
+    function buildTabs(data) {
+      const list = document.getElementById('tabList');
+      list.innerHTML = '';
+      const tabs = visibleTabs(isTeacher);
+      tabKeys = tabs.map((tab) => tab.key);
+      for (const tab of tabs) {
+        const button = el('button', 'tab');
+        button.type = 'button';
+        button.id = `tab-${tab.key}`;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-controls', `panel-${tab.key}`);
+        button.dataset.tab = tab.key;
+        button.append(createIcon(tab.icon), document.createTextNode(tab.label));
+        if (tab.key === 'quiz' && !isTeacher) {
+          const count = openQuizCount(data.assignments);
+          if (count) {
+            const badge = el('span', 'tab__count', String(count));
+            badge.setAttribute('aria-label', `${count} bitirilməmiş`);
+            button.append(badge);
+          }
+        }
+        button.addEventListener('click', () => selectTab(tab.key, true));
+        list.append(button);
+      }
+      list.addEventListener('keydown', (event) => {
+        const next = nextTabKey(tabKeys, currentTab, event.key);
+        if (!next) return;
+        event.preventDefault();
+        selectTab(next, true);
+        document.getElementById(`tab-${next}`).focus();
+      });
+    }
+
+    function selectTab(key, remember) {
+      currentTab = key;
+      for (const button of document.querySelectorAll('#tabList .tab')) {
+        const selected = button.dataset.tab === key;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      }
+      for (const panel of document.querySelectorAll('.tab-panel')) {
+        panel.hidden = panel.id !== `panel-${key}`;
+      }
+      // Seçim linkdə qalır: yeniləmədə və geri qayıdanda eyni tab açılır.
+      if (remember) history.replaceState(null, '', `${location.pathname}${location.search}#${key}`);
+      if (key === 'text' && !loadedText.done) loadTranscript();
     }
 
     function renderSummary(summary) {
       const box = document.getElementById('summaryBox');
       box.innerHTML = '';
       if (!summary) {
-        box.append(el('p', 'text-sm text-muted', 'Müəllim dərsin konspektini paylaşanda burada görünəcək.'));
+        box.append(el('h3', '', 'Konspekt hələ yoxdur'));
+        box.append(el('p', 'text-sm text-muted', isTeacher
+          ? 'Dərs mətnindən konspekt hazırlayıb «Dərslər» səhifəsindəki «Tələbələrə göndər» ilə paylaşın.'
+          : 'Müəllim dərsin konspektini paylaşanda burada görünəcək.'));
         return;
       }
-      box.append(el('h4', '', summary.title),
-        link('Konspekti oxu', `xulase.html?id=${encodeURIComponent(summary.id)}`, 'btn--primary'));
+      box.append(el('span', 'badge badge--info', 'Konspekt'), el('h3', '', summary.title),
+        el('p', 'text-sm text-muted', 'Əsas fikirlər, açar terminlər, yadda saxlanmalı rəqəmlər və özünü yoxla sualları.'),
+        link('Konspekti oxu', `xulase.html?id=${encodeURIComponent(summary.id)}`, 'btn--primary btn--block'));
     }
 
     function renderQuiz(assignments) {
       const box = document.getElementById('quizBox');
       box.innerHTML = '';
       if (!assignments.length) {
-        const card = el('div', 'card');
-        card.append(el('p', 'text-sm text-muted', 'Bu dərsdən quiz hələ verilməyib.'));
+        const card = el('div', 'card stack stack--tight');
+        card.append(el('h3', '', 'Quiz hələ verilməyib'));
+        card.append(el('p', 'text-sm text-muted', isTeacher
+          ? 'Dərs mətnindən quiz hazırlayıb «Tələbələrə göndər» ilə sinfə tapşırıq kimi verin.'
+          : 'Müəllim bu dərsdən quiz verəndə burada görünəcək. Hələlik «Tutor» tab-ında «Məni yoxla» ilə özünüzü yoxlaya bilərsiniz.'));
         box.append(card);
         return;
       }
       for (const a of assignments) {
+        const done = a.status === 'tamamlanıb';
         const card = el('div', 'card stack stack--tight');
         const head = el('div', 'section-header');
-        head.append(el('h4', '', a.title),
-          el('span', `badge ${a.status === 'tamamlanıb' ? 'badge--success' : 'badge--neutral'}`, a.status));
-        const result = a.status === 'tamamlanıb' && a.score !== null
+        head.append(el('h3', '', a.title),
+          el('span', `badge ${done ? 'badge--success' : 'badge--warning'}`, a.status));
+        const result = done && a.score !== null
           ? `Nəticə: ${a.score} / ${a.question_count}` : `${a.question_count} sual`;
         card.append(head, el('p', 'text-sm text-muted', `${result} · Son tarix: ${a.due_date}`));
-        card.append(link(a.status === 'tamamlanıb' ? 'Nəticəyə bax'
-          : a.status === 'davam edir' ? 'Davam et' : 'Quizi başlat',
-        `tapsiriq.html?id=${encodeURIComponent(a.assignment_id)}`,
-        a.status === 'tamamlanıb' ? 'btn--secondary' : 'btn--primary'));
+        if (!isTeacher) {
+          card.append(link(done ? 'Nəticəyə bax' : a.status === 'davam edir' ? 'Davam et' : 'Quizi başlat',
+            `tapsiriq.html?id=${encodeURIComponent(a.assignment_id)}`,
+            `${done ? 'btn--secondary' : 'btn--primary'} btn--block`));
+        }
         box.append(card);
       }
+    }
+
+    function renderTutor() {
+      const base = `tutor.html?lesson=${encodeURIComponent(lessonId)}`;
+      document.getElementById('tutorLink').href = base;
+      const box = document.getElementById('tutorPrompts');
+      box.innerHTML = '';
+      for (const prompt of TUTOR_PROMPTS) {
+        box.append(link(prompt, `${base}&q=${encodeURIComponent(prompt)}`, 'btn--secondary btn--sm'));
+      }
+    }
+
+    function loadTranscript() {
+      loadedText.done = true;
+      loadInto(document.getElementById('textBox'), () => request(`/live/lessons/${lessonId}/transcript`), (box, data) => {
+        box.innerHTML = '';
+        const ready = data.segments.filter((s) => s.status === 'ready').length;
+        const head = el('div', 'section-header');
+        head.append(el('h3', '', 'Dərs mətni'),
+          el('span', 'section-header__hint', `${ready} / ${data.segments.length} hissə hazırdır`));
+        box.append(head);
+        if (!data.text) {
+          box.append(el('p', 'text-sm text-muted',
+            'Mətn hələ yoxdur. Dərs otağında «Səsi yaz» və ya «Dərslər» səhifəsində «Lövhə şəkli əlavə et» ilə yaranır.'));
+          return;
+        }
+        box.append(el('p', 'transcript-text', data.text));
+        box.append(link('Quiz və konspekt hazırla', 'dersler.html', 'btn--primary'));
+      });
     }
 
     /* ---- Şəxsi qeyd ---- */
@@ -191,17 +300,18 @@
       });
     }
 
-    let first = true;
     function reload() {
       loadInto(document.getElementById('content'), () => request(`/me/lessons/${lessonId}/cabinet`), (box, data) => {
         document.title = `${data.lesson.title} - MasterAI`;
-        renderHeader(box, data.lesson);
+        renderHeader(box, data.lesson, Boolean(data.summary || data.assignments.length));
         renderSummary(data.summary);
         renderQuiz(data.assignments);
-        if (first) {
-          setupNote(data.note);
-          first = false;
-        }
+        renderTutor();
+        setupNote(data.note);
+        buildTabs(data);
+        selectTab(initialTab({
+          hash: location.hash, isTeacher, summary: data.summary, assignments: data.assignments,
+        }), false);
         document.getElementById('cabinet').hidden = false;
       });
     }
