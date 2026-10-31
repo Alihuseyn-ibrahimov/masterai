@@ -207,6 +207,8 @@ CASES = {
     ("POST", "/homework/attempts/{attempt_id}/answer"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"question_index": 0, "chosen_index": 0}, None),
     ("POST", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
     ("GET", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("POST", "/live/question-sets/{question_set_id}/review"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("GET", "/live/question-sets/{question_set_id}/review"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
     ("PUT", "/live/summaries/{summary_id}"): ("teacher_b", {"summary_id": "summary_a.id"}, None,
         {"title": "Oğurlandı", "intro": "x", "key_points": ["a", "b"]}, None),
     ("POST", "/live/summaries/{summary_id}/publish"): ("teacher_b", {"summary_id": "summary_a.id"}, None, {"chat_id": "chat_b.id"}, None),

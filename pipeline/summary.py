@@ -107,6 +107,10 @@ def _extract_text(source: MaterialSource) -> str:
     return image_extractor.extract(source).text
 
 
+# Başqa modullar (gün 10 yoxlama komandası) eyni çıxarışı işlədir.
+extract_material_text = _extract_text
+
+
 def _spread(chunks: list[str], limit: int) -> list[str]:
     """Sənəd boyu bərabər paylanmış `limit` hissə — yalnız girişi deyil."""
     if len(chunks) <= limit:

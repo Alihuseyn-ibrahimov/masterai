@@ -71,6 +71,7 @@ from pipeline.summary import LessonSummary, summarize_material
 from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
+from pipeline.review_team import AGENT_LABELS, review_bank
 from pipeline.tutor_graph import run_tutor
 from pipeline.ingestion.errors import IngestionError
 
@@ -115,6 +116,10 @@ from .models import (
     LessonInfo,
     LessonNote,
     LessonQr,
+    QuestionReviewOut,
+    QuestionSetReview,
+    ReviewIssueOut,
+    ReviewSuggestionOut,
     TutorAsk,
     TutorQuizOut,
     TutorReply,
@@ -274,6 +279,9 @@ app.state.summary_store.fail_interrupted(
     "Server yenidən başladığı üçün xülasə yarımçıq qaldı. Yenidən hazırlayın."
 )
 app.state.lesson_store.fail_interrupted_segments()
+app.state.question_set_store.fail_interrupted_reviews(
+    "Server yenidən başladığı üçün yoxlama yarımçıq qaldı. Yenidən başladın."
+)
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -288,6 +296,7 @@ app.state.active_material_tasks = {}
 app.state.active_question_set_tasks = {}
 # summary_id -> xülasə emalı task-ı (eyni naxış).
 app.state.active_summary_tasks = {}
+app.state.active_review_tasks = {}
 # (lesson_id, seq) -> dərs səsinin mətnə çevrilməsi task-ı (eyni naxış).
 app.state.active_transcript_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
@@ -437,6 +446,11 @@ def get_transcriber():
 def get_board_reader():
     """Lövhə şəkli→mətn funksiyası (gün 7; testdə fake ilə override olunur)."""
     return read_board
+
+
+def get_reviewer():
+    """(material, suallar) → hər sualın rəyi (gün 10, agent komandası; testdə fake)."""
+    return review_bank
 
 
 def get_summarizer():
@@ -2167,6 +2181,83 @@ async def _process_summary(summary_id: int, source: MaterialSource, *, summarize
         summaries.mark_failed(summary_id, str(exc))
         return
     summaries.mark_ready(summary_id, result.model_dump_json())
+
+
+# ---- Gün 10: AI yoxlama komandası (çox agentli) --------------------------
+
+
+def _review_out(question_set_id: int, question_sets: QuestionSetStore) -> QuestionSetReview:
+    review = question_sets.get_review(question_set_id)
+    if review is None:
+        return QuestionSetReview(status="none")
+    items = [
+        QuestionReviewOut(
+            question_id=item["question_id"], verdict=item["verdict"],
+            issues=[ReviewIssueOut(agent=i["agent"], agent_label=AGENT_LABELS.get(i["agent"], i["agent"]),
+                                   text=i["text"]) for i in item["issues"]],
+            suggestion=ReviewSuggestionOut(**item["suggestion"]) if item["suggestion"] else None,
+        )
+        for item in review["items"]
+    ]
+    return QuestionSetReview(status=review["status"], error=review["error"], started_at=review["started_at"],
+                             finished_at=review["finished_at"], items=items)
+
+
+async def _process_review(question_set_id: int, source: MaterialSource, rows: list[dict], *, reviewer,
+                          question_sets: QuestionSetStore) -> None:
+    questions = [MCQQuestion(question=r["question"], options=r["options"], correct_index=r["correct_index"],
+                             explanation=r["explanation"], difficulty=r.get("difficulty")) for r in rows]
+    try:
+        reviews = await asyncio.to_thread(reviewer, source, questions)
+    except Exception as exc:
+        logger.exception("AI yoxlaması uğursuz oldu (question_set_id=%s)", question_set_id)
+        question_sets.fail_review(question_set_id, f"Yoxlama alınmadı: {exc}")
+        return
+    items = []
+    for review in reviews:
+        if not 0 <= review.index < len(rows):
+            continue
+        suggestion = review.suggestion.model_dump(exclude={"difficulty"}) if review.suggestion else None
+        items.append({"question_id": rows[review.index]["id"], "verdict": review.verdict,
+                      "issues": [i.model_dump() for i in review.issues], "suggestion": suggestion})
+    question_sets.finish_review(question_set_id, items)
+
+
+@app.post("/live/question-sets/{question_set_id}/review", response_model=QuestionSetReview, status_code=202)
+async def start_question_set_review(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    reviewer=Depends(get_reviewer),
+) -> QuestionSetReview:
+    """Fakt yoxlayıcı + metodist paralel, sonra redaktor (bax `pipeline/review_team.py`).
+    Nəticə sualları DƏYİŞMİR: müəllim təklifi `PATCH /live/questions/{id}` ilə özü tətbiq edir."""
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    if question_set["status"] != "ready":
+        raise HTTPException(status_code=409, detail="Bank hələ hazır deyil")
+    rows = question_sets.list_questions(question_set_id)
+    if not rows:
+        raise HTTPException(status_code=409, detail="Bankda sual yoxdur")
+    if not question_sets.start_review(question_set_id):
+        raise HTTPException(status_code=409, detail="Yoxlama artıq gedir")
+    task = asyncio.create_task(_process_review(
+        question_set_id,
+        MaterialSource(kind=question_set["material_kind"], location=question_set["material_location"]),
+        rows, reviewer=reviewer, question_sets=question_sets,
+    ))
+    app.state.active_review_tasks[question_set_id] = task
+    task.add_done_callback(lambda _t: app.state.active_review_tasks.pop(question_set_id, None))
+    return _review_out(question_set_id, question_sets)
+
+
+@app.get("/live/question-sets/{question_set_id}/review", response_model=QuestionSetReview)
+def get_question_set_review(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> QuestionSetReview:
+    _question_set_in_course(question_sets, question_set_id, user)
+    return _review_out(question_set_id, question_sets)
 
 
 @app.post("/live/question-sets/{question_set_id}/summary", response_model=SummaryInfo, status_code=202)

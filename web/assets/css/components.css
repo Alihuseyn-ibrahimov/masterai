@@ -1001,3 +1001,12 @@
 .tutor-answer__text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tutor-cite { color: var(--color-primary); font-weight: 600; }
 .tutor-answer > .badge, .tutor-answer .stack > .badge { align-self: flex-start; }
+
+/* AI yoxlama komandasının qeydi (gün 10): kartın içində, sualın altında -
+ * müəllim əvvəl sualı, sonra problemi və redaktorun təklifini oxuyur. */
+.qcard__ai {
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}

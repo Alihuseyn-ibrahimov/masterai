@@ -11,6 +11,8 @@ import logging
 import os
 from typing import Callable
 
+from langsmith import traceable
+
 Completer = Callable[[str, str], str]  # (system, user) -> text
 
 # `llama-3.3-70b-versatile` Groq tərəfindən dayandırılıb (real production-da
@@ -33,6 +35,12 @@ class AllProvidersFailed(Exception):
     """Sıradakı bütün provayderlər uğursuz oldu."""
 
 
+# LangSmith izləmə (gün 10): `.env`-də `LANGSMITH_TRACING=true` və
+# `LANGSMITH_API_KEY` varsa, HƏR LLM çağırışı (sistem + istifadəçi mətni,
+# cavab, provayder, müddət) LangSmith-ə yazılır; LangGraph qrafları
+# (tutor, yoxlama komandası) da avtomatik iz verir, LLM çağırışı onların
+# altında görünür. Açar yoxdursa dekorator heç nə göndərmir.
+@traceable(run_type="llm", name="llm_with_fallback")
 def complete_with_fallback_detail(
     system: str,
     user: str,

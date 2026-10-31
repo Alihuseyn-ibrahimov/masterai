@@ -662,6 +662,36 @@ class LessonInfo(BaseModel):
     question_set_id: int | None = None
 
 
+class ReviewIssueOut(BaseModel):
+    agent: str          # "fact_checker" | "pedagogue"
+    agent_label: str    # «Fakt yoxlayıcı», «Metodist»
+    text: str
+
+
+class ReviewSuggestionOut(BaseModel):
+    question: str
+    options: list[str]
+    correct_index: int
+    explanation: str = ""
+
+
+class QuestionReviewOut(BaseModel):
+    question_id: int
+    verdict: str        # "ok" | "fix" | "unchecked"
+    issues: list[ReviewIssueOut]
+    suggestion: ReviewSuggestionOut | None = None
+
+
+class QuestionSetReview(BaseModel):
+    """AI yoxlama komandasının bank üzrə nəticəsi (gün 10)."""
+
+    status: str         # "none" | "processing" | "ready" | "failed"
+    error: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    items: list[QuestionReviewOut] = []
+
+
 class TutorTurn(BaseModel):
     """Söhbətin bir addımı (gün 9). Tarixçəni brauzer saxlayır və göndərir."""
 

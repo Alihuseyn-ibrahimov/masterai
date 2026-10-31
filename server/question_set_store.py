@@ -103,7 +103,103 @@ class QuestionSetStore:
                     self._conn.execute(ddl)
                 except sqlite3.OperationalError:
                     pass
+            # AI yoxlama komandası (gün 10): bankın son yoxlaması və hər
+            # sualın rəyi. Sual redaktə və ya silinəndə rəyi də silinir -
+            # köhnə sual üçün yazılmış rəy yeni mətnin yanında yanıldardı.
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS question_set_reviews (
+                    question_set_id INTEGER PRIMARY KEY,
+                    status          TEXT NOT NULL,
+                    error           TEXT,
+                    started_at      TEXT NOT NULL,
+                    finished_at     TEXT
+                );
+                CREATE TABLE IF NOT EXISTS question_reviews (
+                    question_id     INTEGER PRIMARY KEY,
+                    question_set_id INTEGER NOT NULL,
+                    verdict         TEXT NOT NULL,
+                    issues          TEXT NOT NULL,
+                    suggestion      TEXT
+                );
+                """
+            )
             self._conn.commit()
+
+    # ---- AI yoxlama komandası (gün 10) ------------------------------------
+
+    def start_review(self, question_set_id: int) -> bool:
+        """Yoxlamanı başladır; artıq gedirsə `False` (ikinci paralel yoxlama yoxdur)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status FROM question_set_reviews WHERE question_set_id = ?", (question_set_id,)
+            ).fetchone()
+            if row and row[0] == "processing":
+                return False
+            self._conn.execute(
+                "INSERT OR REPLACE INTO question_set_reviews (question_set_id, status, error, started_at, finished_at) "
+                "VALUES (?, 'processing', NULL, ?, NULL)",
+                (question_set_id, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return True
+
+    def finish_review(self, question_set_id: int, items: list[dict]) -> None:
+        """`items`: [{question_id, verdict, issues: [...], suggestion: dict|None}]. Köhnə rəylər silinir."""
+        with self._lock:
+            self._conn.execute("DELETE FROM question_reviews WHERE question_set_id = ?", (question_set_id,))
+            for item in items:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO question_reviews (question_id, question_set_id, verdict, issues, suggestion) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (item["question_id"], question_set_id, item["verdict"],
+                     json.dumps(item["issues"], ensure_ascii=False),
+                     json.dumps(item["suggestion"], ensure_ascii=False) if item.get("suggestion") else None),
+                )
+            self._conn.execute(
+                "UPDATE question_set_reviews SET status = 'ready', finished_at = ? WHERE question_set_id = ?",
+                (_utc_now_iso(), question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_review(self, question_set_id: int, error: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE question_set_reviews SET status = 'failed', error = ?, finished_at = ? "
+                "WHERE question_set_id = ?",
+                (error[:500], _utc_now_iso(), question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_interrupted_reviews(self, error: str) -> int:
+        """Servis yenidən başlayanda yarımçıq qalmış yoxlamalar (fon işi ölüb)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE question_set_reviews SET status = 'failed', error = ?, finished_at = ? "
+                "WHERE status = 'processing'",
+                (error, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return cur.rowcount
+
+    def get_review(self, question_set_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status, error, started_at, finished_at FROM question_set_reviews WHERE question_set_id = ?",
+                (question_set_id,),
+            ).fetchone()
+            if not row:
+                return None
+            items = [
+                {"question_id": r[0], "verdict": r[1], "issues": json.loads(r[2]),
+                 "suggestion": json.loads(r[3]) if r[3] else None}
+                for r in self._conn.execute(
+                    "SELECT question_id, verdict, issues, suggestion FROM question_reviews "
+                    "WHERE question_set_id = ? ORDER BY question_id",
+                    (question_set_id,),
+                )
+            ]
+            return {"status": row[0], "error": row[1], "started_at": row[2], "finished_at": row[3], "items": items}
 
     def create(
         self,
@@ -215,6 +311,7 @@ class QuestionSetStore:
         — sual sayı/sırası dəyişmir, yalnız məzmun yenilənir.
         `difficulty=None` səviyyəyə TOXUNMUR (köhnə client onu göndərmir)."""
         with self._lock:
+            self._conn.execute("DELETE FROM question_reviews WHERE question_id = ?", (question_id,))
             self._conn.execute(
                 "UPDATE live_questions SET question = ?, options = ?, correct_index = ?, "
                 "explanation = ?, difficulty = COALESCE(?, difficulty) WHERE id = ?",
@@ -227,6 +324,7 @@ class QuestionSetStore:
     def delete_question(self, question_id: int) -> None:
         with self._lock:
             self._conn.execute("DELETE FROM live_questions WHERE id = ?", (question_id,))
+            self._conn.execute("DELETE FROM question_reviews WHERE question_id = ?", (question_id,))
             self._conn.commit()
 
     def list_questions(self, question_set_id: int) -> list[dict]:
