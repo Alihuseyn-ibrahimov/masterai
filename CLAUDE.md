@@ -336,6 +336,19 @@ neçə?» hesab sualı çıxardı. Səbəb: `subject` HEÇ VAXT AI-a
 hüquq/vəzifə, orqan, prosedur; materialda olmayan hesablama
 UYDURULMUR). Fənnsiz çağırışda prompt bayt-bayt köhnədir.
 
+## Saytın yenidən dizaynı: «Oyun enerjisi» (2026-10-31-dən)
+
+İstifadəçi C istiqamətini seçdi (quiz oyunu janrı, yetkin auditoriya).
+Plan və audit: https://claude.ai/artifact/VHjeZqbcSzhm63LiLn5Vne. Vizual
+mənbə Lovable prototipidir (React, YALNIZ istinad; sayt statik qalır).
+**PR 1 - dizayn əsası:** palitra və «3D» komponentlər. İki yaşıl QƏSDƏN
+ayrıdır: `--color-cta` (parlaq doldurma, üstündə tünd mətn) və
+`--color-primary` (mətn/link, ağ fonda AA). Parlaq yaşıl mətn kimi
+İŞLƏDİLMİR. Fənn rəngləri artıq pastel DOLDURMADIR (`--color-on-subject`
+tünd mətn), mətn rəngi deyil. Düymənin alt zolağı `--btn-edge` ilə
+variantdan gəlir. Növbəti PR-lar: «Bu gün» ekranı, naviqasiya, dərs
+səhifəsi tab-ları.
+
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
