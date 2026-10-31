@@ -1,0 +1,6 @@
+# AutoGen kod yoxlayıcısı (gün 19) - Docker olan kompüterdə, AYRI venv-də:
+#   python -m venv .venv-autogen && .venv-autogen/bin/pip install -r requirements-autogen.txt
+# CrewAI ilə bir venv-ə qoyma (protobuf toqquşması, bax requirements-agents.txt).
+-r requirements.txt
+autogen-agentchat>=0.7,<0.8
+autogen-ext[openai]>=0.7,<0.8

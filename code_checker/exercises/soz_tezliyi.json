@@ -1,0 +1,14 @@
+{
+  "id": "soz_tezliyi",
+  "title": "Söz tezliyi",
+  "lesson": "Python əsasları: lüğət (dict)",
+  "prompt": "soz_tezliyi(metn) funksiyasını yaz: hər sözün neçə dəfə işləndiyini lüğət kimi qaytarsın. Böyük-kiçik hərf fərq etməsin, durğu işarələri sayılmasın. Azərbaycan hərfləri: «İ» kiçik «i», «I» kiçik «ı» olur.",
+  "function": "soz_tezliyi",
+  "tests": [
+    {"name": "sadə", "call": "soz_tezliyi('alma armud alma')", "expected": "{'alma': 2, 'armud': 1}"},
+    {"name": "böyük hərf", "call": "soz_tezliyi('Alma alma')", "expected": "{'alma': 2}"},
+    {"name": "durğu", "call": "soz_tezliyi('salam, salam!')", "expected": "{'salam': 2}"},
+    {"name": "İ və I", "call": "soz_tezliyi('İLHAM ilham ILDIZ')", "expected": "{'ilham': 2, 'ıldız': 1}"},
+    {"name": "boş", "call": "soz_tezliyi('')", "expected": "{}"}
+  ]
+}

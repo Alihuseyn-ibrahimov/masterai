@@ -1,0 +1,14 @@
+{
+  "id": "minmax_normallasdirma",
+  "title": "Min-max normallaşdırma",
+  "lesson": "ML: əlamətlərin hazırlanması (PyTorch modelindən əvvəl)",
+  "prompt": "normallasdir(x) funksiyasını yaz: hər ədədi (x - min) / (max - min) ilə 0-1 aralığına gətirsin, 3 rəqəmə yuvarlaq. Bütün ədədlər eynidirsə hamısı 0.0 olsun. Boş siyahı - boş siyahı.",
+  "function": "normallasdir",
+  "tests": [
+    {"name": "sadə", "call": "normallasdir([0, 5, 10])", "expected": "[0.0, 0.5, 1.0]"},
+    {"name": "yuvarlaqlaşdırma", "call": "normallasdir([1, 2, 4])", "expected": "[0.0, 0.333, 1.0]"},
+    {"name": "eyni ədədlər", "call": "normallasdir([3, 3, 3])", "expected": "[0.0, 0.0, 0.0]"},
+    {"name": "boş", "call": "normallasdir([])", "expected": "[]"},
+    {"name": "mənfi", "call": "normallasdir([-10, 0, 10])", "expected": "[0.0, 0.5, 1.0]"}
+  ]
+}
