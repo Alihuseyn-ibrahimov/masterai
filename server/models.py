@@ -730,9 +730,11 @@ class TutorReply(BaseModel):
     sources: list[TutorSource]
     # Sinifdə hələ heç bir material yoxdur (axtarılası heç nə yoxdur).
     no_material: bool = False
-    # Gün 9: "answer" | "quiz" | "not_found" | "offtopic" | "no_material".
+    # Gün 9: "answer" | "quiz" | "not_found" | "offtopic" | "no_material"; gün 20: "blocked".
     kind: str = "answer"
     quiz: TutorQuizOut | None = None
+    # Gün 20: qoruyucu qayda tələbəyə bir şey bildirir (məs. şəxsi məlumat AI-a göndərilmədi).
+    notice: str = ""
 
 
 class LessonAttendRequest(BaseModel):

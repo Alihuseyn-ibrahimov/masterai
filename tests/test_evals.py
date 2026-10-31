@@ -36,7 +36,7 @@ def test_ids_unique():
 def test_tutor_cases_well_formed():
     assert len(TUTOR) >= 25
     for case in TUTOR:
-        assert case["expect_kind"] in {"answer", "quiz", "not_found", "offtopic"}, case["id"]
+        assert case["expect_kind"] in {"answer", "quiz", "not_found", "offtopic", "blocked"}, case["id"]
         assert set(case["expect_sources"]) <= KEYS, case["id"]
         if case["expect_kind"] == "answer":
             assert case["expect_sources"] and case["must_include"], case["id"]
@@ -100,7 +100,9 @@ def test_offline_gates_hold():
     report = run_all()
     assert report["gates_broken"] == [], format_report(report)
     assert set(OFFLINE_GATES) == {"tutor.intent_accuracy", "tutor.retrieval_hit_at_1",
-                                  "tutor.retrieval_hit_at_k", "review.rules_precision"}
+                                  "tutor.retrieval_hit_at_k", "review.rules_precision",
+                                  "guardrails.attack_block_rate", "guardrails.false_block_rate_max",
+                                  "guardrails.pii_mask_rate", "guardrails.output_accuracy"}
 
 
 def test_rules_cannot_check_facts():

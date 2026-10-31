@@ -73,6 +73,7 @@ from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
+from pipeline.guardrails import PII_NOTICE
 from pipeline.tutor_graph import run_tutor
 from pipeline.ingestion.errors import IngestionError
 
@@ -2791,8 +2792,13 @@ async def ask_tutor(
         logger.exception("AI tutor cavab vermədi (user_id=%s)", user["id"])
         raise HTTPException(status_code=503, detail="AI tutor hazırda cavab verə bilmir, bir azdan yenidən yazın.")
     quiz = result.get("quiz")
+    rails = result.get("rails", [])
+    if rails:
+        # Yalnız qaydanın ADI jurnala düşür - sualın mətni yox.
+        logger.info("tutor_guardrail user_id=%s rails=%s kind=%s", user["id"], ",".join(rails), result["kind"])
     return TutorReply(
         found=result["kind"] in ("answer", "quiz"), answer=result.get("answer", ""), kind=result["kind"],
+        notice=PII_NOTICE if any(r.startswith("pii:") for r in rails) else "",
         quiz=TutorQuizOut(**quiz.model_dump()) if quiz else None,
         sources=[TutorSource(title=d.title, lesson_id=d.meta.get("lesson_id"),
                              summary_id=d.meta.get("summary_id")) for d in result.get("sources", [])],

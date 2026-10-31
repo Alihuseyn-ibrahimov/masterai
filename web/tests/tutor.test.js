@@ -30,4 +30,5 @@ test('tutorTurnText per reply kind', () => {
   assert.equal(tutorTurnText({ kind: 'answer', answer: 'Cavab [1].' }), 'Cavab [1].');
   assert.equal(tutorTurnText({ kind: 'quiz', quiz: { question: 'Nə vaxt?' } }), 'Test sualı: Nə vaxt?');
   assert.equal(tutorTurnText({ kind: 'not_found', answer: '' }), '');
+  assert.equal(tutorTurnText({ kind: 'blocked', answer: 'Bu sorğunu emal edə bilmirəm.' }), '');
 });

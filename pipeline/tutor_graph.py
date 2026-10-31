@@ -2,7 +2,7 @@
 
 Gün 8-in tək addımlı RAG-ı («axtar → cavab ver») agentə çevrilir. Qraf:
 
-    START → classify ─┬─ explain → contextualize → retrieve ─┬─ answer → END
+    START → input_guard → classify ─┬─ explain → contextualize → retrieve ─┬─ answer → END
                       │                                       └─ not_found → END
                       ├─ quiz ──→ contextualize → retrieve ─┬─ make_quiz → END
                       │                                      └─ not_found → END
@@ -16,6 +16,9 @@ Gün 8-in tək addımlı RAG-ı («axtar → cavab ver») agentə çevrilir. Qra
 - **retrieve:** gün 8-in BM25 axtarışı.
 - **answer / make_quiz:** LLM yalnız tapılan parçalardan istifadə edir;
   quiz bir MCQ sualıdır (5 variant, düzgün cavab, izah, mənbə).
+
+Gün 20: `input_guard` (injection → `blocked`, şəxsi məlumat maskalanır) və
+`answer`/`make_quiz`-dən sonra çıxış yoxlaması (`pipeline.guardrails`).
 
 Server tərəfi vəziyyətsizdir: söhbət tarixçəsini (son bir neçə addım)
 brauzer göndərir.
@@ -31,6 +34,7 @@ from typing import Literal, TypedDict
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, ValidationError
 
+from pipeline import guardrails
 from pipeline.providers import DEFAULT_ORDER, Completer, build_completers, complete_with_fallback
 from pipeline.rag import (
     BM25,
@@ -78,10 +82,11 @@ class TutorState(TypedDict, total=False):
     intent: Intent
     query: str
     passages: list[Passage]
-    kind: Literal["answer", "quiz", "not_found", "offtopic"]
+    kind: Literal["answer", "quiz", "not_found", "offtopic", "blocked"]
     answer: str
     quiz: TutorQuiz | None
     sources: list[Document]
+    rails: list[str]        # işə düşən qoruyucu qaydalar (gün 20)
 
 
 def classify_intent(question: str) -> Intent:
@@ -146,6 +151,14 @@ def build_tutor_graph(completers: dict[str, Completer], order: list[str], rng: r
     def llm(system: str, user: str) -> str:
         return complete_with_fallback(system, user, order, completers).strip()
 
+    secrets = [TUTOR_SYSTEM_PROMPT, QUIZ_SYSTEM_PROMPT]
+
+    def input_guard(state: TutorState) -> TutorState:
+        check = guardrails.check_input(state["question"])
+        if check.blocked:
+            return {"kind": "blocked", "answer": check.message, "sources": [], "quiz": None, "rails": check.rails}
+        return {"question": check.text, "rails": check.rails}
+
     def classify(state: TutorState) -> TutorState:
         return {"intent": classify_intent(state["question"])}
 
@@ -171,26 +184,48 @@ def build_tutor_graph(completers: dict[str, Completer], order: list[str], rng: r
     def not_found(state: TutorState) -> TutorState:
         return {"kind": "not_found", "answer": "", "sources": [], "quiz": None}
 
+    def guarded(state: TutorState, check: guardrails.OutputCheck) -> TutorState | None:
+        """Çıxış qaydası cavabı rədd edibsə, son vəziyyət; keçibsə None."""
+        rails = state.get("rails", []) + check.rails
+        if check.status == "blocked":
+            return {"kind": "blocked", "answer": check.text, "sources": [], "quiz": None, "rails": rails}
+        if check.status == "not_found":
+            return {**not_found(state), "rails": rails}
+        return None
+
     def answer(state: TutorState) -> TutorState:
         text = llm(TUTOR_SYSTEM_PROMPT, build_prompt(state["question"], state["passages"]))
         if not text or NOT_FOUND in text:
             return not_found(state)
-        return {"kind": "answer", "answer": text, "sources": cited_sources(text, state["passages"]), "quiz": None}
+        check = guardrails.check_answer(text, state["passages"], question=state["question"], secrets=secrets)
+        rejected = guarded(state, check)
+        if rejected:
+            return rejected
+        return {"kind": "answer", "answer": check.text, "sources": cited_sources(check.text, state["passages"]),
+                "quiz": None, "rails": state.get("rails", []) + check.rails}
 
     def make_quiz(state: TutorState) -> TutorState:
         text = llm(QUIZ_SYSTEM_PROMPT, build_prompt("Bu parçalardan mənə bir test sualı ver.", state["passages"]))
         quiz = parse_quiz(text)
         if quiz is None:
             return not_found(state)
-        return {"kind": "quiz", "answer": "", "quiz": quiz,
+        check = guardrails.check_quiz([quiz.question, quiz.options[quiz.correct_index], quiz.explanation], state["passages"],
+                                      secrets=secrets)
+        rejected = guarded(state, check)
+        if rejected:
+            return rejected
+        return {"kind": "quiz", "answer": "", "quiz": quiz, "rails": state.get("rails", []),
                 "sources": cited_sources(quiz.explanation, state["passages"])}
 
     graph = StateGraph(TutorState)
-    for name, fn in [("classify", classify), ("offtopic", offtopic), ("contextualize", contextualize),
+    for name, fn in [("input_guard", input_guard), ("classify", classify), ("offtopic", offtopic),
+                     ("contextualize", contextualize),
                      ("retrieve", retrieve), ("not_found", not_found), ("answer", answer),
                      ("make_quiz", make_quiz)]:
         graph.add_node(name, fn)
-    graph.add_edge(START, "classify")
+    graph.add_edge(START, "input_guard")
+    graph.add_conditional_edges("input_guard", lambda s: END if s.get("kind") == "blocked" else "classify",
+                                [END, "classify"])
     graph.add_conditional_edges("classify", lambda s: "offtopic" if s["intent"] == "offtopic" else "contextualize",
                                 ["offtopic", "contextualize"])
     graph.add_edge("contextualize", "retrieve")

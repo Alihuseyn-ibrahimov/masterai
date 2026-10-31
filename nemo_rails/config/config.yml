@@ -1,0 +1,12 @@
+# NeMo Guardrails konfiqurasiyası - MasterAI AI tutoru (gün 20).
+# Əsas "LLM" bizim tutor agentimizdir (nemo_rails/rails.py: TutorModel), LLMRails-ə
+# konstruktorda verilir - ona görə burada `models` yoxdur. passthrough: istifadəçinin
+# mesajı NeMo-nun öz niyyət promptu olmadan birbaşa tutora gedir (əlavə LLM çağırışı yox).
+passthrough: true
+rails:
+  input:
+    flows:
+      - masterai check input
+  output:
+    flows:
+      - masterai check output

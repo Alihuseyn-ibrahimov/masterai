@@ -128,9 +128,10 @@
 
     function addAnswer(reply) {
       const card = el('div', 'card stack stack--tight tutor-answer');
+      if (reply.notice) card.append(el('p', 'text-xs text-muted', reply.notice));
       if (reply.kind === 'quiz' && reply.quiz) {
         addQuiz(card, reply);
-      } else if (reply.kind === 'offtopic') {
+      } else if (reply.kind === 'offtopic' || reply.kind === 'blocked') {
         card.append(el('p', 'tutor-answer__text', reply.answer));
       } else if (!reply.found) {
         card.append(el('p', 'text-muted', reply.no_material

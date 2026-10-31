@@ -111,7 +111,11 @@ def test_quiz_topic_strips_command_words():
 def test_quiz_without_topic_picks_material_passage():
     import random
 
-    completers, calls = fake(QUIZ_JSON)
+    # Rəqəmsiz quiz: təsadüfi seçilən parça hansı olsa da rəqəm qaydası (gün 20) onu atmır.
+    no_numbers = json.dumps({"question": "Konstitusiyaya dəyişiklik necə edilir?",
+                             "options": ["Referendumla", "Fərmanla", "Qərarla", "Sərəncamla", "Əmrlə"],
+                             "correct_index": 0, "explanation": "Referendum yolu ilə [1]."}, ensure_ascii=False)
+    completers, calls = fake(no_numbers)
     state = run_tutor("Məni yoxla", DOCS, [], completers=completers, order=["fake"], rng=random.Random(0))
     assert state["kind"] == "quiz" and len(calls) == 1
     assert "Konstitusiya" in calls[0][1] or "Milli Məclis" in calls[0][1]
