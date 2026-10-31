@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-CHECKED = ("pipeline", "server", "deploy", "tests")
+CHECKED = ("pipeline", "server", "deploy", "tests", "evals", "ml", "course_planner", "teacher_mcp")
 
 
 def _pyflakes_available() -> bool:

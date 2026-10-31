@@ -1,0 +1,4 @@
+# Kurs planlayıcısı (gün 18, CrewAI) - YALNIZ müəllimin kompüterində. CrewAI ~1 GB
+# asılılıq gətirir, serverə qoyulmur (bax course_planner/README.md).
+-r requirements.txt
+crewai>=1.15,<2

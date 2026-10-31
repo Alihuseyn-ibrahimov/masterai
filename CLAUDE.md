@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1976 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1983 pytest (+2 torch və 3 CrewAI testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -272,6 +272,18 @@ HF generate baza ölçüsü → `vllm serve --dtype half --api-key` → 1/4/8
 paralel ölçmə (`ml/bench_llm.py`: axınla TTFT, p50/p95, tok/s) →
 Cloudflare tuneli, `.env` sətirlərini çap edir. Notebook burada
 İŞLƏDİLMƏYİB (GPU yoxdur); ölçmə skripti saxta SSE serverlə sınanıb.
+
+**Gün 18 — CrewAI kurs planlayıcısı.** `course_planner/`: üç agent
+(Kurikulum dizayneri → Metodist → Qiymətləndirmə mütəxəssisi), ardıcıl
+proses, son tapşırıq planı JSON verir (`CoursePlan`, nömrələr sıra ilə
+yenidən yazılır, dərs sayı uyğun gəlməsə `PlanError`). LLM CrewAI-nın
+litellm-i YOX, `MasterAILLM(BaseLLM)` adapteri ilə bizim fallback
+zəncirimizdir. CrewAI ~1 GB-dır (`requirements-agents.txt`) - SERVERƏ
+QOYULMUR: müəllimin kompüterində işləyir, `cli.py push` dərsləri REST API
+ilə yazır (`teacher_mcp.MasterAIClient`). Planla və yaz ayrıdır (müəllim
+əvvəl baxır). Telemetriya idxaldan ƏVVƏL söndürülür: açıq olanda testlər
+21 san çəkirdi (şəbəkəyə gedirdi), söndürüləndə 6 san. CrewAI testləri
+CI-da keçilir; lokal real CrewAI 1.15 ilə 10/10.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
