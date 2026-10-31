@@ -19,6 +19,7 @@ Disallow: /bagli.html
 Disallow: /sahib.html
 Disallow: /xulaseler.html
 Disallow: /dersler.html
+Disallow: /dars.html
 Disallow: /xulase.html
 Disallow: /qosul.html
 Allow: /

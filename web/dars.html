@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dərs otağı - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+<!-- LiveKit klienti REPOYA qoyulub (CDN yox): build addımı yoxdur, versiya
+     sabitdir və CDN əlçatmaz olanda dərs dayanmır. Lisenziya: Apache-2.0,
+     assets/vendor/LICENSE-livekit-client. Yeniləmə: npm tarball-dan
+     dist/livekit-client.umd.js, faylın adında versiya. -->
+<script src="assets/vendor/livekit-client-2.22.4.umd.js"></script>
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack">
+  <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+  <div class="section-header">
+    <div class="stack stack--tight">
+      <h1 id="lessonTitle">Dərs</h1>
+      <span class="text-sm text-muted" id="lessonMeta"></span>
+    </div>
+    <span class="badge badge--neutral" id="connStatus">Gözlənilir</span>
+  </div>
+
+  <!-- Dərs başlamayıb / bitib: otağa girmək əvəzinə vəziyyət. -->
+  <div class="card stack" id="waitCard" hidden>
+    <p id="waitText"></p>
+    <button class="btn btn--primary" type="button" id="startButton" hidden>Dərsi başlat və otağa gir</button>
+    <a class="btn btn--secondary" href="dersler.html">Dərslərə qayıt</a>
+  </div>
+
+  <div class="card stack" id="joinCard" hidden>
+    <p>Dərs canlıdır. Girəndə mikrofon və kamera <strong id="joinDefaults">sönülü</strong> olacaq, sonra özün aça bilərsən.</p>
+    <button class="btn btn--primary btn--lg" type="button" id="joinButton">Otağa gir</button>
+  </div>
+
+  <button class="btn btn--secondary" type="button" id="audioButton" hidden>Səsi aç (brauzer icazə istəyir)</button>
+  <div class="video-grid" id="grid" aria-live="polite"></div>
+
+  <div class="video-controls" id="controls" hidden>
+    <button class="btn btn--secondary" type="button" id="micButton" aria-pressed="false">Mikrofon</button>
+    <button class="btn btn--secondary" type="button" id="camButton" aria-pressed="false">Kamera</button>
+    <button class="btn btn--secondary" type="button" id="screenButton" aria-pressed="false">Ekranı paylaş</button>
+    <button class="btn btn--ghost" type="button" id="leaveButton">Çıx</button>
+    <button class="btn btn--danger" type="button" id="endButton" hidden>Dərsi bitir</button>
+  </div>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getUser, request } from './assets/js/api.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { MODE_LABELS, formatLessonTime } from './assets/js/lessons.js';
+  import { connectionLabel, initials, orderTiles, roleOf } from './assets/js/lesson-room.js';
+
+  if (requireLogin()) {
+    mountShell();
+    const LK = window.LivekitClient;
+    const user = getUser() || {};
+    const isTeacher = Boolean(user.is_teacher);
+    const lessonId = Number(new URLSearchParams(window.location.search).get('id'));
+    const $ = (id) => document.getElementById(id);
+    let room = null;
+    let lesson = null;
+    let pollTimer = null;
+    const tiles = new Map();
+
+    function showError(message) {
+      $('errorBox').textContent = message;
+      $('errorBox').hidden = !message;
+    }
+
+    function setStatus(state) {
+      $('connStatus').textContent = connectionLabel(state);
+      $('connStatus').className = `badge ${state === 'connected' ? 'badge--success' : 'badge--neutral'}`;
+    }
+
+    async function loadLesson() {
+      lesson = await request(`/me/lessons/${lessonId}`);
+      $('lessonTitle').textContent = lesson.title;
+      document.title = `${lesson.title} - MasterAI`;
+      $('lessonMeta').textContent = [formatLessonTime(lesson.starts_at), MODE_LABELS[lesson.mode], lesson.chat_name]
+        .filter(Boolean).join(' · ');
+      if (room) return;
+      $('waitCard').hidden = lesson.status === 'live';
+      $('joinCard').hidden = lesson.status !== 'live';
+      $('startButton').hidden = !(isTeacher && lesson.status !== 'live');
+      if (lesson.mode !== 'online') {
+        $('waitText').textContent = 'Bu dərs sinifdə keçirilir, video otağı yoxdur.';
+        $('joinCard').hidden = true;
+        $('waitCard').hidden = false;
+        $('startButton').hidden = true;
+      } else if (lesson.status === 'ended') {
+        $('waitText').textContent = 'Dərs bitib.';
+      } else if (lesson.status !== 'live') {
+        $('waitText').textContent = isTeacher
+          ? 'Dərs hələ başlamayıb. Başladanda tələbələr otağa girə biləcək.'
+          : 'Dərs hələ başlamayıb. Müəllim başladanda bu səhifə özü yenilənəcək.';
+      }
+      $('joinDefaults').textContent = isTeacher ? 'açıq' : 'sönülü';
+    }
+
+    /* ---- Plitələr ---- */
+
+    function tileFor(key, name, role) {
+      let tile = tiles.get(key);
+      if (!tile) {
+        tile = document.createElement('div');
+        tile.className = 'video-tile';
+        const avatar = document.createElement('span');
+        avatar.className = 'video-tile__avatar';
+        const label = document.createElement('span');
+        label.className = 'video-tile__name';
+        tile.append(avatar, label);
+        tiles.set(key, tile);
+      }
+      tile.querySelector('.video-tile__avatar').textContent = initials(name);
+      tile.querySelector('.video-tile__name').textContent = role === 'teacher' ? `${name} · müəllim` : name;
+      return tile;
+    }
+
+    function showTrack(tile, track) {
+      let video = tile.querySelector('video');
+      if (!track) {
+        if (video) video.remove();
+        tile.querySelector('.video-tile__avatar').hidden = false;
+        return;
+      }
+      if (!video || video.dataset.sid !== track.sid) {
+        if (video) video.remove();
+        video = track.attach();
+        video.dataset.sid = track.sid;
+        video.muted = true;
+        video.playsInline = true;
+        tile.prepend(video);
+      }
+      tile.querySelector('.video-tile__avatar').hidden = true;
+    }
+
+    function liveTrack(participant, source) {
+      const publication = participant.getTrackPublication(source);
+      return publication && publication.track && !publication.isMuted ? publication.track : null;
+    }
+
+    function render() {
+      if (!room) return;
+      const people = [room.localParticipant, ...room.remoteParticipants.values()];
+      const speaking = new Set(room.activeSpeakers.map((p) => p.identity));
+      const wanted = [];
+      for (const p of people) {
+        const name = p.name || p.identity;
+        const role = roleOf(p.metadata);
+        const local = p === room.localParticipant;
+        wanted.push({ key: `${p.identity}:cam`, name, role, local, participant: p, source: LK.Track.Source.Camera });
+        if (liveTrack(p, LK.Track.Source.ScreenShare)) {
+          wanted.push({ key: `${p.identity}:screen`, name: `${name}: ekran`, role, local, screen: true,
+            participant: p, source: LK.Track.Source.ScreenShare });
+        }
+      }
+      const grid = $('grid');
+      const keep = new Set();
+      for (const item of orderTiles(wanted)) {
+        const tile = tileFor(item.key, item.name, item.role);
+        tile.classList.toggle('video-tile--screen', Boolean(item.screen));
+        tile.classList.toggle('video-tile--speaking', !item.screen && speaking.has(item.participant.identity));
+        showTrack(tile, liveTrack(item.participant, item.source));
+        grid.append(tile);
+        keep.add(item.key);
+      }
+      for (const [key, tile] of tiles) {
+        if (!keep.has(key)) {
+          tile.remove();
+          tiles.delete(key);
+        }
+      }
+      const local = room.localParticipant;
+      $('micButton').setAttribute('aria-pressed', String(local.isMicrophoneEnabled));
+      $('micButton').textContent = local.isMicrophoneEnabled ? 'Mikrofon açıq' : 'Mikrofon sönülü';
+      $('camButton').setAttribute('aria-pressed', String(local.isCameraEnabled));
+      $('camButton').textContent = local.isCameraEnabled ? 'Kamera açıq' : 'Kamera sönülü';
+      $('screenButton').setAttribute('aria-pressed', String(local.isScreenShareEnabled));
+      $('screenButton').textContent = local.isScreenShareEnabled ? 'Paylaşımı dayandır' : 'Ekranı paylaş';
+    }
+
+    /* ---- Otaq ---- */
+
+    async function join() {
+      showError('');
+      $('joinButton').disabled = true;
+      try {
+        const access = await request(`/me/lessons/${lessonId}/video`, { method: 'POST' });
+        room = new LK.Room({ adaptiveStream: true, dynacast: true });
+        room
+          .on(LK.RoomEvent.TrackSubscribed, (track) => {
+            // Uzaq səs görünməz elementdə çalınır; video plitədədir.
+            if (track.kind === 'audio') document.body.append(track.attach());
+            render();
+          })
+          .on(LK.RoomEvent.TrackUnsubscribed, (track) => {
+            if (track.kind === 'audio') track.detach().forEach((el) => el.remove());
+            render();
+          })
+          .on(LK.RoomEvent.ParticipantConnected, render)
+          .on(LK.RoomEvent.ParticipantDisconnected, render)
+          .on(LK.RoomEvent.TrackMuted, render)
+          .on(LK.RoomEvent.TrackUnmuted, render)
+          .on(LK.RoomEvent.LocalTrackPublished, render)
+          .on(LK.RoomEvent.LocalTrackUnpublished, render)
+          .on(LK.RoomEvent.ActiveSpeakersChanged, render)
+          .on(LK.RoomEvent.ConnectionStateChanged, setStatus)
+          .on(LK.RoomEvent.AudioPlaybackStatusChanged, () => {
+            $('audioButton').hidden = room.canPlaybackAudio;
+          })
+          .on(LK.RoomEvent.Disconnected, () => {
+            setStatus('disconnected');
+            $('controls').hidden = true;
+          });
+        setStatus('connecting');
+        await room.connect(access.url, access.token);
+        $('joinCard').hidden = true;
+        $('controls').hidden = false;
+        $('endButton').hidden = !access.is_host;
+        if (access.is_host) {
+          // Müəllim danışmaq üçün gəlir; tələbə isə sakit girir.
+          await room.localParticipant.enableCameraAndMicrophone().catch((error) => {
+            showError(`Kamera/mikrofon açılmadı: ${error.message}`);
+          });
+        }
+        render();
+      } catch (error) {
+        room = null;
+        // API xətası (ApiError) öz mətni ilə gəlir; qalanı LiveKit-in
+        // ingiliscə bağlantı xətasıdır - nəyin sındığını Azərbaycanca deyirik.
+        showError('status' in error ? error.message : `Video otağına qoşulmaq alınmadı (${error.message}).`);
+        setStatus('disconnected');
+        $('joinCard').hidden = false;
+        $('joinButton').disabled = false;
+      }
+    }
+
+    async function toggle(kind) {
+      const local = room.localParticipant;
+      try {
+        if (kind === 'mic') await local.setMicrophoneEnabled(!local.isMicrophoneEnabled);
+        if (kind === 'cam') await local.setCameraEnabled(!local.isCameraEnabled);
+        if (kind === 'screen') await local.setScreenShareEnabled(!local.isScreenShareEnabled);
+      } catch (error) {
+        showError(error.message);
+      }
+      render();
+    }
+
+    $('joinButton').addEventListener('click', join);
+    $('micButton').addEventListener('click', () => toggle('mic'));
+    $('camButton').addEventListener('click', () => toggle('cam'));
+    $('screenButton').addEventListener('click', () => toggle('screen'));
+    $('audioButton').addEventListener('click', () => room && room.startAudio());
+    $('leaveButton').addEventListener('click', async () => {
+      if (room) await room.disconnect();
+      window.location.assign('dersler.html');
+    });
+    $('endButton').addEventListener('click', async () => {
+      if (!confirm('Dərs hamı üçün bitsin?')) return;
+      try {
+        await request(`/live/lessons/${lessonId}/end`, { method: 'POST' });
+        if (room) await room.disconnect();
+        window.location.assign('dersler.html');
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+    $('startButton').addEventListener('click', async () => {
+      try {
+        await request(`/live/lessons/${lessonId}/start`, { method: 'POST' });
+        await loadLesson();
+        await join();
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    if (!LK) {
+      showError('Video kitabxanası yüklənmədi. Səhifəni yeniləyin.');
+    } else if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      showError('Dərs seçilməyib.');
+    } else {
+      loadLesson().catch((error) => showError(error.message));
+      // Başlamamış dərsi gözləyən tələbə səhifəni özü yeniləmək məcburiyyətində qalmasın.
+      pollTimer = setInterval(() => {
+        if (room) return clearInterval(pollTimer);
+        loadLesson().catch(() => {});
+      }, 15000);
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,13 +1,22 @@
 """Dərs cədvəli və davamiyyət (MasterAI Classroom, gün 1, 2026-10-31)."""
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from server.app import app, get_chat_store, get_lesson_store, get_token_secret, get_user_store
+from server.app import (
+    app,
+    get_chat_store,
+    get_lesson_store,
+    get_livekit_config,
+    get_token_secret,
+    get_user_store,
+)
 from server.auth import create_token
 from server.chat_store import ChatStore
 from server.lesson_store import LessonStore
 from server.user_store import UserStore
+from server.video import LiveKitConfig
 
 _SECRET = "test-secret-key-32-chars-minimum!!"
 _LESSON = {"title": "Konstitusiya: giriş", "description": "1-ci fəsil",
@@ -141,3 +150,60 @@ def test_invalid_duration_rejected(env):
     r = env["client"].post(f"/chats/{env['chat']['id']}/lessons", json={**_LESSON, "duration_min": 5},
                            headers=_auth(env["teacher"]))
     assert r.status_code == 422
+
+
+# ---- Gün 2: video otağına giriş (LiveKit) --------------------------------
+
+_LK = LiveKitConfig(url="wss://demo.livekit.cloud", api_key="APIkey", api_secret="s" * 40)
+
+
+def _video(env, user, lesson_id):
+    return env["client"].post(f"/me/lessons/{lesson_id}/video", headers=_auth(user))
+
+
+@pytest.fixture
+def lk():
+    app.dependency_overrides[get_livekit_config] = lambda: _LK
+    yield
+    app.dependency_overrides.pop(get_livekit_config, None)
+
+
+def test_video_token_for_student_marks_attendance(env, lk):
+    lesson = _create(env)
+    env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
+    r = _video(env, env["ali"], lesson["id"])
+    assert r.status_code == 200, r.text
+    body = r.json()
+    claims = jwt.decode(body["token"], _LK.api_secret, algorithms=["HS256"])
+    assert claims["iss"] == "APIkey" and claims["sub"] == f"user-{env['ali']['id']}"
+    assert claims["name"] == "Əli"
+    assert claims["video"]["room"] == body["room"] == f"masterai-lesson-{lesson['id']}"
+    assert claims["video"]["roomJoin"] is True and claims["video"]["roomAdmin"] is False
+    assert body["is_host"] is False and body["url"] == _LK.url
+    assert [a["user_id"] for a in env["lessons"].list_attendance(lesson["id"])] == [env["ali"]["id"]]
+
+
+def test_teacher_is_room_admin_and_not_counted_as_present(env, lk):
+    lesson = _create(env)
+    env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
+    body = _video(env, env["teacher"], lesson["id"]).json()
+    claims = jwt.decode(body["token"], _LK.api_secret, algorithms=["HS256"])
+    assert claims["video"]["roomAdmin"] is True and body["is_host"] is True
+    assert env["lessons"].list_attendance(lesson["id"]) == []
+
+
+def test_video_only_for_live_online_lessons(env, lk):
+    lesson = _create(env)
+    assert _video(env, env["ali"], lesson["id"]).status_code == 409
+    offline = _create(env, mode="offline")
+    env["client"].post(f"/live/lessons/{offline['id']}/start", headers=_auth(env["teacher"]))
+    assert _video(env, env["ali"], offline["id"]).status_code == 409
+    assert _video(env, env["outsider"], lesson["id"]).status_code == 404
+
+
+def test_video_without_livekit_keys_is_503(env):
+    app.dependency_overrides[get_livekit_config] = lambda: None
+    lesson = _create(env)
+    env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
+    r = _video(env, env["ali"], lesson["id"])
+    assert r.status_code == 503 and "LiveKit" in r.json()["detail"]

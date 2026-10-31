@@ -666,3 +666,13 @@ class LessonAttendanceRow(BaseModel):
     present: bool
     method: str | None = None
     joined_at: str | None = None
+
+
+class LessonVideoAccess(BaseModel):
+    """LiveKit otağına giriş (gün 2). `token` qısaömürlüdür."""
+
+    url: str
+    token: str
+    room: str
+    identity: str
+    is_host: bool
