@@ -69,6 +69,8 @@ from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
 from pipeline.summary import LessonSummary, summarize_material
 from pipeline.transcribe import transcribe_audio
+from pipeline.board_ocr import read_board
+from pipeline.ingestion.errors import IngestionError
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
@@ -76,7 +78,7 @@ from .summary_store import SummaryStore
 from .attendance_qr import join_url as qr_join_url
 from .attendance_qr import make_code, qr_svg, verify_code
 from .attendance_qr import seconds_left as qr_seconds_left
-from .lesson_store import LessonStore
+from .lesson_store import BOARD_SEQ_START, LessonStore
 from .video import LiveKitConfig, lesson_room, livekit_config, make_join_token
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
@@ -411,6 +413,11 @@ def get_livekit_config() -> LiveKitConfig | None:
 def get_transcriber():
     """Səs faylı→mətn funksiyası (testdə fake funksiya ilə override olunur)."""
     return transcribe_audio
+
+
+def get_board_reader():
+    """Lövhə şəkli→mətn funksiyası (gün 7; testdə fake ilə override olunur)."""
+    return read_board
 
 
 def get_summarizer():
@@ -2677,7 +2684,8 @@ async def _process_transcript(lesson_id: int, seq: int, path: str, *, transcribe
 def _transcript(lessons: LessonStore, lesson_id: int) -> LessonTranscript:
     return LessonTranscript(
         lesson_id=lesson_id,
-        segments=[LessonTranscriptSegment(seq=s["seq"], status=s["status"], error=s["error"])
+        segments=[LessonTranscriptSegment(seq=s["seq"], status=s["status"], error=s["error"],
+                                          kind="board" if s["seq"] >= BOARD_SEQ_START else "audio")
                   for s in lessons.list_segments(lesson_id)],
         text=lessons.transcript_text(lesson_id),
     )
@@ -2714,6 +2722,60 @@ async def upload_lesson_audio(
     task = asyncio.create_task(
         _process_transcript(lesson_id, seq, path, transcriber=transcriber, lessons=lessons)
     )
+    app.state.active_transcript_tasks[(lesson_id, seq)] = task
+    return _transcript(lessons, lesson_id)
+
+
+# ---- Gün 7: lövhə şəkli → mətn (OCR) ------------------------------------
+# Sinif dərsində səs çox vaxt yazılmır, amma lövhə var. Şəkildəki yazı
+# «Dərs mətni»nə qatılır və quiz/konspekt onu da görür.
+
+MAX_BOARD_IMAGE_BYTES = 15 * 1024 * 1024
+_BOARD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+async def _process_board(lesson_id: int, seq: int, path: str, *, reader, lessons: LessonStore) -> None:
+    try:
+        text = await asyncio.to_thread(reader, path)
+    except Exception as exc:
+        logger.warning("Lövhə şəkli oxunmadı (lesson_id=%s seq=%s): %s", lesson_id, seq, exc)
+        message = str(exc) if isinstance(exc, IngestionError) else "Şəkil oxunmadı"
+        lessons.finish_segment(lesson_id, seq, error=message[:500])
+        return
+    finally:
+        app.state.active_transcript_tasks.pop((lesson_id, seq), None)
+        # Şəkil saxlanmır: mətn alınıb, şəkildə tələbələrin üzü də ola bilər.
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    lessons.finish_segment(lesson_id, seq, text=f"Lövhədən:\n{text}")
+
+
+@app.post("/live/lessons/{lesson_id}/board", response_model=LessonTranscript, status_code=202)
+async def upload_lesson_board(
+    lesson_id: int,
+    image: UploadFile = File(...),
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    upload_dir: str = Depends(get_upload_dir),
+    reader=Depends(get_board_reader),
+) -> LessonTranscript:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] == "scheduled":
+        raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb")
+    ext = os.path.splitext(image.filename or "")[1].lower()
+    if ext not in _BOARD_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Şəkil gözlənilir (jpg, png, webp)")
+    try:
+        path = await save_upload(image, upload_dir=os.path.join(upload_dir, "lessons"),
+                                 max_bytes=MAX_BOARD_IMAGE_BYTES)
+    except PayloadTooLarge:
+        raise HTTPException(status_code=413, detail="Şəkil çox böyükdür (ən çoxu 15 MB)")
+
+    seq = lessons.start_board_segment(lesson_id)
+    task = asyncio.create_task(_process_board(lesson_id, seq, path, reader=reader, lessons=lessons))
     app.state.active_transcript_tasks[(lesson_id, seq)] = task
     return _transcript(lessons, lesson_id)
 

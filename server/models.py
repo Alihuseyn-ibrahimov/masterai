@@ -719,9 +719,10 @@ class LessonCabinet(BaseModel):
 
 
 class LessonTranscriptSegment(BaseModel):
-    """Bir səs hissəsi (gün 3): təxminən 5 dəqiqə."""
+    """Bir səs hissəsi (gün 3, ~5 dəqiqə) və ya lövhə şəkli (gün 7)."""
 
     seq: int
+    kind: Literal["audio", "board"] = "audio"
     status: Literal["processing", "ready", "failed"]
     error: str | None = None
 

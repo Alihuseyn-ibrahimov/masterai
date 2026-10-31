@@ -232,6 +232,8 @@ CASES = {
         {"lesson_id": "lesson_a.id", "student_id": "student_a.id"}, None, None, None),
     ("POST", "/live/lessons/{lesson_id}/audio"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None,
         {"seq": "0", "_file": ("audio", "part.webm", b"x")}),
+    ("POST", "/live/lessons/{lesson_id}/board"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None,
+        {"_file": ("image", "board.jpg", b"x")}),
     ("GET", "/live/lessons/{lesson_id}/transcript"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/live/lessons/{lesson_id}/question-set"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None,
         {"subject": "mentiq"}, None),
