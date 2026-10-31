@@ -21,3 +21,21 @@ export function sourceHref(source) {
   if (source && source.summary_id) return `xulase.html?id=${encodeURIComponent(source.summary_id)}`;
   return null;
 }
+
+export const HISTORY_LIMIT = 6;
+
+/** Söhbətə yeni addım əlavə edir, yalnız son `HISTORY_LIMIT`-i saxlayır
+ *  (gün 9: davam sualı üçün serverə göndərilir, server özü yadda saxlamır). */
+export function pushTurn(history, role, text) {
+  const value = String(text || '').trim();
+  if (!value) return history.slice(-HISTORY_LIMIT);
+  return [...history, { role, text: value.slice(0, 4000) }].slice(-HISTORY_LIMIT);
+}
+
+/** Tutorun cavabı tarixçədə necə görünür: quizdə sualın özü, «tapmadım»da heç nə. */
+export function tutorTurnText(reply) {
+  if (!reply) return '';
+  if (reply.kind === 'quiz' && reply.quiz) return `Test sualı: ${reply.quiz.question}`;
+  if (reply.kind === 'answer' || reply.kind === 'offtopic') return reply.answer || '';
+  return '';
+}

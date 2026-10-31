@@ -32,14 +32,17 @@
       <h1>AI tutor</h1>
       <span class="section-header__hint" id="scopeHint">Dərs materialları üzrə sual verin</span>
     </div>
-    <p class="text-sm text-muted">Tutor yalnız sinfinizin keçilmiş dərslərindən və müəllimin paylaşdığı konspektlərdən cavab verir, hər cavabda mənbəni göstərir. Materialda olmayanı uydurmur.</p>
+    <p class="text-sm text-muted">Tutor yalnız sinfinizin keçilmiş dərslərindən və müəllimin paylaşdığı konspektlərdən cavab verir, hər cavabda mənbəni göstərir. Materialda olmayanı uydurmur. «Məni yoxla» yazsanız, materialdan sizə test sualı verir.</p>
     <div class="stack" id="thread" aria-live="polite"></div>
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
     <form class="card stack stack--tight" id="askForm">
       <label class="field__label" for="question">Sualınız</label>
       <textarea class="field__textarea" id="question" rows="3" minlength="3" maxlength="500" required
                 placeholder="Məs. Dövlət hakimiyyəti hansı qollara bölünür?"></textarea>
-      <button class="btn btn--primary" type="submit" id="askButton">Soruş</button>
+      <div class="bank__actions">
+        <button class="btn btn--primary" type="submit" id="askButton">Soruş</button>
+        <button class="btn btn--secondary" type="button" id="quizButton">Məni yoxla</button>
+      </div>
     </form>
   </section>
 </div>
@@ -49,7 +52,9 @@
 <script type="module">
   import { request } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { sourceHref, splitCitations } from './assets/js/tutor.js';
+  import { markChosen, renderOptions, revealAnswer } from './assets/js/quiz-options.js';
+  import { answerFeedback } from './assets/js/answer-feedback.js';
+  import { pushTurn, sourceHref, splitCitations, tutorTurnText } from './assets/js/tutor.js';
 
   if (requireLogin()) {
     mountShell();
@@ -58,6 +63,7 @@
     const thread = document.getElementById('thread');
     const errorBox = document.getElementById('errorBox');
     const questionBox = document.getElementById('question');
+    let history = [];
 
     if (lessonId) {
       request(`/me/lessons/${lessonId}`).then((lesson) => {
@@ -78,55 +84,102 @@
       thread.append(card);
     }
 
+    function addSources(card, sources) {
+      if (!sources.length) return;
+      const list = el('div', 'bank__actions');
+      list.append(el('span', 'text-sm text-muted', 'Mənbə:'));
+      for (const source of sources) {
+        const href = sourceHref(source);
+        const link = el(href ? 'a' : 'span', 'btn btn--ghost btn--sm', source.title);
+        if (href) link.href = href;
+        list.append(link);
+      }
+      card.append(list);
+    }
+
+    function addCitedText(card, text) {
+      // Mətn hissə-hissə qurulur: [1] istinadları nişan kimi, qalan hamısı textContent.
+      const p = el('p', 'tutor-answer__text');
+      for (const part of splitCitations(text)) {
+        p.append(part.cite ? el('sup', 'tutor-cite', `[${part.cite}]`) : document.createTextNode(part.text));
+      }
+      card.append(p);
+    }
+
+    function addQuiz(card, reply) {
+      const quiz = reply.quiz;
+      card.append(el('span', 'badge', 'Test sualı'));
+      card.append(el('p', 'tutor-answer__text', quiz.question));
+      const box = el('div');
+      const result = el('div', 'stack stack--tight');
+      card.append(box, result);
+      const buttons = renderOptions(box, quiz.options, (chosen) => {
+        markChosen(buttons, chosen);
+        revealAnswer(buttons, { correctIndex: quiz.correct_index, chosenIndex: chosen });
+        const feedback = answerFeedback({ options: quiz.options, correctIndex: quiz.correct_index,
+          chosenIndex: chosen, isCorrect: chosen === quiz.correct_index });
+        result.append(el('span', feedback.badge.className, feedback.badge.label));
+        if (feedback.chosenLine) result.append(el('p', 'text-sm', feedback.chosenLine));
+        result.append(el('p', 'text-sm', feedback.correctLine));
+        if (quiz.explanation) addCitedText(result, quiz.explanation);
+        addSources(result, reply.sources);
+      });
+    }
+
     function addAnswer(reply) {
       const card = el('div', 'card stack stack--tight tutor-answer');
-      if (!reply.found) {
+      if (reply.kind === 'quiz' && reply.quiz) {
+        addQuiz(card, reply);
+      } else if (reply.kind === 'offtopic') {
+        card.append(el('p', 'tutor-answer__text', reply.answer));
+      } else if (!reply.found) {
         card.append(el('p', 'text-muted', reply.no_material
           ? 'Sinfinizdə hələ keçilmiş dərs mətni və ya paylaşılmış konspekt yoxdur. Dərsdən sonra yenidən yoxlayın.'
           : 'Bu barədə dərs materiallarında məlumat tapmadım. Sualı başqa sözlərlə yazın və ya müəllimdən soruşun.'));
       } else {
-        // Mətn hissə-hissə qurulur: [1] istinadları nişan kimi, qalan hamısı textContent.
-        const p = el('p', 'tutor-answer__text');
-        for (const part of splitCitations(reply.answer)) {
-          p.append(part.cite ? el('sup', 'tutor-cite', `[${part.cite}]`) : document.createTextNode(part.text));
-        }
-        card.append(p);
-        if (reply.sources.length) {
-          const list = el('div', 'bank__actions');
-          list.append(el('span', 'text-sm text-muted', 'Mənbə:'));
-          for (const source of reply.sources) {
-            const href = sourceHref(source);
-            const link = el(href ? 'a' : 'span', 'btn btn--ghost btn--sm', source.title);
-            if (href) link.href = href;
-            list.append(link);
-          }
-          card.append(list);
-        }
+        addCitedText(card, reply.answer);
+        addSources(card, reply.sources);
       }
       thread.append(card);
     }
+
+    async function ask(question) {
+      const button = document.getElementById('askButton');
+      const quizButton = document.getElementById('quizButton');
+      button.disabled = true;
+      quizButton.disabled = true;
+      button.textContent = 'Düşünür...';
+      errorBox.hidden = true;
+      addQuestion(question);
+      try {
+        const reply = await request('/me/tutor/ask', {
+          method: 'POST', body: { question, lesson_id: lessonId, history },
+        });
+        addAnswer(reply);
+        history = pushTurn(pushTurn(history, 'user', question), 'tutor', tutorTurnText(reply));
+        return true;
+      } catch (error) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+        return false;
+      } finally {
+        button.disabled = false;
+        quizButton.disabled = false;
+        button.textContent = 'Soruş';
+        questionBox.focus();
+      }
+    }
+
+    document.getElementById('quizButton').addEventListener('click', () => {
+      const topic = questionBox.value.trim();
+      ask(topic ? `${topic} - məni yoxla` : 'Məni yoxla').then((ok) => { if (ok) questionBox.value = ''; });
+    });
 
     document.getElementById('askForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const question = questionBox.value.trim();
       if (question.length < 3) return;
-      const button = document.getElementById('askButton');
-      button.disabled = true;
-      button.textContent = 'Düşünür...';
-      errorBox.hidden = true;
-      addQuestion(question);
-      try {
-        const reply = await request('/me/tutor/ask', { method: 'POST', body: { question, lesson_id: lessonId } });
-        addAnswer(reply);
-        questionBox.value = '';
-      } catch (error) {
-        errorBox.textContent = error.message;
-        errorBox.hidden = false;
-      } finally {
-        button.disabled = false;
-        button.textContent = 'Soruş';
-        questionBox.focus();
-      }
+      if (await ask(question)) questionBox.value = '';
     });
   }
 </script>

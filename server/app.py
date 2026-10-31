@@ -71,7 +71,7 @@ from pipeline.summary import LessonSummary, summarize_material
 from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
-from pipeline.rag import answer_question
+from pipeline.tutor_graph import run_tutor
 from pipeline.ingestion.errors import IngestionError
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
@@ -116,6 +116,7 @@ from .models import (
     LessonNote,
     LessonQr,
     TutorAsk,
+    TutorQuizOut,
     TutorReply,
     TutorSource,
     LessonQuizCreate,
@@ -334,8 +335,8 @@ def get_tutor_rate_limiter() -> RateLimiter:
 
 
 def get_tutor():
-    """Sual + mənbələr → mənbəli cavab (gün 8; testdə fake ilə override olunur)."""
-    return answer_question
+    """Sual + mənbələr + tarixçə → agentin vəziyyəti (gün 9, LangGraph; testdə fake)."""
+    return run_tutor
 
 
 def get_pin_rate_limiter() -> RateLimiter:
@@ -2673,16 +2674,19 @@ async def ask_tutor(
 
     docs = _tutor_documents(scope_lessons, scope_summaries, lessons, question_sets)
     if not docs:
-        return TutorReply(found=False, answer="", sources=[], no_material=True)
+        return TutorReply(found=False, answer="", sources=[], no_material=True, kind="no_material")
+    history = [t.model_dump() for t in body.history[-6:]]
     try:
-        result = await asyncio.to_thread(tutor, body.question.strip(), docs)
+        result = await asyncio.to_thread(tutor, body.question.strip(), docs, history)
     except Exception:
         logger.exception("AI tutor cavab vermədi (user_id=%s)", user["id"])
         raise HTTPException(status_code=503, detail="AI tutor hazırda cavab verə bilmir, bir azdan yenidən yazın.")
+    quiz = result.get("quiz")
     return TutorReply(
-        found=result.found, answer=result.answer,
+        found=result["kind"] in ("answer", "quiz"), answer=result.get("answer", ""), kind=result["kind"],
+        quiz=TutorQuizOut(**quiz.model_dump()) if quiz else None,
         sources=[TutorSource(title=d.title, lesson_id=d.meta.get("lesson_id"),
-                             summary_id=d.meta.get("summary_id")) for d in result.sources],
+                             summary_id=d.meta.get("summary_id")) for d in result.get("sources", [])],
     )
 
 
