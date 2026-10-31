@@ -73,6 +73,9 @@ from pipeline.transcribe import transcribe_audio
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
 from .summary_store import SummaryStore
+from .attendance_qr import join_url as qr_join_url
+from .attendance_qr import make_code, qr_svg, verify_code
+from .attendance_qr import seconds_left as qr_seconds_left
 from .lesson_store import LessonStore
 from .video import LiveKitConfig, lesson_room, livekit_config, make_join_token
 from .chat_join_request_store import ChatJoinRequestStore
@@ -101,11 +104,13 @@ from .message_store import MessageStore
 from .models import (
     DifficultyStat,
     LessonAttendanceRow,
+    LessonAttendRequest,
     LessonCreate,
     LessonCabinet,
     LessonCabinetSummary,
     LessonInfo,
     LessonNote,
+    LessonQr,
     LessonQuizCreate,
     LessonUpdate,
     LessonTranscript,
@@ -2382,16 +2387,28 @@ def get_my_lesson(
 @app.post("/me/lessons/{lesson_id}/attend", response_model=LessonInfo)
 def attend_lesson(
     lesson_id: int,
+    body: LessonAttendRequest | None = None,
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
     lessons: LessonStore = Depends(get_lesson_store),
+    secret: str = Depends(get_token_secret),
 ) -> LessonInfo:
     """Tələbə canlı dərsə girəndə davamiyyət yazılır. Yalnız `live`
-    dərsdə: başlamamış dərsə «gəldim» demək davamiyyəti mənasız edərdi."""
+    dərsdə: başlamamış dərsə «gəldim» demək davamiyyəti mənasız edərdi.
+
+    Sinif dərsində (gün 6) müəllimin ekranındakı QR kod MƏCBURİDİR: kodsuz
+    düymə evdə oturan tələbəyə də «gəlib» yazdırardı."""
     lesson = _lesson_for_member(lessons, chats, lesson_id, user)
     if lesson["status"] != "live":
         raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb və ya bitib")
-    lessons.mark_attendance(lesson_id, user["id"], "online" if lesson["mode"] == "online" else "offline")
+    if lesson["mode"] == "offline":
+        if not verify_code(secret, lesson_id, (body.code if body else None) or ""):
+            raise HTTPException(status_code=403,
+                                detail="QR kod köhnəlib və ya səhvdir. Lövhədəki kodu yenidən skan edin.")
+        method = "qr"
+    else:
+        method = "online"
+    lessons.mark_attendance(lesson_id, user["id"], method)
     return _lesson_info(lesson, chats, attended=True)
 
 
@@ -2568,6 +2585,65 @@ def lesson_attendance(
         ))
     rows.sort(key=lambda r: (not r.present, r.display_name))
     return rows
+
+
+# ---- Gün 6: sinifdə QR davamiyyət + əl ilə düzəliş ----------------------
+
+
+@app.get("/live/lessons/{lesson_id}/qr", response_model=LessonQr)
+def lesson_qr(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    secret: str = Depends(get_token_secret),
+) -> LessonQr:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] != "live":
+        raise HTTPException(status_code=409, detail="QR kod yalnız canlı dərsdə göstərilir")
+    code = make_code(secret, lesson_id)
+    url = qr_join_url(lesson_id, code)
+    return LessonQr(code=code, url=url, svg=qr_svg(url), expires_in=qr_seconds_left())
+
+
+def _student_of_lesson(users: UserStore, chats: ChatStore, lesson: dict, student_id: int) -> dict:
+    student = users.get_by_id(student_id)
+    if (student is None or student["is_teacher"]
+            or student_id not in chats.list_member_ids(lesson["chat_id"])):
+        raise HTTPException(status_code=404, detail="Tələbə bu sinifdə deyil")
+    return student
+
+
+@app.post("/live/lessons/{lesson_id}/attendance/{student_id}", status_code=204)
+def mark_student_present(
+    lesson_id: int,
+    student_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> None:
+    """Telefonu olmayan və ya skan edə bilməyən tələbəni müəllim özü yazır."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] == "scheduled":
+        raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb")
+    _student_of_lesson(users, chats, lesson, student_id)
+    lessons.mark_attendance(lesson_id, student_id, "manual")
+
+
+@app.delete("/live/lessons/{lesson_id}/attendance/{student_id}", status_code=204)
+def mark_student_absent(
+    lesson_id: int,
+    student_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> None:
+    """Səhv yazılmış davamiyyəti (məs. QR şəklini dostundan alan) silmək."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    _student_of_lesson(users, chats, lesson, student_id)
+    lessons.unmark_attendance(lesson_id, student_id)
 
 
 # ---- Gün 3: dərs səsi → mətn (Whisper) ----------------------------------

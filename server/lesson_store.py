@@ -204,6 +204,13 @@ class LessonStore:
             ).fetchone()
         return dict(row)
 
+    def unmark_attendance(self, lesson_id: int, user_id: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM lesson_attendance WHERE lesson_id = ? AND user_id = ?", (lesson_id, user_id),
+            )
+            self._conn.commit()
+
     def list_attendance(self, lesson_id: int) -> list[dict]:
         with self._lock:
             rows = self._conn.execute(

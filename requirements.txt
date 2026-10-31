@@ -22,6 +22,7 @@ httpx>=0.27
 websockets>=13.0  # yalnız real-smoke test skripti üçün, runtime asılılığı deyil
 bcrypt>=4.1
 PyJWT>=2.8
+segno>=1.6  # gün 6: QR davamiyyət kodu (saf Python, asılılıqsız)
 email-validator>=2.1
 python-multipart>=0.0.12
 gunicorn>=23.0  # yalnız prod deploy üçün (bax deploy/masterai.service), dev-də adi uvicorn kifayətdir

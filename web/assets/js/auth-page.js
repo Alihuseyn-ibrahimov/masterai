@@ -5,10 +5,13 @@
  * çatır (`role="alert"`), uğurdan sonra rola görə yönləndirmə. */
 
 import { getUser, isLoggedIn } from './api.js';
+import { takeNext } from './next-path.js';
 
 /** Daxil olmuş istifadəçini öz səhifəsinə göndərir - müəllim və tələbə
  *  fərqli başlanğıc ekranı görür. */
 export function homePathForCurrentUser() {
+  const next = takeNext(window.sessionStorage);
+  if (next) return next;
   const user = getUser();
   if (user && user.is_teacher) return 'muellim.html';
   return 'chatlar.html';

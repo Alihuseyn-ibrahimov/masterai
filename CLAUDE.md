@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1833 pytest + 274 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1846 pytest + 278 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -119,6 +119,22 @@ düymədə edir; təkrar basmaq ikinci tapşırıq yaratmır. Şəxsi qeyd
 mətn sətri silir), `PUT /me/lessons/{id}/note`; `note-autosave.js`
 yazmaq dayananda saxlayır, səhifə gizlənəndə dərhal, xətada özü-özünə
 təkrar sorğu GÖNDƏRMİR. Brauzerdə saxta AI ilə uc-uca sınanıb.
+
+**Gün 6 — sinifdə QR davamiyyət.** Canlı sinif dərsində müəllim
+«QR davamiyyət» basır: proyektorda böyük QR (`GET /live/lessons/{id}/qr`,
+SVG serverdə `segno` ilə, `<img>` içində göstərilir) və «N / M tələbə».
+Kod bazada SAXLANMIR: `server/attendance_qr.py` onu dərs ID-si + 30
+saniyəlik pəncərədən HMAC ilə törədir (açar JWT açarıdır), cari və
+əvvəlki pəncərə keçərlidir. Yəni kodun şəklini dosta göndərmək ~1
+dəqiqədən sonra işləmir. QR `SITE_URL/dersim.html?id=N&qr=KOD` açır
+(`SITE_URL` defolt produksiya, lokal sınaqda dəyişdir). Sinif dərsində
+`POST /me/lessons/{id}/attend` artıq KODSUZ 403 verir (köhnə «Dərsə
+qoşul» düyməsi evdən də basılırdı), üsul `qr`. Müəllim davamiyyət
+siyahısında hər tələbəni əl ilə «Gəlib»/«Sil» edir (`manual`).
+Daxil olmamış tələbə: `requireLogin` səhifəni `sessionStorage`-a yazır,
+girişdən sonra ora qayıdır (`next-path.js`, yalnız `ad.html?...` - açıq
+redirect yoxdur). Brauzerdə uc-uca sınanıb (skan → giriş → davamiyyət,
+köhnə kod → xəta, əl ilə silmə).
 
 **Real sınaq (2026-10-31): Whisper produksiyada İŞLƏYİR** (müəllim
 danışdı, mətn göründü). Quiz isə fənni bilmirdi: «Qanunvericilik»
