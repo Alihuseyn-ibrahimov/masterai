@@ -171,7 +171,14 @@
             }
           }));
         }
-      } else if (lesson.status === 'live') {
+      }
+      if (lesson.mode === 'online' && lesson.status !== 'ended') {
+        const enter = document.createElement('a');
+        enter.className = `btn ${lesson.status === 'live' ? 'btn--primary' : 'btn--secondary'} btn--sm`;
+        enter.href = `dars.html?id=${encodeURIComponent(lesson.id)}`;
+        enter.textContent = lesson.status === 'live' ? 'Dərs otağına gir' : 'Dərs otağı';
+        actions.append(enter);
+      } else if (!isTeacher && lesson.status === 'live') {
         if (lesson.attended) {
           const done = document.createElement('span');
           done.className = 'badge badge--success';

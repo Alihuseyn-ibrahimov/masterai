@@ -216,6 +216,7 @@ CASES = {
         {"title": "x", "starts_at": "2099-01-01T10:00:00Z"}, None),
     ("GET", "/chats/{chat_id}/lessons"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/me/lessons/{lesson_id}"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/me/lessons/{lesson_id}/video"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/me/lessons/{lesson_id}/attend"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("PATCH", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, {"notes": "x"}, None),
     ("DELETE", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),

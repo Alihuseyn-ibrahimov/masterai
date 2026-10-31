@@ -72,6 +72,7 @@ from .auth import InvalidToken, create_token, hash_password, token_secret, verif
 from .badge_store import BadgeStore
 from .summary_store import SummaryStore
 from .lesson_store import LessonStore
+from .video import LiveKitConfig, lesson_room, livekit_config, make_join_token
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
 from .course_store import TEACHER_INVITE_TTL, UnknownProfile
@@ -101,6 +102,7 @@ from .models import (
     LessonCreate,
     LessonInfo,
     LessonUpdate,
+    LessonVideoAccess,
     PublishSummaryRequest,
     SummaryInfo,
     AuditLogRow,
@@ -383,6 +385,11 @@ def get_summary_store() -> SummaryStore:
 def get_lesson_store() -> LessonStore:
     """Dərs cədvəli store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.lesson_store
+
+
+def get_livekit_config() -> LiveKitConfig | None:
+    """LiveKit açarları (testdə override olunur). `None` = video sönülüdür."""
+    return livekit_config()
 
 
 def get_summarizer():
@@ -2329,6 +2336,36 @@ def attend_lesson(
         raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb və ya bitib")
     lessons.mark_attendance(lesson_id, user["id"], "online" if lesson["mode"] == "online" else "offline")
     return _lesson_info(lesson, chats, attended=True)
+
+
+@app.post("/me/lessons/{lesson_id}/video", response_model=LessonVideoAccess)
+def join_lesson_video(
+    lesson_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    livekit: LiveKitConfig | None = Depends(get_livekit_config),
+) -> LessonVideoAccess:
+    """Canlı onlayn dərsin video otağına giriş tokeni. Tələbə üçün bu,
+    davamiyyətdir da: otağa girən tələbə dərsə gəlmiş sayılır."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["mode"] != "online":
+        raise HTTPException(status_code=409, detail="Bu dərs sinifdə keçirilir, video yoxdur")
+    if lesson["status"] != "live":
+        raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb və ya bitib")
+    if livekit is None:
+        raise HTTPException(status_code=503, detail="Video dərs hələ qurulmayıb (LiveKit açarları yoxdur)")
+    is_host = bool(user["is_teacher"])
+    if not is_host:
+        lessons.mark_attendance(lesson_id, user["id"], "online")
+    # Token dərsin qalan müddəti + 1 saat yaşayır, ən çoxu 6 saat:
+    # uzanan dərsdə yenidən qoşulan tələbə təzə token alır.
+    ttl = min(6 * 3600, (lesson["duration_min"] + 60) * 60)
+    room = lesson_room(lesson_id)
+    identity = f"user-{user['id']}"
+    token = make_join_token(livekit, room=room, identity=identity, name=user["display_name"],
+                            is_host=is_host, ttl_seconds=ttl)
+    return LessonVideoAccess(url=livekit.url, token=token, room=room, identity=identity, is_host=is_host)
 
 
 @app.patch("/live/lessons/{lesson_id}", response_model=LessonInfo)
