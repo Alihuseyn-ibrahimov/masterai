@@ -257,3 +257,35 @@ def test_used_ticket_falls_back_to_guest(env):
         assert ws.receive_json()["type"] == "joined"
     [participant] = env["live_sessions"].list_participants(env["session"]["id"])
     assert participant["user_id"] is None
+
+
+# ---- Proyektor rejimi: PIN linkinin QR-ı (2026-10-31) ----
+
+
+def _get_qr(env, user):
+    token = create_token(user["id"], secret=_SECRET)
+    return env["client"].get(
+        f"/live/sessions/{env['session']['id']}/join-qr",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def test_join_qr_encodes_pin_link(env, monkeypatch):
+    monkeypatch.setenv("SITE_URL", "https://sinif.example/")
+    r = _get_qr(env, env["teacher"])
+    assert r.status_code == 200, r.text
+    body = r.json()
+    pin = env["session"]["pin"]
+    assert body["pin"] == pin
+    assert body["url"] == f"https://sinif.example/qosul.html?pin={pin}"
+    assert body["svg"].startswith("<svg") and "<script" not in body["svg"]
+
+
+def test_join_qr_is_teacher_only(env):
+    assert _get_qr(env, env["student"]).status_code == 403
+
+
+def test_join_qr_not_given_after_session_finished(env):
+    # Bitmiş sessiyanın PIN-i yeni sessiyaya düşə bilər - köhnə QR səhv sinfə aparardı.
+    env["live_sessions"].set_status(env["session"]["id"], "finished")
+    assert _get_qr(env, env["teacher"]).status_code == 409

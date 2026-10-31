@@ -279,6 +279,10 @@
   --tap-target:        56px;
   --icon-tile:         48px;   /* «Bu gün» kartlarındakı ikon kvadratı */   /* cavab variantı, əsas düymələr */
   --score-ring-size:  120px;   /* yekun xal dairəsi (conic-gradient) */
+  /* Proyektor rejimi: sinfin arxa sırasından oxunsun deyə ekranla böyüyür. */
+  --stage-pin:        clamp(48px, 9vw, 144px);
+  --stage-timer:      clamp(48px, 10vw, 128px);
+  --stage-qr:         min(40vh, 30vw);
   --app-bar-height:    56px;   /* üst zolaq (mediapulse ilə eyni) */
   --bottom-nav-height: 60px;   /* mobil alt naviqasiya */
   --width-container: 1200px;

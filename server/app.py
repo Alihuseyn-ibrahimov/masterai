@@ -82,7 +82,7 @@ from .badge_store import BadgeStore
 from .summary_store import SummaryStore
 from .ws_ticket import TICKET_TTL_SECONDS, WsTicketStore
 from .attendance_qr import join_url as qr_join_url
-from .attendance_qr import make_code, qr_svg, verify_code
+from .attendance_qr import make_code, qr_svg, site_url, verify_code
 from .attendance_qr import seconds_left as qr_seconds_left
 from .lesson_store import BOARD_SEQ_START, LessonStore
 from .video import LiveKitConfig, lesson_room, livekit_config, make_join_token
@@ -120,6 +120,7 @@ from .models import (
     LessonInfo,
     LessonNote,
     LessonQr,
+    LiveJoinQr,
     QuestionReviewOut,
     QuestionSetReview,
     ReviewIssueOut,
@@ -3354,6 +3355,29 @@ def get_chat_live_session(
         started_by_user_id=session["created_by"],
         pin=(session["pin"] or None) if user["is_teacher"] else None,
     )
+
+
+@app.get("/live/sessions/{session_id}/join-qr", response_model=LiveJoinQr)
+def get_live_join_qr(
+    session_id: int,
+    user: dict = Depends(get_current_teacher),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> LiveJoinQr:
+    """Proyektor rejimi: PIN linkinin QR-ı. Bitmiş sessiyanın PIN-i
+    başqa sessiyaya verilə bilər, ona görə bitəndə QR verilmir."""
+    session = live_sessions.get(session_id)
+    if session is None or not _same_course(
+        _session_course_id(session, chats, question_sets), user
+    ):
+        raise HTTPException(status_code=404, detail="Sessiya tapılmadı")
+    if not session.get("pin"):
+        raise HTTPException(status_code=404, detail="Bu sessiyanın PIN-i yoxdur")
+    if session["status"] == "finished":
+        raise HTTPException(status_code=409, detail="Sessiya bitib")
+    url = f"{site_url()}/qosul.html?pin={session['pin']}"
+    return LiveJoinQr(pin=session["pin"], url=url, svg=qr_svg(url))
 
 
 @app.get("/live/sessions/{session_id}/report", response_model=LiveSessionReport)

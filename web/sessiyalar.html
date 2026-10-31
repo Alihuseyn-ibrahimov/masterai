@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031f" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031g" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031f">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031f">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031g">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031g">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031g">
 <style>
   /* Sinif adı ekrana proyeksiya edilir - uzaqdan oxunmalıdır.
      Əvvəl burada PIN vardı; PIN axını silindi. */
@@ -61,7 +61,13 @@
   <section class="stack" id="sessionSection" hidden>
     <div class="section-header">
       <h1 id="sessionTitle">Sessiya</h1>
-      <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+      <div class="page-actions">
+        <span class="badge badge--neutral" id="connStatus">Qoşulur…</span>
+        <button class="btn btn--primary btn--sm" type="button" id="projectorButton">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-presentation"></use></svg>
+          Proyektora çıxar
+        </button>
+      </div>
     </div>
 
     <div class="card stack" style="text-align: center">
@@ -110,6 +116,53 @@
 
 </div>
 
+<!-- Proyektor rejimi (2026-10-31): bütün sinfin baxdığı ekran. Tam ekran
+     açılır; idarə yenə də müəllimin əlindədir (başlat düyməsi buradadır).
+     Gedişatda fərdi xal YOXDUR - kimin geri qaldığı lövhədə yazılmır. -->
+<section class="stage" id="stage" hidden aria-label="Proyektor ekranı">
+  <div class="stage__bar">
+    <div class="stage__heading">
+      <span class="stage__title" id="stageTitle">Sessiya</span>
+      <span class="stage__class" id="stageClass"></span>
+    </div>
+    <button class="btn btn--secondary btn--sm" type="button" id="stageExit">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-x"></use></svg>
+      Çıx
+    </button>
+  </div>
+
+  <div class="stage__body stage__body--waiting" id="stageWaiting">
+    <div class="stage__join">
+      <div class="stage__step" id="stageJoinPin" hidden>
+        <span class="stage__label">Telefonda açın</span>
+        <span class="stage__url" id="stageUrl"></span>
+        <span class="stage__label">və PIN yazın</span>
+        <span class="stage__pin" id="stagePin"></span>
+      </div>
+      <p class="stage__hint">Sinif üzvləri çatdakı «Qoşul» düyməsi ilə də girə bilər.</p>
+    </div>
+    <img class="stage__qr" id="stageQr" alt="Qoşulma linkinin QR kodu" hidden>
+    <div class="stage__people">
+      <p class="stage__count"><span id="stageCount">0</span> nəfər qoşulub</p>
+      <ul class="stage__names" id="stageNames"></ul>
+      <button class="btn btn--primary btn--lg" type="button" id="stageStart" disabled>Başlat</button>
+    </div>
+  </div>
+
+  <div class="stage__body stage__body--center" id="stageRunning" hidden>
+    <div class="stage__timer" id="stageTimer" role="timer">-</div>
+    <div class="stage__meter" aria-hidden="true"><div class="stage__meter-fill" id="stageMeter"></div></div>
+    <p class="stage__count"><span id="stagePercent">0%</span> cavablandı · <span id="stageDone">0 / 0</span> bitirdi</p>
+    <ul class="stage__names stage__names--done" id="stageDoneNames"></ul>
+  </div>
+
+  <div class="stage__body stage__body--center" id="stageFinished" hidden>
+    <p class="stage__label">Nəticə</p>
+    <ol class="podium" id="stagePodium"></ol>
+    <ol class="stage__rest" id="stageRest"></ol>
+  </div>
+</section>
+
 <nav id="bottomNav"></nav>
 
 <script type="module">
@@ -122,6 +175,9 @@
     DURATION_CHOICES_MINUTES, LiveHostSocket, formatCountdown, participantRows,
   } from './assets/js/live-socket.js';
   import { joinLink } from './assets/js/live-pin.js';
+  import {
+    classProgress, displayUrl, formatPin, podium, stagePhase, visibleNames,
+  } from './assets/js/projector.js';
 
   const STATUS_LABELS = {
     connecting: ['Qoşulur…', 'badge badge--neutral'],
@@ -263,6 +319,7 @@
       const container = document.getElementById('participants');
       container.innerHTML = '';
       const rows = participantRows(participants, progressById, totalQuestions);
+      renderStage();
       if (!rows.length) {
         container.innerHTML = '<p class="text-sm text-muted">Hələ heç kim qoşulmayıb.</p>';
         return;
@@ -349,9 +406,124 @@
         .catch(() => {});
     }
 
+    /* ---- Proyektor ekranı ---- */
+
+    const stage = document.getElementById('stage');
+    const stageNames = document.getElementById('stageNames');
+    const STAGE_NAME_LIMIT = 40;
+    let currentSessionId = null;
+    let started = false;
+    let finished = false;
+    let finalBoard = [];
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    /** Qoşulan adlar. Yeni gələn ad «pop» ilə girir, köhnələr yerində
+     *  qalır - hər hadisədə bütün siyahı yenidən çəkilsə hamısı titrəyərdi. */
+    function renderStageNames() {
+      const names = participants.map((p) => p.display_name || `İştirakçı #${p.id}`);
+      const { shown, more } = visibleNames(names, STAGE_NAME_LIMIT);
+      const known = new Set([...stageNames.querySelectorAll('[data-name-index]')]
+        .map((node) => node.dataset.nameIndex));
+      stageNames.querySelector('.stage__more')?.remove();
+      shown.forEach((name, index) => {
+        if (known.has(String(index))) return;
+        const chip = el('li', 'stage__name', name);
+        chip.dataset.nameIndex = String(index);
+        stageNames.append(chip);
+      });
+      if (more) stageNames.append(el('li', 'stage__name stage__more', `+${more}`));
+      document.getElementById('stageCount').textContent = String(participants.length);
+      document.getElementById('stageStart').disabled = participants.length === 0;
+    }
+
+    function renderStageProgress() {
+      const progress = classProgress(participantRows(participants, progressById, totalQuestions));
+      document.getElementById('stagePercent').textContent = `${progress.percent}%`;
+      document.getElementById('stageDone').textContent = `${progress.finished} / ${progress.people}`;
+      document.getElementById('stageMeter').style.setProperty('--progress', `${progress.percent}%`);
+      const list = document.getElementById('stageDoneNames');
+      list.replaceChildren(...visibleNames(progress.finishedNames, STAGE_NAME_LIMIT).shown
+        .map((name) => el('li', 'stage__name stage__name--done', name)));
+    }
+
+    function renderStagePodium() {
+      const { podium: top, rest } = podium(finalBoard);
+      const list = document.getElementById('stagePodium');
+      list.replaceChildren(...top.map((row) => {
+        const item = el('li', `podium__step podium__step--${row.place === 1 ? 'first' : 'other'}`);
+        item.append(el('span', 'podium__name', row.name), el('span', 'podium__score', `${row.score} düzgün`),
+          el('span', 'podium__place', String(row.place)));
+        return item;
+      }));
+      if (!top.length) list.append(el('li', 'stage__hint', 'Nəticə yoxdur.'));
+      document.getElementById('stageRest').replaceChildren(...rest.slice(0, 7).map((row) => {
+        const item = el('li', 'rank');
+        item.append(el('span', 'rank__place', String(row.place)), el('span', 'rank__name', row.name),
+          el('span', 'rank__score', String(row.score)));
+        return item;
+      }));
+    }
+
+    function renderStage() {
+      if (stage.hidden) return;
+      const phase = stagePhase({ started, finished });
+      document.getElementById('stageWaiting').hidden = phase !== 'waiting';
+      document.getElementById('stageRunning').hidden = phase !== 'running';
+      document.getElementById('stageFinished').hidden = phase !== 'finished';
+      if (phase === 'waiting') renderStageNames();
+      if (phase === 'running') renderStageProgress();
+      if (phase === 'finished') renderStagePodium();
+    }
+
+    /** QR serverdə yaranır (segno) - brauzerə QR kitabxanası lazım deyil.
+     *  Köhnə (PIN-siz) sessiyada 404 gəlir: onda yalnız çat yolu qalır. */
+    function loadStageQr() {
+      request(`/live/sessions/${currentSessionId}/join-qr`).then((qr) => {
+        const image = document.getElementById('stageQr');
+        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.svg)}`;
+        image.hidden = false;
+        document.getElementById('stagePin').textContent = formatPin(qr.pin);
+        document.getElementById('stageUrl').textContent = displayUrl(qr.url);
+        document.getElementById('stageJoinPin').hidden = false;
+      }).catch(() => {});
+    }
+
+    function openStage() {
+      stage.hidden = false;
+      document.body.classList.add('is-staged');
+      document.getElementById('stageTitle').textContent = document.getElementById('sessionTitle').textContent;
+      document.getElementById('stageClass').textContent = document.getElementById('chatName').textContent;
+      stageNames.replaceChildren();
+      if (!finished && document.getElementById('stageQr').hidden) loadStageQr();
+      renderStage();
+      stage.requestFullscreen?.().catch(() => {});
+      document.getElementById('stageExit').focus();
+    }
+
+    function closeStage() {
+      if (stage.hidden) return;
+      stage.hidden = true;
+      document.body.classList.remove('is-staged');
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      document.getElementById('projectorButton').focus();
+    }
+
+    document.getElementById('projectorButton').addEventListener('click', openStage);
+    document.getElementById('stageExit').addEventListener('click', closeStage);
+    // Tam ekrandan Esc ilə çıxanda brauzer özü çıxır - ekran da bağlanmalıdır.
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) closeStage(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeStage(); });
+
     function tickCountdown() {
       remainingSeconds -= 1;
       countdownEl.textContent = formatCountdown(remainingSeconds);
+      document.getElementById('stageTimer').textContent = formatCountdown(remainingSeconds);
       if (remainingSeconds <= 0 && countdownTimer) {
         clearInterval(countdownTimer);
         countdownTimer = null;
@@ -388,6 +560,7 @@
     /** Host konsolunu bir sessiyaya bağlayır. Sessiyanın YARADILMASINDAN
      *  ayrıdır ki, `?sessionId=` ilə geri qayıtmaq mümkün olsun. */
     function openConsole(sessionId, chatId) {
+      currentSessionId = sessionId;
       const chat = myChats.find((c) => c.id === chatId);
       document.getElementById('chatName').textContent =
         chat ? (chat.name || `Çat #${chatId}`) : 'Sinif';
@@ -424,9 +597,11 @@
           if (data.type === 'started') {
             totalQuestions = data.total_questions || totalQuestions;
             remainingSeconds = data.duration_seconds || 0;
+            started = true;
             startCard.hidden = true;
             runningCard.hidden = false;
             countdownEl.textContent = formatCountdown(remainingSeconds);
+            document.getElementById('stageTimer').textContent = formatCountdown(remainingSeconds);
             countdownTimer = setInterval(tickCountdown, 1000);
             renderParticipants();
             return;
@@ -442,7 +617,10 @@
             runningCard.hidden = true;
             startCard.hidden = true;
             finishedCard.hidden = false;
+            finished = true;
+            finalBoard = data.leaderboard || [];
             renderLeaderboard(data.leaderboard);
+            renderStage();
             showDifficultyStats(sessionId);
             return;
           }
@@ -451,11 +629,13 @@
       });
       socket.connect();
 
-      startBtn.addEventListener('click', () => {
+      const startNow = () => {
         if (!socket.start(selectedMinutes * 60)) {
           showError('Bağlantı hazır deyil - bir azdan cəhd edin.');
         }
-      });
+      };
+      startBtn.addEventListener('click', startNow);
+      document.getElementById('stageStart').addEventListener('click', startNow);
     }
 
     window.addEventListener('beforeunload', () => { if (socket) socket.close(); });
