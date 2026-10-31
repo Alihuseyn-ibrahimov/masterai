@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1960 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1970 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -248,6 +248,19 @@ Model `data/difficulty_model.json`-dadırsa (`DIFFICULTY_MODEL_PATH`)
 `suallar.html` kartın altında göstərir. Sintetik datada öyrədilmiş model
 (`synthetic: true`) HEÇ VAXT göstərilmir. Real data hələ yoxdur: model
 yalnız sintetik dəstlə sınanıb. Ətraflı: `ml/README.md`.
+
+**Gün 16 — QLoRA fine-tune (Colab).** `ml/sft_dataset.py` serverdəki hazır
+banklardan chat formatında «material parçası → yaxşı suallar» dataseti qurur:
+parçalama produksiyadakı kimi (`pipeline.chunking`), sual BM25 ilə öz
+parçasına bağlanır, qaydalı filtri keçməyən və AI komandasının «fix» dediyi
+suallar ATILIR, train/val BANK üzrə bölünür. İstifadəçi mesajı produksiya
+promptu ilə bayt-bayt eynidir: `generation.user_prompt` (test
+`generate_for_chunks`-ın modelə göndərdiyi mətni tutub müqayisə edir).
+`ml/qlora_mcq.ipynb`: Qwen2.5-3B 4-bit NF4 + LoRA r=16 (TRL SFTTrainer,
+versiyalar sabit), baza vs fine-tune `ml/score_generation.py` ilə (JSON,
+say, qaydalar, özünü verən cavab, materiala bağlılıq), sonda birləşdirib
+saxlayır. Notebook bu sandbox-da İŞLƏDİLMƏYİB (GPU yoxdur): test yalnız
+JSON-u və kod hüceyrələrinin sintaksisini yoxlayır.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

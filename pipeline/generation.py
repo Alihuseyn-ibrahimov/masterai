@@ -151,6 +151,14 @@ def _make_input(
     }
 
 
+def user_prompt(chunk: str, questions_per_chunk: int, *, subject_note: str = "", difficulty_note: str = "") -> str:
+    """Produksiyada modelə gedən istifadəçi mesajı - bayt-bayt eyni. Fine-tune dataseti
+    (gün 16) və öz modelimizin serving-i (gün 17) məhz bu mətni işlədir: öyrətmə ilə
+    istifadə arasında prompt fərqi modelin keyfiyyətini sükutla aşağı salardı."""
+    return _PROMPT.format(**_make_input(chunk, questions_per_chunk, subject_note=subject_note,
+                                        difficulty_note=difficulty_note))
+
+
 def generate_for_chunks(
     chunks: list[str],
     completers: dict[str, Completer],
@@ -205,3 +213,8 @@ def generate_for_chunks(
                 questions.extend(result.questions)
 
     return questions, failed
+
+
+def parse_questions(text: str) -> list[MCQQuestion]:
+    """Model cavabı → suallar (produksiya ilə eyni parser). Pozuq JSON-da xəta atır."""
+    return _parser.parse(text).questions
