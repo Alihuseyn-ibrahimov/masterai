@@ -207,6 +207,9 @@ class TestDifficultyMix:
         assert r.json()["difficulty_mix"] == "20/50/30"
         _wait_until_not_processing(env["question_sets"], r.json()["id"])
         assert captured["difficulty_mix"] == (20, 50, 30)
+        # Fənn AI-a ötürülür (2026-10-31: əvvəl ötürülmürdü, qanunvericilik
+        # bankında hesab sualları çıxırdı).
+        assert captured["subject"] == self._base["subject"]
 
     def test_default_mix_is_30_50_20(self, env):
         r = env["client"].post("/live/question-sets", data=self._base, headers=_auth(env["teacher"]))

@@ -44,7 +44,8 @@ class TestPrompts:
         assert _sha(SYSTEM_PROMPT) == _EXAM_SYSTEM_SHA
         # Çətinlik qeydi (Faza 2, 2026-10-30) boş olanda şablon köhnə
         # şablonla BAYT-BAYT eynidir — bölgü seçilməyən yükləmə dəyişmir.
-        assert _sha(_PROMPT.template.replace("{difficulty_note}", "")) == _EXAM_HUMAN_SHA
+        # Fənn qaydası (2026-10-31) da boş olanda heç nə dəyişmir.
+        assert _sha(_PROMPT.template.replace("{difficulty_note}", "").replace("{subject_note}", "")) == _EXAM_HUMAN_SHA
         assert system_prompt_for("exam_prep", "practice") is SYSTEM_PROMPT
 
     def test_english_practice_prompt(self):

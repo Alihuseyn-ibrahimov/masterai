@@ -149,8 +149,9 @@ def _lesson_quiz_env(env, tmp_path):
 
     seen = {}
 
-    def generator(source, question_count=10, **_options):
+    def generator(source, question_count=10, **options):
         seen["kind"] = source.kind
+        seen["subject"] = options.get("subject")
         seen["text"] = open(source.location, encoding="utf-8").read()
         return PipelineResult(
             questions=[MCQQuestion(question=f"Sual {i}?", options=list("ABCDE"), correct_index=0,
@@ -192,6 +193,7 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
     assert bank["status"] == "ready" and bank["title"] == _LESSON["title"]
     assert bank["material_kind"] == "text" and seen["kind"] == "text"
     assert "Konstitusiya" in seen["text"]
+    assert seen["subject"] == "qanunvericilik"
     summary = summaries.get_for_question_set(qs_id)
     deadline = time.time() + 5
     while summary["status"] == "processing" and time.time() < deadline:

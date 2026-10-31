@@ -111,7 +111,7 @@ _PROMPT = PromptTemplate.from_template(
     "izahı olmalıdır.\n"
     "Düzgün variant uzunluğu və təfsilatı ilə seçilməməlidir: 5 variantın "
     "hamısı təxminən eyni uzunluqda olsun, düzgün cavab ən uzun variant olmasın.\n\n"
-    "Material:\n---\n{chunk}\n---\n\n{difficulty_note}{retry_note}{format_instructions}"
+    "Material:\n---\n{chunk}\n---\n\n{subject_note}{difficulty_note}{retry_note}{format_instructions}"
 )
 
 
@@ -129,7 +129,8 @@ def _build_chain(completers: dict[str, Completer], order: list[str], system_prom
 
 
 def _make_input(
-    chunk: str, questions_per_chunk: int, *, retry: bool = False, difficulty_note: str = ""
+    chunk: str, questions_per_chunk: int, *, retry: bool = False, difficulty_note: str = "",
+    subject_note: str = "",
 ) -> dict:
     # Real testdə tapılıb: retry xəbərdarlığı əvvəllər `chunk`-a (yəni
     # "Material:" bölməsinin İÇİNƏ) əlavə olunurdu — AI onu materialın
@@ -144,6 +145,8 @@ def _make_input(
         # Çətinlik bölgüsü (Faza 2) — `retry_note` kimi "Material:"
         # blokundan KƏNARDA: model onu materialın hissəsi saymasın.
         "difficulty_note": difficulty_note,
+        # Fənn qaydası (bax `pipeline/subjects.py`) - eyni səbəbdən kənarda.
+        "subject_note": subject_note,
         "format_instructions": _parser.get_format_instructions(),
     }
 
@@ -155,6 +158,7 @@ def generate_for_chunks(
     questions_per_chunk: int = 3,
     system_prompt: str = SYSTEM_PROMPT,
     difficulty_note: str = "",
+    subject_note: str = "",
 ) -> tuple[list[MCQQuestion], int]:
     """Hər chunk üçün `questions_per_chunk` ədəd MCQ sualı çıxarır.
 
@@ -169,7 +173,8 @@ def generate_for_chunks(
     chain = _build_chain(completers, order, system_prompt)
 
     first_pass = chain.batch(
-        [_make_input(c, questions_per_chunk, difficulty_note=difficulty_note) for c in chunks],
+        [_make_input(c, questions_per_chunk, difficulty_note=difficulty_note, subject_note=subject_note)
+         for c in chunks],
         config={"max_concurrency": _MAX_CONCURRENCY},
         return_exceptions=True,
     )
@@ -186,7 +191,8 @@ def generate_for_chunks(
     if retry_indices:
         retry_pass = chain.batch(
             [
-                _make_input(chunks[i], questions_per_chunk, retry=True, difficulty_note=difficulty_note)
+                _make_input(chunks[i], questions_per_chunk, retry=True, difficulty_note=difficulty_note,
+                            subject_note=subject_note)
                 for i in retry_indices
             ],
             config={"max_concurrency": _MAX_CONCURRENCY},
