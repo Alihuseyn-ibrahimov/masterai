@@ -978,3 +978,9 @@
   box-shadow: var(--shadow-raised);
 }
 .btn[aria-pressed="true"] { background: var(--color-primary-soft); }
+
+/* Dərs mətni (gün 3): Whisper-in abzasları boş sətirlə ayrılır. */
+.transcript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

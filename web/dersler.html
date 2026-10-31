@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031a" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
-<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
-<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031a">
 </head>
 <body>
 <header id="appBar"></header>
@@ -83,6 +83,14 @@
       <button class="btn btn--ghost btn--sm" type="button" id="closeAttendance">Bağla</button>
     </div>
     <div class="card" id="attendanceList"></div>
+  </section>
+
+  <section class="stack" id="transcriptSection" hidden>
+    <div class="section-header">
+      <h2 id="transcriptTitle">Dərs mətni</h2>
+      <button class="btn btn--ghost btn--sm" type="button" id="closeTranscript">Bağla</button>
+    </div>
+    <div class="card stack" id="transcriptBox"></div>
   </section>
 </div>
 
@@ -164,6 +172,7 @@
         }
         if (lesson.status !== 'scheduled') {
           actions.append(button('Davamiyyət', 'btn--secondary', () => showAttendance(lesson)));
+          actions.append(button('Dərs mətni', 'btn--secondary', () => showTranscript(lesson)));
         } else {
           actions.append(button('Sil', 'btn--ghost', () => {
             if (confirm(`"${lesson.title}" dərsi silinsin?`)) {
@@ -245,6 +254,34 @@
       });
       section.scrollIntoView({ behavior: 'smooth' });
     }
+    async function showTranscript(lesson) {
+      const section = document.getElementById('transcriptSection');
+      document.getElementById('transcriptTitle').textContent = `Dərs mətni: ${lesson.title}`;
+      section.hidden = false;
+      await loadInto(document.getElementById('transcriptBox'),
+        () => request(`/live/lessons/${lesson.id}/transcript`), (box, data) => {
+          box.innerHTML = '';
+          const waiting = data.segments.filter((x) => x.status === 'processing').length;
+          const failed = data.segments.filter((x) => x.status === 'failed').length;
+          const info = document.createElement('p');
+          info.className = 'text-sm text-muted';
+          info.textContent = !data.segments.length
+            ? 'Bu dərsin səsi yazılmayıb. Dərs otağında «Səsi yaz» düyməsi ilə yazmaq olar.'
+            : [`${data.segments.length} hissə`, waiting && `${waiting} hələ hazırlanır`,
+              failed && `${failed} alınmadı`].filter(Boolean).join(' · ');
+          box.append(info);
+          if (data.text) {
+            const text = document.createElement('p');
+            text.className = 'transcript-text';
+            text.textContent = data.text;
+            box.append(text);
+          }
+        });
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+    document.getElementById('closeTranscript').addEventListener('click', () => {
+      document.getElementById('transcriptSection').hidden = true;
+    });
     document.getElementById('closeAttendance').addEventListener('click', () => {
       document.getElementById('attendanceSection').hidden = true;
     });

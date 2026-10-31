@@ -80,6 +80,21 @@ build addımı yoxdur və CDN-in düşməsi dərsi dayandırmır. Bu sandbox-da
 LiveKit serveri işlədilə bilmədi — real video axını produksiyada
 sınanmalıdır.
 
+**Gün 3 — dərs səsi → mətn (Whisper).** Müəllim dərs otağında «Səsi
+yaz» basır; `assets/js/lesson-recorder.js` YALNIZ müəllimin mikrofonunu
+~5 dəqiqəlik MÜSTƏQİL hissələrlə yazır (hər hissə üçün yeni
+MediaRecorder: hər fayl başlığı olan tam fayldır, bir hissə itsə dərs
+itmir) və `POST /live/lessons/{id}/audio` (`seq` + fayl, ≤24 MB) ilə
+göndərir. Server fonda `pipeline/transcribe.py` ilə Groq Whisper-ə
+(`GROQ_WHISPER_MODEL`, defolt `whisper-large-v3`, `language=az`)
+verir, mətni `lesson_transcripts`-ə yazır, səs faylını SİLİR.
+Bitmiş dərsə də hissə qəbul olunur (son hissə yolda ola bilər); eyni
+`seq` yenidən göndərilsə sətrin yerinə yazılır, ona görə səhifə
+yenilənəndə nömrələmə serverdəki son `seq`-dən davam edir. Müəllim
+mətni `dersler.html`-də «Dərs mətni» ilə görür. Brauzerdə saxta
+transkriptorla uc-uca sınanıb (3 hissə, sıra ilə); real Whisper və
+Azərbaycan dilində keyfiyyət produksiyada yoxlanmalıdır.
+
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla

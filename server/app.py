@@ -67,6 +67,7 @@ from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
 from pipeline.summary import LessonSummary, summarize_material
+from pipeline.transcribe import transcribe_audio
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
@@ -102,6 +103,8 @@ from .models import (
     LessonCreate,
     LessonInfo,
     LessonUpdate,
+    LessonTranscript,
+    LessonTranscriptSegment,
     LessonVideoAccess,
     PublishSummaryRequest,
     SummaryInfo,
@@ -248,6 +251,7 @@ _interrupted_materials = app.state.material_store.fail_interrupted()
 app.state.summary_store.fail_interrupted(
     "Server yenidən başladığı üçün xülasə yarımçıq qaldı. Yenidən hazırlayın."
 )
+app.state.lesson_store.fail_interrupted_segments()
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -262,6 +266,8 @@ app.state.active_material_tasks = {}
 app.state.active_question_set_tasks = {}
 # summary_id -> xülasə emalı task-ı (eyni naxış).
 app.state.active_summary_tasks = {}
+# (lesson_id, seq) -> dərs səsinin mətnə çevrilməsi task-ı (eyni naxış).
+app.state.active_transcript_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
 app.state.active_live_timeouts = {}
 
@@ -390,6 +396,11 @@ def get_lesson_store() -> LessonStore:
 def get_livekit_config() -> LiveKitConfig | None:
     """LiveKit açarları (testdə override olunur). `None` = video sönülüdür."""
     return livekit_config()
+
+
+def get_transcriber():
+    """Səs faylı→mətn funksiyası (testdə fake funksiya ilə override olunur)."""
+    return transcribe_audio
 
 
 def get_summarizer():
@@ -2451,6 +2462,89 @@ def lesson_attendance(
         ))
     rows.sort(key=lambda r: (not r.present, r.display_name))
     return rows
+
+
+# ---- Gün 3: dərs səsi → mətn (Whisper) ----------------------------------
+# Brauzer müəllimin mikrofonunu ~5 dəqiqəlik MÜSTƏQİL hissələrlə yazır
+# (hər hissə öz başlığı olan tam fayldır), hər birini `seq` ilə göndərir.
+# Bir hissənin uğursuzluğu bütün dərsi itirmir, və hər fayl Groq-un
+# 25 MB limitindən xeyli kiçikdir.
+
+MAX_LESSON_AUDIO_BYTES = 24 * 1024 * 1024
+_AUDIO_EXTENSIONS = {".webm", ".ogg", ".oga", ".mp3", ".m4a", ".mp4", ".wav"}
+
+
+async def _process_transcript(lesson_id: int, seq: int, path: str, *, transcriber,
+                              lessons: LessonStore) -> None:
+    try:
+        text = await asyncio.to_thread(transcriber, path)
+    except Exception as exc:
+        logger.exception("Dərs səsi mətnə çevrilmədi (lesson_id=%s seq=%s)", lesson_id, seq)
+        lessons.finish_segment(lesson_id, seq, error=str(exc)[:500])
+        return
+    finally:
+        app.state.active_transcript_tasks.pop((lesson_id, seq), None)
+    lessons.finish_segment(lesson_id, seq, text=text)
+    # Mətn alındısa səs saxlanmır: diski yeyir və tələbənin səsi də ola bilər.
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _transcript(lessons: LessonStore, lesson_id: int) -> LessonTranscript:
+    return LessonTranscript(
+        lesson_id=lesson_id,
+        segments=[LessonTranscriptSegment(seq=s["seq"], status=s["status"], error=s["error"])
+                  for s in lessons.list_segments(lesson_id)],
+        text=lessons.transcript_text(lesson_id),
+    )
+
+
+@app.post("/live/lessons/{lesson_id}/audio", response_model=LessonTranscript, status_code=202)
+async def upload_lesson_audio(
+    lesson_id: int,
+    seq: int = Form(..., ge=0, le=999),
+    audio: UploadFile = File(...),
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    upload_dir: str = Depends(get_upload_dir),
+    transcriber=Depends(get_transcriber),
+) -> LessonTranscript:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    # Bitmiş dərs də qəbul edilir: «Dərsi bitir»-dən sonra son hissə
+    # hələ yolda ola bilər.
+    if lesson["status"] == "scheduled":
+        raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb")
+    if (lesson_id, seq) in app.state.active_transcript_tasks:
+        raise HTTPException(status_code=409, detail="Bu hissə artıq emal olunur")
+    ext = os.path.splitext(audio.filename or "")[1].lower()
+    if ext not in _AUDIO_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Səs faylı gözlənilir (webm, ogg, mp3, m4a, wav)")
+    try:
+        path = await save_upload(audio, upload_dir=os.path.join(upload_dir, "lessons"),
+                                 max_bytes=MAX_LESSON_AUDIO_BYTES)
+    except PayloadTooLarge:
+        raise HTTPException(status_code=413, detail="Səs hissəsi çox böyükdür")
+
+    lessons.start_segment(lesson_id, seq)
+    task = asyncio.create_task(
+        _process_transcript(lesson_id, seq, path, transcriber=transcriber, lessons=lessons)
+    )
+    app.state.active_transcript_tasks[(lesson_id, seq)] = task
+    return _transcript(lessons, lesson_id)
+
+
+@app.get("/live/lessons/{lesson_id}/transcript", response_model=LessonTranscript)
+def lesson_transcript(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonTranscript:
+    _lesson_for_member(lessons, chats, lesson_id, user)
+    return _transcript(lessons, lesson_id)
 
 
 async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> None:

@@ -142,7 +142,9 @@ export async function request(path, options = {}) {
   const { method = 'GET', body, auth = true, signal } = options;
 
   const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // FormData (fayl yükləmə): Content-Type-ı brauzer özü `boundary` ilə qoyur.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (auth) {
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -153,7 +155,7 @@ export async function request(path, options = {}) {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined || isForm ? body : JSON.stringify(body),
       signal,
     });
   } catch (cause) {
