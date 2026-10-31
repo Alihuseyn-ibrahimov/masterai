@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1970 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1976 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -261,6 +261,17 @@ versiyalar sabit), baza vs fine-tune `ml/score_generation.py` ilə (JSON,
 say, qaydalar, özünü verən cavab, materiala bağlılıq), sonda birləşdirib
 saxlayır. Notebook bu sandbox-da İŞLƏDİLMƏYİB (GPU yoxdur): test yalnız
 JSON-u və kod hüceyrələrinin sintaksisini yoxlayır.
+
+**Gün 17 — vLLM serving + sürət.** `pipeline/providers.py`-də `vllm`
+provayderi: OpenAI-uyğun `/v1/chat/completions`, sadə httpx (`transport`
+testdə saxta serverdir), yalnız `VLLM_BASE_URL` varsa qurulur. Sıra
+`.env`-də `LLM_ORDER` (defolt `groq,claude,ollama`; naməlum ad atılır).
+`finish_reason == "length"` XƏTADIR: yarımçıq JSON parserdə sınar, ona görə
+vaxtında növbəti provayderə keçilir. `ml/vllm_serve.ipynb` (Colab):
+HF generate baza ölçüsü → `vllm serve --dtype half --api-key` → 1/4/8
+paralel ölçmə (`ml/bench_llm.py`: axınla TTFT, p50/p95, tok/s) →
+Cloudflare tuneli, `.env` sətirlərini çap edir. Notebook burada
+İŞLƏDİLMƏYİB (GPU yoxdur); ölçmə skripti saxta SSE serverlə sınanıb.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
