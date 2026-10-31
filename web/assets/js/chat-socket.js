@@ -4,14 +4,14 @@
  * `app/README.md`): bağlantı kəsiləndə istifadəçi çatdan çıxıb yenidən
  * girməli idi.
  *
- * Token sorğu parametrindədir (`?token=...`) - brauzer WebSocket API-si
- * xüsusi başlıq göndərməyə imkan vermir. Bu, backend-in mövcud
- * müqaviləsidir; bilinən risk kimi `masterai/CLAUDE.md`-də qeyd olunub.
+ * Brauzer WebSocket API-si başlıq göndərə bilmir. JWT URL-ə YAZILMIR:
+ * hər qoşulmadan əvvəl `fetchWsTicket` birdəfəlik ticket alır.
  */
 
 import { WS_BASE_URL } from './config.js';
 import { normalizeHistory, normalizeLiveEvent } from './chat-item.js';
-import { ReconnectingSocket } from './socket.js';
+import { fetchWsTicket } from './api.js';
+import { ReconnectingSocket, withTicket } from './socket.js';
 
 export { computeBackoffDelay, isFatalCloseCode } from './socket.js';
 
@@ -19,8 +19,8 @@ export class ChatSocket {
   constructor(options) {
     this.options = options;
     this.socket = new ReconnectingSocket({
-      url: () => `${WS_BASE_URL}/ws/chat/${options.chatId}`
-        + `?token=${encodeURIComponent(options.token)}`,
+      url: withTicket(options.getTicket || fetchWsTicket, (ticket) => `${WS_BASE_URL}/ws/chat/${options.chatId}`
+        + `?ticket=${encodeURIComponent(ticket)}`),
       socketFactory: options.socketFactory,
       onStatus: options.onStatus,
       onMessage: (data) => this._handle(data),

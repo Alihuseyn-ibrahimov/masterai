@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2015 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 293 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -874,11 +874,19 @@ Sistemimiz üç növ materialı dəstəkləyir:
   icra yolunda aparıldı: plain uvicorn VƏ production-la eyni
   `gunicorn -k uvicorn.workers.UvicornWorker` — hər ikisində jurnalda
   `token=***`, tam token 0 dəfə.
-  **AÇIQ QALIR:** token hələ URL-dədir. Tam həll qısaömürlü WS "ticket"
-  tokenidir (bax `docs/superpowers/specs/2026-09-02-chat-messaging-design.md`,
-  bölmə 4) — `ReconnectingSocket` hər yenidən qoşulmada yeni ticket
-  istəyəcəyi üçün bu, canlı sessiya və çat bağlantısına toxunan ayrıca
-  işdir.
+  **✅ BAĞLANDI (2026-10-31): JWT artıq URL-də getmir.** Brauzer hər
+  qoşulmadan (yenidən qoşulma daxil) əvvəl `POST /auth/ws-ticket`
+  (Bearer başlığı ilə) birdəfəlik ticket alır və URL-ə `?ticket=` yazır
+  (`server/ws_ticket.py`: 60 saniyə, qoşulan kimi silinir, proses
+  yaddaşında - `-w 1` buna görə də vacibdir, restartda client yenisini
+  alır). `ReconnectingSocket.url` Promise qaytara bilir; ticket sorğusu
+  401/402/403 verərsə yenidən cəhd YOXDUR, şəbəkə xətasında backoff.
+  PIN səhifəsində ticket alınmasa tələbə qonaq kimi qoşulur. Ticket
+  göndərilibsə yalnız o yoxlanır (səhv ticket + keçərli token = rədd).
+  **Keçid dövrü:** köhnə `?token=` hələ qəbul olunur (keşdə köhnə JS,
+  `attack_check.py`, yük skriptləri) - bir neçə həftədən sonra
+  `_ws_user_id`-dən silinməlidir. Brauzerdə real backend ilə sınanıb:
+  iki qoşulma iki fərqli ticket, URL-də `eyJ` yoxdur.
   **Dərs (filtri yazarkən çıxdı):** filtri root HANDLER-inə qoşmaq
   İŞLƏMİR — `uvicorn.access` üçün `propagate=False`-dur və
   `UvicornWorker` onun `handlers`-ini əvəz edir. Filtr LOGGER-ə

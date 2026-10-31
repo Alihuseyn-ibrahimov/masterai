@@ -96,16 +96,16 @@ describe('LiveHostSocket', () => {
     // PIN yolu əvəzləndi: sessiya bir sinfə bağlıdır, konsol isə
     // yalnız onu başladan müəllimə açılır (server `created_by`-a baxır).
     const socket = new LiveHostSocket({
-      sessionId: 42, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 42, getTicket: () => 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
-    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/host\?token=tok$/);
+    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/host\?ticket=tok$/);
     socket.close();
   });
 
   test('başlatma mesajı backend-in gözlədiyi açarlarla gedir', () => {
     const socket = new LiveHostSocket({
-      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, getTicket: () => 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
@@ -116,7 +116,7 @@ describe('LiveHostSocket', () => {
 
   test('bağlantı açıq deyilsə başlatma uğursuz olduğunu bildirir', () => {
     const socket = new LiveHostSocket({
-      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, getTicket: () => 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     assert.equal(socket.start(180), false);
@@ -127,10 +127,10 @@ describe('LiveHostSocket', () => {
 describe('LivePlaySocket', () => {
   test('sessiya ID-si və token ilə qoşulur', () => {
     const socket = new LivePlaySocket({
-      sessionId: 42, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 42, getTicket: () => 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
-    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/play\?token=tok$/);
+    assert.match(FakeSocket.last.url, /\/ws\/live\/sessions\/42\/play\?ticket=tok$/);
     socket.close();
   });
 
@@ -138,7 +138,7 @@ describe('LivePlaySocket', () => {
     // Tələbə artıq ad yazmır - server onu hesabdan götürür. Köhnə
     // yolda ilk mesaj `display_name` idi; burada olmamalıdır.
     const socket = new LivePlaySocket({
-      sessionId: 1, token: 'tok', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, getTicket: () => 'tok', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();
@@ -148,7 +148,7 @@ describe('LivePlaySocket', () => {
 
   test('cavab və növbəti mesajları düzgün formatdadır', () => {
     const socket = new LivePlaySocket({
-      sessionId: 1, token: 't', onMessage: () => {}, socketFactory: FakeSocket,
+      sessionId: 1, getTicket: () => 't', onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
     FakeSocket.last.open();

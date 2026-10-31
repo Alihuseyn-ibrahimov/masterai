@@ -80,6 +80,7 @@ from pipeline.ingestion.errors import IngestionError
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
 from .summary_store import SummaryStore
+from .ws_ticket import TICKET_TTL_SECONDS, WsTicketStore
 from .attendance_qr import join_url as qr_join_url
 from .attendance_qr import make_code, qr_svg, verify_code
 from .attendance_qr import seconds_left as qr_seconds_left
@@ -109,6 +110,7 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
+    WsTicketResponse,
     DifficultyStat,
     LessonAttendanceRow,
     LessonAttendRequest,
@@ -256,6 +258,7 @@ TUTOR_MAX_QUESTIONS = 20
 app.state.tutor_rate_limiter = RateLimiter(TUTOR_MAX_QUESTIONS, 10 * 60)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
+app.state.ws_tickets = WsTicketStore()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
 app.state.question_store = QuestionStore(os.environ.get("QUESTIONS_DB_PATH", "questions.db"))
 app.state.quiz_session_store = QuizSessionStore(os.environ.get("QUIZ_SESSIONS_DB_PATH", "quiz_sessions.db"))
@@ -368,6 +371,24 @@ def get_join_rate_limiter() -> RateLimiter:
 def get_message_store() -> MessageStore:
     """Mesaj store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.message_store
+
+
+def get_ws_ticket_store() -> WsTicketStore:
+    """Birdəfəlik WS ticket-ləri (bax `server/ws_ticket.py`)."""
+    return app.state.ws_tickets
+
+
+def _ws_user_id(token: str, ticket: str, secret: str, tickets: WsTicketStore) -> int | None:
+    """WS girişi: əvvəl ticket, yoxdursa köhnə `?token=` (keşdə qalmış
+    köhnə JS üçün keçid dövrü). Uğursuzdursa `None`."""
+    if ticket:
+        return tickets.consume(ticket)
+    if not token:
+        return None
+    try:
+        return verify_token(token, secret=secret)
+    except InvalidToken:
+        return None
 
 
 def get_connection_manager() -> ConnectionManager:
@@ -670,6 +691,19 @@ def auth_register(
         except DuplicateEmail:
             raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
     return AuthResponse(token=create_token(user["id"], secret=secret), user=_user_info(user))
+
+
+@app.post("/auth/ws-ticket", response_model=WsTicketResponse)
+def auth_ws_ticket(
+    user: dict = Depends(get_current_user),
+    tickets: WsTicketStore = Depends(get_ws_ticket_store),
+) -> WsTicketResponse:
+    """WebSocket üçün birdəfəlik, 60 saniyəlik giriş.
+
+    `/auth/` altındadır: yeni üst səviyyəli yol nginx siyahısına
+    yazılmalı olardı. Lisenziya/aktivlik `get_current_user`-dədir.
+    """
+    return WsTicketResponse(ticket=tickets.issue(user["id"]), expires_in=TICKET_TTL_SECONDS)
 
 
 @app.post("/auth/login", response_model=AuthResponse)
@@ -3112,8 +3146,10 @@ def _ws_access_rejection(user: dict, users: UserStore) -> tuple[int, str] | None
 async def chat_websocket(
     websocket: WebSocket,
     chat_id: int,
-    token: str = Query(...),
+    token: str = Query(default=""),
+    ticket: str = Query(default=""),
     secret: str = Depends(get_token_secret),
+    tickets: WsTicketStore = Depends(get_ws_ticket_store),
     users: UserStore = Depends(get_user_store),
     chats: ChatStore = Depends(get_chat_store),
     messages: MessageStore = Depends(get_message_store),
@@ -3122,9 +3158,8 @@ async def chat_websocket(
     questions: QuestionStore = Depends(get_question_store),
     attempts: QuizAttemptStore = Depends(get_quiz_attempt_store),
 ) -> None:
-    try:
-        user_id = verify_token(token, secret=secret)
-    except InvalidToken:
+    user_id = _ws_user_id(token, ticket, secret, tickets)
+    if user_id is None:
         await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
     user = users.get_by_id(user_id)
@@ -3905,8 +3940,10 @@ def _live_access_rejection(
 async def live_host_by_session_websocket(
     websocket: WebSocket,
     session_id: int,
-    token: str = Query(...),
+    token: str = Query(default=""),
+    ticket: str = Query(default=""),
     secret: str = Depends(get_token_secret),
+    tickets: WsTicketStore = Depends(get_ws_ticket_store),
     users: UserStore = Depends(get_user_store),
     chats: ChatStore = Depends(get_chat_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
@@ -3923,9 +3960,8 @@ async def live_host_by_session_websocket(
     `accept()`-dən əvvəl bağlansa, brauzerə 1006 çatır və client
     sonsuz yenidən qoşulur (real produksiyada baş verib).
     """
-    try:
-        user_id = verify_token(token, secret=secret)
-    except InvalidToken:
+    user_id = _ws_user_id(token, ticket, secret, tickets)
+    if user_id is None:
         await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
     user = users.get_by_id(user_id)
@@ -3985,7 +4021,9 @@ async def live_play_by_session_websocket(
     websocket: WebSocket,
     session_id: int,
     token: str = Query(default=""),
+    ticket: str = Query(default=""),
     secret: str = Depends(get_token_secret),
+    tickets: WsTicketStore = Depends(get_ws_ticket_store),
     users: UserStore = Depends(get_user_store),
     chats: ChatStore = Depends(get_chat_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
@@ -3998,9 +4036,8 @@ async def live_play_by_session_websocket(
     hesaba bağlanmırdı (fərdi tarixçə buna görə boş qalırdı). Burada
     ad da yazılmır — hesabdan götürülür.
     """
-    try:
-        user_id = verify_token(token, secret=secret)
-    except InvalidToken:
+    user_id = _ws_user_id(token, ticket, secret, tickets)
+    if user_id is None:
         await _reject_websocket(websocket, 4401, "Sessiyanız bitib. Yenidən daxil olun.")
         return
     user = users.get_by_id(user_id)
@@ -4164,7 +4201,9 @@ async def live_play_by_pin_websocket(
     name: str = Query(default=""),
     guest: str = Query(default=""),
     token: str = Query(default=""),
+    ticket: str = Query(default=""),
     secret: str = Depends(get_token_secret),
+    tickets: WsTicketStore = Depends(get_ws_ticket_store),
     users: UserStore = Depends(get_user_store),
     chats: ChatStore = Depends(get_chat_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
@@ -4191,11 +4230,9 @@ async def live_play_by_pin_websocket(
     session, course = found
 
     member = None
-    if token:
-        try:
-            user = users.get_by_id(verify_token(token, secret=secret))
-        except InvalidToken:
-            user = None
+    if token or ticket:
+        pin_user_id = _ws_user_id(token, ticket, secret, tickets)
+        user = users.get_by_id(pin_user_id) if pin_user_id is not None else None
         if (
             user is not None
             and _live_access_rejection(user, users, session) is None

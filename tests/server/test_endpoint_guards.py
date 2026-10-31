@@ -64,7 +64,7 @@ def test_every_route_is_guarded_or_deliberately_public():
             continue
         # WebSocket-lər token/PIN-i öz gövdəsində yoxlayır.
         if method == "WEBSOCKET":
-            if "verify_token" not in block and "get_by_pin" not in block:
+            if "_ws_user_id" not in block and "get_by_pin" not in block:
                 ungated.append(f"{method} {path}")
             continue
         if not any(marker in block for marker in _GUARD_MARKERS):

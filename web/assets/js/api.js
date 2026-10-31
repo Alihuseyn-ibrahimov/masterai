@@ -190,6 +190,14 @@ export async function request(path, options = {}) {
 
 /* ---- Auth ---- */
 
+/** WebSocket üçün birdəfəlik, 60 saniyəlik giriş. JWT URL-ə YAZILMIR:
+ *  URL proksi jurnalında, tarixçədə qala bilər, ticket isə bir dəfə
+ *  işləndikdən sonra yararsızdır. Hər yenidən qoşulmada yenisi alınır. */
+export async function fetchWsTicket() {
+  const reply = await request('/auth/ws-ticket', { method: 'POST' });
+  return reply.ticket;
+}
+
 export async function login(email, password) {
   const auth = await request('/auth/login', {
     method: 'POST',

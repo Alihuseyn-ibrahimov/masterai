@@ -228,3 +228,32 @@ def test_member_of_other_course_joins_as_guest(env):
     [participant] = env["live_sessions"].list_participants(env["session"]["id"])
     assert participant["user_id"] is None
     assert participant["display_name"] == "Aysel"
+
+
+def test_chat_member_with_ws_ticket_joins_with_account(env):
+    """Brauzer JWT-ni URL-ə yazmır: əvvəl birdəfəlik ticket alır."""
+    from server.app import get_ws_ticket_store
+    from server.ws_ticket import WsTicketStore
+
+    tickets = WsTicketStore()
+    app.dependency_overrides[get_ws_ticket_store] = lambda: tickets
+    ticket = tickets.issue(env["student"]["id"])
+    url = _play_url(env["session"]["pin"], name="") + f"&ticket={ticket}"
+    with env["client"].websocket_connect(url) as ws:
+        assert ws.receive_json()["type"] == "joined"
+    [participant] = env["live_sessions"].list_participants(env["session"]["id"])
+    assert participant["user_id"] == env["student"]["id"]
+    assert len(tickets) == 0
+
+
+def test_used_ticket_falls_back_to_guest(env):
+    """İşlənmiş ticket hesab vermir: ad varsa qonaq kimi qoşulur."""
+    from server.app import get_ws_ticket_store
+    from server.ws_ticket import WsTicketStore
+
+    app.dependency_overrides[get_ws_ticket_store] = lambda: WsTicketStore()
+    url = _play_url(env["session"]["pin"]) + "&ticket=islenmis"
+    with env["client"].websocket_connect(url) as ws:
+        assert ws.receive_json()["type"] == "joined"
+    [participant] = env["live_sessions"].list_participants(env["session"]["id"])
+    assert participant["user_id"] is None

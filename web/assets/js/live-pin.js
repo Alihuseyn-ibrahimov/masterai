@@ -11,6 +11,7 @@
  */
 
 import { WS_BASE_URL } from './config.js';
+import { fetchWsTicket } from './api.js';
 import { ReconnectingSocket } from './socket.js';
 
 export const PIN_LENGTH = 6;
@@ -53,13 +54,24 @@ export function guestKey(pin, { storage = globalThis.localStorage, cryptoImpl = 
 export class LivePinPlaySocket {
   /** Token KÖNÜLLÜDÜR: sinif üzvü daxil olubsa, server onu hesabı ilə
    *  qoşur (nəticə tarixçəsinə düşür); əks halda ad + açar ilə qonaq. */
-  constructor({ pin, name, guest, token, onMessage, onStatus, socketFactory }) {
+  constructor({ pin, name, guest, token, onMessage, onStatus, socketFactory, getTicket = fetchWsTicket }) {
+    const base = () => `${WS_BASE_URL}/ws/live/pin/${encodeURIComponent(pin)}/play`
+      + `?name=${encodeURIComponent(name)}&guest=${encodeURIComponent(guest)}`;
     this.socket = new ReconnectingSocket({
+      /* Daxil olmuş tələbə JWT-ni URL-ə yazmır, birdəfəlik ticket alır.
+         Ticket alınmasa (sessiya bitib, şəbəkə) qonaq kimi qoşulur -
+         PIN səhifəsi hesabsız da işləməlidir. */
       url: () => {
-        let url = `${WS_BASE_URL}/ws/live/pin/${encodeURIComponent(pin)}/play`
-          + `?name=${encodeURIComponent(name)}&guest=${encodeURIComponent(guest)}`;
-        if (token) url += `&token=${encodeURIComponent(token)}`;
-        return url;
+        if (!token) return base();
+        let ticket;
+        try {
+          ticket = getTicket();
+        } catch {
+          return base();
+        }
+        const build = (value) => (value ? `${base()}&ticket=${encodeURIComponent(value)}` : base());
+        if (ticket && typeof ticket.then === 'function') return ticket.then(build, () => base());
+        return build(ticket);
       },
       socketFactory,
       onStatus,

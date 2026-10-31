@@ -59,7 +59,7 @@ describe('ChatSocket', () => {
     const received = { history: null, items: [], errors: [], statuses: [] };
     const socket = new ChatSocket({
       chatId: 7,
-      token: 'tok en/with+special',
+      getTicket: () => 'tok en/with+special',
       onHistory: (items) => { received.history = items; },
       onItem: (item) => received.items.push(item),
       onServerError: (detail) => received.errors.push(detail),
@@ -73,7 +73,7 @@ describe('ChatSocket', () => {
   test('URL-də token kodlaşdırılır', () => {
     const { socket } = build();
     socket.connect();
-    assert.match(FakeSocket.last.url, /\/ws\/chat\/7\?token=/);
+    assert.match(FakeSocket.last.url, /\/ws\/chat\/7\?ticket=/);
     // Xüsusi simvollar xam getsə server tokeni səhv oxuyar.
     assert.ok(!FakeSocket.last.url.includes(' '));
     assert.ok(FakeSocket.last.url.includes('%20'));
@@ -167,7 +167,7 @@ describe('canlı sessiya elanı', () => {
     // Kart mesaj axınında YOX, çatın yuxarısında görünür.
     const seen = [];
     const socket = new ChatSocket({
-      chatId: 7, token: 't', socketFactory: FakeSocket,
+      chatId: 7, getTicket: () => 't', socketFactory: FakeSocket,
       onHistory: () => {}, onItem: () => {},
       onLiveSession: (data) => seen.push(data),
     });
@@ -184,7 +184,7 @@ describe('canlı sessiya elanı', () => {
     // Əks halda çatda «tanınmayan element» kimi görünə bilərdi.
     const items = [];
     const socket = new ChatSocket({
-      chatId: 7, token: 't', socketFactory: FakeSocket,
+      chatId: 7, getTicket: () => 't', socketFactory: FakeSocket,
       onHistory: () => {}, onItem: (item) => items.push(item),
       onLiveSession: () => {},
     });
@@ -199,7 +199,7 @@ describe('canlı sessiya elanı', () => {
   test('ötürücü verilməyibsə sınmır', () => {
     // `chat.html`-dən başqa çağıran bu açarı verməyə bilər.
     const socket = new ChatSocket({
-      chatId: 7, token: 't', socketFactory: FakeSocket,
+      chatId: 7, getTicket: () => 't', socketFactory: FakeSocket,
       onHistory: () => {}, onItem: () => {},
     });
     socket.connect();
