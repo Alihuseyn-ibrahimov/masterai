@@ -219,3 +219,26 @@ def test_dispatches_to_correct_extractor_by_kind(monkeypatch):
     )
 
     assert calls == ["link", "image"]
+
+
+def test_generate_quiz_drops_long_correct_answers_when_surplus(monkeypatch):
+    """2026-10-30: düzgün cavabı uzunluğu ilə özünü verən sual, artıq sual
+    olanda bankdan düşür."""
+    monkeypatch.setattr(
+        pdf_extractor, "extract", lambda source: RawMaterial(text=_long_text(), metadata={})
+    )
+    long_opts = ["Qanunla müəyyən edilmiş hallarda yazılı qərar əsasında", "Şifahi", "Əmrlə", "Heç vaxt", "Hər zaman"]
+
+    def completer(system: str, user: str) -> str:
+        questions = [_question(i) for i in range(4)]
+        for q in questions[:2]:
+            q["options"] = long_opts
+        return json.dumps({"questions": questions})
+
+    result = generate_quiz(
+        MaterialSource(kind="pdf", location="fake.pdf"),
+        target_question_count=3, completers={"groq": completer}, order=["groq"],
+    )
+    long_ones = [q for q in result.questions if q.options == long_opts]
+    assert len(result.questions) == 3
+    assert len(long_ones) == 1  # 2 balanslı + çatmayan yer üçün 1 uzun

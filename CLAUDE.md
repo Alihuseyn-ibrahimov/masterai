@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1693 pytest + 253 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1701 pytest + 253 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -65,6 +65,19 @@ Təzə bazada admin yoxdur: saytda qeydiyyat → `deploy/bootstrap_admin.py`
 **Dərs:** serverdən kənarda backup YOX idi. Hesab dayandırılanda data
 da getdi. Yeni serverdə `data/`-nın kənar backup-ı və DigitalOcean
 Backups açılmalıdır.
+
+## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
+
+Real istifadədə tapıldı: AI düzgün variantı izahlı və uzun yazırdı,
+tələbə materialı bilmədən ən uzun variantı seçirdi. İki təbəqə:
+1. İnsan prompt şablonuna qayda: 5 variant təxminən eyni uzunluqda,
+   düzgün cavab ən uzun olmasın (`test_course_profiles` hash-i qəsdən
+   yeniləndi).
+2. `quality.answer_stands_out`: düzgün variant ən uzundur, səhvlərin
+   ortasından ≥1.4 dəfə VƏ ≥10 simvol uzundur. `prefer_balanced` belə
+   sualları sona keçirir; generasiya ~25% artıq sual istəyir ki, artıq
+   olanda onlar düşsün. Sual çatmasa bank boş qalmasın deyə saxlanılır.
+Yalnız YENİ yükləmələrə təsir edir.
 
 ## Dərs xülasəsi (Faza 3, 2026-10-30)
 

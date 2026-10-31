@@ -102,10 +102,15 @@ class _MCQBatch(BaseModel):
 
 _parser = PydanticOutputParser(pydantic_object=_MCQBatch)
 
+# Variant uzunluğu qaydası (2026-10-30, istifadəçi şikayəti): model düzgün
+# cavabı izahlı, uzun yazırdı - tələbə materialı bilmədən ən uzun variantı
+# seçirdi. Prompt qaydası + `quality.answer_stands_out` filtri birlikdə.
 _PROMPT = PromptTemplate.from_template(
     "Aşağıdakı dərs materialından {n} ədəd çoxseçimli (MCQ) test sualı hazırla.\n"
     "Hər sualın tam 5 variantı olmalıdır, yalnız biri düzgün, hər sualın öz "
-    "izahı olmalıdır.\n\n"
+    "izahı olmalıdır.\n"
+    "Düzgün variant uzunluğu və təfsilatı ilə seçilməməlidir: 5 variantın "
+    "hamısı təxminən eyni uzunluqda olsun, düzgün cavab ən uzun variant olmasın.\n\n"
     "Material:\n---\n{chunk}\n---\n\n{difficulty_note}{retry_note}{format_instructions}"
 )
 
