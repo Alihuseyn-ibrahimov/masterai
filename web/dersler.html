@@ -91,6 +91,28 @@
       <button class="btn btn--ghost btn--sm" type="button" id="closeTranscript">Bağla</button>
     </div>
     <div class="card stack" id="transcriptBox"></div>
+    <!-- Gün 4: mətn kifayət edəndə ondan sual bankı + konspekt. -->
+    <form class="card stack" id="lessonQuizForm" hidden>
+      <p class="text-sm">Dərs mətnindən AI ilə quiz sualları və qısa konspekt hazırlansın. Hazır olanda sualları redaktə edə, konspekti oxuyub sinfə dərc edə bilərsən.</p>
+      <div class="grid">
+        <div class="field">
+          <label class="field__label" for="quizSubject">Fənn</label>
+          <select class="field__select" id="quizSubject"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="quizCount">Sual sayı</label>
+          <input class="field__input" id="quizCount" type="number" min="3" max="30" value="10" required>
+        </div>
+      </div>
+      <button class="btn btn--primary" type="submit" id="quizButton">Konspekt və quiz hazırla</button>
+    </form>
+    <div class="card stack" id="lessonQuizLinks" hidden>
+      <p class="text-sm">Bu dərsdən sual bankı yaradılıb. AI işini bir-iki dəqiqəyə bitirir.</p>
+      <div class="bank__actions">
+        <a class="btn btn--secondary btn--sm" id="quizQuestionsLink">Suallara bax</a>
+        <a class="btn btn--secondary btn--sm" id="quizSummaryLink">Konspekt</a>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -100,6 +122,7 @@
   import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { MODE_LABELS, STATUS_LABELS, formatLessonTime, groupLessons, localInputToIso } from './assets/js/lessons.js';
+  import { SUBJECTS } from './assets/js/subjects.js';
 
   if (requireLogin()) {
     mountShell();
@@ -276,11 +299,58 @@
             text.textContent = data.text;
             box.append(text);
           }
+          showLessonQuiz(lesson, data.text);
         });
       section.scrollIntoView({ behavior: 'smooth' });
     }
+
+    /* ---- Gün 4: dərs mətnindən quiz + konspekt ---- */
+
+    const MIN_TRANSCRIPT_CHARS = 300;  // serverdəki həddin eynisi
+    let quizLesson = null;
+    const quizSubject = document.getElementById('quizSubject');
+    for (const subject of SUBJECTS) {
+      const option = document.createElement('option');
+      option.value = subject.key;
+      option.textContent = subject.label;
+      quizSubject.append(option);
+    }
+
+    function showLessonQuiz(lesson, text) {
+      quizLesson = lesson;
+      const hasBank = Boolean(lesson.question_set_id);
+      document.getElementById('lessonQuizLinks').hidden = !hasBank;
+      document.getElementById('lessonQuizForm').hidden = hasBank || (text || '').length < MIN_TRANSCRIPT_CHARS;
+      if (hasBank) {
+        const id = encodeURIComponent(lesson.question_set_id);
+        document.getElementById('quizQuestionsLink').href = `suallar.html?id=${id}`;
+        document.getElementById('quizSummaryLink').href = `xulase.html?bank=${id}`;
+      }
+    }
+
+    document.getElementById('lessonQuizForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = document.getElementById('quizButton');
+      button.disabled = true;
+      showError('');
+      try {
+        const updated = await request(`/live/lessons/${quizLesson.id}/question-set`, {
+          method: 'POST',
+          body: { subject: quizSubject.value, question_count: Number(document.getElementById('quizCount').value) },
+        });
+        Object.assign(quizLesson, updated);
+        showLessonQuiz(quizLesson, '');
+      } catch (error) {
+        showError(error.message);
+        errorBox.scrollIntoView({ behavior: 'smooth' });
+      } finally {
+        button.disabled = false;
+      }
+    });
     document.getElementById('closeTranscript').addEventListener('click', () => {
       document.getElementById('transcriptSection').hidden = true;
+      document.getElementById('lessonQuizForm').hidden = true;
+      document.getElementById('lessonQuizLinks').hidden = true;
     });
     document.getElementById('closeAttendance').addEventListener('click', () => {
       document.getElementById('attendanceSection').hidden = true;

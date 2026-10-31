@@ -24,7 +24,7 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
 
 from pipeline.chunking import split
-from pipeline.ingestion import image_extractor, pdf_extractor, web_extractor
+from pipeline.ingestion import image_extractor, pdf_extractor, text_extractor, web_extractor
 from pipeline.models import MaterialSource
 from pipeline.providers import Completer, DEFAULT_ORDER, build_completers, complete_with_fallback
 
@@ -102,6 +102,8 @@ def _extract_text(source: MaterialSource) -> str:
         return web_extractor.extract(source).text
     if source.kind == "pdf":
         return pdf_extractor.extract(source).text
+    if source.kind == "text":
+        return text_extractor.extract(source).text
     return image_extractor.extract(source).text
 
 

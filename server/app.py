@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -102,6 +103,7 @@ from .models import (
     LessonAttendanceRow,
     LessonCreate,
     LessonInfo,
+    LessonQuizCreate,
     LessonUpdate,
     LessonTranscript,
     LessonTranscriptSegment,
@@ -2287,7 +2289,7 @@ def _lesson_info(lesson: dict, chats: ChatStore, *, attended: bool = False) -> L
         title=lesson["title"], description=lesson["description"], starts_at=lesson["starts_at"],
         duration_min=lesson["duration_min"], mode=lesson["mode"], status=lesson["status"],
         notes=lesson["notes"], started_at=lesson["started_at"], ended_at=lesson["ended_at"],
-        attended=attended,
+        attended=attended, question_set_id=lesson.get("question_set_id"),
     )
 
 
@@ -2584,6 +2586,68 @@ def lesson_transcript(
 ) -> LessonTranscript:
     _lesson_for_member(lessons, chats, lesson_id, user)
     return _transcript(lessons, lesson_id)
+
+
+# ---- Gün 4: dərs mətnindən konspekt + quiz -------------------------------
+# Transkript mətn faylına yazılır və MÖVCUD sual bankı axınına (`kind="text"`)
+# verilir: çətinlik bölgüsü, keyfiyyət filtri, redaktə, xülasə və dərc
+# hamısı onsuz da oradadır, ikinci bir yol yazılmır.
+
+_MIN_TRANSCRIPT_CHARS = 300
+
+
+@app.post("/live/lessons/{lesson_id}/question-set", response_model=LessonInfo, status_code=202)
+async def create_lesson_question_set(
+    lesson_id: int,
+    body: LessonQuizCreate,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    generator=Depends(get_material_generator),
+    upload_dir: str = Depends(get_upload_dir),
+    users: UserStore = Depends(get_user_store),
+    materials: MaterialStore = Depends(get_material_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    summarizer=Depends(get_summarizer),
+) -> LessonInfo:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    existing = question_sets.get(lesson["question_set_id"]) if lesson.get("question_set_id") else None
+    if existing is not None and existing["status"] != "failed":
+        raise HTTPException(status_code=409, detail="Bu dərsin sualları artıq hazırlanıb")
+    if body.subject not in SUBJECTS:
+        raise HTTPException(status_code=400, detail="Naməlum fənn")
+    text = lessons.transcript_text(lesson_id)
+    if len(text) < _MIN_TRANSCRIPT_CHARS:
+        raise HTTPException(status_code=409, detail="Dərs mətni sual üçün çox qısadır")
+    _enforce_upload_quota(user, users, materials, question_sets)
+    profile = _course_profile(users, user["course_id"])
+
+    folder = os.path.join(upload_dir, "lessons")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f"lesson-{lesson_id}-{uuid.uuid4().hex}.txt")
+    with open(path, "w", encoding="utf-8") as out:
+        out.write(text)
+
+    question_set = question_sets.create(
+        subject=body.subject, title=lesson["title"], material_kind="text", material_location=path,
+        created_by=user["id"], course_id=user["course_id"], profile=profile, bank_kind="practice",
+        difficulty_mix="/".join(str(p) for p in DEFAULT_MIX),
+    )
+    summary_job = None
+    if body.make_summary:
+        summary = summaries.start(question_set["id"], created_by=user["id"], course_id=user["course_id"])
+        summary_job = (summary["id"], summarizer, summaries)
+    task = asyncio.create_task(
+        _process_question_set(
+            question_set["id"], MaterialSource(kind="text", location=path),
+            generator=generator, question_set_store=question_sets,
+            question_count=body.question_count, profile=profile,
+            difficulty_mix=DEFAULT_MIX, summary_job=summary_job,
+        )
+    )
+    app.state.active_question_set_tasks[question_set["id"]] = task
+    return _lesson_info(lessons.set_question_set(lesson_id, question_set["id"]), chats)
 
 
 async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> None:

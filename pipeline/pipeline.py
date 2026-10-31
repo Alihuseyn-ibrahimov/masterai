@@ -9,7 +9,7 @@ from pipeline.chunking import split
 from pipeline.dedup import filter_duplicates
 from pipeline.difficulty import prompt_note, select_by_mix, validate_mix
 from pipeline.generation import generate_for_chunks, system_prompt_for
-from pipeline.ingestion import image_extractor, pdf_extractor, web_extractor
+from pipeline.ingestion import image_extractor, pdf_extractor, text_extractor, web_extractor
 from pipeline.models import MaterialSource, PipelineResult, RawMaterial
 from pipeline.providers import Completer, DEFAULT_ORDER, build_completers
 from pipeline.quality import prefer_balanced, recalls_material
@@ -57,6 +57,8 @@ def _extract(source: MaterialSource) -> RawMaterial:
         return web_extractor.extract(source)
     if source.kind == "pdf":
         return pdf_extractor.extract(source)
+    if source.kind == "text":
+        return text_extractor.extract(source)
     return image_extractor.extract(source)
 
 

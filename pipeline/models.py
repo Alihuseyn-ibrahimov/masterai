@@ -24,7 +24,7 @@ def normalize_difficulty(value) -> str | None:
 
 
 class MaterialSource(BaseModel):
-    kind: Literal["link", "pdf", "image"]
+    kind: Literal["link", "pdf", "image", "text"]
     location: str
     label: str | None = None
 
