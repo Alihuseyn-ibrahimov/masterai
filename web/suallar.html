@@ -66,7 +66,7 @@
     findingsByQuestion, orderedIndexes, setWideFindings,
     severityBadge, suspiciousCount,
   } from './assets/js/question-review.js';
-  import { LEVELS, levelBadgeClass, levelLabel, summaryLine } from './assets/js/difficulty.js';
+  import { LEVELS, levelBadgeClass, levelLabel, predictionLine, summaryLine } from './assets/js/difficulty.js';
   import { reviewByQuestion, reviewStatusLine, suggestionPatch, verdictBadge } from './assets/js/ai-review.js';
 
   const LETTERS = 'ABCDE';
@@ -337,6 +337,11 @@
           explanation.className = 'text-sm text-muted';
           explanation.textContent = `İzah: ${question.explanation}`;
           readBody.append(explanation);
+        }
+        const prediction = predictionLine(question);
+        if (prediction) {
+          readBody.append(Object.assign(document.createElement('p'), {
+            className: 'text-xs text-faint', textContent: prediction }));
         }
 
         /* Tapıntı mətni kartın ÖZÜNDƏDİR, oxu gövdəsində yox: müəllim

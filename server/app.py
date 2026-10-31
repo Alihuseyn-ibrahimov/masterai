@@ -64,6 +64,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from pipeline.difficulty import DEFAULT_MIX, breakdown as difficulty_breakdown, validate_mix as validate_difficulty_mix
+from pipeline.difficulty_model import load_cached as load_difficulty_model
 from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
@@ -456,6 +457,13 @@ def get_reviewer():
 def get_summarizer():
     """Material→xülasə funksiyası (testdə fake funksiya ilə override olunur)."""
     return summarize_material
+
+
+def get_difficulty_model():
+    """Gün 15: çətinlik modeli (`DIFFICULTY_MODEL_PATH`, defolt `data/difficulty_model.json`).
+    Fayl yoxdursa, pozuqdursa və ya SİNTETİK datada öyrədilibsə `None` - proqnoz göstərilmir."""
+    model = load_difficulty_model(os.environ.get("DIFFICULTY_MODEL_PATH", "data/difficulty_model.json"))
+    return None if model is None or model.synthetic else model
 
 
 def get_material_generator():
@@ -2041,13 +2049,23 @@ def list_live_questions(
     question_set_id: int,
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
+    difficulty_model=Depends(get_difficulty_model),
 ) -> list[LiveQuestionInfo]:
     """Sual bankının BÜTÜN sualları, düzgün cavab+izah DAXİL — yalnız
     müəllim redaktə ekranı üçün (bax Sual redaktə/təsdiq ekranı, Faza 5).
     Tələbələrə göndərilən oyun payload-u (`_question_payload`) bunu
     QƏSDƏN göstərmir."""
     _question_set_in_course(question_sets, question_set_id, user)
-    return [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
+    rows = [LiveQuestionInfo(**q) for q in question_sets.list_questions(question_set_id)]
+    model = difficulty_model
+    if model is not None:
+        for row in rows:
+            p = model.predict(MCQQuestion(question=row.question, options=row.options,
+                                          correct_index=row.correct_index, explanation=row.explanation,
+                                          difficulty=row.difficulty))
+            row.predicted_correct = round(p, 3)
+            row.predicted_difficulty = model.level(p)
+    return rows
 
 
 @app.get("/live/question-sets/{question_set_id}/quality", response_model=QuestionSetQuality)

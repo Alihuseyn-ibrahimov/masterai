@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  DEFAULT_MIX, countLevels, levelBadgeClass, levelLabel, mixError, parseMix, summaryLine,
+  DEFAULT_MIX, countLevels, levelBadgeClass, levelLabel, mixError, parseMix, predictionLine, summaryLine,
 } from '../assets/js/difficulty.js';
 
 test('default mix sums to 100', () => {
@@ -53,4 +53,15 @@ test('stat percent and line', async () => {
   assert.equal(hasLevelStats([{ level: null }]), false);
   assert.equal(hasLevelStats([{ level: 'asan' }, { level: null }]), true);
   assert.equal(hasLevelStats(undefined), false);
+});
+
+test('predictionLine: model proqnozu, AI ilə fikir ayrılığı', () => {
+  assert.equal(predictionLine({ difficulty: 'orta' }), null);
+  assert.equal(predictionLine({ predicted_correct: 0.4, predicted_difficulty: 'bilinməz' }), null);
+  assert.equal(predictionLine({ difficulty: 'çətin', predicted_correct: 0.38, predicted_difficulty: 'çətin' }),
+    'Model: ~38% düzgün cavab gözlənilir → Çətin');
+  assert.equal(predictionLine({ difficulty: 'asan', predicted_correct: 0.41, predicted_difficulty: 'çətin' }),
+    'Model: ~41% düzgün cavab gözlənilir → Çətin (AI «Asan» demişdi)');
+  assert.equal(predictionLine({ difficulty: null, predicted_correct: 0.9, predicted_difficulty: 'asan' }),
+    'Model: ~90% düzgün cavab gözlənilir → Asan');
 });

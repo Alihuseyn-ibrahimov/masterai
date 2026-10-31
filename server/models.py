@@ -215,6 +215,9 @@ class LiveQuestionInfo(BaseModel):
     explanation: str
     created_at: str
     difficulty: Difficulty | None = None
+    # Gün 15: PyTorch ilə öyrədilmiş modelin proqnozu (model faylı yoxdursa None).
+    predicted_correct: float | None = None
+    predicted_difficulty: Difficulty | None = None
 
 
 class UpdateQuestionRequest(BaseModel):

@@ -1,0 +1,4 @@
+# Yalnız model öyrətmək üçün (noutbuk və ya Colab). Server bunları QURAŞDIRMIR:
+# çətinlik modeli serverdə saf Python ilə hesablanır (pipeline/difficulty_model.py).
+-r requirements.txt
+torch>=2.4
