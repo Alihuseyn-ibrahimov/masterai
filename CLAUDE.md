@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1922 pytest + 287 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1929 pytest + 287 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -193,6 +193,18 @@ LangGraph özü iz verir; `.env`-də `LANGSMITH_TRACING=true` +
 `LANGSMITH_API_KEY` olmasa heç nə göndərilmir (izdə dərs mətni olur).
 Brauzerdə tapılan səhv: «Təklifi tətbiq et»dən sonra `reload()` AI
 rəyini yeniləmirdi, kart köhnə qeydi göstərirdi.
+
+**Gün 11 — müəllim MCP serveri.** `teacher_mcp/server.py` (FastMCP,
+stdio): müəllim Claude Desktop-dan 11 alətlə işləyir - siniflər, dərs
+planla, dərs mətni, dərsdən quiz, davamiyyət, banklar, AI yoxlama,
+konspekt, ev tapşırığı. Server MÜƏLLİMİN KOMPÜTERİNDƏ işləyir və
+MÖVCUD REST API-ni müəllimin öz tokeni ilə çağırır (`MASTERAI_TOKEN` və
+ya `MASTERAI_EMAIL`/`_PASSWORD`, `MASTERAI_API`): yeni icazə yolu yox,
+VPS və nginx dəyişmir. Testlər alətləri real FastAPI tətbiqinə qarşı
+çağırır (TestClient httpx.Client kimi verilir); real stdio klienti ilə
+lokal backend-ə qarşı da sınanıb. Quraşdırma: `teacher_mcp/README.md`.
+WhatsApp/n8n bu gündə YOXDUR: n8n köhnə serverlə getdi, WhatsApp Meta
+Business hesabı və tələbə telefon nömrələri tələb edir.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
