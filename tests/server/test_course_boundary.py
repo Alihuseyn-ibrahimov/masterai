@@ -218,6 +218,8 @@ CASES = {
     ("GET", "/me/lessons/{lesson_id}"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/me/lessons/{lesson_id}/video"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/me/lessons/{lesson_id}/attend"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("GET", "/me/lessons/{lesson_id}/cabinet"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("PUT", "/me/lessons/{lesson_id}/note"): ("student_b", {"lesson_id": "lesson_a.id"}, None, {"text": "x"}, None),
     ("PATCH", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, {"notes": "x"}, None),
     ("DELETE", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/live/lessons/{lesson_id}/start"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),

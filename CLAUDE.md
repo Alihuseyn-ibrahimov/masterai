@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1803 pytest + 269 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1833 pytest + 274 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -105,6 +105,20 @@ YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; hazır
 bank da «Yenidən hazırla» ilə təzədən yaradıla bilər (köhnəsi banklarda
 qalır), yalnız hazırlanan bankın üstünə 409. Brauzerdə saxta
 generatorla uc-uca sınanıb (forma → bank → suallar → konspekt).
+
+**Gün 5 — tələbə kabineti.** Hər dərsin öz səhifəsi var:
+`dersim.html?id=N` (hər iki rol, «Dərslər» kartındakı «Dərs səhifəsi»).
+Bir sorğu: `GET /me/lessons/{id}/cabinet` → dərs, konspekt, quiz, şəxsi
+qeyd. Konspekt və quiz tələbəyə YALNIZ müəllim verəndən sonra görünür:
+konspekt bu sinfə dərc olunmalı, dərsin bankı bu sinfə tapşırıq kimi
+təyin olunmalıdır (yeni cədvəl yox - mövcud `summaries` və
+`homework_assignments` dərsin `question_set_id`-si ilə süzülür).
+Müəllim «Dərs mətni» panelindəki «Tələbələrə göndər» ilə ikisini bir
+düymədə edir; təkrar basmaq ikinci tapşırıq yaratmır. Şəxsi qeyd
+`lesson_notes`-dadır (dərs+istifadəçi = bir sətir, ≤20 000 simvol, boş
+mətn sətri silir), `PUT /me/lessons/{id}/note`; `note-autosave.js`
+yazmaq dayananda saxlayır, səhifə gizlənəndə dərhal, xətada özü-özünə
+təkrar sorğu GÖNDƏRMİR. Brauzerdə saxta AI ilə uc-uca sınanıb.
 
 **Real sınaq (2026-10-31): Whisper produksiyada İŞLƏYİR** (müəllim
 danışdı, mətn göründü). Quiz isə fənni bilmirdi: «Qanunvericilik»

@@ -23,7 +23,7 @@ const STUDENT_DESTINATIONS = [
   { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
   /* Dərslər (2026-10-31) xülasələri də əhatə edir: tələbə kabinetinin
      əsas bölməsidir, xülasə isə dərsin bir hissəsidir. */
-  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'xulaseler.html', 'xulase.html'] },
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'xulaseler.html', 'xulase.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
@@ -39,7 +39,7 @@ const TEACHER_DESTINATIONS = [
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   /* Canlı quiz sessiyası dərsin bir hissəsidir (2026-10-31): bölmə
      yerini dərs cədvəlinə verdi, sessiyalar səhifədən linklə açılır. */
-  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'sessiyalar.html'] },
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'sessiyalar.html'] },
   { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];

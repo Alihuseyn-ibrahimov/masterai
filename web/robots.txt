@@ -20,6 +20,7 @@ Disallow: /sahib.html
 Disallow: /xulaseler.html
 Disallow: /dersler.html
 Disallow: /dars.html
+Disallow: /dersim.html
 Disallow: /xulase.html
 Disallow: /qosul.html
 Allow: /

@@ -72,6 +72,13 @@ class LessonStore:
                     joined_at TEXT NOT NULL,
                     PRIMARY KEY (lesson_id, user_id)
                 );
+                CREATE TABLE IF NOT EXISTS lesson_notes (
+                    lesson_id  INTEGER NOT NULL,
+                    user_id    INTEGER NOT NULL,
+                    text       TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (lesson_id, user_id)
+                );
                 """
             )
             # Gün 4: dərs mətnindən yaradılan sual bankı (+ xülasə). Gün 1-3
@@ -177,6 +184,7 @@ class LessonStore:
         with self._lock:
             self._conn.execute("DELETE FROM lesson_attendance WHERE lesson_id = ?", (lesson_id,))
             self._conn.execute("DELETE FROM lesson_transcripts WHERE lesson_id = ?", (lesson_id,))
+            self._conn.execute("DELETE FROM lesson_notes WHERE lesson_id = ?", (lesson_id,))
             self._conn.execute("DELETE FROM lessons WHERE id = ?", (lesson_id,))
             self._conn.commit()
 
@@ -204,6 +212,35 @@ class LessonStore:
                 (lesson_id,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # ---- Şəxsi qeydlər (gün 5) ----
+    # Hər tələbənin hər dərs üçün BİR qeydi var, yalnız özü görür.
+    # Boş mətn sətri silir: «qeyd yoxdur» ilə «boş qeyd» eyni şeydir.
+
+    def get_note(self, lesson_id: int, user_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT text, updated_at FROM lesson_notes WHERE lesson_id = ? AND user_id = ?",
+                (lesson_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def set_note(self, lesson_id: int, user_id: int, text: str) -> dict | None:
+        now = _utc_now_iso()
+        with self._lock:
+            if text.strip():
+                self._conn.execute(
+                    "INSERT INTO lesson_notes (lesson_id, user_id, text, updated_at) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(lesson_id, user_id) DO UPDATE SET text = excluded.text, "
+                    "updated_at = excluded.updated_at",
+                    (lesson_id, user_id, text, now),
+                )
+            else:
+                self._conn.execute(
+                    "DELETE FROM lesson_notes WHERE lesson_id = ? AND user_id = ?", (lesson_id, user_id),
+                )
+            self._conn.commit()
+        return {"text": text, "updated_at": now} if text.strip() else None
 
     # ---- Transkript (gün 3) ----
     # Hər səs hissəsi `seq` nömrəsi ilə bir sətirdir. Eyni hissənin

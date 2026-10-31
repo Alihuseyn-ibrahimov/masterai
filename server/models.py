@@ -680,6 +680,28 @@ class LessonVideoAccess(BaseModel):
     is_host: bool
 
 
+class LessonNote(BaseModel):
+    """Tələbənin dərs üçün şəxsi qeydi (gün 5). Yalnız özü görür."""
+
+    text: str = Field(default="", max_length=20_000)
+    updated_at: str | None = None
+
+
+class LessonCabinetSummary(BaseModel):
+    id: int
+    title: str
+
+
+class LessonCabinet(BaseModel):
+    """Tələbə kabinetində bir dərsin səhifəsi (gün 5): dərs, dərc olunmuş
+    konspekt, bu dərsin bankından verilmiş tapşırıqlar, şəxsi qeyd."""
+
+    lesson: LessonInfo
+    summary: LessonCabinetSummary | None = None
+    assignments: list[MyAssignmentInfo] = []
+    note: LessonNote
+
+
 class LessonTranscriptSegment(BaseModel):
     """Bir səs hissəsi (gün 3): təxminən 5 dəqiqə."""
 

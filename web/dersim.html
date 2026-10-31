@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dərs - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20261031a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+  <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+  <a class="btn btn--ghost btn--sm" href="dersler.html">Bütün dərslər</a>
+
+  <div id="content"></div>
+
+  <!-- Dərs yükləndikdən sonra açılır. -->
+  <div class="stack stack--loose" id="cabinet" hidden>
+    <section class="stack">
+      <div class="section-header">
+        <h2>Konspekt</h2>
+        <span class="section-header__hint">Dərsin qısa xülasəsi</span>
+      </div>
+      <div class="card stack stack--tight" id="summaryBox"></div>
+    </section>
+
+    <section class="stack">
+      <div class="section-header">
+        <h2>Quiz</h2>
+        <span class="section-header__hint">Dərsdən sonra özünü yoxla</span>
+      </div>
+      <div class="stack" id="quizBox"></div>
+    </section>
+
+    <section class="stack">
+      <div class="section-header">
+        <h2>Mənim qeydlərim</h2>
+        <span class="section-header__hint" id="noteState">Yalnız siz görürsünüz</span>
+      </div>
+      <div class="card stack stack--tight">
+        <label class="field__label" for="note">Dərs zamanı və ya sonra öz qeydlərinizi yazın. Özü saxlanır.</label>
+        <textarea class="field__textarea" id="note" rows="10" maxlength="20000"
+                  placeholder="Məs. Maddə 7: dövlət hakimiyyəti üç qola bölünür..."></textarea>
+      </div>
+    </section>
+  </div>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getUser, request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { MODE_LABELS, STATUS_LABELS, formatLessonTime } from './assets/js/lessons.js';
+  import { createAutosave } from './assets/js/note-autosave.js';
+
+  if (requireLogin()) {
+    mountShell();
+    const isTeacher = Boolean((getUser() || {}).is_teacher);
+    const lessonId = Number(new URLSearchParams(location.search).get('id'));
+    const errorBox = document.getElementById('errorBox');
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = !message;
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function link(label, href, className) {
+      const node = el('a', `btn ${className} btn--sm`, label);
+      node.href = href;
+      return node;
+    }
+
+    function renderHeader(box, lesson) {
+      box.innerHTML = '';
+      const card = el('div', 'card stack stack--tight');
+      const head = el('div', 'section-header');
+      head.append(el('h1', '', lesson.title),
+        el('span', `badge ${lesson.status === 'live' ? 'badge--success' : 'badge--neutral'}`,
+          STATUS_LABELS[lesson.status] || lesson.status));
+      card.append(head, el('p', 'text-sm text-muted', [
+        formatLessonTime(lesson.starts_at), `${lesson.duration_min} dəq`,
+        MODE_LABELS[lesson.mode] || lesson.mode, lesson.chat_name,
+      ].filter(Boolean).join(' · ')));
+      if (lesson.description) card.append(el('p', 'text-sm', lesson.description));
+
+      const actions = el('div', 'bank__actions');
+      if (lesson.mode === 'online' && lesson.status !== 'ended') {
+        actions.append(link(lesson.status === 'live' ? 'Dərs otağına gir' : 'Dərs otağı',
+          `dars.html?id=${encodeURIComponent(lesson.id)}`,
+          lesson.status === 'live' ? 'btn--primary' : 'btn--secondary'));
+      }
+      if (!isTeacher && lesson.attended) {
+        actions.append(el('span', 'badge badge--success', 'Davamiyyət qeyd olundu'));
+      } else if (!isTeacher && lesson.status === 'live' && lesson.mode === 'offline') {
+        const join = el('button', 'btn btn--primary btn--sm', 'Dərsə qoşul');
+        join.type = 'button';
+        join.addEventListener('click', async () => {
+          showError('');
+          try {
+            await request(`/me/lessons/${lesson.id}/attend`, { method: 'POST' });
+            reload();
+          } catch (error) {
+            showError(error.message);
+          }
+        });
+        actions.append(join);
+      }
+      if (actions.childElementCount) card.append(actions);
+      if (isTeacher) {
+        card.append(el('p', 'text-sm text-muted',
+          'Tələbələr dərsi belə görür. Konspekt və quiz burada «Dərslər» səhifəsindəki «Tələbələrə göndər» düyməsindən sonra görünür.'));
+      }
+      box.append(card);
+    }
+
+    function renderSummary(summary) {
+      const box = document.getElementById('summaryBox');
+      box.innerHTML = '';
+      if (!summary) {
+        box.append(el('p', 'text-sm text-muted', 'Müəllim dərsin konspektini paylaşanda burada görünəcək.'));
+        return;
+      }
+      box.append(el('h4', '', summary.title),
+        link('Konspekti oxu', `xulase.html?id=${encodeURIComponent(summary.id)}`, 'btn--primary'));
+    }
+
+    function renderQuiz(assignments) {
+      const box = document.getElementById('quizBox');
+      box.innerHTML = '';
+      if (!assignments.length) {
+        const card = el('div', 'card');
+        card.append(el('p', 'text-sm text-muted', 'Bu dərsdən quiz hələ verilməyib.'));
+        box.append(card);
+        return;
+      }
+      for (const a of assignments) {
+        const card = el('div', 'card stack stack--tight');
+        const head = el('div', 'section-header');
+        head.append(el('h4', '', a.title),
+          el('span', `badge ${a.status === 'tamamlanıb' ? 'badge--success' : 'badge--neutral'}`, a.status));
+        const result = a.status === 'tamamlanıb' && a.score !== null
+          ? `Nəticə: ${a.score} / ${a.question_count}` : `${a.question_count} sual`;
+        card.append(head, el('p', 'text-sm text-muted', `${result} · Son tarix: ${a.due_date}`));
+        card.append(link(a.status === 'tamamlanıb' ? 'Nəticəyə bax'
+          : a.status === 'davam edir' ? 'Davam et' : 'Quizi başlat',
+        `tapsiriq.html?id=${encodeURIComponent(a.assignment_id)}`,
+        a.status === 'tamamlanıb' ? 'btn--secondary' : 'btn--primary'));
+        box.append(card);
+      }
+    }
+
+    /* ---- Şəxsi qeyd ---- */
+    const noteBox = document.getElementById('note');
+    const noteState = document.getElementById('noteState');
+    const STATE_TEXT = {
+      dirty: 'Yazılır...', saving: 'Saxlanır...', saved: 'Saxlanıb', error: 'Saxlanmadı, yenidən cəhd ediləcək',
+    };
+    let autosave = null;
+
+    function setupNote(note) {
+      noteBox.value = note.text;
+      autosave = createAutosave({
+        initial: note.text,
+        save: (text) => request(`/me/lessons/${lessonId}/note`, { method: 'PUT', body: { text } }),
+        onState: (state) => { noteState.textContent = STATE_TEXT[state] || ''; },
+      });
+      noteBox.addEventListener('input', () => autosave.schedule(noteBox.value));
+      // Səhifədən çıxanda (tab bağlanır, telefon kilidlənir) gözləmədən saxla.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') autosave.flush();
+      });
+    }
+
+    let first = true;
+    function reload() {
+      loadInto(document.getElementById('content'), () => request(`/me/lessons/${lessonId}/cabinet`), (box, data) => {
+        document.title = `${data.lesson.title} - MasterAI`;
+        renderHeader(box, data.lesson);
+        renderSummary(data.summary);
+        renderQuiz(data.assignments);
+        if (first) {
+          setupNote(data.note);
+          first = false;
+        }
+        document.getElementById('cabinet').hidden = false;
+      });
+    }
+
+    if (!lessonId) showError('Dərs seçilməyib.');
+    else reload();
+  }
+</script>
+</body>
+</html>
