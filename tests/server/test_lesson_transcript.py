@@ -209,6 +209,10 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
     assert question_sets.get(qs_id) is not None
     # Hazırlanan bankın üstünə ikinci emal açılmır.
     new_id = again.json()["question_set_id"]
+    # Fon emalı bitməmiş statusu əllə qoysaq, emal sonra onu «ready» edər.
+    deadline = time.time() + 5
+    while question_sets.get(new_id)["status"] == "processing" and time.time() < deadline:
+        time.sleep(0.02)
     with question_sets._lock:
         question_sets._conn.execute("UPDATE question_sets SET status='processing' WHERE id=?", (new_id,))
     assert _make_quiz(env).status_code == 409
