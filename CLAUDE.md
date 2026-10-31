@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1710 pytest + 253 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1715 pytest + 253 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -115,6 +115,11 @@ tələbə materialı bilmədən ən uzun variantı seçirdi. İki təbəqə:
    sualları sona keçirir; generasiya ~25% artıq sual istəyir ki, artıq
    olanda onlar düşsün. Sual çatmasa bank boş qalmasın deyə saxlanılır.
 Yalnız YENİ yükləmələrə təsir edir.
+
+**Uğursuz material bildirişi (2026-10-31):** n8n köhnə serverlə
+getdi, `ADMIN_WEBHOOK_URL` boşdur. `_notify_admin_webhook` indi
+Telegram-a birbaşa da yazır: `ADMIN_TELEGRAM_BOT_TOKEN`/`_CHAT_ID`,
+yoxdursa backup botunun açarları. Webhook varsa ikisi də gedir.
 
 ## Dərs xülasəsi (Faza 3, 2026-10-30)
 

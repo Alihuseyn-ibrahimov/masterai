@@ -1565,15 +1565,54 @@ async def start_chat_quiz(
 async def _notify_admin_webhook(payload: dict) -> None:
     """`ADMIN_WEBHOOK_URL` (n8n Webhook Trigger) təyin olunubsa fire-and-
     forget POST edir. Heç vaxt istisna atmır — bildiriş uğursuzluğu
-    material emalının nəticəsini POZMAMALIDIR (spec bölmə 3.2/6)."""
+    material emalının nəticəsini POZMAMALIDIR (spec bölmə 3.2/6).
+
+    2026-10-31: n8n köhnə serverlə silindi. Telegram açarları varsa
+    bildiriş birbaşa bota da gedir (`ADMIN_TELEGRAM_*`, yoxdursa backup
+    botunun `BACKUP_TELEGRAM_*` açarları)."""
     webhook_url = os.environ.get("ADMIN_WEBHOOK_URL")
-    if not webhook_url:
+    if webhook_url:
+        try:
+            async with httpx.AsyncClient(timeout=3) as http:
+                await http.post(webhook_url, json=payload)
+        except Exception:
+            pass
+    await _notify_admin_telegram(payload)
+
+
+def _admin_telegram_keys() -> tuple[str, str] | None:
+    for prefix in ("ADMIN_TELEGRAM", "BACKUP_TELEGRAM"):
+        token = os.environ.get(f"{prefix}_BOT_TOKEN")
+        chat_id = os.environ.get(f"{prefix}_CHAT_ID")
+        if token and chat_id:
+            return token, chat_id
+    return None
+
+
+def _material_failure_text(payload: dict) -> str:
+    return (
+        "⚠️ MasterAI: material emalı uğursuz oldu\n"
+        f"Material #{payload.get('material_id')}, çat #{payload.get('chat_id')}\n"
+        f"Növ: {payload.get('kind')}\n"
+        f"Mənbə: {payload.get('location') or '-'}\n"
+        f"Xəta: {str(payload.get('error', ''))[:500]}"
+    )
+
+
+async def _notify_admin_telegram(payload: dict) -> None:
+    keys = _admin_telegram_keys()
+    if keys is None:
         return
+    token, chat_id = keys
     try:
-        async with httpx.AsyncClient(timeout=3) as http:
-            await http.post(webhook_url, json=payload)
+        async with httpx.AsyncClient(timeout=5) as http:
+            await http.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": _material_failure_text(payload)},
+            )
     except Exception:
-        pass
+        # Xəta mətni jurnala salınmır: httpx onu URL ilə (token daxil) yazır.
+        logger.warning("Telegram admin bildirişi göndərilmədi")
 
 
 def _material_ready_message(result) -> str:
