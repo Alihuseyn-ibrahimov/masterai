@@ -3,7 +3,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from pipeline.rag import TutorAnswer
 from server.app import (
     app,
     get_chat_store,
@@ -37,9 +36,12 @@ def env():
     summaries = SummaryStore(":memory:")
     calls = []
 
-    def fake_tutor(question, docs):
+    def fake_tutor(question, docs, history):
         calls.append((question, docs))
-        return TutorAnswer(answer="Cavab [1].", found=True, sources=docs[:1])
+        env_history.append(history)
+        return {"kind": "answer", "answer": "Cavab [1].", "sources": docs[:1], "quiz": None}
+
+    env_history = []
 
     limiter = RateLimiter(3, 600)
     for dep, value in {get_user_store: users, get_chat_store: chats, get_lesson_store: lessons,
@@ -65,7 +67,7 @@ def env():
             lessons.finish_segment(row["id"], 0, text=text)
         return row
 
-    yield {"client": TestClient(app), "calls": calls, "lesson": lesson, "chat": chat, "other": other,
+    yield {"client": TestClient(app), "calls": calls, "history": env_history, "lesson": lesson, "chat": chat, "other": other,
            "summaries": summaries, "banks": banks, "lessons": lessons, "course": course, "teacher": teacher,
            "auth": {"Authorization": f"Bearer {create_token(ali['id'], secret=_SECRET)}"}}
     app.dependency_overrides.clear()
@@ -101,7 +103,8 @@ def test_uses_only_own_class_material_and_published_summaries(env):
 def test_lesson_scope_and_no_material(env):
     empty = env["lesson"](env["chat"]["id"], "Səssiz dərs")
     r = _ask(env, lesson_id=empty["id"])
-    assert r.json() == {"found": False, "answer": "", "sources": [], "no_material": True}
+    assert r.json() == {"found": False, "answer": "", "sources": [], "no_material": True,
+                        "kind": "no_material", "quiz": None}
     assert env["calls"] == []
     foreign = env["lesson"](env["other"]["id"], "Başqa", text="x")
     assert _ask(env, lesson_id=foreign["id"]).status_code == 404
@@ -116,3 +119,29 @@ def test_rate_limited_per_user(env):
 def test_question_length_validated(env):
     assert _ask(env, question="x").status_code == 422
     assert _ask(env, question="a" * 501).status_code == 422
+
+
+def test_history_is_passed_trimmed_to_last_six(env):
+    env["lesson"](env["chat"]["id"], "Konstitusiya", text="Konstitusiya 1995-ci ildə qəbul edilib.")
+    turns = [{"role": "user" if i % 2 == 0 else "tutor", "text": f"addım {i}"} for i in range(10)]
+    assert _ask(env, history=turns).status_code == 200
+    assert [t["text"] for t in env["history"][-1]] == [f"addım {i}" for i in range(4, 10)]
+
+
+def test_quiz_reply_shape(env):
+    from pipeline.tutor_graph import TutorQuiz
+
+    env["lesson"](env["chat"]["id"], "Konstitusiya", text="Konstitusiya 1995-ci ildə qəbul edilib.")
+    quiz = TutorQuiz(question="Nə vaxt?", options=["1991", "1993", "1995", "1998", "2002"], correct_index=2,
+                     explanation="1995-ci ildə [1].")
+    app.dependency_overrides[get_tutor] = lambda: (lambda q, d, h: {"kind": "quiz", "answer": "", "quiz": quiz,
+                                                                    "sources": d[:1]})
+    body = _ask(env, question="məni yoxla").json()
+    assert body["kind"] == "quiz" and body["found"] is True
+    assert body["quiz"]["correct_index"] == 2 and len(body["quiz"]["options"]) == 5
+    assert body["sources"][0]["title"].startswith("Dərs:")
+
+
+def test_no_material_kind(env):
+    body = _ask(env).json()
+    assert body["no_material"] is True and body["kind"] == "no_material"

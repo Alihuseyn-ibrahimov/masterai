@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1884 pytest + 280 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1900 pytest + 282 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -162,6 +162,19 @@ olmayan) dərslərin mətni + sinfə DƏRC olunmuş konspektlər; dərc
 olunmamış konspekt və başqa sinif düşmür. İstifadəçi üzrə 10 dəqiqədə
 20 sual (429). Saxta LLM ilə brauzerdə sınanıb; real cavab keyfiyyəti
 produksiyada yoxlanmalıdır.
+
+**Gün 9 — tutor agentə çevrildi (LangGraph).** `pipeline/tutor_graph.py`:
+`classify → contextualize → retrieve → answer | make_quiz | not_found`,
+`offtopic` ayrıca qol. Niyyət AÇAR SÖZLƏRLƏ təyin olunur (LLM yox):
+«məni yoxla», «test ver» → quiz; yalnız salam/təşəkkür → offtopic (LLM
+çağırılmır). Quiz bir MCQ-dur (5 variant, JSON, `TutorQuiz` validasiyası;
+pozuq JSON → «tapmadım»); mövzusuz «Məni yoxla» materialdan təsadüfi
+yer seçir. Söhbəti server SAXLAMIR: brauzer son 6 addımı `history` kimi
+göndərir. Davam sualına əvvəlki sual YALNIZ açıq bağlayıcı ilə qoşulur
+(«Bəs ...», «Onun ...»): qısa müstəqil sual («fotosintez nədir») qoşulsa,
+əvvəlki mövzunun mətni tapılar və tutor əlaqəsiz cavab verərdi - bu
+brauzer sınağında tutuldu. Cavab `kind` sahəsi daşıyır (`answer`,
+`quiz`, `not_found`, `offtopic`, `no_material`), köhnə sahələr qalır.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

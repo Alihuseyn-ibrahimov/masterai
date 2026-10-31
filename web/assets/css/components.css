@@ -1000,3 +1000,4 @@
 .tutor-answer { max-width: 100%; }
 .tutor-answer__text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tutor-cite { color: var(--color-primary); font-weight: 600; }
+.tutor-answer > .badge, .tutor-answer .stack > .badge { align-self: flex-start; }

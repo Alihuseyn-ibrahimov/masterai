@@ -662,11 +662,27 @@ class LessonInfo(BaseModel):
     question_set_id: int | None = None
 
 
+class TutorTurn(BaseModel):
+    """Söhbətin bir addımı (gün 9). Tarixçəni brauzer saxlayır və göndərir."""
+
+    role: Literal["user", "tutor"]
+    text: str = Field(max_length=4000)
+
+
 class TutorAsk(BaseModel):
     """AI tutora sual (gün 8). `lesson_id` verilsə yalnız o dərs üzrə."""
 
     question: str = Field(min_length=3, max_length=500)
     lesson_id: int | None = None
+    # Gün 9: son addımlar (davam sualı üçün). Çox göndərilsə yalnız son 6-sı işlənir.
+    history: list[TutorTurn] = Field(default_factory=list, max_length=20)
+
+
+class TutorQuizOut(BaseModel):
+    question: str
+    options: list[str]
+    correct_index: int
+    explanation: str = ""
 
 
 class TutorSource(BaseModel):
@@ -681,6 +697,9 @@ class TutorReply(BaseModel):
     sources: list[TutorSource]
     # Sinifdə hələ heç bir material yoxdur (axtarılası heç nə yoxdur).
     no_material: bool = False
+    # Gün 9: "answer" | "quiz" | "not_found" | "offtopic" | "no_material".
+    kind: str = "answer"
+    quiz: TutorQuizOut | None = None
 
 
 class LessonAttendRequest(BaseModel):
