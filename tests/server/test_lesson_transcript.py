@@ -51,11 +51,14 @@ def env(tmp_path):
     for member in (teacher, student):
         chats.add_member(chat["id"], member["id"])
 
-    client = TestClient(app)
-    auth = {"Authorization": f"Bearer {create_token(teacher['id'], secret=_SECRET)}"}
-    lesson = client.post(f"/chats/{chat['id']}/lessons", json=_LESSON, headers=auth).json()
-    yield {"client": client, "auth": auth, "lesson": lesson, "lessons": lessons, "seen": seen,
-           "student_auth": {"Authorization": f"Bearer {create_token(student['id'], secret=_SECRET)}"}}
+    # `with`: bir event loop bütün test boyu yaşayır. Onsuz hər sorğu öz
+    # loop-unu açıb bağlayır və fon task-ı (Whisper, sual bankı) yarıda
+    # qala bilir - CI-da məhz belə oldu.
+    with TestClient(app) as client:
+        auth = {"Authorization": f"Bearer {create_token(teacher['id'], secret=_SECRET)}"}
+        lesson = client.post(f"/chats/{chat['id']}/lessons", json=_LESSON, headers=auth).json()
+        yield {"client": client, "auth": auth, "lesson": lesson, "lessons": lessons, "seen": seen,
+               "student_auth": {"Authorization": f"Bearer {create_token(student['id'], secret=_SECRET)}"}}
     app.dependency_overrides.clear()
 
 
@@ -70,8 +73,17 @@ def _start(env):
     env["client"].post(f"/live/lessons/{env['lesson']['id']}/start", headers=env["auth"])
 
 
-def _transcript(env):
-    return env["client"].get(f"/live/lessons/{env['lesson']['id']}/transcript", headers=env["auth"]).json()
+def _transcript(env, timeout=5.0):
+    """Mətnə çevirmə fon task-ıdır: cavab 202 qayıdanda hələ bitməmiş ola
+    bilər (CI-da yavaş maşında məhz belə oldu). Bitənə qədər gözləyirik."""
+    import time
+
+    deadline = time.time() + timeout
+    while True:
+        body = env["client"].get(f"/live/lessons/{env['lesson']['id']}/transcript", headers=env["auth"]).json()
+        if all(s["status"] != "processing" for s in body["segments"]) or time.time() > deadline:
+            return body
+        time.sleep(0.02)
 
 
 def test_segments_are_joined_in_order_and_audio_is_deleted(env):
@@ -169,10 +181,11 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
     seen, question_sets, summaries = _lesson_quiz_env(env, tmp_path)
     _start(env)
     _send(env, 0, ("Konstitusiya dövlətin əsas qanunudur. " * 20).encode())
+    _transcript(env)
     r = _make_quiz(env, question_count=5)
     assert r.status_code == 202, r.text
     qs_id = r.json()["question_set_id"]
-    deadline = time.time() + 2
+    deadline = time.time() + 5
     while question_sets.get(qs_id)["status"] == "processing" and time.time() < deadline:
         time.sleep(0.02)
     bank = question_sets.get(qs_id)
@@ -180,6 +193,7 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
     assert bank["material_kind"] == "text" and seen["kind"] == "text"
     assert "Konstitusiya" in seen["text"]
     summary = summaries.get_for_question_set(qs_id)
+    deadline = time.time() + 5
     while summary["status"] == "processing" and time.time() < deadline:
         time.sleep(0.02)
         summary = summaries.get(summary["id"])
@@ -195,6 +209,7 @@ def test_lesson_quiz_needs_enough_transcript(env, tmp_path):
     _start(env)
     assert _make_quiz(env).status_code == 409  # mətn yoxdur
     _send(env, 0, b"qisa")
+    _transcript(env)
     assert _make_quiz(env).status_code == 409
     assert _make_quiz(env, subject="yox").status_code in (400, 409)
     r = env["client"].post(f"/live/lessons/{env['lesson']['id']}/question-set",
