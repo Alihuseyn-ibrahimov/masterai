@@ -39,3 +39,26 @@ Belə model `synthetic: true` ilə yazılır və server onu **heç vaxt göstər
   müəllim isə «niyə çətin?» sualına cavab görməlidir.
 - **Çəki = cavab sayı:** 40 cavablı sualın faizi 5 cavablıdan etibarlıdır (çəkili BCE).
 - **Erkən dayanma:** validasiya itkisi 30 epoxa yaxşılaşmırsa dayanır, ən yaxşı çəkilər qalır.
+
+---
+
+# QLoRA fine-tune: öz sual generatorumuz (gün 16)
+
+Kiçik açıq modeli (Qwen2.5-3B-Instruct) MasterAI-nin **öz yaxşı sualları** üzərində
+QLoRA ilə öyrədirik: baza model 4-bit NF4 yüklənib dondurulur, yalnız LoRA adapterləri
+(r=16, ~0.5% parametr) öyrədilir. Pulsuz Colab T4 bəs edir.
+
+1. **Dataset (serverdə):**
+   ```bash
+   cd /opt/masterai && .venv/bin/python -m ml.sft_dataset --data-dir data --out /root/sft
+   ```
+   Hazır banklardan «material parçası → suallar» cütləri. İstifadəçi mesajı produksiya
+   promptu ilə bayt-bayt eynidir (`generation.user_prompt`, test qoruyur). Yalnız yaxşı
+   suallar: qaydalı filtri keçən və AI yoxlama komandasının «fix» demədiyi. Train/val
+   BANK üzrə bölünür (eyni material iki tərəfə düşmür).
+2. **Colab:** `ml/qlora_mcq.ipynb`-i aç (GitHub → Colab), T4 seç, `train.jsonl` + `val.jsonl` yüklə,
+   hamısını işlət. Paket versiyaları sabitlənib.
+3. **Müqayisə:** notebook baza modeli və fine-tune-u eyni val dəstində sual yazdırır,
+   `ml/score_generation.py` cədvəl çıxarır: JSON oxunurmu, say düzgündürmü, qaydalı filtr,
+   uzunluqla özünü verən cavab, cavabın materiala bağlılığı.
+4. **Saxla:** notebook adapteri baza ilə birləşdirib `masterai-mcq-merged/` yazır (gün 17: vLLM).
