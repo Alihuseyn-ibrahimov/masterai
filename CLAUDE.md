@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1929 pytest + 287 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1943 pytest + 287 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -213,6 +213,18 @@ hero şəklində material yerinə DƏRSİN SƏS YAZISINDAN parça, «Nə edir»
 komandası), «Necə işləyir» 4 addım (planla → keç → AI hazırlasın →
 tələbə təkrarlasın), 2 yeni FAQ. Sprite-a `i-video`, `i-microphone`,
 `i-qrcode` əlavə olundu. Dizayn sistemi dəyişmədi.
+
+**Gün 13 — eval dəsti.** `evals/` (`python -m evals.run`): 7 mənbə, 30
+tutor halı (`tutor.jsonl`: gözlənilən növ, mənbə, açar sözlər, davam üçün
+`history`), 16 etiketli sual (`review.jsonl`: `ok`/`fix` + problem növü).
+Offline (LLM-siz, CI): niyyət, axtarış hit@1/hit@4/MRR, qaydalı filtrin
+precision/recall-u - hədlər `OFFLINE_GATES`-dədir, `tests/test_evals.py`
+qoruyur. Live (`--live`, serverdə): tutorun nəticə növü, mənbə, açar söz,
+`[n]` istinadı, «tapmadım» deyə bilmə, quiz forması; `--judge` ayrıca LLM
+hakimlə sadiqlik (1-5); AI komandasının precision/recall/F1-i. Qaydalar
+faktı bilmir (`wrong_answer` recall ~25%) - bu, AI komandası üçün bazadır.
+İlk işdə tapıldı: «Təşəkkür edirəm», «Çox sağ ol» izah sayılırdı (düzəldildi).
+Real modellə nəticə hələ YOXDUR - serverdə işlədilməlidir (`evals/README.md`).
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

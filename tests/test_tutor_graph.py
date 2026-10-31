@@ -39,6 +39,10 @@ def test_classify_intent():
     assert classify_intent("Konstitusiyadan test ver") == "quiz"
     assert classify_intent("Salam") == "offtopic"
     assert classify_intent("çox sağ olun") == "offtopic"
+    # eval dəstində tapıldı (gün 13)
+    assert classify_intent("Təşəkkür edirəm") == "offtopic"
+    assert classify_intent("Çox sağ ol") == "offtopic"
+    assert classify_intent("Konstitusiya nə vaxt qəbul olunub?") == "explain"
     assert classify_intent("Konstitusiya nə vaxt qəbul edilib?") == "explain"
 
 

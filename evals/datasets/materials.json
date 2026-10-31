@@ -1,0 +1,16 @@
+[
+  {"key": "lesson:konstitusiya", "title": "Dərs: Konstitusiya",
+   "text": "Azərbaycan Respublikasının Konstitusiyası 1995-ci il noyabrın 12-də ümumxalq səsverməsi - referendum yolu ilə qəbul edilib. Konstitusiyaya sonradan 2002, 2009 və 2016-cı illərdə keçirilən referendumlarla əlavə və dəyişikliklər edilib. Konstitusiyaya görə dövlət hakimiyyəti hakimiyyətlərin bölünməsi prinsipi əsasında təşkil olunur: qanunvericilik hakimiyyətini Milli Məclis, icra hakimiyyətini Prezident, məhkəmə hakimiyyətini isə məhkəmələr həyata keçirir. Konstitusiya ən yüksək hüquqi qüvvəyə malikdir və Azərbaycan Respublikasının qanunvericilik sisteminin əsasını təşkil edir."},
+  {"key": "summary:milli-meclis", "title": "Konspekt: Milli Məclis",
+   "text": "Milli Məclis Azərbaycan Respublikasının qanunvericilik orqanıdır. Milli Məclis 125 deputatdan ibarətdir. Deputatlar majoritar seçki sistemi əsasında ümumi, bərabər və birbaşa seçki hüququ əsasında sərbəst, şəxsi və gizli səsvermə yolu ilə beş il müddətinə seçilir. Milli Məclisin hər çağırışının səlahiyyət müddəti beş ildir."},
+  {"key": "lesson:prezident", "title": "Dərs: Prezident",
+   "text": "Azərbaycan dövlətinin başçısı Azərbaycan Respublikasının Prezidentidir. Prezident ümumi, bərabər və birbaşa seçki hüququ əsasında sərbəst, şəxsi və gizli səsvermə yolu ilə yeddi il müddətinə seçilir. Müddətin yeddi ilə uzadılması və Birinci vitse-prezident vəzifəsinin təsis edilməsi 2016-cı il referendumu ilə həyata keçirilib. Prezident Silahlı Qüvvələrin Ali Baş Komandanıdır."},
+  {"key": "lesson:tarix-1918", "title": "Dərs: Azərbaycan Xalq Cümhuriyyəti",
+   "text": "Azərbaycan Xalq Cümhuriyyəti 1918-ci il mayın 28-də Tiflisdə İstiqlal Bəyannaməsi qəbul edilməklə elan olundu. Bu, Şərqdə ilk parlamentli respublika idi. Hökumət əvvəlcə Gəncəyə köçdü, 1918-ci ilin sentyabrında Bakı azad edildikdən sonra paytaxt Bakıya köçürüldü. Cümhuriyyət 1918-ci ildə qadınlara seçki hüququ verdi. 1920-ci ilin aprelində XI Qırmızı Ordunun Bakıya daxil olması ilə Cümhuriyyət süqut etdi."},
+  {"key": "lesson:fotosintez", "title": "Dərs: Fotosintez",
+   "text": "Fotosintez yaşıl bitkilərin işıq enerjisindən istifadə edərək karbon qazı və sudan üzvi maddə - qlükoza yaratması prosesidir. Proses yarpaq hüceyrələrindəki xloroplastlarda gedir; işığı xlorofil piqmenti udur. Fotosintez zamanı əlavə məhsul kimi oksigen ayrılır və atmosferə buraxılır. Ümumi tənlik: 6CO2 + 6H2O + işıq → C6H12O6 + 6O2."},
+  {"key": "lesson:python", "title": "Dərs: Python əsasları",
+   "text": "Python-da siyahı (list) kvadrat mötərizə ilə yaradılır: [1, 2, 3]. Siyahının uzunluğunu len() funksiyası qaytarır. Lüğət (dict) açar-dəyər cütlərini saxlayır və fiqurlu mötərizə ilə yazılır: {\"ad\": \"Əli\"}. for dövrü kolleksiyanın hər elementi üzərində təkrarlanır. Python-da indeksləmə sıfırdan başlayır, yəni siyahının birinci elementi lst[0]-dır."},
+  {"key": "lesson:rag", "title": "Dərs: RAG",
+   "text": "RAG (Retrieval-Augmented Generation) iki addımdan ibarətdir: əvvəlcə suala uyğun mətn parçaları axtarılır (retrieval), sonra dil modeli yalnız həmin parçalara əsaslanaraq cavab yazır (generation). Axtarış leksik ola bilər, məsələn BM25 alqoritmi sözlərin tezliyinə görə sıralayır; və ya semantik ola bilər - embedding vektorları ilə. RAG modelin uydurmasını (halüsinasiya) azaldır, çünki cavab mənbəyə bağlanır və istinad göstərilir."}
+]
