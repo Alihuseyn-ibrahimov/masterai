@@ -55,6 +55,16 @@ class LessonStore:
                     updated_at   TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_lessons_chat ON lessons(chat_id, starts_at);
+                CREATE TABLE IF NOT EXISTS lesson_transcripts (
+                    lesson_id  INTEGER NOT NULL,
+                    seq        INTEGER NOT NULL,
+                    status     TEXT NOT NULL,
+                    text       TEXT NOT NULL DEFAULT '',
+                    error      TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (lesson_id, seq)
+                );
                 CREATE TABLE IF NOT EXISTS lesson_attendance (
                     lesson_id INTEGER NOT NULL,
                     user_id   INTEGER NOT NULL,
@@ -151,6 +161,7 @@ class LessonStore:
     def delete(self, lesson_id: int) -> None:
         with self._lock:
             self._conn.execute("DELETE FROM lesson_attendance WHERE lesson_id = ?", (lesson_id,))
+            self._conn.execute("DELETE FROM lesson_transcripts WHERE lesson_id = ?", (lesson_id,))
             self._conn.execute("DELETE FROM lessons WHERE id = ?", (lesson_id,))
             self._conn.commit()
 
@@ -178,3 +189,58 @@ class LessonStore:
                 (lesson_id,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # ---- Transkript (gün 3) ----
+    # Hər səs hissəsi `seq` nömrəsi ilə bir sətirdir. Eyni hissənin
+    # təkrar göndərilməsi (şəbəkə kəsilib brauzer yenidən yollayır)
+    # yeni sətir yaratmır, köhnəsinin yerinə yazılır.
+
+    def start_segment(self, lesson_id: int, seq: int) -> None:
+        now = _utc_now_iso()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO lesson_transcripts (lesson_id, seq, status, text, error, created_at, updated_at) "
+                "VALUES (?, ?, 'processing', '', NULL, ?, ?) "
+                "ON CONFLICT(lesson_id, seq) DO UPDATE SET status = 'processing', text = '', "
+                "error = NULL, updated_at = excluded.updated_at",
+                (lesson_id, seq, now, now),
+            )
+            self._conn.commit()
+
+    def finish_segment(self, lesson_id: int, seq: int, *, text: str | None = None,
+                       error: str | None = None) -> None:
+        status = "failed" if error else "ready"
+        with self._lock:
+            self._conn.execute(
+                "UPDATE lesson_transcripts SET status = ?, text = ?, error = ?, updated_at = ? "
+                "WHERE lesson_id = ? AND seq = ?",
+                (status, text or "", error, _utc_now_iso(), lesson_id, seq),
+            )
+            self._conn.commit()
+
+    def list_segments(self, lesson_id: int) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT seq, status, text, error FROM lesson_transcripts "
+                "WHERE lesson_id = ? ORDER BY seq",
+                (lesson_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def transcript_text(self, lesson_id: int) -> str:
+        """Hazır hissələr sıra ilə, boş sətirlə ayrılmış."""
+        return "\n\n".join(
+            s["text"] for s in self.list_segments(lesson_id) if s["status"] == "ready" and s["text"]
+        )
+
+    def fail_interrupted_segments(self) -> int:
+        """Servis restart olanda yarımçıq qalan emallar (eyni dərs:
+        fon task-ı prosesdə ölür, status əbədi `processing` qalırdı)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE lesson_transcripts SET status = 'failed', "
+                "error = 'Server yenidən başladı, hissəni yenidən göndərin' "
+                "WHERE status = 'processing'"
+            )
+            self._conn.commit()
+            return cur.rowcount

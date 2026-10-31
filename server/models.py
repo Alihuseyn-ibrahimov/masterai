@@ -676,3 +676,17 @@ class LessonVideoAccess(BaseModel):
     room: str
     identity: str
     is_host: bool
+
+
+class LessonTranscriptSegment(BaseModel):
+    """Bir səs hissəsi (gün 3): təxminən 5 dəqiqə."""
+
+    seq: int
+    status: Literal["processing", "ready", "failed"]
+    error: str | None = None
+
+
+class LessonTranscript(BaseModel):
+    lesson_id: int
+    segments: list[LessonTranscriptSegment]
+    text: str

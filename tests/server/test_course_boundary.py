@@ -223,6 +223,9 @@ CASES = {
     ("POST", "/live/lessons/{lesson_id}/start"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/live/lessons/{lesson_id}/end"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("GET", "/live/lessons/{lesson_id}/attendance"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/live/lessons/{lesson_id}/audio"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None,
+        {"seq": "0", "_file": ("audio", "part.webm", b"x")}),
+    ("GET", "/live/lessons/{lesson_id}/transcript"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("WS", "/ws/chat/{chat_id}"): ("student_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/host"): ("teacher_b", {"session_id": "session_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/play"): ("student_b", {"session_id": "session_a.id"}, None, None, None),
@@ -317,6 +320,10 @@ def test_other_course_object_is_not_found(world, key):
     if body is not None:
         kwargs["json"] = _resolve(world, body)
     if form is not None:
+        form = dict(form)
+        if "_file" in form:  # fayl tələb edən marşrut: faylsız sorğu 422 olardı, 404-ə çatmazdı
+            field, name, content = form.pop("_file")
+            kwargs["files"] = {field: (name, content)}
         kwargs["data"] = form
     r = client.request(method, url, **kwargs)
     assert r.status_code == 404, f"{method} {path}: {r.status_code} {r.text[:200]}"

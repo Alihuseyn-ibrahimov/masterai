@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031a" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
-<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
-<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031a">
 <!-- LiveKit klienti REPOYA qoyulub (CDN yox): build addımı yoxdur, versiya
      sabitdir və CDN əlçatmaz olanda dərs dayanmır. Lisenziya: Apache-2.0,
      assets/vendor/LICENSE-livekit-client. Yeniləmə: npm tarball-dan
@@ -62,8 +62,10 @@
     <button class="btn btn--secondary" type="button" id="camButton" aria-pressed="false">Kamera</button>
     <button class="btn btn--secondary" type="button" id="screenButton" aria-pressed="false">Ekranı paylaş</button>
     <button class="btn btn--ghost" type="button" id="leaveButton">Çıx</button>
+    <button class="btn btn--secondary" type="button" id="recordButton" aria-pressed="false" hidden>Səsi yaz (konspekt üçün)</button>
     <button class="btn btn--danger" type="button" id="endButton" hidden>Dərsi bitir</button>
   </div>
+  <p class="text-sm text-muted" id="recordStatus" hidden></p>
 </div>
 
 <nav id="bottomNav"></nav>
@@ -73,6 +75,7 @@
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
   import { MODE_LABELS, formatLessonTime } from './assets/js/lessons.js';
   import { connectionLabel, initials, orderTiles, roleOf } from './assets/js/lesson-room.js';
+  import { createLessonRecorder } from './assets/js/lesson-recorder.js';
 
   if (requireLogin()) {
     mountShell();
@@ -241,6 +244,14 @@
         $('joinCard').hidden = true;
         $('controls').hidden = false;
         $('endButton').hidden = !access.is_host;
+        $('recordButton').hidden = !access.is_host || typeof MediaRecorder === 'undefined';
+        if (access.is_host) {
+          // Səhifə yenilənəndə nömrələmə 0-dan başlasa, əvvəlki hissələrin
+          // mətni üstünə yazılardı.
+          const transcript = await request(`/live/lessons/${lessonId}/transcript`).catch(() => null);
+          const seqs = transcript ? transcript.segments.map((x) => x.seq) : [];
+          nextSeq = seqs.length ? Math.max(...seqs) + 1 : 0;
+        }
         if (access.is_host) {
           // Müəllim danışmaq üçün gəlir; tələbə isə sakit girir.
           await room.localParticipant.enableCameraAndMicrophone().catch((error) => {
@@ -271,18 +282,71 @@
       render();
     }
 
+    /* ---- Səs yazısı (gün 3): yalnız müəllimin mikrofonu ---- */
+
+    let recorder = null;
+    let nextSeq = 0;
+
+    function showRecordState(state) {
+      const parts = [state.recording ? 'Dərs səsi yazılır.' : 'Yazı dayandırılıb.'];
+      if (state.sent) parts.push(`${state.sent} hissə mətnə göndərildi.`);
+      if (state.failed) parts.push(`${state.failed} hissə göndərilmədi.`);
+      $('recordStatus').textContent = parts.join(' ');
+      $('recordStatus').hidden = false;
+      $('recordButton').setAttribute('aria-pressed', String(state.recording));
+      $('recordButton').textContent = state.recording ? 'Yazını dayandır' : 'Səsi yaz (konspekt üçün)';
+    }
+
+    function uploadSegment(blob, seq, ext) {
+      const form = new FormData();
+      form.append('seq', String(seq));
+      form.append('audio', blob, `hisse-${seq}${ext}`);
+      return request(`/live/lessons/${lessonId}/audio`, { method: 'POST', body: form });
+    }
+
+    async function startRecording() {
+      const mic = room && room.localParticipant.getTrackPublication(LK.Track.Source.Microphone);
+      const track = mic && mic.track && mic.track.mediaStreamTrack;
+      if (!track) {
+        showError('Əvvəlcə mikrofonu açın.');
+        return;
+      }
+      recorder = createLessonRecorder({
+        stream: new MediaStream([track]), Recorder: MediaRecorder,
+        upload: uploadSegment, onChange: showRecordState, firstSeq: nextSeq,
+      });
+      recorder.start();
+    }
+
+    async function stopRecording() {
+      if (!recorder) return;
+      const active = recorder;
+      recorder = null;
+      await active.stop();
+      nextSeq = active.nextSeq;
+    }
+
+    $('recordButton').addEventListener('click', async () => {
+      showError('');
+      if (recorder) await stopRecording();
+      else await startRecording();
+    });
+
     $('joinButton').addEventListener('click', join);
     $('micButton').addEventListener('click', () => toggle('mic'));
     $('camButton').addEventListener('click', () => toggle('cam'));
     $('screenButton').addEventListener('click', () => toggle('screen'));
     $('audioButton').addEventListener('click', () => room && room.startAudio());
     $('leaveButton').addEventListener('click', async () => {
+      await stopRecording();
       if (room) await room.disconnect();
       window.location.assign('dersler.html');
     });
     $('endButton').addEventListener('click', async () => {
       if (!confirm('Dərs hamı üçün bitsin?')) return;
       try {
+        // Son hissə dərs bitməzdən ƏVVƏL yola düşsün.
+        await stopRecording();
         await request(`/live/lessons/${lessonId}/end`, { method: 'POST' });
         if (room) await room.disconnect();
         window.location.assign('dersler.html');
