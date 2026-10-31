@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,59 +20,26 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
 </head>
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
   <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
 
-  <!-- Müəllim: yeni dərs. Tələbədə gizli qalır. -->
-  <section class="stack" id="createSection" hidden>
-    <div class="section-header">
-      <h1>Dərs cədvəli</h1>
-      <span class="section-header__hint">Onlayn və ya sinifdə keçiləcək dərsi planlaşdırın</span>
-    </div>
-    <form class="card stack" id="createForm">
-      <div class="field">
-        <label class="field__label" for="chatSelect">Sinif (qrup çatı)</label>
-        <select class="field__select" id="chatSelect" required></select>
-      </div>
-      <div class="field">
-        <label class="field__label" for="title">Mövzu</label>
-        <input class="field__input" id="title" required maxlength="200" placeholder="Məs. Konstitusiya: 1-ci fəsil">
-      </div>
-      <div class="field">
-        <label class="field__label" for="description">Qısa təsvir (istəyə bağlı)</label>
-        <textarea class="field__textarea" id="description" maxlength="2000" rows="2"></textarea>
-      </div>
-      <div class="grid">
-        <div class="field">
-          <label class="field__label" for="startsAt">Başlama vaxtı</label>
-          <input class="field__input" id="startsAt" type="datetime-local" required>
-        </div>
-        <div class="field">
-          <label class="field__label" for="duration">Müddət (dəqiqə)</label>
-          <input class="field__input" id="duration" type="number" min="15" max="300" step="5" value="90" required>
-        </div>
-        <div class="field">
-          <label class="field__label" for="mode">Növ</label>
-          <select class="field__select" id="mode">
-            <option value="online">Onlayn (video dərs)</option>
-            <option value="offline">Sinifdə (əyani)</option>
-          </select>
-        </div>
-      </div>
-      <button class="btn btn--primary" type="submit" id="createButton">Dərsi əlavə et</button>
-    </form>
-  </section>
-
+  <!-- SİYAHI ƏVVƏL (2026-10-31): müəllim dərsləri görmək üçün hər dəfə
+       formanı keçirdi. Yeni dərs başlıqdakı düymə ilə vərəqdə açılır;
+       «Bu gün»dən `dersler.html#yeni` ilə birbaşa açılır. -->
   <section class="stack">
     <div class="section-header">
-      <h2 id="listTitle">Dərslərim</h2>
-      <span class="bank__actions">
+      <h1 id="listTitle">Dərslərim</h1>
+      <span class="page-actions">
+        <button class="btn btn--primary btn--sm" type="button" id="newLessonButton" hidden>
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>
+          Dərs planla
+        </button>
         <a class="btn btn--ghost btn--sm" href="tutor.html">AI tutor</a>
         <a class="btn btn--ghost btn--sm" id="extraLink" href="xulaseler.html">Xülasələr</a>
       </span>
@@ -151,6 +118,52 @@
   </section>
 </div>
 
+<!-- Müəllim: yeni dərs. Tələbədə heç vaxt açılmır. -->
+<dialog class="sheet" id="lessonSheet" aria-labelledby="lessonSheetTitle">
+  <div class="sheet__head">
+    <h2 id="lessonSheetTitle">Dərs planla</h2>
+    <button class="btn btn--ghost btn--sm" type="button" data-sheet-close aria-label="Bağla">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-x"></use></svg>
+    </button>
+  </div>
+  <div class="sheet__body stack">
+    <p class="text-sm text-muted">Onlayn və ya sinifdə keçiləcək dərsi planlaşdırın.</p>
+    <div class="notice notice--danger" id="createError" role="alert" hidden></div>
+    <form class="stack" id="createForm">
+      <div class="field">
+        <label class="field__label" for="chatSelect">Sinif (qrup çatı)</label>
+        <select class="field__select" id="chatSelect" required></select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="title">Mövzu</label>
+        <input class="field__input" id="title" required maxlength="200" placeholder="Məs. Konstitusiya: 1-ci fəsil">
+      </div>
+      <div class="field">
+        <label class="field__label" for="description">Qısa təsvir (istəyə bağlı)</label>
+        <textarea class="field__textarea" id="description" maxlength="2000" rows="2"></textarea>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label class="field__label" for="startsAt">Başlama vaxtı</label>
+          <input class="field__input" id="startsAt" type="datetime-local" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="duration">Müddət (dəqiqə)</label>
+          <input class="field__input" id="duration" type="number" min="15" max="300" step="5" value="90" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="mode">Növ</label>
+          <select class="field__select" id="mode">
+            <option value="online">Onlayn (video dərs)</option>
+            <option value="offline">Sinifdə (əyani)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn--primary" type="submit" id="createButton">Dərsi əlavə et</button>
+    </form>
+  </div>
+</dialog>
+
 <nav id="bottomNav"></nav>
 
 <script type="module">
@@ -158,6 +171,7 @@
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { MODE_LABELS, STATUS_LABELS, formatLessonTime, groupLessons, localInputToIso } from './assets/js/lessons.js';
   import { SUBJECTS } from './assets/js/subjects.js';
+  import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
 
   if (requireLogin()) {
     mountShell();
@@ -568,8 +582,18 @@
     }
 
     if (isTeacher) {
-      document.getElementById('createSection').hidden = false;
+      const newLessonButton = document.getElementById('newLessonButton');
+      newLessonButton.hidden = false;
       document.getElementById('listTitle').textContent = 'Siniflərimin dərsləri';
+      const createError = document.getElementById('createError');
+      const showCreateError = (message) => {
+        createError.textContent = message;
+        createError.hidden = !message;
+      };
+      const sheet = bindSheet(document.getElementById('lessonSheet'), {
+        openers: [newLessonButton],
+        onOpen: () => document.getElementById('title').focus(),
+      });
       const extra = document.getElementById('extraLink');
       extra.textContent = 'Canlı quiz sessiyası';
       extra.href = 'sessiyalar.html';
@@ -583,16 +607,17 @@
           option.textContent = chat.name || `Çat #${chat.id}`;
           chatSelect.append(option);
         }
-        if (!groups.length) showError('Əvvəlcə «Çatlar» bölməsindən qrup çatı (sinif) yaradın.');
+        if (!groups.length) showCreateError('Əvvəlcə «Çatlar» bölməsindən qrup çatı (sinif) yaradın.');
+        if (sheetKeyFromHash(location.hash, ['yeni'])) sheet.open();
       }).catch((error) => showError(error.message));
 
       document.getElementById('createForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const startsAt = localInputToIso(document.getElementById('startsAt').value);
-        if (!startsAt) return showError('Başlama vaxtını seçin.');
+        if (!startsAt) return showCreateError('Başlama vaxtını seçin.');
         const createButton = document.getElementById('createButton');
         createButton.disabled = true;
-        showError('');
+        showCreateError('');
         try {
           await request(`/chats/${Number(chatSelect.value)}/lessons`, {
             method: 'POST',
@@ -605,9 +630,10 @@
             },
           });
           event.target.reset();
+          sheet.close();
           reload();
         } catch (error) {
-          showError(error.message);
+          showCreateError(error.message);
         } finally {
           createButton.disabled = false;
         }

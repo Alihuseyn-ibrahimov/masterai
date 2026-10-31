@@ -208,6 +208,8 @@
   /* ---- Kölgə (az işlədilir) ---- */
   --shadow-raised:  0 1px 3px rgba(18, 21, 28, .07);
   --shadow-overlay: 0 8px 28px rgba(18, 21, 28, .16);
+  /* Vərəq (dialog) arxasındakı qaranlıq pərdə. */
+  --color-scrim:   rgba(11, 15, 24, .55);
 
   /* ---- «3D» kənar: düymə və kartın altındakı qalın zolaq ----
    * Basanda element `--edge-depth` qədər aşağı enir və zolaq
@@ -356,6 +358,7 @@
 
     --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
     --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);
+    --color-scrim:   rgba(0, 0, 0, .7);
   }
 }
 
@@ -423,4 +426,5 @@
 
   --shadow-raised:  0 1px 3px rgba(0, 0, 0, .5);
   --shadow-overlay: 0 8px 28px rgba(0, 0, 0, .6);
+  --color-scrim:   rgba(0, 0, 0, .7);
 }
