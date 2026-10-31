@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 293 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 309 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -335,6 +335,26 @@ neçə?» hesab sualı çıxardı. Səbəb: `subject` HEÇ VAXT AI-a
 `pipeline/subjects.py` fənnə görə qayda yazır (qanunvericilik: norma,
 hüquq/vəzifə, orqan, prosedur; materialda olmayan hesablama
 UYDURULMUR). Fənnsiz çağırışda prompt bayt-bayt köhnədir.
+
+## Saytın yenidən dizaynı: «Oyun enerjisi» (2026-10-31-dən)
+
+İstifadəçi C istiqamətini seçdi (quiz oyunu janrı, yetkin auditoriya).
+Plan və audit: https://claude.ai/artifact/VHjeZqbcSzhm63LiLn5Vne. Vizual
+mənbə Lovable prototipidir (React, YALNIZ istinad; sayt statik qalır).
+**PR 1 - dizayn əsası:** palitra və «3D» komponentlər. İki yaşıl QƏSDƏN
+ayrıdır: `--color-cta` (parlaq doldurma, üstündə tünd mətn) və
+`--color-primary` (mətn/link, ağ fonda AA). Parlaq yaşıl mətn kimi
+İŞLƏDİLMİR. Fənn rəngləri artıq pastel DOLDURMADIR (`--color-on-subject`
+tünd mətn), mətn rəngi deyil. Düymənin alt zolağı `--btn-edge` ilə
+variantdan gəlir. **PR 2 - «Bu gün» (`bugun.html`):** hər iki rolun
+ilk səhifəsi və girişdən sonrakı yol. Qara kartda canlı/növbəti dərs
+(gələcək dərsə «Qoşul» VERİLMİR), tələbədə seriya, XP və həftəlik hədəf,
+növbəti tapşırıq və nişan, müəllimdə xanalar və sürətli hərəkətlər.
+XP və seriya YENİ backend sahəsi deyil: `/history/me`-dən hesablanır
+(`today.js`, 1 düzgün = 10 XP). Naviqasiya: tələbə Bu gün · Dərslər ·
+Tapşırıqlar · Çatlar · Profil (tarixçə profilin altında), müəllim
+Bu gün · Dərslər · Quiz · Çatlar · Hesabat, profilə avatar aparır.
+Növbəti: dərs səhifəsində tab-lar.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
