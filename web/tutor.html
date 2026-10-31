@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031c" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031d" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031c">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031c">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031c">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031d">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031d">
 </head>
 <body>
 <header id="appBar"></header>
@@ -182,6 +182,15 @@
       if (question.length < 3) return;
       if (await ask(question)) questionBox.value = '';
     });
+
+    /* Dərs səhifəsinin «Tutor» tab-ındakı hazır suallar `?q=` ilə gəlir.
+       Sual linkdən silinir: yeniləmə onu ikinci dəfə göndərməsin. */
+    const preset = (params.get('q') || '').trim().slice(0, 500);
+    if (preset.length >= 3) {
+      params.delete('q');
+      window.history.replaceState(null, '', `tutor.html${params.toString() ? `?${params}` : ''}`);
+      ask(preset);
+    }
   }
 </script>
 </body>
