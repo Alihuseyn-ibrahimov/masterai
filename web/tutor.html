@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI tutor - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20261031a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+  <section class="stack">
+    <div class="section-header">
+      <h1>AI tutor</h1>
+      <span class="section-header__hint" id="scopeHint">Dərs materialları üzrə sual verin</span>
+    </div>
+    <p class="text-sm text-muted">Tutor yalnız sinfinizin keçilmiş dərslərindən və müəllimin paylaşdığı konspektlərdən cavab verir, hər cavabda mənbəni göstərir. Materialda olmayanı uydurmur.</p>
+    <div class="stack" id="thread" aria-live="polite"></div>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <form class="card stack stack--tight" id="askForm">
+      <label class="field__label" for="question">Sualınız</label>
+      <textarea class="field__textarea" id="question" rows="3" minlength="3" maxlength="500" required
+                placeholder="Məs. Dövlət hakimiyyəti hansı qollara bölünür?"></textarea>
+      <button class="btn btn--primary" type="submit" id="askButton">Soruş</button>
+    </form>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { sourceHref, splitCitations } from './assets/js/tutor.js';
+
+  if (requireLogin()) {
+    mountShell();
+    const params = new URLSearchParams(location.search);
+    const lessonId = Number(params.get('lesson')) || null;
+    const thread = document.getElementById('thread');
+    const errorBox = document.getElementById('errorBox');
+    const questionBox = document.getElementById('question');
+
+    if (lessonId) {
+      request(`/me/lessons/${lessonId}`).then((lesson) => {
+        document.getElementById('scopeHint').textContent = `Dərs: ${lesson.title}`;
+      }).catch(() => {});
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function addQuestion(text) {
+      const card = el('div', 'card tutor-question');
+      card.append(el('p', '', text));
+      thread.append(card);
+    }
+
+    function addAnswer(reply) {
+      const card = el('div', 'card stack stack--tight tutor-answer');
+      if (!reply.found) {
+        card.append(el('p', 'text-muted', reply.no_material
+          ? 'Sinfinizdə hələ keçilmiş dərs mətni və ya paylaşılmış konspekt yoxdur. Dərsdən sonra yenidən yoxlayın.'
+          : 'Bu barədə dərs materiallarında məlumat tapmadım. Sualı başqa sözlərlə yazın və ya müəllimdən soruşun.'));
+      } else {
+        // Mətn hissə-hissə qurulur: [1] istinadları nişan kimi, qalan hamısı textContent.
+        const p = el('p', 'tutor-answer__text');
+        for (const part of splitCitations(reply.answer)) {
+          p.append(part.cite ? el('sup', 'tutor-cite', `[${part.cite}]`) : document.createTextNode(part.text));
+        }
+        card.append(p);
+        if (reply.sources.length) {
+          const list = el('div', 'bank__actions');
+          list.append(el('span', 'text-sm text-muted', 'Mənbə:'));
+          for (const source of reply.sources) {
+            const href = sourceHref(source);
+            const link = el(href ? 'a' : 'span', 'btn btn--ghost btn--sm', source.title);
+            if (href) link.href = href;
+            list.append(link);
+          }
+          card.append(list);
+        }
+      }
+      thread.append(card);
+    }
+
+    document.getElementById('askForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const question = questionBox.value.trim();
+      if (question.length < 3) return;
+      const button = document.getElementById('askButton');
+      button.disabled = true;
+      button.textContent = 'Düşünür...';
+      errorBox.hidden = true;
+      addQuestion(question);
+      try {
+        const reply = await request('/me/tutor/ask', { method: 'POST', body: { question, lesson_id: lessonId } });
+        addAnswer(reply);
+        questionBox.value = '';
+      } catch (error) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Soruş';
+        questionBox.focus();
+      }
+    });
+  }
+</script>
+</body>
+</html>

@@ -662,6 +662,27 @@ class LessonInfo(BaseModel):
     question_set_id: int | None = None
 
 
+class TutorAsk(BaseModel):
+    """AI tutora sual (gün 8). `lesson_id` verilsə yalnız o dərs üzrə."""
+
+    question: str = Field(min_length=3, max_length=500)
+    lesson_id: int | None = None
+
+
+class TutorSource(BaseModel):
+    title: str
+    lesson_id: int | None = None
+    summary_id: int | None = None
+
+
+class TutorReply(BaseModel):
+    found: bool
+    answer: str
+    sources: list[TutorSource]
+    # Sinifdə hələ heç bir material yoxdur (axtarılası heç nə yoxdur).
+    no_material: bool = False
+
+
 class LessonAttendRequest(BaseModel):
     """Sinif dərsində davamiyyət QR koddan gəlir (gün 6)."""
 

@@ -123,7 +123,9 @@
         card.append(el('p', 'notice notice--info',
           'Davamiyyət üçün lövhədəki QR kodu telefonun kamerası ilə skan edin.'));
       }
-      if (actions.childElementCount) card.append(actions);
+      // Gün 8: bu dərsin materialı üzrə AI tutor.
+      actions.append(link('AI tutordan soruş', `tutor.html?lesson=${encodeURIComponent(lesson.id)}`, 'btn--secondary'));
+      card.append(actions);
       if (isTeacher) {
         card.append(el('p', 'text-sm text-muted',
           'Tələbələr dərsi belə görür. Konspekt və quiz burada «Dərslər» səhifəsindəki «Tələbələrə göndər» düyməsindən sonra görünür.'));
