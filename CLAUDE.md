@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1701 pytest + 253 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1710 pytest + 253 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -63,8 +63,13 @@ Təzə bazada admin yoxdur: saytda qeydiyyat → `deploy/bootstrap_admin.py`
 (müəllim + admin + sahib bayraqları birdən).
 
 **Dərs:** serverdən kənarda backup YOX idi. Hesab dayandırılanda data
-da getdi. Yeni serverdə `data/`-nın kənar backup-ı və DigitalOcean
-Backups açılmalıdır.
+da getdi. İndi `deploy/backup_data.py` hər gecə 03:00 UTC-də
+(`masterai-backup.timer`) bütün `*.db`-lərin sqlite `backup` API-si ilə
+surətini + `uploads/`-u bir arxivə yığır, `/var/backups/masterai`-də
+14 gün saxlayır və `.env`-də `BACKUP_TELEGRAM_BOT_TOKEN` +
+`BACKUP_TELEGRAM_CHAT_ID` varsa Telegram-a göndərir (kənar nüsxə).
+Açarlar yoxdursa jurnalda xəbərdarlıq var: surət YALNIZ serverdədir.
+Telegram limiti 50 MB - arxiv böyüyəndə başqa yer lazım olacaq.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
