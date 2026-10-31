@@ -105,3 +105,15 @@ export function renderDifficultyStats(stats) {
   }
   return wrap;
 }
+
+/** Gün 15: PyTorch modelinin proqnozu. «Model: ~40% düzgün cavab gözlənilir → Çətin».
+ *  Model AI-nın səviyyəsi ilə razılaşmırsa bunu da deyir; proqnoz yoxdursa null. */
+export function predictionLine(question) {
+  const p = question && question.predicted_correct;
+  if (typeof p !== 'number' || !LEVELS.includes(question.predicted_difficulty)) return null;
+  let line = `Model: ~${Math.round(p * 100)}% düzgün cavab gözlənilir → ${levelLabel(question.predicted_difficulty)}`;
+  if (LEVELS.includes(question.difficulty) && question.difficulty !== question.predicted_difficulty) {
+    line += ` (AI «${levelLabel(question.difficulty)}» demişdi)`;
+  }
+  return line;
+}

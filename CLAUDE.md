@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1948 pytest + 287 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1960 pytest (+2 torch testi ml mühitində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -234,6 +234,20 @@ Ayrıca «[Yoxlama] Smoke sinfi» işlədir: real sinfə toxunmur, konspekt dər
 olunmur. Yalnız stdlib + Pillow (lövhəni özü çəkir). Testdə `_send`
 TestClient-ə yönəldilir, OCR real tesseract-dır. Əl ilə addımlar (telefon
 video, QR skan, real lövhə, MCP): `deploy/REAL_TEST.md`.
+
+**Gün 15 — PyTorch çətinlik modeli.** Sualın mətnindən tələbələrin onu
+neçə faiz DÜZGÜN cavablayacağını proqnozlaşdırır: 14 izah oluna bilən
+əlamət (`pipeline/difficulty_features.py`, sıra DƏYİŞMƏMƏLİDİR) → MLP
+14→16→1 (`ml/train_difficulty.py`, çəkili BCE, erkən dayanma) → JSON
+çəkilər → serverdə SAF Python inferens (`pipeline/difficulty_model.py`).
+torch serverə QOYULMUR (`requirements-ml.txt` ayrıdır, CI-da torch testləri
+keçilir). Data: `deploy/export_difficulty_data.py` canlı sessiya + ev
+tapşırığı cavablarından sual üzrə faiz (tələbə məlumatı yox, bazalar `mode=ro`).
+Model `data/difficulty_model.json`-dadırsa (`DIFFICULTY_MODEL_PATH`)
+`GET .../questions` `predicted_correct`/`predicted_difficulty` qaytarır,
+`suallar.html` kartın altında göstərir. Sintetik datada öyrədilmiş model
+(`synthetic: true`) HEÇ VAXT göstərilmir. Real data hələ yoxdur: model
+yalnız sintetik dəstlə sınanıb. Ətraflı: `ml/README.md`.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
