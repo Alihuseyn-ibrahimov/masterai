@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1715 pytest + 253 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1803 pytest + 269 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -101,9 +101,19 @@ Azərbaycan dilində keyfiyyət produksiyada yoxlanmalıdır.
 `.txt` kimi yazılır və MÖVCUD sual bankı axınına `kind="text"` ilə
 verilir (`pipeline/ingestion/text_extractor.py`): çətinlik bölgüsü
 (30/50/20), keyfiyyət filtri, redaktə, xülasə və dərc üçün ikinci yol
-YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; uğursuz
-bank yenidən yaradıla bilər, hazır olan 409. Brauzerdə saxta
+YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; hazır
+bank da «Yenidən hazırla» ilə təzədən yaradıla bilər (köhnəsi banklarda
+qalır), yalnız hazırlanan bankın üstünə 409. Brauzerdə saxta
 generatorla uc-uca sınanıb (forma → bank → suallar → konspekt).
+
+**Real sınaq (2026-10-31): Whisper produksiyada İŞLƏYİR** (müəllim
+danışdı, mətn göründü). Quiz isə fənni bilmirdi: «Qanunvericilik»
+seçilmişdi, AI Konstitusiya dərsindən «2 % əlavə maddə olsa cəmi
+neçə?» hesab sualı çıxardı. Səbəb: `subject` HEÇ VAXT AI-a
+ötürülməmişdi (bütün banklarda, təkcə dərsdə yox). İndi
+`pipeline/subjects.py` fənnə görə qayda yazır (qanunvericilik: norma,
+hüquq/vəzifə, orqan, prosedur; materialda olmayan hesablama
+UYDURULMUR). Fənnsiz çağırışda prompt bayt-bayt köhnədir.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

@@ -1783,6 +1783,7 @@ async def _process_question_set(
     bank_kind: str = "practice",
     difficulty_mix: tuple[int, int, int] | None = None,
     summary_job: tuple[int, object, SummaryStore] | None = None,
+    subject: str | None = None,
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
@@ -1792,7 +1793,7 @@ async def _process_question_set(
         result = await asyncio.to_thread(
             partial(
                 generator, source, question_count, profile=profile, bank_kind=bank_kind,
-                difficulty_mix=difficulty_mix,
+                difficulty_mix=difficulty_mix, subject=subject,
             )
         )
     except Exception as exc:
@@ -1900,6 +1901,7 @@ async def create_question_set(
             bank_kind=bank_kind,
             difficulty_mix=difficulty_mix,
             summary_job=summary_job,
+            subject=subject,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task
@@ -2613,8 +2615,11 @@ async def create_lesson_question_set(
 ) -> LessonInfo:
     lesson = _lesson_for_member(lessons, chats, lesson_id, user)
     existing = question_sets.get(lesson["question_set_id"]) if lesson.get("question_set_id") else None
-    if existing is not None and existing["status"] != "failed":
-        raise HTTPException(status_code=409, detail="Bu dərsin sualları artıq hazırlanıb")
+    # Hazır bank təzədən yaradıla bilər (məs. fənn səhv seçilib və ya
+    # suallar zəifdir): köhnəsi banklar siyahısında qalır, dərs yenisinə
+    # bağlanır. Yalnız hazırlanan bankın üstünə ikinci emal açılmır.
+    if existing is not None and existing["status"] == "processing":
+        raise HTTPException(status_code=409, detail="Bu dərsin sualları hələ hazırlanır")
     if body.subject not in SUBJECTS:
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     text = lessons.transcript_text(lesson_id)
@@ -2643,7 +2648,7 @@ async def create_lesson_question_set(
             question_set["id"], MaterialSource(kind="text", location=path),
             generator=generator, question_set_store=question_sets,
             question_count=body.question_count, profile=profile,
-            difficulty_mix=DEFAULT_MIX, summary_job=summary_job,
+            difficulty_mix=DEFAULT_MIX, summary_job=summary_job, subject=body.subject,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task

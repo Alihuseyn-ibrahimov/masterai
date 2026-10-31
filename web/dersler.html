@@ -111,6 +111,7 @@
       <div class="bank__actions">
         <a class="btn btn--secondary btn--sm" id="quizQuestionsLink">Suallara bax</a>
         <a class="btn btn--secondary btn--sm" id="quizSummaryLink">Konspekt</a>
+        <button class="btn btn--ghost btn--sm" type="button" id="quizAgainButton">Yenidən hazırla</button>
       </div>
     </div>
   </section>
@@ -327,6 +328,12 @@
         document.getElementById('quizSummaryLink').href = `xulase.html?bank=${id}`;
       }
     }
+
+    // Fənn səhv seçilibsə və ya suallar zəifdirsə: formanı yenidən aç.
+    document.getElementById('quizAgainButton').addEventListener('click', () => {
+      document.getElementById('lessonQuizLinks').hidden = true;
+      document.getElementById('lessonQuizForm').hidden = false;
+    });
 
     document.getElementById('lessonQuizForm').addEventListener('submit', async (event) => {
       event.preventDefault();

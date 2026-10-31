@@ -149,8 +149,9 @@ def _lesson_quiz_env(env, tmp_path):
 
     seen = {}
 
-    def generator(source, question_count=10, **_options):
+    def generator(source, question_count=10, **options):
         seen["kind"] = source.kind
+        seen["subject"] = options.get("subject")
         seen["text"] = open(source.location, encoding="utf-8").read()
         return PipelineResult(
             questions=[MCQQuestion(question=f"Sual {i}?", options=list("ABCDE"), correct_index=0,
@@ -192,16 +193,29 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
     assert bank["status"] == "ready" and bank["title"] == _LESSON["title"]
     assert bank["material_kind"] == "text" and seen["kind"] == "text"
     assert "Konstitusiya" in seen["text"]
+    assert seen["subject"] == "qanunvericilik"
     summary = summaries.get_for_question_set(qs_id)
     deadline = time.time() + 5
     while summary["status"] == "processing" and time.time() < deadline:
         time.sleep(0.02)
         summary = summaries.get(summary["id"])
     assert summary["status"] == "ready" and seen["summary_kind"] == "text"
-    # İkinci dəfə: artıq var.
-    assert _make_quiz(env).status_code == 409
     lesson = env["client"].get(f"/me/lessons/{env['lesson']['id']}", headers=env["auth"]).json()
     assert lesson["question_set_id"] == qs_id
+    # Təzədən hazırlamaq olar (fənn səhv seçilibsə): dərs yeni banka keçir,
+    # köhnəsi silinmir.
+    again = _make_quiz(env, subject="mentiq")
+    assert again.status_code == 202 and again.json()["question_set_id"] != qs_id
+    assert question_sets.get(qs_id) is not None
+    # Hazırlanan bankın üstünə ikinci emal açılmır.
+    new_id = again.json()["question_set_id"]
+    # Fon emalı bitməmiş statusu əllə qoysaq, emal sonra onu «ready» edər.
+    deadline = time.time() + 5
+    while question_sets.get(new_id)["status"] == "processing" and time.time() < deadline:
+        time.sleep(0.02)
+    with question_sets._lock:
+        question_sets._conn.execute("UPDATE question_sets SET status='processing' WHERE id=?", (new_id,))
+    assert _make_quiz(env).status_code == 409
 
 
 def test_lesson_quiz_needs_enough_transcript(env, tmp_path):
