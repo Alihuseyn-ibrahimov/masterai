@@ -249,7 +249,8 @@
           // Səhifə yenilənəndə nömrələmə 0-dan başlasa, əvvəlki hissələrin
           // mətni üstünə yazılardı.
           const transcript = await request(`/live/lessons/${lessonId}/transcript`).catch(() => null);
-          const seqs = transcript ? transcript.segments.map((x) => x.seq) : [];
+          // Lövhə şəkilləri (gün 7, 1000-dən) səs nömrələməsinə qarışmır.
+          const seqs = transcript ? transcript.segments.filter((x) => x.kind !== 'board').map((x) => x.seq) : [];
           nextSeq = seqs.length ? Math.max(...seqs) + 1 : 0;
         }
         if (access.is_host) {

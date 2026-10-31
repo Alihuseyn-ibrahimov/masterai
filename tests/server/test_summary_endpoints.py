@@ -35,7 +35,7 @@ def _fake_summarizer(source):
     return LessonSummary(**_CONTENT)
 
 
-def _wait(summaries, summary_id, timeout=2.0):
+def _wait(summaries, summary_id, timeout=10.0):
     deadline = time.time() + timeout
     row = summaries.get(summary_id)
     while row["status"] == "processing" and time.time() < deadline:
@@ -70,8 +70,11 @@ def env():
     qs = question_sets.create("mentiq", "Konstitusiya", "link", "https://x.az",
                               created_by=teacher["id"], course_id=course["id"])
 
-    yield {"client": TestClient(app), "summaries": summaries, "teacher": teacher, "student": student,
-           "outsider": outsider, "chat": chat, "qs": qs}
+    # `with`: bir event loop bütün test boyu yaşayır, fon task-ı (sual bankı
+    # → xülasə) yarıda qalmır. Onsuz CI-da xülasə `processing`-də ilişirdi.
+    with TestClient(app) as client:
+        yield {"client": client, "summaries": summaries, "teacher": teacher, "student": student,
+               "outsider": outsider, "chat": chat, "qs": qs}
     app.dependency_overrides.clear()
 
 

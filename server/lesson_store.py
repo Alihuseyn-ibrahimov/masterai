@@ -25,6 +25,11 @@ _COLUMNS = (
 )
 
 
+# Səs hissələri 0-999 (gün 3), lövhə şəkilləri 1000-dən (gün 7). Eyni
+# cədvəldədirlər ki, «Dərs mətni» və ondan quiz ikisini birlikdə görsün.
+BOARD_SEQ_START = 1000
+
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -265,6 +270,25 @@ class LessonStore:
                 (lesson_id, seq, now, now),
             )
             self._conn.commit()
+
+    def start_board_segment(self, lesson_id: int) -> int:
+        """Lövhə şəkli (gün 7) üçün növbəti nömrə: `BOARD_SEQ_START`-dan
+        başlayır, səs hissələri ilə toqquşmur. Nömrə kilid altında seçilir
+        ki, eyni anda göndərilən iki şəkil eyni sətrə düşməsin."""
+        now = _utc_now_iso()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT MAX(seq) FROM lesson_transcripts WHERE lesson_id = ? AND seq >= ?",
+                (lesson_id, BOARD_SEQ_START),
+            ).fetchone()
+            seq = BOARD_SEQ_START if row[0] is None else row[0] + 1
+            self._conn.execute(
+                "INSERT INTO lesson_transcripts (lesson_id, seq, status, text, error, created_at, updated_at) "
+                "VALUES (?, ?, 'processing', '', NULL, ?, ?)",
+                (lesson_id, seq, now, now),
+            )
+            self._conn.commit()
+        return seq
 
     def finish_segment(self, lesson_id: int, seq: int, *, text: str | None = None,
                        error: str | None = None) -> None:

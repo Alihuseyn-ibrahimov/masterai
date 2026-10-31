@@ -35,7 +35,7 @@ const STUDENT_DESTINATIONS = [
  * tapşırığı təyin edə bilmirdi. Çat həm də müəllimin sinifə mesaj
  * yazdığı yerdir. */
 const TEACHER_DESTINATIONS = [
-  { href: 'muellim.html', label: 'Sual bankları', short: 'Banklar', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
+  { href: 'muellim.html', label: 'Quiz yarat', short: 'Quiz', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   /* Canlı quiz sessiyası dərsin bir hissəsidir (2026-10-31): bölmə
      yerini dərs cədvəlinə verdi, sessiyalar səhifədən linklə açılır. */

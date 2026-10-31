@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1846 pytest + 278 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1852 pytest + 278 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -135,6 +135,23 @@ Daxil olmamış tələbə: `requireLogin` səhifəni `sessionStorage`-a yazır,
 girişdən sonra ora qayıdır (`next-path.js`, yalnız `ad.html?...` - açıq
 redirect yoxdur). Brauzerdə uc-uca sınanıb (skan → giriş → davamiyyət,
 köhnə kod → xəta, əl ilə silmə).
+
+**Gün 7 — lövhə şəkli → mətn.** «Dərs mətni» panelində «Lövhə şəkli
+əlavə et» (telefonda kamera açılır) → `POST /live/lessons/{id}/board`
+→ fonda `pipeline/board_ocr.py` (EXIF istiqaməti, boz, ≤2400 px,
+tesseract `aze+eng`) → mətn «Lövhədən:» başlığı ilə `lesson_transcripts`-ə
+yazılır, şəkil SİLİNİR. Lövhə sətirləri `seq >= 1000`-dir
+(`BOARD_SEQ_START`, nömrə kilid altında seçilir), səs hissələri 0-999 -
+ona görə `dars.html` səs nömrələməsini yalnız `kind == "audio"`
+sətirlərindən davam etdirir. Mətn səsdən sonra gəlir və quiz/konspekt
+ikisini birlikdə görür. Səbəb: sinif dərsində səs çox vaxt yazılmır.
+Sintetik «yan» telefon şəklində ə/ö/ü düzgün oxundu; real lövhə
+produksiyada yoxlanmalıdır. Eyni PR-da menyuda «Sual bankları» →
+«Quiz yarat» (istifadəçi dərsdən asılı olmayan quiz bölməsini tapmırdı).
+
+**Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
+gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
+API-ni intercept etmə, `config.js`-i lokal backend-ə yönəlt.
 
 **Real sınaq (2026-10-31): Whisper produksiyada İŞLƏYİR** (müəllim
 danışdı, mətn göründü). Quiz isə fənni bilmirdi: «Qanunvericilik»

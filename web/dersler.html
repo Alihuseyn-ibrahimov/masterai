@@ -104,6 +104,14 @@
       <button class="btn btn--ghost btn--sm" type="button" id="closeTranscript">Bağla</button>
     </div>
     <div class="card stack" id="transcriptBox"></div>
+    <!-- Gün 7: sinif dərsində səs yazılmasa da lövhə var. Telefonda
+         `capture` birbaşa kameranı açır. -->
+    <div class="card stack stack--tight" id="boardBox">
+      <p class="text-sm">Lövhənin şəklini çəkin: AI yazını oxuyub dərs mətninə əlavə edəcək. Yaxından və düz çəkin.</p>
+      <label class="btn btn--secondary btn--sm" for="boardInput">Lövhə şəkli əlavə et</label>
+      <input id="boardInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+      <p class="text-sm text-muted" id="boardStatus" role="status"></p>
+    </div>
     <!-- Gün 4: mətn kifayət edəndə ondan sual bankı + konspekt. -->
     <form class="card stack" id="lessonQuizForm" hidden>
       <p class="text-sm">Dərs mətnindən AI ilə quiz sualları və qısa konspekt hazırlansın. Hazır olanda sualları redaktə edə, konspekti oxuyub sinfə dərc edə bilərsən.</p>
@@ -311,7 +319,7 @@
           mark.className = `badge ${row.present ? 'badge--success' : 'badge--neutral'}`;
           mark.textContent = row.present ? `Gəlib, ${formatLessonTime(row.joined_at).split(', ')[1]}` : 'Gəlməyib';
           // Telefonu olmayan tələbəni əl ilə yaz, səhv yazılanı sil.
-          const toggle = button(row.present ? 'Sil' : 'Gəlib', 'btn--ghost', async () => {
+          const toggle = button(row.present ? 'Sil' : 'Qeyd et', row.present ? 'btn--ghost' : 'btn--secondary', async () => {
             showError('');
             try {
               await request(`/live/lessons/${lesson.id}/attendance/${row.user_id}`,
@@ -374,7 +382,9 @@
       document.getElementById('qrSection').hidden = true;
     });
 
-    async function showTranscript(lesson) {
+    let transcriptTimer = null;
+    async function showTranscript(lesson, scroll = true) {
+      transcriptLesson = lesson;
       const section = document.getElementById('transcriptSection');
       document.getElementById('transcriptTitle').textContent = `Dərs mətni: ${lesson.title}`;
       section.hidden = false;
@@ -382,14 +392,28 @@
         () => request(`/live/lessons/${lesson.id}/transcript`), (box, data) => {
           box.innerHTML = '';
           const waiting = data.segments.filter((x) => x.status === 'processing').length;
-          const failed = data.segments.filter((x) => x.status === 'failed').length;
+          const failed = data.segments.filter((x) => x.status === 'failed');
+          const audio = data.segments.filter((x) => x.kind !== 'board').length;
+          const boards = data.segments.length - audio;
           const info = document.createElement('p');
           info.className = 'text-sm text-muted';
           info.textContent = !data.segments.length
-            ? 'Bu dərsin səsi yazılmayıb. Dərs otağında «Səsi yaz» düyməsi ilə yazmaq olar.'
-            : [`${data.segments.length} hissə`, waiting && `${waiting} hələ hazırlanır`,
-              failed && `${failed} alınmadı`].filter(Boolean).join(' · ');
+            ? 'Bu dərsin mətni yoxdur. Dərs otağında «Səsi yaz» ilə səsi yazmaq və ya aşağıdan lövhənin şəklini əlavə etmək olar.'
+            : [audio && `${audio} səs hissəsi`, boards && `${boards} lövhə şəkli`, waiting && `${waiting} hələ hazırlanır`,
+              failed.length && `${failed.length} alınmadı`].filter(Boolean).join(' · ');
           box.append(info);
+          // Alınmayan lövhə şəklinin səbəbi (məs. «yazı tanınmadı») müəllimə lazımdır.
+          for (const segment of failed.filter((x) => x.kind === 'board' && x.error)) {
+            const reason = document.createElement('p');
+            reason.className = 'text-sm text-muted';
+            reason.textContent = `Lövhə şəkli: ${segment.error}`;
+            box.append(reason);
+          }
+          clearTimeout(transcriptTimer);
+          if (waiting) transcriptTimer = setTimeout(() => showTranscript(lesson, false), 3000);
+          else if (boardStatus.textContent.startsWith('Göndərildi')) {
+            boardStatus.textContent = 'Hazırdır: lövhənin yazısı dərs mətninə əlavə olundu.';
+          }
           if (data.text) {
             const text = document.createElement('p');
             text.className = 'transcript-text';
@@ -398,8 +422,30 @@
           }
           showLessonQuiz(lesson, data.text);
         });
-      section.scrollIntoView({ behavior: 'smooth' });
+      if (scroll) section.scrollIntoView({ behavior: 'smooth' });
     }
+
+    /* ---- Gün 7: lövhə şəkli ---- */
+    let transcriptLesson = null;
+    const boardInput = document.getElementById('boardInput');
+    const boardStatus = document.getElementById('boardStatus');
+    boardInput.addEventListener('change', async () => {
+      const file = boardInput.files[0];
+      boardInput.value = '';
+      if (!file || !transcriptLesson) return;
+      showError('');
+      boardStatus.textContent = 'Şəkil göndərilir...';
+      const form = new FormData();
+      form.append('image', file, file.name || 'lovhe.jpg');
+      try {
+        await request(`/live/lessons/${transcriptLesson.id}/board`, { method: 'POST', body: form });
+        boardStatus.textContent = 'Göndərildi, AI yazını oxuyur. Bir neçə saniyəyə mətndə görünəcək.';
+        showTranscript(transcriptLesson, false);
+      } catch (error) {
+        boardStatus.textContent = '';
+        showError(error.message);
+      }
+    });
 
     /* ---- Gün 4: dərs mətnindən quiz + konspekt ---- */
 
@@ -504,6 +550,8 @@
       }
     });
     document.getElementById('closeTranscript').addEventListener('click', () => {
+      clearTimeout(transcriptTimer);
+      boardStatus.textContent = '';
       document.getElementById('transcriptSection').hidden = true;
       document.getElementById('lessonQuizForm').hidden = true;
       document.getElementById('lessonQuizLinks').hidden = true;
