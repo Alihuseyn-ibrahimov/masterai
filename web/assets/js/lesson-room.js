@@ -38,3 +38,45 @@ export function connectionLabel(state) {
     disconnected: 'Bağlantı kəsildi',
   }[state] || state;
 }
+
+/**
+ * Otağa girmək mümkün olmayanda (dərs başlamayıb, bitib, sinif dərsidir)
+ * göstərilən ekran.
+ *
+ * NİYƏ: auditdə (2026-10-31) bitmiş dərsin otağı boş qalırdı - yalnız
+ * «Dərs bitib.» cümləsi və «Dərslərə qayıt». Tələbənin növbəti addımı
+ * (konspekt, quiz, tutor) dərs səhifəsindədir, müəllimin növbəti addımı
+ * isə dərs mətnindən quiz hazırlamaqdır - ekran ora aparmalıdır.
+ *
+ * Qaytarır: { icon, title, text, primary: {label, href} | null, canStart }.
+ * `canStart` - müəllim üçün «başlat» düyməsi (bitmiş dərsdə «yenidən»).
+ */
+export function roomWaitState(lesson, isTeacher) {
+  const page = `dersim.html?id=${encodeURIComponent(lesson.id)}`;
+  if (lesson.mode !== 'online') {
+    return {
+      icon: 'school', title: 'Sinif dərsi', canStart: false,
+      text: 'Bu dərs sinifdə keçirilir, video otağı yoxdur.',
+      primary: { label: 'Dərs səhifəsi', href: page },
+    };
+  }
+  if (lesson.status === 'ended') {
+    return isTeacher
+      ? {
+        icon: 'check', title: 'Dərs bitdi', canStart: true,
+        text: 'Dərs mətnindən quiz və konspekt hazırlayıb tələbələrə göndərin.',
+        primary: { label: 'Dərs mətninə keç', href: `${page}#text` },
+      }
+      : {
+        icon: 'check', title: 'Dərs bitdi', canStart: false,
+        text: 'Təkrar üçün konspekt, quiz və AI tutor dərs səhifəsindədir.',
+        primary: { label: 'Dərs səhifəsinə keç', href: page },
+      };
+  }
+  return {
+    icon: 'clock', title: 'Dərs hələ başlamayıb', canStart: Boolean(isTeacher), primary: null,
+    text: isTeacher
+      ? 'Başladanda tələbələr otağa girə biləcək.'
+      : 'Müəllim başladanda bu səhifə özü yenilənəcək.',
+  };
+}

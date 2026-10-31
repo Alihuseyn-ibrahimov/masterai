@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   contentError, contentFromForm, linesToList, linesToPairs, listToLines, pairsToLines,
+  readingMinutes, summaryStats,
 } from '../assets/js/summary.js';
 
 test('lines ignore blanks and bullet marks', () => {
@@ -37,4 +38,17 @@ test('form values become the API body and are validated', () => {
   assert.equal(contentError(content), null);
   assert.match(contentError({ ...content, key_points: ['a'] }), /2 əsas fikir/);
   assert.match(contentError({ ...content, title: '' }), /Başlıq/);
+});
+
+test('kart göstəriciləri boş hissəni yazmır', () => {
+  const content = { key_points: ['a', 'b', 'c'], terms: [], self_check: [{ question: 'q', answer: 'a' }] };
+  assert.equal(summaryStats(content), '3 əsas fikir · 1 sual');
+  assert.equal(summaryStats(null), '');
+});
+
+test('oxuma müddəti ən az 1 dəqiqədir və söz sayı ilə artır', () => {
+  assert.equal(readingMinutes({ title: 'x', intro: 'qısa', key_points: [] }), 1);
+  const long = { title: 't', intro: '', key_points: [Array(720).fill('söz').join(' ')] };
+  assert.equal(readingMinutes(long), 4);
+  assert.equal(readingMinutes(null), 1);
 });

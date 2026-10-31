@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031f">
 <!-- LiveKit klienti REPOYA qoyulub (CDN yox): build addımı yoxdur, versiya
      sabitdir və CDN əlçatmaz olanda dərs dayanmır. Lisenziya: Apache-2.0,
      assets/vendor/LICENSE-livekit-client. Yeniləmə: npm tarball-dan
@@ -42,11 +42,20 @@
     <span class="badge badge--neutral" id="connStatus">Gözlənilir</span>
   </div>
 
-  <!-- Dərs başlamayıb / bitib: otağa girmək əvəzinə vəziyyət. -->
-  <div class="card stack" id="waitCard" hidden>
-    <p id="waitText"></p>
-    <button class="btn btn--primary" type="button" id="startButton" hidden>Dərsi başlat və otağa gir</button>
-    <a class="btn btn--secondary" href="dersler.html">Dərslərə qayıt</a>
+  <!-- Dərs başlamayıb / bitib / sinifdədir: otaq yerinə vəziyyət və
+       NÖVBƏTİ ADDIM (`roomWaitState`, lesson-room.js). Bitmiş dərsdə
+       tələbəni dərs səhifəsinə, müəllimi dərs mətninə aparır. -->
+  <div class="card" id="waitCard" hidden>
+    <div class="state">
+      <div class="state__icon" id="waitIcon"></div>
+      <div class="state__title" id="waitTitle"></div>
+      <div class="state__text" id="waitText"></div>
+      <div class="page-actions">
+        <a class="btn btn--primary" id="waitPrimary" href="dersler.html" hidden></a>
+        <button class="btn btn--secondary" type="button" id="startButton" hidden>Dərsi başlat və otağa gir</button>
+        <a class="btn btn--ghost" href="dersler.html">Bütün dərslər</a>
+      </div>
+    </div>
   </div>
 
   <div class="card stack" id="joinCard" hidden>
@@ -74,7 +83,10 @@
   import { getUser, request } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
   import { MODE_LABELS, formatLessonTime } from './assets/js/lessons.js';
-  import { connectionLabel, initials, orderTiles, roleOf } from './assets/js/lesson-room.js';
+  import {
+    connectionLabel, initials, orderTiles, roleOf, roomWaitState,
+  } from './assets/js/lesson-room.js';
+  import { createIcon } from './assets/js/icon.js';
   import { createLessonRecorder } from './assets/js/lesson-recorder.js';
 
   if (requireLogin()) {
@@ -106,22 +118,32 @@
       $('lessonMeta').textContent = [formatLessonTime(lesson.starts_at), MODE_LABELS[lesson.mode], lesson.chat_name]
         .filter(Boolean).join(' · ');
       if (room) return;
-      $('waitCard').hidden = lesson.status === 'live';
-      $('joinCard').hidden = lesson.status !== 'live';
-      $('startButton').hidden = !(isTeacher && lesson.status !== 'live');
-      if (lesson.mode !== 'online') {
-        $('waitText').textContent = 'Bu dərs sinifdə keçirilir, video otağı yoxdur.';
-        $('joinCard').hidden = true;
-        $('waitCard').hidden = false;
-        $('startButton').hidden = true;
-      } else if (lesson.status === 'ended') {
-        $('waitText').textContent = 'Dərs bitib.';
-      } else if (lesson.status !== 'live') {
-        $('waitText').textContent = isTeacher
-          ? 'Dərs hələ başlamayıb. Başladanda tələbələr otağa girə biləcək.'
-          : 'Dərs hələ başlamayıb. Müəllim başladanda bu səhifə özü yenilənəcək.';
-      }
+      const canJoin = lesson.mode === 'online' && lesson.status === 'live';
+      $('joinCard').hidden = !canJoin;
+      $('waitCard').hidden = canJoin;
+      // Bağlantı nişanı yalnız girilə bilən otaqda mənalıdır (render-də
+      // bitmiş dərsdə «Gözlənilir» görünürdü).
+      $('connStatus').hidden = !canJoin;
+      if (!canJoin) showWait();
       $('joinDefaults').textContent = isTeacher ? 'açıq' : 'sönülü';
+    }
+
+    function showWait() {
+      const state = roomWaitState(lesson, isTeacher);
+      $('waitIcon').replaceChildren(createIcon(state.icon));
+      $('waitTitle').textContent = state.title;
+      $('waitText').textContent = state.text;
+      const primary = $('waitPrimary');
+      primary.hidden = !state.primary;
+      if (state.primary) {
+        primary.textContent = state.primary.label;
+        primary.href = state.primary.href;
+      }
+      const start = $('startButton');
+      start.hidden = !state.canStart;
+      start.textContent = lesson.status === 'ended' ? 'Yenidən başlat' : 'Dərsi başlat və otağa gir';
+      // Bitmiş dərsdə əsas hərəkət növbəti addımdır, başlatma ikinci dərəcəli.
+      start.className = `btn ${state.primary ? 'btn--secondary' : 'btn--primary'}`;
     }
 
     /* ---- Plitələr ---- */
@@ -235,9 +257,23 @@
           .on(LK.RoomEvent.AudioPlaybackStatusChanged, () => {
             $('audioButton').hidden = room.canPlaybackAudio;
           })
-          .on(LK.RoomEvent.Disconnected, () => {
+          .on(LK.RoomEvent.Disconnected, async () => {
             setStatus('disconnected');
             $('controls').hidden = true;
+            /* Müəllim dərsi bitirəndə tələbə otaqdan çıxarılır: boş plitələr
+               yerinə bitmiş dərsin ekranı (növbəti addım) göstərilir. */
+            try {
+              lesson = await request(`/me/lessons/${lessonId}`);
+            } catch { return; }
+            if (lesson.status === 'ended') {
+              room = null;
+              tiles.clear();
+              $('grid').replaceChildren();
+              $('joinCard').hidden = true;
+              $('waitCard').hidden = false;
+              $('connStatus').hidden = true;
+              showWait();
+            }
           });
         setStatus('connecting');
         await room.connect(access.url, access.token);
@@ -341,7 +377,7 @@
     $('leaveButton').addEventListener('click', async () => {
       await stopRecording();
       if (room) await room.disconnect();
-      window.location.assign('dersler.html');
+      window.location.assign(`dersim.html?id=${encodeURIComponent(lessonId)}`);
     });
     $('endButton').addEventListener('click', async () => {
       if (!confirm('Dərs hamı üçün bitsin?')) return;
@@ -350,7 +386,8 @@
         await stopRecording();
         await request(`/live/lessons/${lessonId}/end`, { method: 'POST' });
         if (room) await room.disconnect();
-        window.location.assign('dersler.html');
+        // Növbəti addım: dərs mətnindən quiz və konspekt.
+        window.location.assign(`dersim.html?id=${encodeURIComponent(lessonId)}#text`);
       } catch (error) {
         showError(error.message);
       }

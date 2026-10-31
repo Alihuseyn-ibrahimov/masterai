@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031f">
 </head>
 <body>
 <header id="appBar"></header>
@@ -43,6 +43,7 @@
   import { request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
+  import { readingMinutes, summaryStats } from './assets/js/summary.js';
 
   if (requireLogin()) {
     mountShell();
@@ -55,24 +56,33 @@
           + '<div class="state__text">Müəlliminiz dərs xülasəsini çata dərc edəndə burada görünəcək.</div></div>';
         return;
       }
-      const grid = document.createElement('div');
-      grid.className = 'grid';
+      /* 2026-10-31: kart bütövlükdə linkdir - fənn nişanı, başlıq, girişin
+         ilk sətirləri və nə qədər məzmun olduğu (oxumağa dəyərmi?). */
+      const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+      const grid = el('div', 'grid');
       for (const summary of summaries) {
-        const card = document.createElement('div');
-        card.className = 'card card--subject stack stack--tight';
-        card.style.setProperty('--subject', subjectColorVar(summary.subject));
+        const content = summary.content || {};
+        const card = el('a', 'card card--interactive summary-card');
+        card.href = `xulase.html?id=${encodeURIComponent(summary.id)}`;
 
-        const title = document.createElement('h4');
-        title.textContent = (summary.content && summary.content.title) || summary.title;
-        const meta = document.createElement('p');
-        meta.className = 'text-sm text-muted';
+        const top = el('div', 'summary-card__foot');
+        const chip = el('span', 'chip-subject', subjectLabel(summary.subject));
+        chip.style.setProperty('--subject', subjectColorVar(summary.subject));
+        top.append(chip, el('span', 'text-xs text-faint', `${readingMinutes(summary.content)} dəq oxu`));
+        card.append(top, el('h2', 'summary-card__title', content.title || summary.title));
+        if (content.intro) card.append(el('p', 'summary-card__intro', content.intro));
+
+        const foot = el('div', 'summary-card__foot');
         const date = (summary.published_at || '').slice(0, 10);
-        meta.textContent = [subjectLabel(summary.subject), summary.chat_name, date].filter(Boolean).join(' · ');
-        const link = document.createElement('a');
-        link.className = 'btn btn--primary btn--sm';
-        link.href = `xulase.html?id=${encodeURIComponent(summary.id)}`;
-        link.textContent = 'Oxu';
-        card.append(title, meta, link);
+        foot.append(el('span', 'text-xs text-muted',
+          [summaryStats(summary.content), summary.chat_name, date].filter(Boolean).join(' · ')));
+        foot.append(el('span', 'btn btn--primary btn--sm', 'Oxu'));
+        card.append(foot);
         grid.append(card);
       }
       container.append(grid);
