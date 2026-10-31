@@ -7,6 +7,8 @@
  * köçürmək və yapışdırmaq hamıya tanışdır.
  */
 
+import { createIcon } from './icon.js';
+
 export const PAIR_SEPARATOR = ' - ';
 
 /** Mətn sahəsi -> boş olmayan sətirlər. */
@@ -55,79 +57,89 @@ export function contentError(content) {
   return null;
 }
 
-/* ---- DOM: oxu görünüşü (tələbə, müəllim önizləməsi, çap) ---- */
+/* ---- Kart üçün qısa göstəricilər (xulaseler.html) ---- */
 
-function section(title, node) {
-  const wrap = document.createElement('section');
-  wrap.className = 'stack stack--tight';
-  const heading = document.createElement('h3');
-  heading.textContent = title;
-  wrap.append(heading, node);
+/** «6 əsas fikir · 4 termin · 3 sual» - boş hissələr yazılmır. */
+export function summaryStats(content) {
+  if (!content) return '';
+  return [
+    [(content.key_points || []).length, 'əsas fikir'],
+    [(content.terms || []).length, 'termin'],
+    [(content.self_check || []).length, 'sual'],
+  ].filter(([count]) => count > 0).map(([count, label]) => `${count} ${label}`).join(' · ');
+}
+
+/** Oxuma müddəti (dəqiqə, ən az 1) - dəqiqədə ~180 söz. */
+export function readingMinutes(content) {
+  if (!content) return 1;
+  const parts = [content.title, content.intro, ...(content.key_points || []), ...(content.facts || []),
+    ...(content.terms || []).flatMap((t) => [t.term, t.definition]),
+    ...(content.self_check || []).flatMap((q) => [q.question, q.answer])];
+  const words = parts.join(' ').split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 180));
+}
+
+/* ---- DOM: oxu görünüşü (tələbə, müəllim önizləməsi, çap) ----
+ * 2026-10-31: düz siyahı idi (başlıq + nöqtəli sətirlər). İndi hər bölmə
+ * ikonlu blokdur, əsas fikirlər nömrəli, «Yadda saxla» sarı vurğulu,
+ * özünü yoxla sualları kartdır. Mətn yenə də YALNIZ textContent-dir. */
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function section(title, icon, node, modifier) {
+  const wrap = el('section', `summary-block${modifier ? ` summary-block--${modifier}` : ''}`);
+  const head = el('div', 'summary-block__head');
+  const tile = el('span', 'summary-block__icon');
+  tile.append(createIcon(icon));
+  head.append(tile, el('h3', '', title));
+  wrap.append(head, node);
   return wrap;
 }
 
-function bulletList(items) {
-  const list = document.createElement('ul');
-  list.className = 'stack stack--tight';
-  for (const item of items) {
-    const li = document.createElement('li');
-    li.textContent = item;
-    list.append(li);
-  }
-  return list;
+function list(tag, className, items) {
+  const node = el(tag, className);
+  for (const item of items) node.append(el('li', '', item));
+  return node;
 }
 
 /** Bütün mətn `textContent` ilə yazılır - AI çıxışı və müəllim redaktəsi
  *  HEÇ VAXT `innerHTML`-ə getmir. */
 export function renderSummary(content) {
-  const root = document.createElement('article');
-  root.className = 'stack';
+  const root = el('article', 'summary-doc');
+  root.append(el('p', 'summary-doc__intro', content.intro));
 
-  const intro = document.createElement('p');
-  intro.textContent = content.intro;
-  root.append(intro);
-
-  root.append(section('Əsas fikirlər', bulletList(content.key_points)));
+  root.append(section('Əsas fikirlər', 'bolt', list('ol', 'summary-points', content.key_points)));
 
   if (content.terms && content.terms.length) {
-    const list = document.createElement('dl');
-    list.className = 'stack stack--tight';
+    const terms = el('dl', 'summary-terms');
     for (const term of content.terms) {
-      const dt = document.createElement('dt');
-      const strong = document.createElement('strong');
-      strong.textContent = term.term;
-      dt.append(strong);
-      const dd = document.createElement('dd');
-      dd.className = 'text-muted';
-      dd.textContent = term.definition;
-      list.append(dt, dd);
+      const row = el('div', 'summary-terms__row');
+      row.append(el('dt', '', term.term), el('dd', '', term.definition));
+      terms.append(row);
     }
-    root.append(section('Açar terminlər', list));
+    root.append(section('Açar terminlər', 'books', terms));
   }
 
   if (content.facts && content.facts.length) {
-    root.append(section('Yadda saxla', bulletList(content.facts)));
+    root.append(section('Yadda saxla', 'star', list('ul', 'summary-facts', content.facts), 'facts'));
   }
 
   if (content.self_check && content.self_check.length) {
-    const list = document.createElement('ol');
-    list.className = 'stack stack--tight';
+    const checks = el('ol', 'summary-checks');
     for (const item of content.self_check) {
-      const li = document.createElement('li');
-      const question = document.createElement('p');
-      question.textContent = item.question;
+      const li = el('li', 'summary-check');
       /* Cavab gizlidir: əvvəlcə özü düşünsün, sonra açsın. */
-      const details = document.createElement('details');
-      const summary = document.createElement('summary');
-      summary.className = 'text-sm text-muted';
-      summary.textContent = 'Cavabı göstər';
-      const answer = document.createElement('p');
-      answer.textContent = item.answer;
-      details.append(summary, answer);
-      li.append(question, details);
-      list.append(li);
+      const details = el('details');
+      details.append(el('summary', 'summary-check__toggle', 'Cavabı göstər'), el('p', 'summary-check__answer', item.answer));
+      li.append(el('p', 'summary-check__question', item.question), details);
+      checks.append(li);
     }
-    root.append(section('Özünü yoxla', list));
+    root.append(section('Özünü yoxla', 'target', checks));
   }
   return root;
 }

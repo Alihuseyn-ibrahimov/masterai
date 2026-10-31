@@ -1,7 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { connectionLabel, initials, orderTiles, roleOf } from '../assets/js/lesson-room.js';
+import { readFileSync } from 'node:fs';
+
+import {
+  connectionLabel, initials, orderTiles, roleOf, roomWaitState,
+} from '../assets/js/lesson-room.js';
 
 describe('initials', () => {
   test('ad və soyadın ilk hərfləri, Azərbaycan hərfləri ilə', () => {
@@ -40,4 +44,33 @@ describe('orderTiles', () => {
 test('bağlantı mətni', () => {
   assert.equal(connectionLabel('reconnecting'), 'Bağlantı bərpa olunur…');
   assert.equal(connectionLabel('başqa'), 'başqa');
+});
+
+test('bitmiş dərs boş otaq yox, növbəti addım göstərir', () => {
+  /* Auditdə tapılıb: bitmiş dərsin otağında yalnız «Dərs bitib.» var idi. */
+  const ended = { id: 7, mode: 'online', status: 'ended' };
+  const student = roomWaitState(ended, false);
+  assert.equal(student.primary.href, 'dersim.html?id=7');
+  assert.equal(student.canStart, false);
+  const teacher = roomWaitState(ended, true);
+  assert.equal(teacher.primary.href, 'dersim.html?id=7#text');
+  assert.equal(teacher.canStart, true);
+});
+
+test('başlamamış və sinif dərsi', () => {
+  const scheduled = { id: 3, mode: 'online', status: 'scheduled' };
+  assert.equal(roomWaitState(scheduled, false).primary, null);
+  assert.equal(roomWaitState(scheduled, false).canStart, false);
+  assert.equal(roomWaitState(scheduled, true).canStart, true);
+  const offline = roomWaitState({ id: 4, mode: 'offline', status: 'live' }, true);
+  assert.equal(offline.canStart, false);
+  assert.equal(offline.primary.href, 'dersim.html?id=4');
+});
+
+test('gözləmə ekranının ikonları sprite-da var', () => {
+  const sprite = readFileSync(new URL('../assets/icons.svg', import.meta.url), 'utf8');
+  for (const lesson of [{ mode: 'online', status: 'ended' }, { mode: 'online', status: 'scheduled' }, { mode: 'offline' }]) {
+    const { icon } = roomWaitState({ id: 1, ...lesson }, true);
+    assert.ok(sprite.includes(`id="i-${icon}"`), icon);
+  }
 });

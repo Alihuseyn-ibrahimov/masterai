@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261031f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261031f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261031f">
 <!-- Çap (və «PDF kimi saxla»): yalnız xülasənin özü qalır. Ölçü və
      rəng yoxdur - token qaydası pozulmur. -->
 <style media="print">
@@ -56,7 +56,7 @@
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectLabel } from './assets/js/subjects.js';
   import {
-    contentError, contentFromForm, listToLines, pairsToLines, renderSummary,
+    contentError, contentFromForm, listToLines, pairsToLines, readingMinutes, renderSummary,
   } from './assets/js/summary.js';
 
   const POLL_MS = 5000;
@@ -92,7 +92,8 @@
     function showReadView(summary) {
       document.getElementById('pageTitle').textContent = summary.content.title;
       document.title = `${summary.content.title} - MasterAI`;
-      meta.textContent = [subjectLabel(summary.subject), summary.chat_name].filter(Boolean).join(' · ');
+      meta.textContent = [subjectLabel(summary.subject), summary.chat_name,
+        `${readingMinutes(summary.content)} dəq oxu`].filter(Boolean).join(' · ');
       meta.hidden = false;
       content.innerHTML = '';
       content.append(renderSummary(summary.content));

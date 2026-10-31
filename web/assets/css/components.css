@@ -1334,3 +1334,166 @@ a.avatar:hover { text-decoration: none; }
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* ===== Dərs xülasəsi: oxu görünüşü (`summary.js::renderSummary`) =====
+ * Bölmələr ikonlu bloklardır; «Yadda saxla» sarı aksentlə vurğulanır -
+ * imtahandan əvvəl ilk baxılan yer odur. Çapda kölgə və fon düşür. */
+.summary-doc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.summary-doc__intro {
+  margin: 0;
+  font-family: var(--font-document);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+}
+.summary-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.summary-block__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.summary-block__head h3 { margin: 0; }
+.summary-block__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.summary-block--facts .summary-block__icon {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.summary-points {
+  list-style: none;
+  counter-reset: point;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.summary-points li {
+  counter-increment: point;
+  position: relative;
+  padding-left: calc(var(--space-8) + var(--space-2));
+  min-height: var(--space-8);
+  line-height: var(--leading-normal);
+}
+.summary-points li::before {
+  content: counter(point);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: var(--border-chunky) solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-weight: var(--weight-black);
+  font-size: var(--text-sm);
+}
+
+.summary-terms {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.summary-terms__row {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-chunky) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.summary-terms dt { font-weight: var(--weight-bold); }
+.summary-terms dd { margin: var(--space-1) 0 0; color: var(--color-text-muted); }
+
+.summary-facts {
+  margin: 0;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-8);
+  border: var(--border-chunky) solid var(--color-accent-edge);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.summary-facts li { font-weight: var(--weight-semibold); }
+
+.summary-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.summary-check {
+  padding: var(--space-4);
+  border: var(--border-chunky) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 var(--edge-card) 0 var(--color-border);
+  background: var(--color-surface);
+}
+.summary-check__question { margin: 0 0 var(--space-2); font-weight: var(--weight-semibold); }
+.summary-check__toggle {
+  display: inline-flex;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-weight: var(--weight-black);
+  font-size: var(--text-sm);
+}
+.summary-check__answer { margin: var(--space-2) 0 0; }
+
+@media print {
+  .summary-check, .summary-terms__row { box-shadow: none; }
+  .summary-check details { display: block; }
+}
+
+/* ===== Xülasə kartı (xulaseler.html) ===== */
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+.summary-card__title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+}
+.summary-card__intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.summary-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+}

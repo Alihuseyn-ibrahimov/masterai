@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 323 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 328 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -371,6 +371,14 @@ Esc/pərdə bağlayır, `#yeni`/`#qosul` linki birbaşa açır - «Bu gün»dək
 (backend icazə verir), sadəcə ikinci dərəcəlidir. **«Quiz yarat»
 (`muellim.html`) İSTİSNADIR:** forma yuxarıda və açıq qalır - bunu
 istifadəçi pilotdan sonra özü seçib, `sheet.test.js` qoruyur.
+**PR 5 - bitmiş dərs + konspekt:** `dars.html` girilə bilməyən otaqda
+`roomWaitState` (lesson-room.js) ilə NÖVBƏTİ ADDIMI göstərir: bitmiş
+dərsdə tələbəni `dersim.html`-ə, müəllimi `dersim.html#text`-ə aparır;
+«Dərsi bitir» və «Çıx» da dərs səhifəsinə qayıdır, müəllim dərsi
+bitirəndə otaqdakı tələbə boş plitələr yox, bu ekranı görür. Konspekt
+(`renderSummary`) ikonlu bloklardır: nömrəli əsas fikirlər, termin
+kartları, sarı «Yadda saxla», özünü yoxla kartları; `xulaseler.html`
+kartı bütövlükdə linkdir (fənn, giriş, `summaryStats`, `readingMinutes`).
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
