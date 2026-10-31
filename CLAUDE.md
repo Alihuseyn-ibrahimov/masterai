@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1900 pytest + 282 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1922 pytest + 287 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -160,8 +160,8 @@ LLM çağırılmır; model `MATERIALDA_YOXDUR` yazırsa tələbə «tapmadım»
 görür. Mənbələr YALNIZ tələbənin öz siniflərindən: keçilmiş (scheduled
 olmayan) dərslərin mətni + sinfə DƏRC olunmuş konspektlər; dərc
 olunmamış konspekt və başqa sinif düşmür. İstifadəçi üzrə 10 dəqiqədə
-20 sual (429). Saxta LLM ilə brauzerdə sınanıb; real cavab keyfiyyəti
-produksiyada yoxlanmalıdır.
+20 sual (429). Saxta LLM ilə brauzerdə sınanıb. **Produksiyada real AI ilə yoxlanılıb
+(2026-10-31, gün 9 ilə birlikdə): cavab, mənbə və «Məni yoxla» düzgün işləyir.**
 
 **Gün 9 — tutor agentə çevrildi (LangGraph).** `pipeline/tutor_graph.py`:
 `classify → contextualize → retrieve → answer | make_quiz | not_found`,
@@ -175,6 +175,24 @@ göndərir. Davam sualına əvvəlki sual YALNIZ açıq bağlayıcı ilə qoşul
 əvvəlki mövzunun mətni tapılar və tutor əlaqəsiz cavab verərdi - bu
 brauzer sınağında tutuldu. Cavab `kind` sahəsi daşıyır (`answer`,
 `quiz`, `not_found`, `offtopic`, `no_material`), köhnə sahələr qalır.
+
+**Gün 10 — çox agentli sual yoxlaması + LangSmith.**
+`pipeline/review_team.py` (LangGraph): **Fakt yoxlayıcı** (hər sual üçün
+BM25 ilə materialdan 2 parça, cavab təsdiqlənirmi) və **Metodist**
+(forma: birmənalılıq, ikinci doğru variant, ipucu) PARALEL işləyir,
+`merge` rəyləri birləşdirir, problemli sual varsa **Redaktor** düzəliş
+təklif edir. Çağırışlar 8 suallıq paketlərlədir. Agent suala cavab
+verməyibsə verdikt `unchecked`-dir, «qaydasındadır» YOX. Nəticə
+sualları DƏYİŞMİR: `suallar.html`-də «AI ilə yoxla» → kartda qeyd +
+«Təklifi tətbiq et» (mövcud `PATCH /live/questions/{id}`). Rəylər
+`question_sets.db`-dədir (`question_set_reviews`, `question_reviews`);
+sual redaktə/silinəndə onun rəyi silinir. Marşrutlar
+`POST/GET /live/question-sets/{id}/review` (fon işi, 409 təkrar).
+**LangSmith:** `complete_with_fallback_detail` `@traceable`-dır,
+LangGraph özü iz verir; `.env`-də `LANGSMITH_TRACING=true` +
+`LANGSMITH_API_KEY` olmasa heç nə göndərilmir (izdə dərs mətni olur).
+Brauzerdə tapılan səhv: «Təklifi tətbiq et»dən sonra `reload()` AI
+rəyini yeniləmirdi, kart köhnə qeydi göstərirdi.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

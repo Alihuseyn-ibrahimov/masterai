@@ -40,6 +40,16 @@
          köməkçi məlumatdır, sualların redaktəsini bloklamamalıdır. -->
     <div class="audit" id="audit" hidden></div>
 
+    <!-- AI yoxlama komandası (gün 10): fakt yoxlayıcı + metodist + redaktor. -->
+    <div class="audit" id="aiReview" hidden>
+      <div class="row row--between">
+        <strong>AI yoxlama komandası</strong>
+        <button class="btn btn--secondary btn--sm" type="button" id="aiReviewButton">AI ilə yoxla</button>
+      </div>
+      <p class="text-sm" id="aiReviewStatus"></p>
+      <p class="text-xs text-muted">AI rəyi sualları dəyişmir: təklifə baxıb özünüz tətbiq edirsiniz.</p>
+    </div>
+
     <div id="content"></div>
   </section>
 
@@ -57,6 +67,7 @@
     severityBadge, suspiciousCount,
   } from './assets/js/question-review.js';
   import { LEVELS, levelBadgeClass, levelLabel, summaryLine } from './assets/js/difficulty.js';
+  import { reviewByQuestion, reviewStatusLine, suggestionPatch, verdictBadge } from './assets/js/ai-review.js';
 
   const LETTERS = 'ABCDE';
 
@@ -112,6 +123,46 @@
       }
 
       let quality = null;      // `GET .../quality` cavabı, uğursuz olsa `null`
+      let aiReview = null;     // `GET .../review` cavabı (gün 10), uğursuz olsa `null`
+      let aiPoll = null;
+      const aiBox = document.getElementById('aiReview');
+      const aiButton = document.getElementById('aiReviewButton');
+      const aiStatus = document.getElementById('aiReviewStatus');
+
+      function loadAiReview() {
+        return request(`/live/question-sets/${setId}/review`)
+          .then((review) => { aiReview = review; })
+          .catch(() => { aiReview = null; });
+      }
+
+      function renderAiReview() {
+        aiBox.hidden = !questions.length;
+        const processing = aiReview && aiReview.status === 'processing';
+        aiStatus.textContent = reviewStatusLine(aiReview, questions.length);
+        aiStatus.className = aiReview && aiReview.status === 'failed' ? 'text-sm qcard__finding' : 'text-sm';
+        aiButton.disabled = processing;
+        aiButton.textContent = processing ? 'Yoxlanır...'
+          : (aiReview && aiReview.status === 'ready' ? 'Yenidən yoxla' : 'AI ilə yoxla');
+        clearTimeout(aiPoll);
+        if (processing) {
+          aiPoll = setTimeout(async () => {
+            await loadAiReview();
+            if (aiReview && aiReview.status !== 'processing') renderList(); else renderAiReview();
+          }, 3000);
+        }
+      }
+
+      aiButton.addEventListener('click', async () => {
+        aiButton.disabled = true;
+        try {
+          aiReview = await request(`/live/question-sets/${setId}/review`, { method: 'POST' });
+        } catch (error) {
+          flash(errorBox, error.message);
+          await loadAiReview();
+        }
+        // Siyahı da yenidən çəkilir: köhnə yoxlamanın nişanları yeni yoxlama gedərkən qalmamalıdır.
+        renderList();
+      });
       let questions = [];
       let order = SOURCE_ORDER;
 
@@ -191,7 +242,54 @@
         return row;
       }
 
-      function buildCard(question, number, findings) {
+      function buildAiNotes(question, number, item) {
+        const box = document.createElement('div');
+        box.className = 'stack stack--tight qcard__ai';
+        for (const issue of item.issues) {
+          const note = document.createElement('p');
+          note.className = 'text-sm qcard__finding';
+          note.textContent = `${issue.agent_label}: ${issue.text}`;
+          box.append(note);
+        }
+        const suggestion = item.suggestion;
+        if (suggestion) {
+          const head = document.createElement('p');
+          head.className = 'text-sm';
+          head.append(Object.assign(document.createElement('strong'), { textContent: 'Redaktorun təklifi' }));
+          box.append(head);
+          const text = document.createElement('p');
+          text.className = 'qcard__question';
+          text.textContent = suggestion.question;
+          box.append(text);
+          suggestion.options.forEach((option, i) => {
+            box.append(optionRow(option, LETTERS[i], i === suggestion.correct_index));
+          });
+          if (suggestion.explanation) {
+            box.append(Object.assign(document.createElement('p'), {
+              className: 'text-sm text-muted', textContent: `İzah: ${suggestion.explanation}` }));
+          }
+          const apply = document.createElement('button');
+          apply.type = 'button';
+          apply.className = 'btn btn--primary btn--sm';
+          apply.textContent = 'Təklifi tətbiq et';
+          apply.addEventListener('click', async () => {
+            apply.disabled = true;
+            try {
+              await request(`/live/questions/${question.id}`, {
+                method: 'PATCH', body: suggestionPatch(suggestion, question.difficulty) });
+              flash(okBox, `Sual ${number} təklifə görə yeniləndi.`);
+              await reload();
+            } catch (error) {
+              flash(errorBox, error.message);
+              apply.disabled = false;
+            }
+          });
+          box.append(apply);
+        }
+        return box;
+      }
+
+      function buildCard(question, number, findings, aiItem) {
         const card = document.createElement('div');
         card.className = 'card stack stack--tight qcard';
 
@@ -208,6 +306,11 @@
           chip.textContent = badge.label;
           chip.title = finding.message;
           tools.append(chip);
+        }
+        if (aiItem) {
+          const badge = verdictBadge(aiItem.verdict);
+          tools.append(Object.assign(document.createElement('span'), {
+            className: badge.className, textContent: badge.label }));
         }
         const level = document.createElement('span');
         level.className = levelBadgeClass(question.difficulty);
@@ -260,7 +363,10 @@
           editBtn.textContent = editing ? 'Redaktə et' : 'Yoxlamağa qayıt';
         });
 
-        card.append(head, notes, readBody, editBody);
+        // AI qeydi sualın ALTINDADIR: müəllim əvvəl sualı, sonra problemi və təklifi oxuyur.
+        card.append(head, notes, readBody);
+        if (aiItem && aiItem.verdict === 'fix') card.append(buildAiNotes(question, number, aiItem));
+        card.append(editBody);
         return card;
       }
 
@@ -401,6 +507,7 @@
       function renderList() {
         content.innerHTML = '';
         renderAudit();
+        renderAiReview();
         renderDifficultySummary();
         if (!questions.length) {
           content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
@@ -408,6 +515,7 @@
           return;
         }
         const byQuestion = findingsByQuestion(quality && quality.findings);
+        const byAi = reviewByQuestion(aiReview && aiReview.status === 'ready' ? aiReview : null);
         const list = document.createElement('div');
         list.className = 'stack';
         // Nömrə HƏMİŞƏ mənbə sırasındandır (index+1) - sıralama
@@ -415,15 +523,18 @@
         // müzakirədə səhv suala istinad edər.
         for (const index of orderedIndexes(questions.length, quality && quality.review_order, order)) {
           const number = index + 1;
-          list.append(buildCard(questions[index], number, byQuestion.get(number) || []));
+          list.append(buildCard(questions[index], number, byQuestion.get(number) || [],
+            byAi.get(questions[index].id)));
         }
         content.append(list);
       }
 
       async function reload() {
+        // AI rəyi də yenilənir: redaktə olunmuş sualın köhnə rəyini server silir.
         const [rows] = await Promise.all([
           request(`/live/question-sets/${setId}/questions`),
           loadQuality(),
+          loadAiReview(),
         ]);
         questions = rows;
         renderList();
@@ -435,6 +546,7 @@
           const [rows] = await Promise.all([
             request(`/live/question-sets/${setId}/questions`),
             loadQuality(),
+            loadAiReview(),
           ]);
           return rows;
         },
