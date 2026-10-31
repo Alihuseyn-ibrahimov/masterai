@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1983 pytest (+2 torch və 3 CrewAI testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1995 pytest (+2 torch, 3 CrewAI və 1 AutoGen testi öz mühitlərində) + 288 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -284,6 +284,19 @@ ilə yazır (`teacher_mcp.MasterAIClient`). Planla və yaz ayrıdır (müəllim
 əvvəl baxır). Telemetriya idxaldan ƏVVƏL söndürülür: açıq olanda testlər
 21 san çəkirdi (şəbəkəyə gedirdi), söndürüləndə 6 san. CrewAI testləri
 CI-da keçilir; lokal real CrewAI 1.15 ilə 10/10.
+
+**Gün 19 — AutoGen kod yoxlayıcısı (Docker).** `code_checker/`: tələbənin
+`.py` faylı `python:3.12-slim` konteynerində testlərlə yoxlanır (`--network none`,
+`--read-only`, 256 MB, 0.5 CPU, `nobody`, `--cap-drop ALL`; vaxt keçəndə
+`docker kill`). Bal saxtalaşdırıla bilmir: ilk variantda testlər tələbə kodu ilə
+eyni prosesdə idi və `print` + `os._exit` ilə 5/5 almaq olurdu - indi grader
+testləri `stdin`-dən oxuyur, hər testi AYRI uşaq prosesdə çağırır. AutoGen
+`RoundRobinGroupChat`: yoxlayıcı (`run_experiment` aləti eyni sandbox-dur) →
+mentor (həll vermir, `YEKUN` ilə bitir); 3 sətirdən uzun kod bloku rəydən
+silinir, bal yalnız testlərdəndir. AutoGen CrewAI ilə BİR venv-ə qoyulmur
+(protobuf 5/6 toqquşması CrewAI idxalını sındırır) - `requirements-autogen.txt`
+ayrıdır. CI-da Docker var (`python:3.12-slim` əvvəlcədən çəkilir). Ətraflı:
+`code_checker/README.md`.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

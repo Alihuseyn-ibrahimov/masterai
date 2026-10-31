@@ -1,4 +1,7 @@
-# Kurs planlayıcısı (gün 18, CrewAI) - YALNIZ müəllimin kompüterində. CrewAI ~1 GB
+# CrewAI kurs planlayıcısı (gün 18) - YALNIZ müəllimin kompüterində. CrewAI ~1 GB
 # asılılıq gətirir, serverə qoyulmur (bax course_planner/README.md).
+# AutoGen kod yoxlayıcısı AYRI venv-dədir (requirements-autogen.txt): ikisi bir
+# venv-də protobuf versiyasında toqquşur (autogen-core protobuf 5 bərkidir,
+# CrewAI-nın opentelemetry/googleapis paketləri 6 ilə yığılıb) və CrewAI idxalı sınır.
 -r requirements.txt
 crewai>=1.15,<2
