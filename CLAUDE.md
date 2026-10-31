@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1943 pytest + 287 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1948 pytest + 287 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -225,6 +225,15 @@ hakimlə sadiqlik (1-5); AI komandasının precision/recall/F1-i. Qaydalar
 faktı bilmir (`wrong_answer` recall ~25%) - bu, AI komandası üçün bazadır.
 İlk işdə tapıldı: «Təşəkkür edirəm», «Çox sağ ol» izah sayılırdı (düzəldildi).
 Real modellə nəticə hələ YOXDUR - serverdə işlədilməlidir (`evals/README.md`).
+
+**Gün 14 — real sınaq hazırlığı.** `deploy/diagnostics/classroom_smoke.py`
+müəllim hesabı ilə CANLI API-yə qarşı bütün dərs zəncirini keçir (sinif →
+dərs → başla → LiveKit tokeni → QR → lövhə şəkli OCR → [--audio Whisper] →
+quiz + konspekt → AI yoxlama → AI tutor → bitir), hər addımı ✔/✘ yazır.
+Ayrıca «[Yoxlama] Smoke sinfi» işlədir: real sinfə toxunmur, konspekt dərc
+olunmur. Yalnız stdlib + Pillow (lövhəni özü çəkir). Testdə `_send`
+TestClient-ə yönəldilir, OCR real tesseract-dır. Əl ilə addımlar (telefon
+video, QR skan, real lövhə, MCP): `deploy/REAL_TEST.md`.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
