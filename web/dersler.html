@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dərslər - MasterAI</title>
+<meta name="theme-color" content="#141810">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20260930a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/base.css?v=20260930a">
+<link rel="stylesheet" href="assets/css/components.css?v=20260930a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+  <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+
+  <!-- Müəllim: yeni dərs. Tələbədə gizli qalır. -->
+  <section class="stack" id="createSection" hidden>
+    <div class="section-header">
+      <h1>Dərs cədvəli</h1>
+      <span class="section-header__hint">Onlayn və ya sinifdə keçiləcək dərsi planlaşdırın</span>
+    </div>
+    <form class="card stack" id="createForm">
+      <div class="field">
+        <label class="field__label" for="chatSelect">Sinif (qrup çatı)</label>
+        <select class="field__select" id="chatSelect" required></select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="title">Mövzu</label>
+        <input class="field__input" id="title" required maxlength="200" placeholder="Məs. Konstitusiya: 1-ci fəsil">
+      </div>
+      <div class="field">
+        <label class="field__label" for="description">Qısa təsvir (istəyə bağlı)</label>
+        <textarea class="field__textarea" id="description" maxlength="2000" rows="2"></textarea>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label class="field__label" for="startsAt">Başlama vaxtı</label>
+          <input class="field__input" id="startsAt" type="datetime-local" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="duration">Müddət (dəqiqə)</label>
+          <input class="field__input" id="duration" type="number" min="15" max="300" step="5" value="90" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="mode">Növ</label>
+          <select class="field__select" id="mode">
+            <option value="online">Onlayn (video dərs)</option>
+            <option value="offline">Sinifdə (əyani)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn--primary" type="submit" id="createButton">Dərsi əlavə et</button>
+    </form>
+  </section>
+
+  <section class="stack">
+    <div class="section-header">
+      <h2 id="listTitle">Dərslərim</h2>
+      <a class="btn btn--ghost btn--sm" id="extraLink" href="xulaseler.html">Xülasələr</a>
+    </div>
+    <div id="content"></div>
+  </section>
+
+  <section class="stack" id="attendanceSection" hidden>
+    <div class="section-header">
+      <h2 id="attendanceTitle">Davamiyyət</h2>
+      <button class="btn btn--ghost btn--sm" type="button" id="closeAttendance">Bağla</button>
+    </div>
+    <div class="card" id="attendanceList"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { getUser, request } from './assets/js/api.js';
+  import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { MODE_LABELS, STATUS_LABELS, formatLessonTime, groupLessons, localInputToIso } from './assets/js/lessons.js';
+
+  if (requireLogin()) {
+    mountShell();
+    const user = getUser() || {};
+    const isTeacher = Boolean(user.is_teacher);
+    const content = document.getElementById('content');
+    const errorBox = document.getElementById('errorBox');
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = !message;
+    }
+
+    function button(label, className, onClick) {
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = `btn ${className} btn--sm`;
+      node.textContent = label;
+      node.addEventListener('click', onClick);
+      return node;
+    }
+
+    async function act(path, options) {
+      showError('');
+      try {
+        await request(path, options);
+      } catch (error) {
+        showError(error.message);
+      }
+      reload();
+    }
+
+    function lessonCard(lesson) {
+      const card = document.createElement('div');
+      card.className = 'card stack stack--tight';
+
+      const head = document.createElement('div');
+      head.className = 'section-header';
+      const title = document.createElement('h4');
+      title.textContent = lesson.title;
+      const badge = document.createElement('span');
+      badge.className = `badge ${lesson.status === 'live' ? 'badge--success' : 'badge--neutral'}`;
+      badge.textContent = STATUS_LABELS[lesson.status] || lesson.status;
+      head.append(title, badge);
+
+      const meta = document.createElement('p');
+      meta.className = 'text-sm text-muted';
+      meta.textContent = [
+        formatLessonTime(lesson.starts_at), `${lesson.duration_min} dəq`,
+        MODE_LABELS[lesson.mode] || lesson.mode, lesson.chat_name,
+      ].filter(Boolean).join(' · ');
+      card.append(head, meta);
+
+      if (lesson.description) {
+        const description = document.createElement('p');
+        description.className = 'text-sm';
+        description.textContent = lesson.description;
+        card.append(description);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'bank__actions';
+      if (isTeacher) {
+        if (lesson.status !== 'live') {
+          actions.append(button(lesson.status === 'ended' ? 'Yenidən başlat' : 'Dərsi başlat', 'btn--primary',
+            () => act(`/live/lessons/${lesson.id}/start`, { method: 'POST' })));
+        } else {
+          actions.append(button('Dərsi bitir', 'btn--danger',
+            () => act(`/live/lessons/${lesson.id}/end`, { method: 'POST' })));
+        }
+        if (lesson.status !== 'scheduled') {
+          actions.append(button('Davamiyyət', 'btn--secondary', () => showAttendance(lesson)));
+        } else {
+          actions.append(button('Sil', 'btn--ghost', () => {
+            if (confirm(`"${lesson.title}" dərsi silinsin?`)) {
+              act(`/live/lessons/${lesson.id}`, { method: 'DELETE' });
+            }
+          }));
+        }
+      } else if (lesson.status === 'live') {
+        if (lesson.attended) {
+          const done = document.createElement('span');
+          done.className = 'badge badge--success';
+          done.textContent = 'Davamiyyət qeyd olundu';
+          actions.append(done);
+        } else {
+          actions.append(button('Dərsə qoşul', 'btn--primary',
+            () => act(`/me/lessons/${lesson.id}/attend`, { method: 'POST' })));
+        }
+      }
+      if (actions.childElementCount) card.append(actions);
+      return card;
+    }
+
+    function group(container, heading, lessons) {
+      if (!lessons.length) return;
+      const title = document.createElement('h3');
+      title.className = 'text-sm text-muted';
+      title.textContent = heading;
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const lesson of lessons) grid.append(lessonCard(lesson));
+      container.append(title, grid);
+    }
+
+    function renderLessons(container, lessons) {
+      container.innerHTML = '';
+      if (!lessons.length) {
+        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-school"></use></svg></div>'
+          + '<div class="state__title">Dərs yoxdur</div>'
+          + '<div class="state__text">Planlaşdırılmış dərslər burada görünəcək.</div></div>';
+        return;
+      }
+      const groups = groupLessons(lessons);
+      container.classList.add('stack');
+      group(container, 'İndi canlı', groups.live);
+      group(container, 'Gələcək dərslər', groups.upcoming);
+      group(container, 'Keçmiş dərslər', groups.past);
+    }
+
+    async function showAttendance(lesson) {
+      const section = document.getElementById('attendanceSection');
+      const list = document.getElementById('attendanceList');
+      document.getElementById('attendanceTitle').textContent = `Davamiyyət: ${lesson.title}`;
+      section.hidden = false;
+      await loadInto(list, () => request(`/live/lessons/${lesson.id}/attendance`), (box, rows) => {
+        box.innerHTML = '';
+        const present = rows.filter((r) => r.present).length;
+        const summary = document.createElement('p');
+        summary.className = 'text-sm text-muted';
+        summary.textContent = `${present} / ${rows.length} tələbə gəlib`;
+        box.append(summary);
+        for (const row of rows) {
+          const line = document.createElement('div');
+          line.className = 'board-row';
+          const name = document.createElement('span');
+          name.textContent = row.display_name;
+          const mark = document.createElement('span');
+          mark.className = `badge ${row.present ? 'badge--success' : 'badge--neutral'}`;
+          mark.textContent = row.present ? `Gəlib, ${formatLessonTime(row.joined_at).split(', ')[1]}` : 'Gəlməyib';
+          line.append(name, mark);
+          box.append(line);
+        }
+      });
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+    document.getElementById('closeAttendance').addEventListener('click', () => {
+      document.getElementById('attendanceSection').hidden = true;
+    });
+
+    function reload() {
+      loadInto(content, () => request('/me/lessons'), renderLessons);
+    }
+
+    if (isTeacher) {
+      document.getElementById('createSection').hidden = false;
+      document.getElementById('listTitle').textContent = 'Siniflərimin dərsləri';
+      const extra = document.getElementById('extraLink');
+      extra.textContent = 'Canlı quiz sessiyası';
+      extra.href = 'sessiyalar.html';
+
+      const chatSelect = document.getElementById('chatSelect');
+      request('/chats').then((chats) => {
+        const groups = chats.filter((chat) => chat.kind === 'group');
+        for (const chat of groups) {
+          const option = document.createElement('option');
+          option.value = String(chat.id);
+          option.textContent = chat.name || `Çat #${chat.id}`;
+          chatSelect.append(option);
+        }
+        if (!groups.length) showError('Əvvəlcə «Çatlar» bölməsindən qrup çatı (sinif) yaradın.');
+      }).catch((error) => showError(error.message));
+
+      document.getElementById('createForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const startsAt = localInputToIso(document.getElementById('startsAt').value);
+        if (!startsAt) return showError('Başlama vaxtını seçin.');
+        const createButton = document.getElementById('createButton');
+        createButton.disabled = true;
+        showError('');
+        try {
+          await request(`/chats/${Number(chatSelect.value)}/lessons`, {
+            method: 'POST',
+            body: {
+              title: document.getElementById('title').value.trim(),
+              description: document.getElementById('description').value.trim(),
+              starts_at: startsAt,
+              duration_min: Number(document.getElementById('duration').value),
+              mode: document.getElementById('mode').value,
+            },
+          });
+          event.target.reset();
+          reload();
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          createButton.disabled = false;
+        }
+      });
+    }
+
+    reload();
+  }
+</script>
+</body>
+</html>

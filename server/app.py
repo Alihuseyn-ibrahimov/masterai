@@ -71,6 +71,7 @@ from pipeline.summary import LessonSummary, summarize_material
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
 from .badge_store import BadgeStore
 from .summary_store import SummaryStore
+from .lesson_store import LessonStore
 from .chat_join_request_store import ChatJoinRequestStore
 from .chat_store import ChatStore
 from .course_store import TEACHER_INVITE_TTL, UnknownProfile
@@ -96,6 +97,10 @@ from .material_store import MaterialStore
 from .message_store import MessageStore
 from .models import (
     DifficultyStat,
+    LessonAttendanceRow,
+    LessonCreate,
+    LessonInfo,
+    LessonUpdate,
     PublishSummaryRequest,
     SummaryInfo,
     AuditLogRow,
@@ -228,6 +233,7 @@ app.state.live_connection_manager = LiveConnectionManager()
 app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "homework.db"))
 app.state.badge_store = BadgeStore(os.environ.get("BADGES_DB_PATH", "badges.db"))
 app.state.summary_store = SummaryStore(os.environ.get("SUMMARIES_DB_PATH", "summaries.db"))
+app.state.lesson_store = LessonStore(os.environ.get("LESSONS_DB_PATH", "lessons.db"))
 # Yarımçıq emallar: fon task-ları proses-daxilidir, servis restart olanda
 # ölürlər və status əbədi `processing` qalırdı (produksiyada 3 həftə
 # «Hazırlanır» göstərən iki bank tapıldı). Bu, YALNIZ tək worker-lə
@@ -372,6 +378,11 @@ def get_badge_store() -> BadgeStore:
 def get_summary_store() -> SummaryStore:
     """Dərs xülasələri store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.summary_store
+
+
+def get_lesson_store() -> LessonStore:
+    """Dərs cədvəli store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.lesson_store
 
 
 def get_summarizer():
@@ -2197,6 +2208,212 @@ def get_my_summary(
         raise HTTPException(status_code=404, detail="Xülasə tapılmadı")
     _chat_in_course(chats, summary["chat_id"], user)
     return _summary_info(summary, question_sets.get(summary["question_set_id"]), chats)
+
+
+# ---- Dərslər (MasterAI Classroom, gün 1, 2026-10-31) ----------------------
+#
+# Yollar QƏSDƏN mövcud köklər altındadır (`/chats`, `/me`, `/live`): yeni
+# üst səviyyəli yol nginx siyahısına düşməli olardı, canlı nginx faylı isə
+# avtomatik yazılmır (bax CLAUDE.md «Dərs xülasəsi»).
+
+
+def _utc_iso(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _lesson_info(lesson: dict, chats: ChatStore, *, attended: bool = False) -> LessonInfo:
+    chat = chats.get(lesson["chat_id"])
+    return LessonInfo(
+        id=lesson["id"], chat_id=lesson["chat_id"], chat_name=chat["name"] if chat else None,
+        title=lesson["title"], description=lesson["description"], starts_at=lesson["starts_at"],
+        duration_min=lesson["duration_min"], mode=lesson["mode"], status=lesson["status"],
+        notes=lesson["notes"], started_at=lesson["started_at"], ended_at=lesson["ended_at"],
+        attended=attended,
+    )
+
+
+def _lesson_for_member(lessons: LessonStore, chats: ChatStore, lesson_id: int, user: dict) -> dict:
+    """Başqa kursun, başqa sinfin və ya olmayan dərs - eyni 404."""
+    lesson = lessons.get(lesson_id)
+    chat = chats.get(lesson["chat_id"]) if lesson else None
+    if (
+        lesson is None
+        or chat is None
+        or not _same_course(chat.get("course_id"), user)
+        or user["id"] not in chats.list_member_ids(chat["id"])
+    ):
+        raise HTTPException(status_code=404, detail="Dərs tapılmadı")
+    return lesson
+
+
+def _member_chat(chats: ChatStore, chat_id: int, user: dict) -> dict:
+    chat = _chat_in_course(chats, chat_id, user)
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    return chat
+
+
+@app.post("/chats/{chat_id}/lessons", response_model=LessonInfo, status_code=201)
+def create_lesson(
+    chat_id: int,
+    body: LessonCreate,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    chat = _member_chat(chats, chat_id, user)
+    if chat["kind"] != "group":
+        raise HTTPException(status_code=400, detail="Dərs yalnız qrup çatına (sinfə) təyin olunur")
+    lesson = lessons.create(
+        chat_id, course_id=chat.get("course_id"), created_by=user["id"],
+        title=body.title.strip(), description=body.description.strip(),
+        starts_at=_utc_iso(body.starts_at), duration_min=body.duration_min, mode=body.mode,
+    )
+    return _lesson_info(lesson, chats)
+
+
+@app.get("/chats/{chat_id}/lessons", response_model=list[LessonInfo])
+def list_chat_lessons(
+    chat_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> list[LessonInfo]:
+    _member_chat(chats, chat_id, user)
+    return [_lesson_info(lesson, chats) for lesson in lessons.list_for_chats([chat_id])]
+
+
+@app.get("/me/lessons", response_model=list[LessonInfo])
+def list_my_lessons(
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> list[LessonInfo]:
+    """İstifadəçinin bütün siniflərinin dərsləri, vaxta görə."""
+    chat_ids = [
+        c["id"] for c in chats.list_by_user(user["id"])
+        if _same_course((chats.get(c["id"]) or {}).get("course_id"), user)
+    ]
+    result = []
+    for lesson in lessons.list_for_chats(chat_ids):
+        attended = any(a["user_id"] == user["id"] for a in lessons.list_attendance(lesson["id"]))
+        result.append(_lesson_info(lesson, chats, attended=attended))
+    return result
+
+
+@app.get("/me/lessons/{lesson_id}", response_model=LessonInfo)
+def get_my_lesson(
+    lesson_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    attended = any(a["user_id"] == user["id"] for a in lessons.list_attendance(lesson_id))
+    return _lesson_info(lesson, chats, attended=attended)
+
+
+@app.post("/me/lessons/{lesson_id}/attend", response_model=LessonInfo)
+def attend_lesson(
+    lesson_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    """Tələbə canlı dərsə girəndə davamiyyət yazılır. Yalnız `live`
+    dərsdə: başlamamış dərsə «gəldim» demək davamiyyəti mənasız edərdi."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] != "live":
+        raise HTTPException(status_code=409, detail="Dərs hələ başlamayıb və ya bitib")
+    lessons.mark_attendance(lesson_id, user["id"], "online" if lesson["mode"] == "online" else "offline")
+    return _lesson_info(lesson, chats, attended=True)
+
+
+@app.patch("/live/lessons/{lesson_id}", response_model=LessonInfo)
+def update_lesson(
+    lesson_id: int,
+    body: LessonUpdate,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    _lesson_for_member(lessons, chats, lesson_id, user)
+    lesson = lessons.update(
+        lesson_id,
+        title=body.title.strip() if body.title is not None else None,
+        description=body.description,
+        starts_at=_utc_iso(body.starts_at) if body.starts_at is not None else None,
+        duration_min=body.duration_min,
+        mode=body.mode,
+        notes=body.notes,
+    )
+    return _lesson_info(lesson, chats)
+
+
+@app.delete("/live/lessons/{lesson_id}", status_code=204)
+def delete_lesson(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> None:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] != "scheduled":
+        # Keçirilmiş dərsin davamiyyəti hesabatdır, sükutla silinməməlidir.
+        raise HTTPException(status_code=409, detail="Başlamış dərs silinə bilməz")
+    lessons.delete(lesson_id)
+
+
+@app.post("/live/lessons/{lesson_id}/start", response_model=LessonInfo)
+def start_lesson(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    _lesson_for_member(lessons, chats, lesson_id, user)
+    return _lesson_info(lessons.set_status(lesson_id, "live"), chats)
+
+
+@app.post("/live/lessons/{lesson_id}/end", response_model=LessonInfo)
+def end_lesson(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> LessonInfo:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["status"] != "live":
+        raise HTTPException(status_code=409, detail="Dərs canlı deyil")
+    return _lesson_info(lessons.set_status(lesson_id, "ended"), chats)
+
+
+@app.get("/live/lessons/{lesson_id}/attendance", response_model=list[LessonAttendanceRow])
+def lesson_attendance(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> list[LessonAttendanceRow]:
+    """Sinfin hər tələbəsi bir sətir: gələnlər əvvəl, sonra ad üzrə.
+    Müəllim siyahıda yoxdur (dərsi keçən tərəfdir)."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    present = {a["user_id"]: a for a in lessons.list_attendance(lesson_id)}
+    rows = []
+    for member_id in chats.list_member_ids(lesson["chat_id"]):
+        member = users.get_by_id(member_id)
+        if member is None or member["is_teacher"]:
+            continue
+        mark = present.get(member_id)
+        rows.append(LessonAttendanceRow(
+            user_id=member_id, display_name=member["display_name"], present=mark is not None,
+            method=mark["method"] if mark else None, joined_at=mark["joined_at"] if mark else None,
+        ))
+    rows.sort(key=lambda r: (not r.present, r.display_name))
+    return rows
 
 
 async def _reject_websocket(websocket: WebSocket, code: int, detail: str) -> None:

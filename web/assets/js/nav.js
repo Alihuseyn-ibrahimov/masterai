@@ -21,7 +21,9 @@ const STUDENT_DESTINATIONS = [
   // halda istifadəçi "harda olduğunu" itirir.
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
-  { href: 'xulaseler.html', label: 'Xülasələr', short: 'Xülasə', icon: 'file-text', matches: ['xulaseler.html', 'xulase.html'] },
+  /* Dərslər (2026-10-31) xülasələri də əhatə edir: tələbə kabinetinin
+     əsas bölməsidir, xülasə isə dərsin bir hissəsidir. */
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'xulaseler.html', 'xulase.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
@@ -35,7 +37,9 @@ const STUDENT_DESTINATIONS = [
 const TEACHER_DESTINATIONS = [
   { href: 'muellim.html', label: 'Sual bankları', short: 'Banklar', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
-  { href: 'sessiyalar.html', label: 'Sessiyalar', short: 'Sessiya', icon: 'target', matches: ['sessiyalar.html'] },
+  /* Canlı quiz sessiyası dərsin bir hissəsidir (2026-10-31): bölmə
+     yerini dərs cədvəlinə verdi, sessiyalar səhifədən linklə açılır. */
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'sessiyalar.html'] },
   { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];

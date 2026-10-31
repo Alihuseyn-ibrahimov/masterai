@@ -18,6 +18,7 @@ Disallow: /qeydiyyat.html
 Disallow: /bagli.html
 Disallow: /sahib.html
 Disallow: /xulaseler.html
+Disallow: /dersler.html
 Disallow: /xulase.html
 Disallow: /qosul.html
 Allow: /

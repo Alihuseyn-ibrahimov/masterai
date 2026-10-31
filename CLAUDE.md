@@ -10,7 +10,7 @@ ikisi deploy olunub.
 
 **Test dəsti: 1710 pytest + 253 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-10-30-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -47,6 +47,26 @@ zənciri). `pipeline/` və `server/` eyni `masterai/` kök venv-ini paylaşır
 | Nailiyyət nişanları + Liderlik lövhəsi (Faza 6) | 5 tənbəl-hesablanan nişan (`GET /badges/me`) + hər qrup çatı üçün ev tapşırığı xallarına görə liderlik lövhəsi (`GET /chats/{id}/leaderboard`), `docs/superpowers/specs/2026-09-08-masterai-badges-leaderboard-design.md`, `.planning/2026-09-08-masterai-badges-leaderboard/` | ✅ Tam uc-uca REAL test edilib — bax aşağı "Nailiyyət nişanları + Liderlik lövhəsi" bölməsi |
 | Canlı sessiya fərdi tempo (sinxron model ləğvi) | Hər tələbə öz "Növbəti sual" düyməsi ilə öz sürəti ilə irəliləyir, müəllim ÜMUMİ vaxt limiti (1-10 dəqiqə) təyin edir, `.planning/2026-09-08-masterai-live-session-pacing/` | ✅ Tam uc-uca REAL test edilib — bax yuxarı "Canlı Sinif Sessiyası" bölməsi |
 | İngestion keyfiyyəti (link JS-render) + sual sayı seçimi | Müəllim hər material yükləməsində ÜMUMİ sual sayını (3-30) təyin edir, JS-render olunan saytlar (SPA) universal gözləmə ilə oxunur, sayt UI naviqasiyası sual generasiyasından xaric edilir, `docs/superpowers/specs/2026-09-08-masterai-ingestion-question-count-design.md`, `.planning/2026-09-08-masterai-ingestion-question-count/` | ✅ Tam uc-uca REAL test edilib (VPS-də) — bax aşağı "İngestion keyfiyyəti" bölməsi |
+
+## MasterAI Classroom (3 həftəlik aylıq layihə, 2026-10-31-dən)
+
+Platforma quiz alətindən tam dərs platformasına çevrilir: canlı video
+dərs (LiveKit Cloud), dərs səsindən AI konspekt/quiz, tələbə kabineti,
+sinifdə QR davamiyyət, kursun AI tutoru, 5-ci ayın mövzuları
+(PyTorch, QLoRA, serving, CrewAI, AutoGen, Guardrails). Plan:
+https://claude.ai/artifact/TmmBWUFsYSFDjJpH7Wcm9R — hər gün bir PR.
+
+**Gün 1 — dərs cədvəli + davamiyyət.** `server/lesson_store.py`
+(`lessons.db`, `LESSONS_DB_PATH`): dərs bir qrup çatına bağlıdır,
+`scheduled → live → ended`, vaxt UTC saxlanır. Davamiyyət (dərs,
+istifadəçi) cütü üçün BİR sətirdir (bax «təkrarlanan iştirakçı»).
+Marşrutlar QƏSDƏN köhnə köklər altındadır (`/chats/{id}/lessons`,
+`/me/lessons`, `/live/lessons/...`) — canlı nginx faylı yenilənmir.
+Veb: `dersler.html` (hər iki rol); nav-da tələbədə «Xülasələr»,
+müəllimdə «Sessiyalar» bölməsinin yerini aldı (səhifədən linklə
+açılırlar). `rebuild_droplet.sh` köhnə `.env`-ə çatışmayan
+`LESSONS_DB_PATH` sətrini əlavə edir: yoxsa baza `data/`-dan kənarda
+yaranar və backup onu görməzdi.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

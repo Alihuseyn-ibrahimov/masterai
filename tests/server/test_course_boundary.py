@@ -26,6 +26,7 @@ from server.app import (
     get_friendship_store,
     get_homework_store,
     get_join_rate_limiter,
+    get_lesson_store,
     get_live_connection_manager,
     get_live_session_store,
     get_material_store,
@@ -47,6 +48,7 @@ from server.chat_store import ChatStore
 from server.connection_manager import ConnectionManager
 from server.friendship_store import FriendshipStore
 from server.homework_store import HomeworkStore
+from server.lesson_store import LessonStore
 from server.live_connection_manager import LiveConnectionManager
 from server.live_session_store import LiveSessionStore
 from server.material_store import MaterialStore
@@ -85,6 +87,7 @@ def world(tmp_path):
         get_homework_store: HomeworkStore(":memory:"),
         get_badge_store: BadgeStore(":memory:"),
         get_summary_store: SummaryStore(":memory:"),
+        get_lesson_store: LessonStore(":memory:"),
         get_join_rate_limiter: RateLimiter(max_attempts=1000),
         get_register_rate_limiter: RateLimiter(max_attempts=1000),
         get_upload_dir: str(tmp_path),
@@ -153,6 +156,11 @@ def world(tmp_path):
     summaries.mark_ready(summary["id"], '{"title": "t", "intro": "i", "key_points": ["a", "b"]}')
     summaries.publish(summary["id"], w["chat_a"]["id"])
     w["summary_a"] = summaries.get(summary["id"])
+    lessons = stores[get_lesson_store]
+    w["lesson_a"] = lessons.create(w["chat_a"]["id"], course_id=a["id"], created_by=w["teacher_a"]["id"],
+                                   title="Dərs", description="", starts_at="2099-01-01T10:00:00+00:00",
+                                   duration_min=60, mode="online")
+    w["lessons"] = lessons
     w["client"] = TestClient(app)
     yield w
     app.dependency_overrides.clear()
@@ -204,6 +212,16 @@ CASES = {
     ("POST", "/live/summaries/{summary_id}/publish"): ("teacher_b", {"summary_id": "summary_a.id"}, None, {"chat_id": "chat_b.id"}, None),
     ("POST", "/live/summaries/{summary_id}/unpublish"): ("teacher_b", {"summary_id": "summary_a.id"}, None, None, None),
     ("GET", "/me/summaries/{summary_id}"): ("student_b", {"summary_id": "summary_a.id"}, None, None, None),
+    ("POST", "/chats/{chat_id}/lessons"): ("teacher_b", {"chat_id": "chat_a.id"}, None,
+        {"title": "x", "starts_at": "2099-01-01T10:00:00Z"}, None),
+    ("GET", "/chats/{chat_id}/lessons"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
+    ("GET", "/me/lessons/{lesson_id}"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/me/lessons/{lesson_id}/attend"): ("student_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("PATCH", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, {"notes": "x"}, None),
+    ("DELETE", "/live/lessons/{lesson_id}"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/live/lessons/{lesson_id}/start"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/live/lessons/{lesson_id}/end"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("GET", "/live/lessons/{lesson_id}/attendance"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("WS", "/ws/chat/{chat_id}"): ("student_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/host"): ("teacher_b", {"session_id": "session_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/play"): ("student_b", {"session_id": "session_a.id"}, None, None, None),
@@ -407,3 +425,14 @@ def test_foreign_teacher_cannot_publish_own_summary_into_other_course_chat(world
                              headers=_auth(world["teacher_b"]))
     assert r.status_code == 404
     assert summaries.get(own["id"])["chat_id"] is None
+
+
+def test_lesson_untouched_by_other_course(world):
+    lesson = world["lesson_a"]
+    for method, path, body in (("PATCH", f"/live/lessons/{lesson['id']}", {"notes": "x"}),
+                               ("POST", f"/live/lessons/{lesson['id']}/start", None),
+                               ("DELETE", f"/live/lessons/{lesson['id']}", None)):
+        world["client"].request(method, path, json=body, headers=_auth(world["teacher_b"]))
+    after = world["lessons"].get(lesson["id"])
+    assert (after["notes"], after["status"]) == ("", "scheduled")
+    assert world["client"].get("/me/lessons", headers=_auth(world["student_b"])).json() == []
