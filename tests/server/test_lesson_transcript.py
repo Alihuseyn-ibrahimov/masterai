@@ -200,10 +200,18 @@ def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
         time.sleep(0.02)
         summary = summaries.get(summary["id"])
     assert summary["status"] == "ready" and seen["summary_kind"] == "text"
-    # İkinci dəfə: artıq var.
-    assert _make_quiz(env).status_code == 409
     lesson = env["client"].get(f"/me/lessons/{env['lesson']['id']}", headers=env["auth"]).json()
     assert lesson["question_set_id"] == qs_id
+    # Təzədən hazırlamaq olar (fənn səhv seçilibsə): dərs yeni banka keçir,
+    # köhnəsi silinmir.
+    again = _make_quiz(env, subject="mentiq")
+    assert again.status_code == 202 and again.json()["question_set_id"] != qs_id
+    assert question_sets.get(qs_id) is not None
+    # Hazırlanan bankın üstünə ikinci emal açılmır.
+    new_id = again.json()["question_set_id"]
+    with question_sets._lock:
+        question_sets._conn.execute("UPDATE question_sets SET status='processing' WHERE id=?", (new_id,))
+    assert _make_quiz(env).status_code == 409
 
 
 def test_lesson_quiz_needs_enough_transcript(env, tmp_path):

@@ -101,8 +101,9 @@ Azərbaycan dilində keyfiyyət produksiyada yoxlanmalıdır.
 `.txt` kimi yazılır və MÖVCUD sual bankı axınına `kind="text"` ilə
 verilir (`pipeline/ingestion/text_extractor.py`): çətinlik bölgüsü
 (30/50/20), keyfiyyət filtri, redaktə, xülasə və dərc üçün ikinci yol
-YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; uğursuz
-bank yenidən yaradıla bilər, hazır olan 409. Brauzerdə saxta
+YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; hazır
+bank da «Yenidən hazırla» ilə təzədən yaradıla bilər (köhnəsi banklarda
+qalır), yalnız hazırlanan bankın üstünə 409. Brauzerdə saxta
 generatorla uc-uca sınanıb (forma → bank → suallar → konspekt).
 
 **Real sınaq (2026-10-31): Whisper produksiyada İŞLƏYİR** (müəllim

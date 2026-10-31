@@ -2615,8 +2615,11 @@ async def create_lesson_question_set(
 ) -> LessonInfo:
     lesson = _lesson_for_member(lessons, chats, lesson_id, user)
     existing = question_sets.get(lesson["question_set_id"]) if lesson.get("question_set_id") else None
-    if existing is not None and existing["status"] != "failed":
-        raise HTTPException(status_code=409, detail="Bu dərsin sualları artıq hazırlanıb")
+    # Hazır bank təzədən yaradıla bilər (məs. fənn səhv seçilib və ya
+    # suallar zəifdir): köhnəsi banklar siyahısında qalır, dərs yenisinə
+    # bağlanır. Yalnız hazırlanan bankın üstünə ikinci emal açılmır.
+    if existing is not None and existing["status"] == "processing":
+        raise HTTPException(status_code=409, detail="Bu dərsin sualları hələ hazırlanır")
     if body.subject not in SUBJECTS:
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     text = lessons.transcript_text(lesson_id)
