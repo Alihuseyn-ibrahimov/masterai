@@ -918,3 +918,63 @@
   white-space: pre-line;
 }
 
+
+/* ---- Canlı video dərs (Classroom, gün 2) ----
+   Plitələr ekrana bərabər bölünür; danışan iştirakçı vurğulanır.
+   Video qutusu 16:9 saxlanır ki, kamerası sönük olan iştirakçının
+   plitəsi digərlərindən kiçik görünməsin. */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--grid-min)), 1fr));
+  gap: var(--space-3);
+}
+.video-tile {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--color-ink-surface);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-tile--speaking { border-color: var(--color-accent); }
+.video-tile--screen { grid-column: 1 / -1; }
+.video-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.video-tile--screen video { object-fit: contain; }
+.video-tile__avatar {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-on-ink-muted);
+}
+.video-tile__name {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink-active);
+  color: var(--color-on-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.video-controls {
+  position: sticky;
+  bottom: calc(var(--bottom-nav-height) + var(--space-2));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+}
+.btn[aria-pressed="true"] { background: var(--color-primary-soft); }

@@ -68,6 +68,18 @@ açılırlar). `rebuild_droplet.sh` köhnə `.env`-ə çatışmayan
 `LESSONS_DB_PATH` sətrini əlavə edir: yoxsa baza `data/`-dan kənarda
 yaranar və backup onu görməzdi.
 
+**Gün 2 — canlı video (LiveKit Cloud).** `server/video.py` LiveKit
+giriş tokenini PyJWT ilə özü imzalayır (SDK paketi lazım deyil);
+`POST /me/lessons/{id}/video` yalnız canlı ONLAYN dərsə verir, tələbə
+üçün eyni zamanda davamiyyətdir, müəllim `roomAdmin`-dir. Açarlar
+`.env`-də (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`);
+yoxdursa 503. Media LiveKit-dən keçir, VPS-ə yük düşmür. Veb:
+`dars.html?id=N` (plitələr, mikrofon/kamera/ekran, müəllimdə «Dərsi
+bitir»). Klient kitabxanası REPODADIR (`web/assets/vendor/`, CDN yox):
+build addımı yoxdur və CDN-in düşməsi dərsi dayandırmır. Bu sandbox-da
+LiveKit serveri işlədilə bilmədi — real video axını produksiyada
+sınanmalıdır.
+
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
