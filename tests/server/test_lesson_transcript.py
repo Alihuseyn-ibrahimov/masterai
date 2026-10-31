@@ -51,11 +51,14 @@ def env(tmp_path):
     for member in (teacher, student):
         chats.add_member(chat["id"], member["id"])
 
-    client = TestClient(app)
-    auth = {"Authorization": f"Bearer {create_token(teacher['id'], secret=_SECRET)}"}
-    lesson = client.post(f"/chats/{chat['id']}/lessons", json=_LESSON, headers=auth).json()
-    yield {"client": client, "auth": auth, "lesson": lesson, "lessons": lessons, "seen": seen,
-           "student_auth": {"Authorization": f"Bearer {create_token(student['id'], secret=_SECRET)}"}}
+    # `with`: bir event loop bütün test boyu yaşayır. Onsuz hər sorğu öz
+    # loop-unu açıb bağlayır və fon task-ı (Whisper, sual bankı) yarıda
+    # qala bilir - CI-da məhz belə oldu.
+    with TestClient(app) as client:
+        auth = {"Authorization": f"Bearer {create_token(teacher['id'], secret=_SECRET)}"}
+        lesson = client.post(f"/chats/{chat['id']}/lessons", json=_LESSON, headers=auth).json()
+        yield {"client": client, "auth": auth, "lesson": lesson, "lessons": lessons, "seen": seen,
+               "student_auth": {"Authorization": f"Bearer {create_token(student['id'], secret=_SECRET)}"}}
     app.dependency_overrides.clear()
 
 
@@ -70,8 +73,17 @@ def _start(env):
     env["client"].post(f"/live/lessons/{env['lesson']['id']}/start", headers=env["auth"])
 
 
-def _transcript(env):
-    return env["client"].get(f"/live/lessons/{env['lesson']['id']}/transcript", headers=env["auth"]).json()
+def _transcript(env, timeout=5.0):
+    """Mətnə çevirmə fon task-ıdır: cavab 202 qayıdanda hələ bitməmiş ola
+    bilər (CI-da yavaş maşında məhz belə oldu). Bitənə qədər gözləyirik."""
+    import time
+
+    deadline = time.time() + timeout
+    while True:
+        body = env["client"].get(f"/live/lessons/{env['lesson']['id']}/transcript", headers=env["auth"]).json()
+        if all(s["status"] != "processing" for s in body["segments"]) or time.time() > deadline:
+            return body
+        time.sleep(0.02)
 
 
 def test_segments_are_joined_in_order_and_audio_is_deleted(env):
@@ -120,3 +132,86 @@ def test_restart_marks_unfinished_segments_failed():
     store.start_segment(1, 0)
     assert store.fail_interrupted_segments() == 1
     assert store.list_segments(1)[0]["status"] == "failed"
+
+
+# ---- Gün 4: dərs mətnindən sual bankı + xülasə ----------------------------
+
+def _lesson_quiz_env(env, tmp_path):
+    from pipeline.models import MCQQuestion, PipelineResult
+    from pipeline.summary import LessonSummary
+    from server.app import (
+        get_material_generator, get_material_store, get_question_set_store, get_summarizer,
+        get_summary_store,
+    )
+    from server.material_store import MaterialStore
+    from server.question_set_store import QuestionSetStore
+    from server.summary_store import SummaryStore
+
+    seen = {}
+
+    def generator(source, question_count=10, **_options):
+        seen["kind"] = source.kind
+        seen["text"] = open(source.location, encoding="utf-8").read()
+        return PipelineResult(
+            questions=[MCQQuestion(question=f"Sual {i}?", options=list("ABCDE"), correct_index=0,
+                                   explanation="i") for i in range(3)],
+            source=source, chunks_processed=1, chunks_failed=0, requested_question_count=question_count,
+        )
+
+    def summarizer(source):
+        seen["summary_kind"] = source.kind
+        return LessonSummary(title="Konspekt", intro="Giriş.", key_points=["Bir.", "İki."])
+
+    question_sets, summaries = QuestionSetStore(":memory:"), SummaryStore(":memory:")
+    for dep, value in {get_material_generator: generator, get_summarizer: summarizer,
+                       get_question_set_store: question_sets, get_summary_store: summaries,
+                       get_material_store: MaterialStore(":memory:")}.items():
+        app.dependency_overrides[dep] = (lambda v: lambda: v)(value)
+    return seen, question_sets, summaries
+
+
+def _make_quiz(env, **body):
+    return env["client"].post(f"/live/lessons/{env['lesson']['id']}/question-set",
+                              json={"subject": "qanunvericilik", **body}, headers=env["auth"])
+
+
+def test_lesson_transcript_becomes_question_bank_and_summary(env, tmp_path):
+    import time
+
+    seen, question_sets, summaries = _lesson_quiz_env(env, tmp_path)
+    _start(env)
+    _send(env, 0, ("Konstitusiya dövlətin əsas qanunudur. " * 20).encode())
+    _transcript(env)
+    r = _make_quiz(env, question_count=5)
+    assert r.status_code == 202, r.text
+    qs_id = r.json()["question_set_id"]
+    deadline = time.time() + 5
+    while question_sets.get(qs_id)["status"] == "processing" and time.time() < deadline:
+        time.sleep(0.02)
+    bank = question_sets.get(qs_id)
+    assert bank["status"] == "ready" and bank["title"] == _LESSON["title"]
+    assert bank["material_kind"] == "text" and seen["kind"] == "text"
+    assert "Konstitusiya" in seen["text"]
+    summary = summaries.get_for_question_set(qs_id)
+    deadline = time.time() + 5
+    while summary["status"] == "processing" and time.time() < deadline:
+        time.sleep(0.02)
+        summary = summaries.get(summary["id"])
+    assert summary["status"] == "ready" and seen["summary_kind"] == "text"
+    # İkinci dəfə: artıq var.
+    assert _make_quiz(env).status_code == 409
+    lesson = env["client"].get(f"/me/lessons/{env['lesson']['id']}", headers=env["auth"]).json()
+    assert lesson["question_set_id"] == qs_id
+
+
+def test_lesson_quiz_needs_enough_transcript(env, tmp_path):
+    _lesson_quiz_env(env, tmp_path)
+    _start(env)
+    assert _make_quiz(env).status_code == 409  # mətn yoxdur
+    _send(env, 0, b"qisa")
+    _transcript(env)
+    assert _make_quiz(env).status_code == 409
+    assert _make_quiz(env, subject="yox").status_code in (400, 409)
+    r = env["client"].post(f"/live/lessons/{env['lesson']['id']}/question-set",
+                           json={"subject": "mentiq"}, headers=env["student_auth"])
+    assert r.status_code == 403

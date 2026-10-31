@@ -95,6 +95,16 @@ mətni `dersler.html`-də «Dərs mətni» ilə görür. Brauzerdə saxta
 transkriptorla uc-uca sınanıb (3 hissə, sıra ilə); real Whisper və
 Azərbaycan dilində keyfiyyət produksiyada yoxlanmalıdır.
 
+**Gün 4 — dərs mətnindən konspekt + quiz.** «Dərs mətni» panelində
+(mətn ≥300 simvol) müəllim fənn və sual sayı seçir →
+`POST /live/lessons/{id}/question-set`. Transkript `uploads/lessons/`-a
+`.txt` kimi yazılır və MÖVCUD sual bankı axınına `kind="text"` ilə
+verilir (`pipeline/ingestion/text_extractor.py`): çətinlik bölgüsü
+(30/50/20), keyfiyyət filtri, redaktə, xülasə və dərc üçün ikinci yol
+YAZILMADI. Bank dərsə `lessons.question_set_id` ilə bağlanır; uğursuz
+bank yenidən yaradıla bilər, hazır olan 409. Brauzerdə saxta
+generatorla uc-uca sınanıb (forma → bank → suallar → konspekt).
+
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla

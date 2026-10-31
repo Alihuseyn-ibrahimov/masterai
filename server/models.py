@@ -658,6 +658,8 @@ class LessonInfo(BaseModel):
     started_at: str | None = None
     ended_at: str | None = None
     attended: bool = False
+    # Gün 4: dərs mətnindən yaradılan sual bankı (yalnız müəllimə lazımdır).
+    question_set_id: int | None = None
 
 
 class LessonAttendanceRow(BaseModel):
@@ -690,3 +692,11 @@ class LessonTranscript(BaseModel):
     lesson_id: int
     segments: list[LessonTranscriptSegment]
     text: str
+
+
+class LessonQuizCreate(BaseModel):
+    """Dərs mətnindən sual bankı + xülasə (gün 4)."""
+
+    subject: str
+    question_count: int = Field(default=10, ge=3, le=30)
+    make_summary: bool = True

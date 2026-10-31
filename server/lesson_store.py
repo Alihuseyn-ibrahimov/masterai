@@ -21,7 +21,7 @@ LESSON_STATUSES = ("scheduled", "live", "ended")
 
 _COLUMNS = (
     "id, chat_id, course_id, created_by, title, description, starts_at, "
-    "duration_min, mode, status, notes, started_at, ended_at, created_at, updated_at"
+    "duration_min, mode, status, notes, started_at, ended_at, created_at, updated_at, question_set_id"
 )
 
 
@@ -74,6 +74,12 @@ class LessonStore:
                 );
                 """
             )
+            # Gün 4: dərs mətnindən yaradılan sual bankı (+ xülasə). Gün 1-3
+            # bazalarında sütun yoxdur - eyni `ALTER TABLE` naxışı.
+            try:
+                self._conn.execute("ALTER TABLE lessons ADD COLUMN question_set_id INTEGER")
+            except sqlite3.OperationalError:
+                pass
             self._conn.commit()
 
     def _get(self, lesson_id: int) -> dict | None:
@@ -154,6 +160,15 @@ class LessonStore:
                 "ended_at = CASE WHEN ? = 'ended' THEN ? ELSE NULL END, "
                 "updated_at = ? WHERE id = ?",
                 (status, status, now, status, now, now, lesson_id),
+            )
+            self._conn.commit()
+            return self._get(lesson_id)
+
+    def set_question_set(self, lesson_id: int, question_set_id: int) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE lessons SET question_set_id = ?, updated_at = ? WHERE id = ?",
+                (question_set_id, _utc_now_iso(), lesson_id),
             )
             self._conn.commit()
             return self._get(lesson_id)
