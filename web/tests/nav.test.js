@@ -6,13 +6,13 @@ import { activeHref, allDestinations, destinationsFor, shortLabel } from '../ass
 describe('destinationsFor', () => {
   test('tələbə öz bölmələrini görür', () => {
     const hrefs = destinationsFor({ is_teacher: false }).map((d) => d.href);
-    assert.deepEqual(hrefs, ['chatlar.html', 'tapsiriqlar.html', 'xulaseler.html', 'tarixce.html', 'profil.html']);
+    assert.deepEqual(hrefs, ['chatlar.html', 'tapsiriqlar.html', 'dersler.html', 'tarixce.html', 'profil.html']);
   });
 
   test('müəllim öz bölmələrini görür', () => {
     const hrefs = destinationsFor({ is_teacher: true }).map((d) => d.href);
     assert.deepEqual(hrefs,
-      ['muellim.html', 'chatlar.html', 'sessiyalar.html', 'hesabatlar.html', 'profil.html']);
+      ['muellim.html', 'chatlar.html', 'dersler.html', 'hesabatlar.html', 'profil.html']);
   });
 
   test('MÜƏLLİMDƏ DƏ çat bölməsi var', () => {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
@@ -621,3 +622,47 @@ class SummaryInfo(BaseModel):
 
 class PublishSummaryRequest(BaseModel):
     chat_id: int
+
+
+class LessonCreate(BaseModel):
+    """Dərs cədvəli (MasterAI Classroom, gün 1). `starts_at` saat qurşağı
+    ilə ISO vaxtdır; brauzer yerli vaxtı UTC-yə çevirib göndərir."""
+
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    starts_at: datetime
+    duration_min: int = Field(default=90, ge=15, le=300)
+    mode: Literal["online", "offline"] = "online"
+
+
+class LessonUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    starts_at: datetime | None = None
+    duration_min: int | None = Field(default=None, ge=15, le=300)
+    mode: Literal["online", "offline"] | None = None
+    notes: str | None = Field(default=None, max_length=100_000)
+
+
+class LessonInfo(BaseModel):
+    id: int
+    chat_id: int
+    chat_name: str | None = None
+    title: str
+    description: str
+    starts_at: str
+    duration_min: int
+    mode: str
+    status: str
+    notes: str
+    started_at: str | None = None
+    ended_at: str | None = None
+    attended: bool = False
+
+
+class LessonAttendanceRow(BaseModel):
+    user_id: int
+    display_name: str
+    present: bool
+    method: str | None = None
+    joined_at: str | None = None

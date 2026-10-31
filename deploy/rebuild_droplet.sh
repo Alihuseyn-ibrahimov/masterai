@@ -107,7 +107,8 @@ else
                 QUIZ_ATTEMPTS:quiz_attempts FRIENDSHIPS:friendships \
                 QUESTION_SETS:question_sets LIVE_SESSIONS:live_sessions \
                 HOMEWORK:homework BADGES:badges \
-                CHAT_JOIN_REQUESTS:chat_join_requests SUMMARIES:summaries; do
+                CHAT_JOIN_REQUESTS:chat_join_requests SUMMARIES:summaries \
+                LESSONS:lessons; do
       echo "${pair%%:*}_DB_PATH=$SRV/data/${pair##*:}.db"
     done
     echo "MATERIAL_UPLOAD_DIR=$SRV/data/uploads"
@@ -115,6 +116,12 @@ else
   chmod 600 "$SRV/.env"
   echo "ADMIN_API_KEY (n8n 'Gündəlik Statistika' üçün): $ADMIN_API_KEY_VAL"
 fi
+# Sonradan əlavə olunan bazalar: köhnə .env-də yolu yoxdursa servis faylı
+# iş qovluğunda yaradardı və backup onu GÖRMƏZDİ (yalnız data/ arxivlənir).
+for pair in LESSONS:lessons; do
+  grep -q "^${pair%%:*}_DB_PATH=" "$SRV/.env" \
+    || echo "${pair%%:*}_DB_PATH=$SRV/data/${pair##*:}.db" >> "$SRV/.env"
+done
 
 step "7/9 systemd"
 cp "$SRV/deploy/masterai.service" /etc/systemd/system/masterai.service
