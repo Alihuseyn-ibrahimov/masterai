@@ -65,6 +65,11 @@ class AuthResponse(BaseModel):
     user: UserInfo
 
 
+class WsTicketResponse(BaseModel):
+    ticket: str
+    expires_in: int
+
+
 class CreateChatRequest(BaseModel):
     kind: Literal["direct", "group"]
     name: str | None = Field(default=None, max_length=100)

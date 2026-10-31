@@ -34,7 +34,8 @@ export function computeBackoffDelay(attempt, random = Math.random) {
 export class ReconnectingSocket {
   /**
    * @param {object} options
-   * @param {() => string} options.url - hər cəhddə yenidən hesablanır
+   * @param {() => string|Promise<string>} options.url - hər cəhddə yenidən
+   *        hesablanır; Promise olsa (ticket sorğusu) gözlənilir
    * @param {(data: object) => void} options.onMessage
    * @param {(status: 'connecting'|'open'|'reconnecting'|'closed') => void} [options.onStatus]
    * @param {(socket: WebSocket) => void} [options.onOpen] - qoşulan kimi
@@ -55,9 +56,47 @@ export class ReconnectingSocket {
 
   connect() {
     if (this.stopped) return;
-    const Factory = this.options.socketFactory || globalThis.WebSocket;
     this._status(this.attempt === 0 ? 'connecting' : 'reconnecting');
-    this.socket = new Factory(this.options.url());
+    let url;
+    try {
+      url = this.options.url();
+    } catch (error) {
+      this._urlFailed(error);
+      return;
+    }
+    // Ünvan Promise ola bilər: hər cəhddə serverdən YENİ birdəfəlik
+    // ticket alınır (bax `server/ws_ticket.py`).
+    if (url && typeof url.then === 'function') {
+      url.then((resolved) => this._open(resolved), (error) => this._urlFailed(error));
+    } else {
+      this._open(url);
+    }
+  }
+
+  /** Ticket alınmadı. 401: sessiya bitib - yenidən cəhd mənasızdır.
+   *  402: kursun abunəsi bitib. Qalan hallar (şəbəkə, 5xx) - gözləyib
+   *  yenidən cəhd. */
+  _urlFailed(error) {
+    if (this.stopped) return;
+    const status = error && error.status;
+    if (status === 401 || status === 403 || status === 402) {
+      this._status('closed');
+      return;
+    }
+    this._scheduleReconnect();
+  }
+
+  _scheduleReconnect() {
+    const delay = computeBackoffDelay(this.attempt);
+    this.attempt += 1;
+    this._status('reconnecting');
+    this.timer = setTimeout(() => this.connect(), delay);
+  }
+
+  _open(url) {
+    if (this.stopped) return;
+    const Factory = this.options.socketFactory || globalThis.WebSocket;
+    this.socket = new Factory(url);
 
     this.socket.onopen = () => {
       this.attempt = 0;
@@ -82,10 +121,7 @@ export class ReconnectingSocket {
         if (event.code === LICENSE_CLOSED_WS_CODE) goToClosedPage();
         return;
       }
-      const delay = computeBackoffDelay(this.attempt);
-      this.attempt += 1;
-      this._status('reconnecting');
-      this.timer = setTimeout(() => this.connect(), delay);
+      this._scheduleReconnect();
     };
 
     // `onerror`-dan sonra brauzer HƏMİŞƏ `onclose` çağırır - yenidən
@@ -107,4 +143,14 @@ export class ReconnectingSocket {
     if (this.socket) this.socket.close();
     this._status('closed');
   }
+}
+
+/** Ünvanı birdəfəlik ticket ilə qurur. `getTicket` sinxron dəyər də
+ *  qaytara bilər (testlər) - onda bağlantı dərhal açılır. */
+export function withTicket(getTicket, build) {
+  return () => {
+    const ticket = getTicket();
+    if (ticket && typeof ticket.then === 'function') return ticket.then(build);
+    return build(ticket);
+  };
 }

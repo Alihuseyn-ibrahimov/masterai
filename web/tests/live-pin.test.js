@@ -70,13 +70,26 @@ describe('LivePinPlaySocket', () => {
     socket.close();
   });
 
-  test('token varsa əlavə olunur', () => {
+  test('daxil olubsa JWT yox, birdəfəlik ticket əlavə olunur', () => {
     const socket = new LivePinPlaySocket({
-      pin: '123456', name: 'A', guest: 'acar1234', token: 'tok',
+      pin: '123456', name: 'A', guest: 'acar1234', token: 'jwt',
+      getTicket: () => 'tk1', onMessage: () => {}, socketFactory: FakeSocket,
+    });
+    socket.connect();
+    assert.match(FakeSocket.last.url, /&ticket=tk1$/);
+    assert.ok(!FakeSocket.last.url.includes('jwt'));
+    socket.close();
+  });
+
+  test('ticket alınmasa qonaq kimi qoşulur', async () => {
+    const socket = new LivePinPlaySocket({
+      pin: '123456', name: 'A', guest: 'acar1234', token: 'jwt',
+      getTicket: () => Promise.reject(Object.assign(new Error('x'), { status: 401 })),
       onMessage: () => {}, socketFactory: FakeSocket,
     });
     socket.connect();
-    assert.match(FakeSocket.last.url, /&token=tok$/);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.match(FakeSocket.last.url, /guest=acar1234$/);
     socket.close();
   });
 

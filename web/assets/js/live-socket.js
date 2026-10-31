@@ -25,7 +25,8 @@
  */
 
 import { WS_BASE_URL } from './config.js';
-import { ReconnectingSocket } from './socket.js';
+import { fetchWsTicket } from './api.js';
+import { ReconnectingSocket, withTicket } from './socket.js';
 
 /** Saniyəni `m:ss` şəklinə salır. Mənfi dəyər 0 sayılır - vaxt
  *  bitəndən sonra "-0:03" göstərmək mənasızdır. */
@@ -69,10 +70,10 @@ export class LiveHostSocket {
   /** Sessiya ID-si ilə. PIN yolu əvəzləndi: sessiya artıq bir sinfə
    *  (qrup çatına) bağlıdır və konsol YALNIZ onu başladan müəllimə
    *  açılır - server bunu `created_by` ilə yoxlayır. */
-  constructor({ sessionId, token, onMessage, onStatus, socketFactory }) {
+  constructor({ sessionId, onMessage, onStatus, socketFactory, getTicket = fetchWsTicket }) {
     this.socket = new ReconnectingSocket({
-      url: () => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/host`
-        + `?token=${encodeURIComponent(token)}`,
+      url: withTicket(getTicket, (ticket) => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/host`
+        + `?ticket=${encodeURIComponent(ticket)}`),
       socketFactory,
       onStatus,
       onMessage,
@@ -97,10 +98,10 @@ export class LivePlaySocket {
    *  Köhnə PIN yolundan fərq: orada `display_name` ilk mesajda
    *  göndərilirdi və token KÖNÜLLÜ idi (anonim iştirakçı heç bir
    *  hesaba bağlanmırdı, ona görə fərdi tarixçə boş qalırdı). */
-  constructor({ sessionId, token, onMessage, onStatus, socketFactory }) {
+  constructor({ sessionId, onMessage, onStatus, socketFactory, getTicket = fetchWsTicket }) {
     this.socket = new ReconnectingSocket({
-      url: () => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/play`
-        + `?token=${encodeURIComponent(token)}`,
+      url: withTicket(getTicket, (ticket) => `${WS_BASE_URL}/ws/live/sessions/${encodeURIComponent(sessionId)}/play`
+        + `?ticket=${encodeURIComponent(ticket)}`),
       socketFactory,
       onStatus,
       onMessage,
