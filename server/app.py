@@ -70,6 +70,8 @@ from pipeline.quality import audit_questions
 from pipeline.summary import LessonSummary, summarize_material
 from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
+from pipeline.rag import Document as TutorDocument
+from pipeline.rag import answer_question
 from pipeline.ingestion.errors import IngestionError
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
@@ -113,6 +115,9 @@ from .models import (
     LessonInfo,
     LessonNote,
     LessonQr,
+    TutorAsk,
+    TutorReply,
+    TutorSource,
     LessonQuizCreate,
     LessonUpdate,
     LessonTranscript,
@@ -237,6 +242,10 @@ app.state.login_rate_limiter = RateLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW_SECO
 # halda skript aktiv sessiyanı saniyələrlə tapardı.
 PIN_MAX_FAILURES = 10
 app.state.pin_rate_limiter = RateLimiter(PIN_MAX_FAILURES, 60)
+# AI tutor (gün 8): hər sual bir LLM çağırışıdır. İstifadəçi üzrə 10
+# dəqiqədə 20 sual - normal öyrənməni sıxmır, skriptlə Groq limitini yemir.
+TUTOR_MAX_QUESTIONS = 20
+app.state.tutor_rate_limiter = RateLimiter(TUTOR_MAX_QUESTIONS, 10 * 60)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.material_store = MaterialStore(os.environ.get("MATERIALS_DB_PATH", "materials.db"))
@@ -318,6 +327,15 @@ def _client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.strip()
     return request.client.host if request.client else "naməlum"
+
+
+def get_tutor_rate_limiter() -> RateLimiter:
+    return app.state.tutor_rate_limiter
+
+
+def get_tutor():
+    """Sual + mənbələr → mənbəli cavab (gün 8; testdə fake ilə override olunur)."""
+    return answer_question
 
 
 def get_pin_rate_limiter() -> RateLimiter:
@@ -2592,6 +2610,80 @@ def lesson_attendance(
         ))
     rows.sort(key=lambda r: (not r.present, r.display_name))
     return rows
+
+
+# ---- Gün 8: AI tutor (RAG) ---------------------------------------------
+# Tələbə öz siniflərinin dərs materialı üzrə sual verir. Mənbələr: keçilmiş
+# dərslərin mətni (səs + lövhə) və sinfə DƏRC olunmuş konspektlər.
+# Dərc olunmamış konspekt və başqa sinfin dərsi axtarışa düşmür.
+
+
+def _summary_text(content_json: str) -> str:
+    content = LessonSummary.model_validate_json(content_json)
+    parts = [content.title, content.intro, *content.key_points,
+             *(f"{t.term}: {t.definition}" for t in content.terms), *content.facts]
+    return "\n".join(p for p in parts if p)
+
+
+def _tutor_documents(lessons: list[dict], summaries: list[dict], lesson_store: LessonStore,
+                     question_sets: QuestionSetStore) -> list[TutorDocument]:
+    docs = []
+    for lesson in lessons:
+        if lesson["status"] == "scheduled":
+            continue
+        text = lesson_store.transcript_text(lesson["id"])
+        if text:
+            docs.append(TutorDocument(key=f"lesson:{lesson['id']}", title=f"Dərs: {lesson['title']}",
+                                      text=text, meta={"lesson_id": lesson["id"]}))
+    for summary in summaries:
+        if not summary["content"]:
+            continue
+        question_set = question_sets.get(summary["question_set_id"])
+        title = question_set["title"] if question_set else "Konspekt"
+        docs.append(TutorDocument(key=f"summary:{summary['id']}", title=f"Konspekt: {title}",
+                                  text=_summary_text(summary["content"]), meta={"summary_id": summary["id"]}))
+    return docs
+
+
+@app.post("/me/tutor/ask", response_model=TutorReply)
+async def ask_tutor(
+    body: TutorAsk,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    summaries: SummaryStore = Depends(get_summary_store),
+    limiter: RateLimiter = Depends(get_tutor_rate_limiter),
+    tutor=Depends(get_tutor),
+) -> TutorReply:
+    if body.lesson_id is not None:
+        lesson = _lesson_for_member(lessons, chats, body.lesson_id, user)
+        scope_lessons = [lesson]
+        published = summaries.list_published_for_chats([lesson["chat_id"]])
+        scope_summaries = [s for s in published if s["question_set_id"] == lesson.get("question_set_id")]
+    else:
+        chat_ids = [
+            c["id"] for c in chats.list_by_user(user["id"])
+            if _same_course((chats.get(c["id"]) or {}).get("course_id"), user)
+        ]
+        scope_lessons = lessons.list_for_chats(chat_ids)
+        scope_summaries = summaries.list_published_for_chats(chat_ids)
+    if not limiter.allow(f"tutor:{user['id']}"):
+        raise HTTPException(status_code=429, detail="Çox sual verdiniz. Bir neçə dəqiqədən sonra yenidən yazın.")
+
+    docs = _tutor_documents(scope_lessons, scope_summaries, lessons, question_sets)
+    if not docs:
+        return TutorReply(found=False, answer="", sources=[], no_material=True)
+    try:
+        result = await asyncio.to_thread(tutor, body.question.strip(), docs)
+    except Exception:
+        logger.exception("AI tutor cavab vermədi (user_id=%s)", user["id"])
+        raise HTTPException(status_code=503, detail="AI tutor hazırda cavab verə bilmir, bir azdan yenidən yazın.")
+    return TutorReply(
+        found=result.found, answer=result.answer,
+        sources=[TutorSource(title=d.title, lesson_id=d.meta.get("lesson_id"),
+                             summary_id=d.meta.get("summary_id")) for d in result.sources],
+    )
 
 
 # ---- Gün 6: sinifdə QR davamiyyət + əl ilə düzəliş ----------------------

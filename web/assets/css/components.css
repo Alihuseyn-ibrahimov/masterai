@@ -994,3 +994,9 @@
   aspect-ratio: 1;
   border-radius: var(--radius-md);
 }
+
+/* AI tutor (gün 8): sual sağda, cavab solda - söhbət hissi. */
+.tutor-question { align-self: flex-end; max-width: 85%; background: var(--color-surface-alt); }
+.tutor-answer { max-width: 100%; }
+.tutor-answer__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tutor-cite { color: var(--color-primary); font-weight: 600; }

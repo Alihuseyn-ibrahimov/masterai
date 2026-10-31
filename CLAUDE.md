@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 1852 pytest + 278 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 1884 pytest + 280 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -148,6 +148,20 @@ ikisini birlikdə görür. Səbəb: sinif dərsində səs çox vaxt yazılmır.
 Sintetik «yan» telefon şəklində ə/ö/ü düzgün oxundu; real lövhə
 produksiyada yoxlanmalıdır. Eyni PR-da menyuda «Sual bankları» →
 «Quiz yarat» (istifadəçi dərsdən asılı olmayan quiz bölməsini tapmırdı).
+
+**Gün 8 — AI tutor (RAG).** `tutor.html` (dərs səhifəsindən
+`?lesson=N` ilə, «Dərslər»dən ümumi). `POST /me/tutor/ask` →
+`pipeline/rag.py`: mənbələr ~800 simvolluq parçalara bölünür, BM25 ilə
+sıralanır (embedding YOX: Groq vermir, model 1 nüvəli serverə ağırdır),
+ən uyğun 4 parça nömrələnib LLM-ə gedir, cavab [n] istinadlı olur.
+Azərbaycan dili üçün: `I→ı`, `İ→i` kiçiltmə və sözü ilk 6 hərfə kəsmə
+(«Konstitusiyasının» = «Konstitusiya»). Heç bir söz üst-üstə düşmürsə
+LLM çağırılmır; model `MATERIALDA_YOXDUR` yazırsa tələbə «tapmadım»
+görür. Mənbələr YALNIZ tələbənin öz siniflərindən: keçilmiş (scheduled
+olmayan) dərslərin mətni + sinfə DƏRC olunmuş konspektlər; dərc
+olunmamış konspekt və başqa sinif düşmür. İstifadəçi üzrə 10 dəqiqədə
+20 sual (429). Saxta LLM ilə brauzerdə sınanıb; real cavab keyfiyyəti
+produksiyada yoxlanmalıdır.
 
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda

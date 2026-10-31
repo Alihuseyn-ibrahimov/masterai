@@ -23,7 +23,7 @@ const STUDENT_DESTINATIONS = [
   { href: 'tapsiriqlar.html', label: 'Tapşırıqlar', short: 'Tapşırıq', icon: 'notes', matches: ['tapsiriqlar.html'] },
   /* Dərslər (2026-10-31) xülasələri də əhatə edir: tələbə kabinetinin
      əsas bölməsidir, xülasə isə dərsin bir hissəsidir. */
-  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'xulaseler.html', 'xulase.html'] },
+  { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'tutor.html', 'xulaseler.html', 'xulase.html'] },
   { href: 'tarixce.html', label: 'Tarixçə', icon: 'chart-bar', matches: ['tarixce.html', 'nailiyyetler.html'] },
   { href: 'profil.html', label: 'Profil', icon: 'user', matches: ['profil.html', 'sahib.html'] },
 ];
