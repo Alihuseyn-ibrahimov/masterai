@@ -206,6 +206,14 @@ lokal backend-ə qarşı da sınanıb. Quraşdırma: `teacher_mcp/README.md`.
 WhatsApp/n8n bu gündə YOXDUR: n8n köhnə serverlə getdi, WhatsApp Meta
 Business hesabı və tələbə telefon nömrələri tələb edir.
 
+**Gün 12 — açılış səhifəsi Classroom üçün.** `index.html` artıq yalnız
+quiz alətini təsvir etmir: hero «Dərs keçin, qalanını AI hazırlasın»,
+hero şəklində material yerinə DƏRSİN SƏS YAZISINDAN parça, «Nə edir»
+6 bənd (video, səs → mətn, konspekt+quiz, QR, AI tutor, AI yoxlama
+komandası), «Necə işləyir» 4 addım (planla → keç → AI hazırlasın →
+tələbə təkrarlasın), 2 yeni FAQ. Sprite-a `i-video`, `i-microphone`,
+`i-qrcode` əlavə olundu. Dizayn sistemi dəyişmədi.
+
 **Playwright tələsi:** `ctx.route` + `route.fetch` multipart FAYL
 gövdəsini itirir (sorğu boş fayl ilə gedir). Fayl yükləməni sınayanda
 API-ni intercept etmə, `config.js`-i lokal backend-ə yönəlt.
