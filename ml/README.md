@@ -62,3 +62,27 @@ QLoRA ilə öyrədirik: baza model 4-bit NF4 yüklənib dondurulur, yalnız LoRA
    `ml/score_generation.py` cədvəl çıxarır: JSON oxunurmu, say düzgündürmü, qaydalı filtr,
    uzunluqla özünü verən cavab, cavabın materiala bağlılığı.
 4. **Saxla:** notebook adapteri baza ilə birləşdirib `masterai-mcq-merged/` yazır (gün 17: vLLM).
+
+---
+
+# vLLM ilə serving + sürət (gün 17)
+
+`ml/vllm_serve.ipynb` (Colab T4): gün 16-nın birləşdirilmiş modelini `vllm serve` ilə
+OpenAI-uyğun API kimi açır, `ml/bench_llm.py` ilə 1/4/8 paralel sorğuda TTFT, p50/p95
+gecikmə və saniyədə token ölçür, HF `generate` ilə müqayisə edir və Cloudflare tuneli ilə
+MasterAI serverinə qoşmaq üçün `.env` sətirlərini çap edir:
+
+```
+VLLM_BASE_URL=https://<tunel>.trycloudflare.com
+VLLM_API_KEY=...
+LLM_ORDER=vllm,groq,claude
+```
+
+Server `pipeline/providers.py`-də `vllm` provayderini qurur (sadə httpx, SDK yox). Colab
+bağlananda tunel ölür və fallback zənciri sükutla Groq-a keçir; cavab `max_tokens`-də
+kəsilsə də (yarımçıq JSON) növbəti provayder götürür.
+
+```bash
+python -m ml.bench_llm --concurrency 1,4,8 --requests 16   # VLLM_* .env-dən
+python -m ml.bench_llm --groq --concurrency 1,4            # Groq ilə müqayisə
+```

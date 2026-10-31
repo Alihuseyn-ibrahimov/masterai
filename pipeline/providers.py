@@ -26,7 +26,26 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 AI_TEMPERATURE = float(os.environ.get("AI_TEMPERATURE", "0.5"))
 
-DEFAULT_ORDER = ["groq", "claude", "ollama"]
+# Gün 17: öz modelimiz (QLoRA, vLLM ilə OpenAI-uyğun API). Ünvan verilməyibsə
+# provayder qurulmur. Sıranı `.env`-də dəyiş: `LLM_ORDER=vllm,groq,claude` -
+# vLLM düşsə (Colab tunelinin ömrü qısadır) növbəti provayder götürür.
+VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL", "").rstrip("/")
+VLLM_MODEL = os.environ.get("VLLM_MODEL", "masterai-mcq")
+VLLM_TIMEOUT = float(os.environ.get("VLLM_TIMEOUT", "90"))
+VLLM_MAX_TOKENS = int(os.environ.get("VLLM_MAX_TOKENS", "2048"))
+
+KNOWN_PROVIDERS = ("vllm", "groq", "claude", "ollama")
+
+
+def parse_order(text: str | None) -> list[str]:
+    """`"vllm, groq"` → ["vllm", "groq"]. Naməlum ad atılır (yazı səhvi bütün AI-nı
+    söndürməsin); nəticə boşdursa defolt sıra."""
+    names = [n.strip().lower() for n in (text or "").split(",") if n.strip()]
+    order = [n for i, n in enumerate(names) if n in KNOWN_PROVIDERS and n not in names[:i]]
+    return order or ["groq", "claude", "ollama"]
+
+
+DEFAULT_ORDER = parse_order(os.environ.get("LLM_ORDER"))
 
 logger = logging.getLogger("masterai.pipeline.providers")
 
@@ -88,6 +107,11 @@ def build_completers() -> dict[str, Completer]:
 
     load_dotenv()
     completers: dict[str, Completer] = {}
+    if VLLM_BASE_URL:
+        completers["vllm"] = openai_compatible_completer(
+            VLLM_BASE_URL, VLLM_MODEL, api_key=os.environ.get("VLLM_API_KEY", ""),
+            timeout=VLLM_TIMEOUT, max_tokens=VLLM_MAX_TOKENS,
+        )
     if os.environ.get("GROQ_API_KEY"):
         completers["groq"] = _groq_completer(GROQ_MODEL)
     if os.environ.get("ANTHROPIC_API_KEY"):
@@ -155,5 +179,39 @@ def _ollama_completer(model: str, host: str) -> Completer:
             ],
         )
         return resp["message"]["content"]
+
+    return complete
+
+
+def openai_compatible_completer(
+    base_url: str,
+    model: str,
+    *,
+    api_key: str = "",
+    timeout: float = 90.0,
+    max_tokens: int = 2048,
+    temperature: float | None = None,
+    transport=None,
+) -> Completer:
+    """OpenAI-uyğun `/v1/chat/completions` (vLLM, gün 17). SDK yox, sadə httpx:
+    vLLM-in API-si standartdır və `transport` testdə saxta serverə yönəldilir."""
+    import httpx
+
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    client = httpx.Client(base_url=base_url.rstrip("/"), headers=headers, timeout=timeout, transport=transport)
+
+    def complete(system: str, user: str) -> str:
+        resp = client.post("/v1/chat/completions", json={
+            "model": model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "temperature": AI_TEMPERATURE if temperature is None else temperature,
+            "max_tokens": max_tokens,
+        })
+        resp.raise_for_status()
+        choice = resp.json()["choices"][0]
+        if choice.get("finish_reason") == "length":
+            # Kəsilmiş JSON parserdə sınacaq - fallback-a vaxtında keçmək üçün açıq xəta.
+            raise RuntimeError(f"cavab max_tokens={max_tokens} həddində kəsildi")
+        return choice["message"]["content"]
 
     return complete
