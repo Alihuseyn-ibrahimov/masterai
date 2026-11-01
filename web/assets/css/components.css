@@ -1011,7 +1011,10 @@ a.avatar:hover { text-decoration: none; }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-raised);
 }
-.btn[aria-pressed="true"] { background: var(--color-primary-soft); }
+/* Yalnız ikinci dərəcəli düymə: `btn--primary` öz parlaq fonunu saxlamalıdır.
+ * Əvvəl bu qayda onu da əvəz edirdi - tünd rejimdə tünd yaşıl fonda tünd
+ * mətn (kontrast 1.4, axe tutdu). */
+.btn:not(.btn--primary)[aria-pressed="true"] { background: var(--color-primary-soft); }
 
 /* Dərs mətni (gün 3): Whisper-in abzasları boş sətirlə ayrılır. */
 .transcript-text {
@@ -1694,3 +1697,7 @@ body.is-staged { overflow: hidden; }
   .stage__body, .stage__body--waiting { grid-template-columns: minmax(0, 1fr); }
   .stage__body--waiting { grid-template-areas: "join" "qr" "people"; }
 }
+
+/* Qazanılmamış nişan (`nailiyyetler.html`): ikon boz və sönük, mətn tam
+ * kontrastda qalır - meyarı oxumaq motivasiyanın özüdür. */
+.card--locked .state__icon { filter: grayscale(1); opacity: .45; }

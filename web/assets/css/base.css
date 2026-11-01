@@ -34,6 +34,9 @@ a {
   text-decoration: none;
 }
 a:hover { text-decoration: underline; }
+/* Mətn içindəki link yalnız rənglə seçilə bilməz (WCAG 1.4.1, axe
+ * `link-in-text-block`): yaşıl ilə boz mətnin kontrastı 1.4 idi. */
+:where(p, li) > a:not(.btn) { text-decoration: underline; text-underline-offset: 0.15em; }
 
 img, svg { max-width: 100%; height: auto; }
 
@@ -47,6 +50,28 @@ li { list-style: none; }
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* Qara səthlərdə yaşıl çərçivə zəif görünür - orada sarı. */
+:is(.app-bar, .landing-bar, .hero-band, .closing, .hero-lesson, .stage) :focus-visible {
+  outline-color: var(--color-accent);
+}
+/* Əsas qab proqramla fokus alır (keçid linki) - çərçivə lazım deyil. */
+.app-shell:focus { outline: none; }
+
+/* «Məzmuna keç» (page-shell.js): yalnız klaviatura fokusunda görünür. */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 300;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: var(--weight-bold);
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
 
 /* `hidden` atributu HƏMİŞƏ gizlətməlidir.
  *

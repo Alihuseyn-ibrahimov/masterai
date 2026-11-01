@@ -151,7 +151,7 @@
   --color-border-strong:      #B9BFC9;
   --color-text:               #0C121A;
   --color-text-muted:         #4F5661;
-  --color-text-faint:         #7A818D;
+  --color-text-faint:         #686E79;   /* axe (2026-11-01): #7A818D 12px mətndə 3.65 verirdi, AA 4.5 */
 
   /* ---- Semantik ----
    * Yaşıl/qırmızı YALNIZ düzgün/səhv siqnalıdır, dekor deyil. */
