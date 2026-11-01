@@ -9,7 +9,7 @@
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0B0F18">
 <link rel="canonical" href="https://masterai.prdostu.com/">
-<link rel="manifest" href="manifest.json?v=20261031g">
+<link rel="manifest" href="manifest.json?v=20261101a">
 
 <!-- Open Graph - Telegram/WhatsApp link önizləməsi.
      MasterAI üçün xüsusilə vacibdir: müəllimlər sessiya linkini qrup
@@ -19,13 +19,13 @@
 <meta property="og:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta property="og:description" content="Video dərs, dərsin səsindən AI konspekt və quiz, QR davamiyyət, AI tutor.">
 <meta property="og:url" content="https://masterai.prdostu.com/">
-<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.svg?v=20261031g">
+<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.svg?v=20261101a">
 <meta property="og:locale" content="az_AZ">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta name="twitter:description" content="Materialı yükləyin, AI suallar hazırlasın, sinif birgə həll etsin.">
-<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.svg?v=20261031g">
+<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.svg?v=20261101a">
 
 <script type="application/ld+json">
 {
@@ -43,7 +43,7 @@
 
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261031g" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261101a" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -55,10 +55,10 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261031g">
-<link rel="stylesheet" href="assets/css/base.css?v=20261031g">
-<link rel="stylesheet" href="assets/css/components.css?v=20261031g">
-<link rel="stylesheet" href="assets/css/landing.css?v=20261031g">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261101a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261101a">
+<link rel="stylesheet" href="assets/css/landing.css?v=20261101a">
 </head>
 <body>
 
@@ -75,9 +75,10 @@
   <!-- Hero: səhifənin yeganə "böyük" anı.
        Sağ tərəf UYDURMA ekran şəkli DEYİL: yuxarıda material parçası,
        aşağıda saytın öz `.option` komponentlərindən qurulmuş sual. -->
+  <div class="hero-band">
   <section class="hero container">
     <div class="stack stack--loose">
-      <h1 class="hero__title" data-enter style="--enter-order: 0">Dərs keçin, qalanını AI hazırlasın</h1>
+      <h1 class="hero__title" data-enter style="--enter-order: 0">Dərs keçin, qalanını <span class="hero__accent">AI</span> hazırlasın</h1>
       <p class="hero__lead" data-enter style="--enter-order: 1">
         Onlayn video dərs və ya sinifdə. Dərsin səsindən və lövhəsindən AI konspekt
         və test sualları hazırlayır, tələbə öz kabinetində təkrarlayır, sualını
@@ -106,6 +107,10 @@
       </div>
 
       <div class="trace__question" data-enter style="--enter-order: 5">
+        <span class="trace__badge" aria-hidden="true">
+          <svg class="icon icon--sm"><use href="assets/icons.svg#i-flame"></use></svg>
+          3 ardıcıl düzgün
+        </span>
         <div class="row row--between">
           <span class="chip-subject" style="--subject: var(--subject-qanunvericilik)">Qanunvericilik</span>
           <span class="text-xs text-muted">Sual 3/10</span>
@@ -135,38 +140,66 @@
       </div>
     </figure>
   </section>
+  </div>
+
+  <!-- Layout ailəsi 7: sinif ekranı. Proyektor rejiminin özü (sessiyalar.html)
+       eyni quruluşdadır: PIN, qoşulanlar, podium. Rəqəmlər nümunədir,
+       statistik iddia DEYİL. -->
+  <section class="container showcase">
+    <div class="stack">
+      <h2>Sinifdə oyun kimi</h2>
+      <p class="showcase__lead">
+        Müəllim sessiyanı proyektora çıxarır. Tələbələr telefonda PIN yazır və ya QR-ı
+        oxudur, hesab açmağa ehtiyac yoxdur. Hər kəs öz sürəti ilə cavablayır, lövhədə
+        isə yalnız sinfin ümumi gedişatı görünür. Sonda podium.
+      </p>
+      <ul class="showcase__points">
+        <li><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-qrcode"></use></svg>PIN və ya QR ilə hesabsız qoşulma</li>
+        <li><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-users"></use></svg>Geri qalan tələbənin adı lövhədə görünmür</li>
+        <li><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-trophy"></use></svg>Nəticə müəllimin hesabatına düşür</li>
+      </ul>
+    </div>
+    <figure class="showcase__screen" aria-label="Proyektor ekranının nümunəsi">
+      <span class="showcase__label">Telefonda açın və PIN yazın</span>
+      <span class="showcase__pin">482 913</span>
+      <span class="showcase__count"><b>7</b> nəfər qoşulub</span>
+      <ul class="showcase__names">
+        <li>Aysel</li><li>Murad</li><li>Nigar</li><li>Elşən</li><li>Gülnar</li><li>Rəşad</li><li>Leyla</li>
+      </ul>
+    </figure>
+  </section>
 
   <!-- Layout ailəsi 2: xətli iddia siyahısı (kart YOX) -->
   <section class="container">
     <div class="section-header"><h2>Nə edir</h2></div>
     <div class="claims">
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-video"></use></svg>
+      <div class="claim" style="--subject: var(--subject-informatika)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-video"></use></svg></span>
         <h3>Canlı video dərs</h3>
         <p>Kamera, mikrofon və ekran paylaşımı brauzerdə. Tələbə dərsə qoşulan kimi davamiyyət yazılır.</p>
       </div>
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-microphone"></use></svg>
+      <div class="claim" style="--subject: var(--subject-azerbaycan-dili)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-microphone"></use></svg></span>
         <h3>Dərsin səsi mətnə çevrilir</h3>
         <p>Müəllimin səsi Azərbaycan dilində mətnə çevrilir, lövhənin şəkli də oxunur.</p>
       </div>
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg>
+      <div class="claim" style="--subject: var(--subject-mentiq)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></span>
         <h3>Konspekt və quiz bir düymə ilə</h3>
         <p>Dərsin mətnindən qısa konspekt və çətinlik bölgüsü ilə test sualları. Müəllim yoxlayıb tələbələrə göndərir.</p>
       </div>
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-qrcode"></use></svg>
+      <div class="claim" style="--subject: var(--subject-xarici-dil)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-qrcode"></use></svg></span>
         <h3>Sinifdə QR davamiyyət</h3>
         <p>Proyektorda QR, tələbə telefonla oxudur. Kod hər 30 saniyədən bir dəyişir, şəklini dosta göndərmək işləmir.</p>
       </div>
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg>
+      <div class="claim" style="--subject: var(--subject-dunyagorusu)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg></span>
         <h3>AI tutor</h3>
         <p>Tələbə dərs barədə soruşur, tutor yalnız sinfin keçilmiş dərslərindən cavab verir və mənbəni göstərir.</p>
       </div>
-      <div class="claim">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-target"></use></svg>
+      <div class="claim" style="--subject: var(--subject-qanunvericilik)">
+        <span class="claim__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-target"></use></svg></span>
         <h3>Sualları AI komandası yoxlayır</h3>
         <p>Fakt yoxlayıcı cavabı materialla tutuşdurur, metodist formaya baxır, redaktor düzəliş təklif edir.</p>
       </div>
@@ -263,7 +296,7 @@
   </section>
 
   <!-- Layout ailəsi 6: mərkəzləşmiş bağlanış -->
-  <section class="closing container">
+  <section class="closing">
     <h2>İlk dərsinizi bu gün planlayın</h2>
     <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
   </section>

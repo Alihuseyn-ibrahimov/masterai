@@ -388,6 +388,14 @@ faizi + «bitirdi» adları - fərdi xal lövhədə QƏSDƏN yoxdur. Nəticə: p
 `GET /live/sessions/{id}/join-qr` (müəllim, kurs sərhədi, `SITE_URL/qosul.html?pin=`),
 bitmiş sessiyaya 409 - PIN yeni sessiyaya düşə bilər. Brauzerdə 6 qonaqla
 uc-uca sınanıb (1280, 1920, 390 en).
+**PR 7 - açılış səhifəsi (`index.html`, `landing.css`):** üst zolaq, hero və
+bağlanış QARA lövhədir (tətbiqin üst zolağı ilə eyni səth), başlıqda «AI» sarı
+vurğudadır, sual kartının küncündə seriya nişanı. Yeni bölmə «Sinifdə oyun kimi»
+proyektor ekranının kiçik surətidir (PIN, qoşulanlar; rəqəmlər nümunədir).
+«Nə edir» ikonları fənn rənginin pastel xanalarında (`--subject`), addım
+nömrələri A-D variant rənglərindədir. Tələ: `base.css` başlıqlara `--color-text`
+verir - qara zolaqda h1 görünməz idi; telefonda çərçivəsiz «Daxil ol» da qara
+mətnlə itirdi. Hər ikisi render-də tutuldu.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
