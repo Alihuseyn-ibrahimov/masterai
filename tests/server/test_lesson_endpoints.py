@@ -224,22 +224,58 @@ def test_start_announces_in_class_chat_once_per_start(env):
     url = f"/live/lessons/{lesson['id']}/start"
     for _ in range(2):  # artıq canlı dərsə təkrar «başlat» ikinci mesaj yazmır
         assert env["client"].post(url, headers=_auth(env["teacher"])).status_code == 200
-    texts = _system_texts(env["chat"]["id"])
+    texts = _system_texts(env["chat"]["id"])[1:]  # [0] = «Yeni dərs»
     assert texts == ["Dərs başladı: «Konstitusiya: giriş». Qoşulmaq üçün: Bu gün → Qoşul."]
 
     env["client"].post(f"/live/lessons/{lesson['id']}/end", headers=_auth(env["teacher"]))
     env["client"].post(url, headers=_auth(env["teacher"]))
-    assert len(_system_texts(env["chat"]["id"])) == 2
+    assert len(_system_texts(env["chat"]["id"])) == 3
 
 
 def test_offline_start_message_points_to_qr(env):
     lesson = _create(env, mode="offline", title="Sinif dərsi")
     env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
-    assert "QR" in _system_texts(env["chat"]["id"])[0]
+    assert "QR" in _system_texts(env["chat"]["id"])[-1]
 
 
 def test_student_start_writes_nothing(env):
     lesson = _create(env)
     r = env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["ali"]))
     assert r.status_code == 403
-    assert _system_texts(env["chat"]["id"]) == []
+    assert len(_system_texts(env["chat"]["id"])) == 1  # yalnız «Yeni dərs»
+
+
+def test_new_lesson_is_announced_with_baku_time(env):
+    """Tələbə yeni dərsi yalnız «Dərslər»i açanda görürdü. Vaxt UTC saxlanır,
+    çat mesajı isə düz mətndir: Bakı vaxtı (UTC+4) yazılır."""
+    _create(env, starts_at="2026-11-05T06:00:00Z", mode="offline")
+    assert _system_texts(env["chat"]["id"]) == [
+        "Yeni dərs: «Konstitusiya: giriş», 05.11.2026, 10:00 (Bakı vaxtı), sinifdə. Ətraflı: Dərslər."
+    ]
+
+
+def test_only_time_or_mode_change_of_upcoming_lesson_is_announced(env):
+    lesson = _create(env, starts_at="2026-11-05T06:00:00Z")
+    url = f"/live/lessons/{lesson['id']}"
+    env["client"].patch(url, json={"notes": "plan", "title": "Konstitusiya"}, headers=_auth(env["teacher"]))
+    assert len(_system_texts(env["chat"]["id"])) == 1
+    env["client"].patch(url, json={"starts_at": "2026-11-06T08:30:00Z"}, headers=_auth(env["teacher"]))
+    assert _system_texts(env["chat"]["id"])[-1] == (
+        "Dərs dəyişdi: «Konstitusiya» indi 06.11.2026, 12:30 (Bakı vaxtı), onlayn."
+    )
+    env["client"].post(f"{url}/start", headers=_auth(env["teacher"]))
+    env["client"].post(f"{url}/end", headers=_auth(env["teacher"]))
+    count = len(_system_texts(env["chat"]["id"]))
+    env["client"].patch(url, json={"starts_at": "2026-11-07T08:30:00Z"}, headers=_auth(env["teacher"]))
+    assert len(_system_texts(env["chat"]["id"])) == count  # bitmiş dərsin vaxtı tarixdir
+
+
+def test_cancelled_lesson_is_announced_and_refused_delete_is_not(env):
+    lesson = _create(env, starts_at="2026-11-05T06:00:00Z")
+    url = f"/live/lessons/{lesson['id']}"
+    assert env["client"].delete(url, headers=_auth(env["ali"])).status_code == 403
+    assert len(_system_texts(env["chat"]["id"])) == 1
+    assert env["client"].delete(url, headers=_auth(env["teacher"])).status_code == 204
+    assert _system_texts(env["chat"]["id"])[-1] == (
+        "Dərs ləğv olundu: «Konstitusiya: giriş» (05.11.2026, 10:00, Bakı vaxtı)."
+    )

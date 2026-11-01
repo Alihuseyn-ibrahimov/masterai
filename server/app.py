@@ -2523,13 +2523,31 @@ def _member_chat(chats: ChatStore, chat_id: int, user: dict) -> dict:
     return chat
 
 
+def _lesson_when(starts_at: str) -> str:
+    """UTC ISO → «05.11.2026, 10:00» Bakı vaxtı ilə (çat mesajı düz mətndir,
+    brauzer onu yerli vaxta çevirə bilmir)."""
+    try:
+        moment = datetime.fromisoformat(starts_at)
+    except ValueError:
+        return starts_at
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(_BAKU_TZ).strftime("%d.%m.%Y, %H:%M")
+
+
+def _lesson_mode_text(lesson: dict) -> str:
+    return "sinifdə" if lesson.get("mode") == "offline" else "onlayn"
+
+
 @app.post("/chats/{chat_id}/lessons", response_model=LessonInfo, status_code=201)
-def create_lesson(
+async def create_lesson(
     chat_id: int,
     body: LessonCreate,
     user: dict = Depends(get_current_teacher),
     chats: ChatStore = Depends(get_chat_store),
     lessons: LessonStore = Depends(get_lesson_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> LessonInfo:
     chat = _member_chat(chats, chat_id, user)
     if chat["kind"] != "group":
@@ -2539,6 +2557,11 @@ def create_lesson(
         title=body.title.strip(), description=body.description.strip(),
         starts_at=_utc_iso(body.starts_at), duration_min=body.duration_min, mode=body.mode,
     )
+    # Tələbə yeni dərsi yalnız «Dərslər»i açanda görürdü.
+    await _announce_in_chat(messages, manager, chat_id, (
+        f"Yeni dərs: «{lesson['title']}», {_lesson_when(lesson['starts_at'])} "
+        f"(Bakı vaxtı), {_lesson_mode_text(lesson)}. Ətraflı: Dərslər."
+    ))
     return _lesson_info(lesson, chats)
 
 
@@ -2702,14 +2725,16 @@ def join_lesson_video(
 
 
 @app.patch("/live/lessons/{lesson_id}", response_model=LessonInfo)
-def update_lesson(
+async def update_lesson(
     lesson_id: int,
     body: LessonUpdate,
     user: dict = Depends(get_current_teacher),
     chats: ChatStore = Depends(get_chat_store),
     lessons: LessonStore = Depends(get_lesson_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> LessonInfo:
-    _lesson_for_member(lessons, chats, lesson_id, user)
+    before = _lesson_for_member(lessons, chats, lesson_id, user)
     lesson = lessons.update(
         lesson_id,
         title=body.title.strip() if body.title is not None else None,
@@ -2719,21 +2744,36 @@ def update_lesson(
         mode=body.mode,
         notes=body.notes,
     )
+    # Yalnız gələcək dərsin VAXTI və ya FORMASI dəyişəndə: başlıq/qeyd
+    # düzəlişi tələbəni maraqlandırmır, bitmiş dərsin vaxtı isə tarixdir.
+    if before["status"] == "scheduled" and (
+        lesson["starts_at"] != before["starts_at"] or lesson["mode"] != before["mode"]
+    ):
+        await _announce_in_chat(messages, manager, lesson["chat_id"], (
+            f"Dərs dəyişdi: «{lesson['title']}» indi {_lesson_when(lesson['starts_at'])} "
+            f"(Bakı vaxtı), {_lesson_mode_text(lesson)}."
+        ))
     return _lesson_info(lesson, chats)
 
 
 @app.delete("/live/lessons/{lesson_id}", status_code=204)
-def delete_lesson(
+async def delete_lesson(
     lesson_id: int,
     user: dict = Depends(get_current_teacher),
     chats: ChatStore = Depends(get_chat_store),
     lessons: LessonStore = Depends(get_lesson_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> None:
     lesson = _lesson_for_member(lessons, chats, lesson_id, user)
     if lesson["status"] != "scheduled":
         # Keçirilmiş dərsin davamiyyəti hesabatdır, sükutla silinməməlidir.
         raise HTTPException(status_code=409, detail="Başlamış dərs silinə bilməz")
     lessons.delete(lesson_id)
+    # Planlanmış dərs silinirsə tələbə onu gözləməməlidir.
+    await _announce_in_chat(messages, manager, lesson["chat_id"], (
+        f"Dərs ləğv olundu: «{lesson['title']}» ({_lesson_when(lesson['starts_at'])}, Bakı vaxtı)."
+    ))
 
 
 def _lesson_started_text(lesson: dict) -> str:
