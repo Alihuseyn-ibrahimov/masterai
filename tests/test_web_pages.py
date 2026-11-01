@@ -281,7 +281,14 @@ class TestSeoAndSharing:
         assert (WEB / start).exists(), f"start_url mövcud deyil: {start}"
 
     def test_og_image_file_exists(self):
+        # PNG: WhatsApp, Telegram və Facebook önizləməsi SVG göstərmir.
+        # SVG mənbədir, PNG ondan saytın şriftləri ilə çəkilir.
         assert (WEB / "assets" / "og-banner.svg").exists()
+        png = WEB / "assets" / "og-banner.png"
+        assert png.exists()
+        assert png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        assert "assets/og-banner.png?v=" in html
 
     @pytest.mark.parametrize("page", INDEXABLE_PAGES, ids=lambda p: p.name)
     def test_indexable_pages_carry_search_metadata(self, page: Path):

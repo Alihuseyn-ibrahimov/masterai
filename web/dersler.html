@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261101b" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261101c" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/base.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/components.css?v=20261101b">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/base.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/components.css?v=20261101c">
 </head>
 <body>
 <header id="appBar"></header>
@@ -169,7 +169,9 @@
 <script type="module">
   import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { MODE_LABELS, STATUS_LABELS, formatLessonTime, groupLessons, localInputToIso } from './assets/js/lessons.js';
+  import {
+    MODE_LABELS, STATUS_LABELS, downloadLessonIcs, formatLessonTime, groupLessons, localInputToIso, startsInText,
+  } from './assets/js/lessons.js';
   import { SUBJECTS } from './assets/js/subjects.js';
   import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
 
@@ -222,7 +224,10 @@
       title.textContent = lesson.title;
       const badge = document.createElement('span');
       badge.className = `badge ${lesson.status === 'live' ? 'badge--success' : 'badge--neutral'}`;
-      badge.textContent = STATUS_LABELS[lesson.status] || lesson.status;
+      // Gələcək dərsdə status sözü yerinə geri sayım: «Planlaşdırılıb»
+      // tələbəyə nə vaxt gələcəyini demir.
+      const startsIn = lesson.status === 'scheduled' ? startsInText(lesson.starts_at) : '';
+      badge.textContent = startsIn || STATUS_LABELS[lesson.status] || lesson.status;
       head.append(title, badge);
 
       const meta = document.createElement('p');
@@ -264,7 +269,9 @@
           }));
         }
       }
-      if (lesson.mode === 'online' && lesson.status !== 'ended') {
+      // Tələbəyə gələcək dərsin otağı verilmir: içəridə yalnız «dərs
+      // başlamayıb» yazısı var. Əvəzinə təqvimə əlavə etmək təklif olunur.
+      if (lesson.mode === 'online' && (lesson.status === 'live' || (isTeacher && lesson.status === 'scheduled'))) {
         const enter = document.createElement('a');
         enter.className = `btn ${lesson.status === 'live' ? 'btn--primary' : 'btn--secondary'} btn--sm`;
         enter.href = `dars.html?id=${encodeURIComponent(lesson.id)}`;
@@ -285,6 +292,9 @@
         }
       }
       actions.append(link('Dərs səhifəsi', `dersim.html?id=${encodeURIComponent(lesson.id)}`));
+      if (startsIn) {
+        actions.append(button('Təqvimə əlavə et', 'btn--ghost', () => downloadLessonIcs(lesson, location.origin)));
+      }
       card.append(actions);
       return card;
     }

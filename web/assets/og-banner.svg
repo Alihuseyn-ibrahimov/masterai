@@ -1,9 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="MasterAI - dərsdən AI test sualları">
-  <rect width="1200" height="630" fill="#F3F4EF"/>
-  <rect x="0" y="0" width="1200" height="14" fill="#4A6B4D"/>
-  <rect x="0" y="500" width="1200" height="130" fill="#0B0F18"/>
-  <text x="80" y="250" font-family="Archivo, Segoe UI, sans-serif" font-size="86" font-weight="800" fill="#11150E">Master<tspan fill="#4A6B4D">AI</tspan></text>
-  <text x="80" y="340" font-family="Inter, Segoe UI, sans-serif" font-size="40" fill="#11150E">Dərsdən AI test sualları</text>
-  <text x="80" y="404" font-family="Inter, Segoe UI, sans-serif" font-size="30" fill="#4F5648">Müəllim sessiya başladır, sinif birgə həll edir</text>
-  <text x="80" y="578" font-family="Inter, Segoe UI, sans-serif" font-size="28" fill="#D9A21B">masterai.prdostu.com</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="MasterAI - dərs keçin, qalanını AI hazırlasın">
+  <rect width="1200" height="630" fill="#0B0F18"/>
+  <text x="80" y="170" font-family="Archivo, Segoe UI, sans-serif" font-size="72" font-weight="800" fill="#F9F8F5">Master<tspan fill="#59DE65">AI</tspan></text>
+  <text x="80" y="290" font-family="Archivo, Segoe UI, sans-serif" font-size="64" font-weight="800" fill="#F9F8F5">Dərs keçin,</text>
+  <text x="80" y="370" font-family="Archivo, Segoe UI, sans-serif" font-size="64" font-weight="800" fill="#F9F8F5">qalanını <tspan fill="#FFD32E">AI</tspan> hazırlasın</text>
+  <g font-family="Inter, Segoe UI, sans-serif" font-size="26" font-weight="600">
+    <rect x="80" y="430" width="200" height="54" rx="27" fill="#1E2430"/>
+    <text x="180" y="466" text-anchor="middle" fill="#F9F8F5">Canlı dərs</text>
+    <rect x="296" y="430" width="250" height="54" rx="27" fill="#1E2430"/>
+    <text x="421" y="466" text-anchor="middle" fill="#F9F8F5">Konspekt + quiz</text>
+    <rect x="562" y="430" width="226" height="54" rx="27" fill="#1E2430"/>
+    <text x="675" y="466" text-anchor="middle" fill="#F9F8F5">QR davamiyyət</text>
+    <rect x="804" y="430" width="160" height="54" rx="27" fill="#1E2430"/>
+    <text x="884" y="466" text-anchor="middle" fill="#F9F8F5">AI tutor</text>
+  </g>
+  <text x="80" y="566" font-family="Inter, Segoe UI, sans-serif" font-size="28" fill="#A8AEB8">masterai.prdostu.com</text>
+  <rect x="1040" y="80" width="80" height="80" rx="20" fill="#67B0F9"/>
+  <rect x="1040" y="176" width="80" height="80" rx="20" fill="#FC9E47"/>
+  <rect x="1040" y="272" width="80" height="80" rx="20" fill="#F786BE"/>
+  <rect x="1040" y="368" width="80" height="80" rx="20" fill="#44D4E2"/>
+  <text x="1080" y="134" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">A</text>
+  <text x="1080" y="230" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">B</text>
+  <text x="1080" y="326" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">C</text>
+  <text x="1080" y="422" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">D</text>
 </svg>

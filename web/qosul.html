@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261101b" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261101c" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,21 +20,20 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/base.css?v=20261101b">
-<link rel="stylesheet" href="assets/css/components.css?v=20261101b">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/base.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/components.css?v=20261101c">
 </head>
 <body>
 <!-- HESABSIZ səhifədir (2026-10-30): naviqasiya zolağı yoxdur, çünki
      qonaq tələbənin gedəcəyi başqa səhifə yoxdur. Kartlar və ekran
      məntiqi `sessiya.html` ilə ORTAQDIR (`live-play-screen.js`). -->
-<main class="container app-shell stack stack--loose">
-
-  <section class="stack quiz-shell">
-    <div class="stack stack--tight stack--center" style="text-align: center">
+<main class="auth" id="main">
+  <header class="auth__band">
       <a class="brand" href="index.html">Master<span class="brand__accent">AI</span></a>
-      <p class="text-muted text-sm">Müəlliminizin verdiyi PIN ilə qoşulun - hesab lazım deyil</p>
-    </div>
+      <p class="auth__tagline">Müəlliminizin verdiyi PIN ilə qoşulun - hesab lazım deyil</p>
+  </header>
+  <section class="stack quiz-shell auth__body auth__body--wide">
 
     <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
 
@@ -44,8 +43,8 @@
       <form class="stack" id="joinForm" novalidate>
         <div class="field">
           <label class="field__label" for="pin">Sessiya PIN-i</label>
-          <input class="field__input" id="pin" name="pin" inputmode="numeric"
-                 autocomplete="off" required maxlength="7" placeholder="123456">
+          <input class="field__input field__input--pin" id="pin" name="pin" inputmode="numeric"
+                 autocomplete="off" required maxlength="7" placeholder="000000">
         </div>
         <div class="field">
           <label class="field__label" for="displayName">Adınız</label>
@@ -133,7 +132,7 @@
   import {
     GUEST_NAME_MAX, LivePinPlaySocket, guestKey, isValidPin, normalizePin,
   } from './assets/js/live-pin.js';
-  import { PlayScreen } from './assets/js/live-play-screen.js?v=20261101b';
+  import { PlayScreen } from './assets/js/live-play-screen.js?v=20261101c';
 
   const joinCard = document.getElementById('joinCard');
   const joinBtn = document.getElementById('joinBtn');

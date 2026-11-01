@@ -407,6 +407,21 @@ səhifədə «Məzmuna keç» (`page-shell.js::mountSkipLink`, açılışda stat
 qara səthlərdə fokus çərçivəsi sarıdır. `web/tests/a11y.test.js` qoruyur.
 axe repoda YOXDUR (build addımı yoxdur): scratchpad-a `npm i axe-core`,
 səhifəyə `addScriptTag` ilə.
+**PR 9 - hesabsız səhifələr + paylaşım şəkli:** `giris`, `qeydiyyat`, `qosul`,
+`bagli` açılışın qara lövhəsini davam etdirir (`.auth`, `.auth__band`, kart
+lövhəyə minir, `.auth__body`). Köhnə «İmtahana hazırlıq» şüarı Classroom-a
+uyğun dəyişdi. PIN sahəsi böyük rəqəmlidir (`.field__input--pin`); qonaq
+qoşulan kimi lövhə `:has(#joinCard[hidden])` ilə gizlənir, sual bütün ekranı
+alır. Paylaşım şəkli PNG-dir (`og-banner.png`): WhatsApp/Telegram/Facebook SVG
+önizləmə GÖSTƏRMİR - əvvəlki SVG linki heç vaxt şəkil verməmişdi. SVG mənbədir,
+PNG ondan saytın şriftləri ilə Playwright-da çəkilir (yenidən çəkəndə Archivo
+yüklənməlidir, yoxsa «ə» başqa şriftlə çıxar).
+**PR 10 - gələcək dərsə geri sayım:** «Bu gün» kartında və «Dərslər» nişanında
+«Planlaşdırılıb» əvəzinə `startsInText` («2 saat 10 dəq sonra», «sabah, 10:00»,
+«3 gün sonra»; kart 30 saniyədə bir yenilənir). Tələbəyə gələcək onlayn dərsin
+«Dərs otağı» düyməsi artıq VERİLMİR (içəridə yalnız «başlamayıb» yazısı idi),
+müəllimdə qalır. «Təqvimə əlavə et» `.ics` endirir (`lessonIcs`, CRLF, UTC,
+15 dəqiqə əvvəl xatırlatma): bildiriş xidməti və backend dəyişikliyi yoxdur.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
