@@ -11,6 +11,7 @@ from server.app import (
     get_question_set_store,
 )
 from server.material_store import MaterialStore
+from server.message_store import MessageStore
 from server.question_set_store import QuestionSetStore
 from server.rate_limit import RateLimiter
 
@@ -44,3 +45,15 @@ def _isolated_quota_stores():
     yield
     app.dependency_overrides.pop(get_material_store, None)
     app.dependency_overrides.pop(get_question_set_store, None)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_message_store():
+    """Konspekt dərci və ev tapşırığı sinfə sistem mesajı yazır. Mesaj
+    store-u `app.state`-dədir və defolt olaraq iş qovluğundakı REAL
+    `messages.db`-yə yazır - hər test təzə yaddaş bazası alır. Öz nüsxəsini
+    `dependency_overrides` ilə verən test bunu əvəz edir."""
+    previous = app.state.message_store
+    app.state.message_store = MessageStore(":memory:")
+    yield
+    app.state.message_store = previous

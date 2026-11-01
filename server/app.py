@@ -1720,6 +1720,24 @@ async def _notify_admin_telegram(payload: dict) -> None:
         logger.warning("Telegram admin bildirişi göndərilmədi")
 
 
+async def _announce_in_chat(messages: MessageStore, manager: ConnectionManager,
+                            chat_id: int, text: str) -> None:
+    """Sinfə «Sistem» mesajı yazır və çatda açıq olanlara dərhal göndərir.
+    Konspekt dərc olunanda və ev tapşırığı veriləndə tələbə bundan xəbər
+    tutmurdu: hər ikisi yalnız ayrı səhifədə görünürdü. Mesaj düz mətndir,
+    çünki çat sistem mesajlarını belə göstərir (`chat-item.js`)."""
+    message = messages.create(chat_id, None, "system", text)
+    await manager.broadcast(chat_id, {"type": "message", **message})
+
+
+def _az_date(iso_date: str) -> str:
+    """«2026-11-08» → «08.11.2026»; tanınmayan dəyər olduğu kimi qalır."""
+    parts = iso_date.split("-")
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        return f"{parts[2]}.{parts[1]}.{parts[0]}"
+    return iso_date
+
+
 def _material_ready_message(result) -> str:
     actual = len(result.questions)
     requested = result.requested_question_count
@@ -2376,13 +2394,15 @@ def update_summary(
 
 
 @app.post("/live/summaries/{summary_id}/publish", response_model=SummaryInfo)
-def publish_summary(
+async def publish_summary(
     summary_id: int,
     req: PublishSummaryRequest,
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     summaries: SummaryStore = Depends(get_summary_store),
     chats: ChatStore = Depends(get_chat_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> SummaryInfo:
     summary, question_set = _summary_in_course(summaries, question_sets, summary_id, user)
     chat = _chat_in_course(chats, req.chat_id, user)
@@ -2392,7 +2412,15 @@ def publish_summary(
         raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
     if summary["status"] != "ready":
         raise HTTPException(status_code=400, detail="Xülasə hələ hazır deyil")
+    already_here = bool(summary["published_at"]) and summary["chat_id"] == req.chat_id
     summaries.publish(summary_id, req.chat_id)
+    if not already_here:
+        # Təkrar dərc (eyni sinfə) çatı ikinci mesajla doldurmur.
+        await _announce_in_chat(
+            messages, manager, req.chat_id,
+            f"Yeni konspekt: «{question_set['title']}». "
+            "Oxumaq üçün: Dərslər → Xülasələr.",
+        )
     return _summary_info(summaries.get(summary_id), question_set, chats)
 
 
@@ -3458,12 +3486,14 @@ def _homework_status_and_score(attempt: dict | None) -> tuple[str, int | None]:
 
 
 @app.post("/homework/assignments", response_model=HomeworkAssignmentInfo, status_code=201)
-def create_homework_assignment(
+async def create_homework_assignment(
     req: CreateHomeworkAssignmentRequest,
     user: dict = Depends(get_current_user),
     chats: ChatStore = Depends(get_chat_store),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     homework: HomeworkStore = Depends(get_homework_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> HomeworkAssignmentInfo:
     if not user["is_teacher"]:
         raise HTTPException(status_code=403, detail="Yalnız müəllim tapşırıq təyin edə bilər")
@@ -3476,6 +3506,11 @@ def create_homework_assignment(
 
     assignment = homework.create_assignment(
         req.chat_id, req.question_set_id, req.due_date, created_by=user["id"]
+    )
+    await _announce_in_chat(
+        messages, manager, req.chat_id,
+        f"Yeni ev tapşırığı: «{question_set['title']}», son tarix {_az_date(req.due_date)}. "
+        "Həll etmək üçün: Tapşırıqlar.",
     )
     return _homework_assignment_info(assignment, chats=chats, homework=homework)
 

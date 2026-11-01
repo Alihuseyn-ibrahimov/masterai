@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2053 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 340 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2071 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 344 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -509,7 +509,13 @@ paralel yox — link materialında hər emal Chrome açır və VPS-in yaddaşı
 iki paralel Chrome-a çatmır. Dərc olunmuş xülasə yenidən yaradıla
 bilmir (409): tələbənin oxuduğu mətn sükutla dəyişməməlidir.
 
-**Hələ YOXDUR:** real AI ilə yoxlama, çatda «yeni xülasə» bildirişi.
+**Çatda bildiriş (2026-11-01):** konspekt sinfə dərc olunanda və ev
+tapşırığı veriləndə sinif çatına «Sistem» mesajı düşür və açıq çatlara
+dərhal gedir (`_announce_in_chat`). Eyni sinfə təkrar dərc ikinci mesaj
+YAZMIR (`dersler.html`-in «Tələbələrə göndər»i təkrar basıla bilər);
+geri alıb yenidən dərc etmək yeni xəbərdir. Testlərdə mesaj store-u
+`conftest.py`-də hər test üçün `:memory:`-dir, yoxsa iş qovluğundakı real
+`messages.db`-yə yazardı.
 
 ## Çətinlik bölgüsü (Faza 2, 2026-10-30)
 

@@ -226,3 +226,34 @@ def test_upload_without_make_summary_creates_none(env):
         headers=_auth(env["teacher"]),
     )
     assert env["summaries"].get_for_question_set(r.json()["id"]) is None
+
+
+def _system_texts(chat_id):
+    return [m["content"] for m in app.state.message_store.list_by_chat(chat_id) if m["kind"] == "system"]
+
+
+def test_publishing_announces_once_in_class_chat(env):
+    """Tələbə dərc olunmuş konspektdən xəbər tutmurdu: çatda heç nə yazılmırdı."""
+    summary_id = _ready_summary(env)
+    chat_id = env["chat"]["id"]
+    for _ in range(2):
+        r = env["client"].post(f"/live/summaries/{summary_id}/publish", json={"chat_id": chat_id},
+                               headers=_auth(env["teacher"]))
+        assert r.status_code == 200
+    texts = _system_texts(chat_id)
+    assert len(texts) == 1, texts
+    assert "Yeni konspekt: «Konstitusiya»" in texts[0]
+
+    # Geri alıb yenidən dərc etmək yeni xəbərdir.
+    env["client"].post(f"/live/summaries/{summary_id}/unpublish", headers=_auth(env["teacher"]))
+    env["client"].post(f"/live/summaries/{summary_id}/publish", json={"chat_id": chat_id},
+                       headers=_auth(env["teacher"]))
+    assert len(_system_texts(chat_id)) == 2
+
+
+def test_failed_publish_writes_nothing(env):
+    summary_id = _ready_summary(env)
+    other = env["client"].post(f"/live/summaries/{summary_id}/publish", json={"chat_id": 9999},
+                               headers=_auth(env["teacher"]))
+    assert other.status_code == 404
+    assert _system_texts(env["chat"]["id"]) == []
