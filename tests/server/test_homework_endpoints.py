@@ -138,6 +138,22 @@ class TestCreateAssignment:
         assert body["completed_count"] == 0
         assert body["total_members"] == 2
 
+    def test_assignment_is_announced_in_class_chat(self, env):
+        """Tələbə tapşırıqdan yalnız «Tapşırıqlar» səhifəsini açanda xəbər tuturdu."""
+        from server.app import app
+
+        qs = _ready_question_set(env)
+        r = env["client"].post(
+            "/homework/assignments",
+            json={"chat_id": env["chat"]["id"], "question_set_id": qs["id"], "due_date": "2026-09-14"},
+            headers=_auth(env["teacher"]),
+        )
+        assert r.status_code == 201
+        rows = app.state.message_store.list_by_chat(env["chat"]["id"])
+        assert [m["kind"] for m in rows] == ["system"]
+        assert rows[0]["sender_id"] is None
+        assert "Yeni ev tapşırığı: «Silloqizmlər», son tarix 14.09.2026" in rows[0]["content"]
+
 
 class TestListAssignments:
     def test_unknown_chat_gets_404(self, env):
