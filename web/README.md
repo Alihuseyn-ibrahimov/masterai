@@ -33,7 +33,8 @@ web/
     css/  tokens.css · base.css · components.css · landing.css
     js/   config · api · socket · chat-socket · chat-item · chat-view
           live · nav · page-shell · auth-page · subjects · badges
-    gallery.html  icon.svg  og-banner.svg
+    icon.svg  og-banner.svg (+ .png)
+  kit.html          # komponent kataloqu: hər komponent və vəziyyəti
   tests/            # JS vahid testləri (node --test, npm YOX)
 ```
 
@@ -55,8 +56,9 @@ Sonra brauzerdə: `http://localhost:8123/giris.html`
 
 Dayandırmaq: terminalda `Ctrl+C`.
 
-**İstisna:** `assets/gallery.html` (dizayn sistemi) JavaScript modulu
-işlətmir — ona iki dəfə kliklə də baxmaq olar.
+**Komponent kataloqu:** `http://localhost:8123/kit.html` - bütün komponentlər
+işıqlı/tünd rejimdə bir səhifədə (backend lazım deyil). Yeni komponent
+yazmazdan əvvəl ora bax, yazandan sonra ora əlavə et.
 
 ## Pozulmaz qayda
 

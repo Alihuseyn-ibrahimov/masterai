@@ -422,6 +422,17 @@ yüklənməlidir, yoxsa «ə» başqa şriftlə çıxar).
 «Dərs otağı» düyməsi artıq VERİLMİR (içəridə yalnız «başlamayıb» yazısı idi),
 müəllimdə qalır. «Təqvimə əlavə et» `.ics` endirir (`lessonIcs`, CRLF, UTC,
 15 dəqiqə əvvəl xatırlatma): bildiriş xidməti və backend dəyişikliyi yoxdur.
+**PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
+və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
+vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -
+ayrıca surət yoxdur. Köhnə `assets/gallery.html` (Nunito dövründən) silindi.
+Yeni komponent yazanda kit-ə əlavə et. Lighthouse (telefon emulyasiyası):
+açılış 89 → gzip ilə 95, a11y/best-practices 100. Səbəb: Ubuntu nginx.conf-u
+`gzip_types`-ı şərhdə saxlayır, CSS/JS xam gedirdi. `deploy/nginx-gzip.conf`
+`/etc/nginx/conf.d/`-yə hər deploy-da qoyulur (sayt faylı certbot-dan sonra
+yenidən yazılmır, ona görə ayrı fayl); nginx.conf-da gzip_* artıq açıqdırsa
+və ya `nginx -t` keçməsə fayl qoyulmur/silinir. giriş/PIN-də SEO 54 qəsdəndir
+(`noindex`).
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
