@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  XP_PER_CORRECT, WEEKLY_GOAL_XP, earnedCount, goalPercent, greeting,
+  XP_PER_CORRECT, WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting,
   heroAction, heroLesson, nextBadge, nextHomework, streakDays, xpSince,
 } from '../assets/js/today.js';
 
@@ -104,5 +104,35 @@ describe('greeting', () => {
     assert.equal(greeting('Əli Məmmədov'), 'Salam, Əli');
     assert.equal(greeting('  '), 'Salam');
     assert.equal(greeting(null), 'Salam');
+  });
+});
+
+describe('freshSummary', () => {
+  const s = (id, published_at) => ({ id, title: `K${id}`, published_at });
+
+  test('son 14 gündən ən yenisini seçir', () => {
+    const rows = [s(1, '2026-10-20T08:00:00+00:00'), s(2, '2026-10-30T09:00:00+00:00'), s(3, '2026-10-30T07:00:00+00:00')];
+    const got = freshSummary(rows, '2026-11-01');
+    assert.equal(got.summary.id, 2);
+    assert.equal(got.ageDays, 2);
+  });
+
+  test('köhnə, dərc olunmamış və gələcək tarixli konspekt göstərilmir', () => {
+    const rows = [s(1, '2026-10-01T08:00:00+00:00'), s(2, null), s(3, '2026-11-05T08:00:00+00:00')];
+    assert.equal(freshSummary(rows, '2026-11-01'), null);
+    assert.equal(freshSummary(undefined, '2026-11-01'), null);
+  });
+
+  test('sərhəd: 13 gün əvvəl görünür, 14 gün əvvəl yox', () => {
+    assert.equal(freshSummary([s(1, '2026-10-19T08:00:00+00:00')], '2026-11-01').ageDays, 13);
+    assert.equal(freshSummary([s(1, '2026-10-18T08:00:00+00:00')], '2026-11-01'), null);
+  });
+});
+
+describe('ageText', () => {
+  test('gün sayını sözə çevirir', () => {
+    assert.equal(ageText(0), 'Bu gün');
+    assert.equal(ageText(1), 'Dünən');
+    assert.equal(ageText(5), '5 gün əvvəl');
   });
 });
