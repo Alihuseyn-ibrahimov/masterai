@@ -161,3 +161,18 @@ def test_fonts_may_still_be_cached_long():
     assert any(re.search(r"expires\s+\d+[smhdy]", body) for body in fonts), (
         "şriftlər uzun keşlənməlidir"
     )
+
+
+def test_static_assets_are_compressed():
+    """Ubuntu nginx.conf-u yalnız text/html sıxır (gzip_types şərhdədir).
+    CSS/JS-in sıxılması ayrıca faylla gəlir və hər deploy-da qoyulur."""
+    root = Path(__file__).resolve().parent.parent
+    conf = (root / "deploy" / "nginx-gzip.conf").read_text(encoding="utf-8")
+    for mime in ("text/css", "application/javascript", "image/svg+xml", "application/json"):
+        assert mime in conf, f"{mime} sıxılmır"
+    # `gzip on` QƏSDƏN yoxdur: nginx.conf-da artıq var, təkrar `nginx -t`-ni sındırar.
+    assert not re.search(r"^\s*gzip\s+on", conf, re.M)
+    script = (root / "deploy" / "rebuild_droplet.sh").read_text(encoding="utf-8")
+    assert "deploy/nginx-gzip.conf\" /etc/nginx/conf.d/masterai-gzip.conf" in script
+    # nginx -t keçməsə fayl geri götürülür - deploy dayanmır.
+    assert "rm -f /etc/nginx/conf.d/masterai-gzip.conf" in script

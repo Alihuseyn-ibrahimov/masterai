@@ -15,6 +15,7 @@ Disallow: /suallar.html
 Disallow: /sessiyalar.html
 Disallow: /hesabatlar.html
 Disallow: /giris.html
+Disallow: /kit.html
 Disallow: /qeydiyyat.html
 Disallow: /bagli.html
 Disallow: /sahib.html

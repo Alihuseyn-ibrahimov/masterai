@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komponent kataloqu - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261101c" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/base.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/components.css?v=20261101c">
+</head>
+<body>
+<!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
+     səhifədə. Məqsəd iki yoxlamadır: (1) yeni komponent yazmazdan əvvəl
+     mövcudunu tapmaq, (2) tokens.css dəyişəndə hər şeyi bir baxışda
+     işıqlı/tünd rejimdə görmək (yuxarıdakı düymələr).
+     Quiz variantları və konspekt REAL modullarla çəkilir - burada ayrıca
+     surət yoxdur, yoxsa kataloq səhifələrdən uzaqlaşar. Backend lazım deyil. -->
+<a class="skip-link" href="#main">Məzmuna keç</a>
+<header class="app-bar">
+  <a class="brand" href="index.html">Master<span class="brand__accent">AI</span></a>
+  <div class="row row--tight" role="group" aria-label="Görünüş">
+    <button class="btn btn--ink btn--sm" type="button" data-theme-set="light">İşıqlı</button>
+    <button class="btn btn--ink btn--sm" type="button" data-theme-set="dark">Tünd</button>
+  </div>
+</header>
+
+<main class="container stack stack--loose" id="main" tabindex="-1">
+
+  <div class="stack stack--tight">
+    <h1>Komponent kataloqu</h1>
+    <p class="text-muted">Sistemdəki hər komponent və onun vəziyyətləri bir səhifədə. Rəng və ölçü yalnız <code>tokens.css</code>-dən gəlir.</p>
+  </div>
+
+  <section class="stack" id="tipoqrafika">
+    <div class="section-header"><h2>Tipoqrafiya</h2><span class="section-header__hint">Archivo başlıq, Inter mətn</span></div>
+    <div class="card stack">
+      <h1>Başlıq 1: Konstitusiya</h1>
+      <h2>Başlıq 2: Qanunvericilik əsasları</h2>
+      <h3>Başlıq 3: Maddə 20.1</h3>
+      <h4>Başlıq 4: Şərh</h4>
+      <p>Adi mətn. Azərbaycan hərfləri: <strong>Ə ə İ ı Ö ö Ü ü Ğ ğ Ç ç Ş ş</strong>. Mətn içində <a href="#tipoqrafika">link</a>.</p>
+      <p class="text-muted text-sm">Sönük mətn: köməkçi izahlar.</p>
+      <p class="text-faint text-xs">Ən zəif mətn: qeyd, tarix.</p>
+      <p class="text-sm">Uzun söz yoxlaması: Konstitusiyasının müvafiqləşdirilməsi barədə qərarlaşdırılmamışdır.</p>
+    </div>
+  </section>
+
+  <section class="stack" id="duymeler">
+    <div class="section-header"><h2>Düymələr</h2><span class="section-header__hint">basanda aşağı çökür</span></div>
+    <div class="card stack">
+      <div class="row">
+        <button class="btn btn--primary" type="button">Əsas</button>
+        <button class="btn btn--secondary" type="button">İkinci</button>
+        <button class="btn btn--accent" type="button">Aksent</button>
+        <button class="btn btn--ghost" type="button">Kölgəli</button>
+        <button class="btn btn--danger" type="button">Sil</button>
+        <button class="btn btn--primary" type="button" disabled>Deaktiv</button>
+      </div>
+      <div class="row">
+        <button class="btn btn--primary btn--sm" type="button">Kiçik</button>
+        <button class="btn btn--primary" type="button">Normal</button>
+        <button class="btn btn--primary btn--lg" type="button">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-bolt"></use></svg>Böyük, ikonlu
+        </button>
+      </div>
+      <div class="row" role="group" aria-label="Seçim nümunəsi">
+        <button class="btn btn--secondary btn--sm" type="button" aria-pressed="true">Seçilib</button>
+        <button class="btn btn--secondary btn--sm" type="button" aria-pressed="false">Seçilməyib</button>
+      </div>
+      <button class="btn btn--primary btn--block" type="button">Tam enli: telefon formaları</button>
+    </div>
+  </section>
+
+  <section class="stack" id="nisanlar">
+    <div class="section-header"><h2>Nişanlar, fənn çipləri, avatar</h2></div>
+    <div class="card stack">
+      <div class="row">
+        <span class="badge badge--success">Hazırdır</span>
+        <span class="badge badge--warning">Hazırlanır</span>
+        <span class="badge badge--danger">Uğursuz oldu</span>
+        <span class="badge badge--info">Yeni</span>
+        <span class="badge badge--neutral">2 saat 10 dəq sonra</span>
+      </div>
+      <div class="row">
+        <span class="chip-subject" style="--subject: var(--subject-qanunvericilik)">Qanunvericilik</span>
+        <span class="chip-subject" style="--subject: var(--subject-mentiq)">Məntiq</span>
+        <span class="chip-subject" style="--subject: var(--subject-azerbaycan-dili)">Azərbaycan dili</span>
+        <span class="chip-subject" style="--subject: var(--subject-dunyagorusu)">Dünyagörüşü</span>
+        <span class="chip-subject" style="--subject: var(--subject-informatika)">İnformatika</span>
+        <span class="chip-subject" style="--subject: var(--subject-xarici-dil)">Xarici dil</span>
+      </div>
+      <div class="row">
+        <span class="avatar" aria-hidden="true">ƏM</span>
+        <span class="avatar avatar--lg" aria-hidden="true">NA</span>
+        <span class="streak">3 ardıcıl düzgün</span>
+        <span class="row row--tight text-sm"><span class="live-dot" aria-hidden="true"></span>Canlı</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="kartlar">
+    <div class="section-header"><h2>Kartlar</h2></div>
+    <div class="grid">
+      <div class="card stack stack--tight"><h3 style="font-size: var(--text-base)">Adi kart</h3><p class="text-sm text-muted">Siyahı elementləri, formalar.</p></div>
+      <a class="card card--interactive stack stack--tight" href="#kartlar"><h3 style="font-size: var(--text-base)">Kliklənən kart</h3><p class="text-sm text-muted">Bütün kart linkdir.</p></a>
+      <div class="card card--flat stack stack--tight"><h3 style="font-size: var(--text-base)">Düz kart</h3><p class="text-sm text-muted">Kölgəsiz, ikinci dərəcəli.</p></div>
+      <div class="card card--subject stack stack--tight" style="--subject: var(--subject-qanunvericilik)"><h3 style="font-size: var(--text-base)">Fənn kartı</h3><p class="text-sm text-muted">Fənn rəngi başlıq zolağında.</p></div>
+      <div class="card card--locked stack stack--tight">
+        <div class="state__icon" aria-hidden="true"><svg class="icon"><use href="assets/icons.svg#i-trophy"></use></svg></div>
+        <h3 style="font-size: var(--text-base)">Qazanılmamış nişan</h3><p class="text-sm text-muted">Yalnız ikon sönür, mətn oxunaqlı qalır.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="bu-gun">
+    <div class="section-header"><h2>«Bu gün» blokları</h2></div>
+    <article class="hero-lesson">
+      <div class="hero-lesson__chips">
+        <span class="hero-lesson__chip hero-lesson__chip--live"><span class="live-dot"></span>Canlı</span>
+        <span class="hero-lesson__chip"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-video"></use></svg>Onlayn</span>
+      </div>
+      <div class="hero-lesson__title">Konstitusiyanın əsasları</div>
+      <p class="hero-lesson__meta">Qanunvericilik · 1 noy, 10:00 · 90 dəq</p>
+      <a class="btn btn--primary btn--lg btn--block" href="#bu-gun"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-bolt"></use></svg>Qoşul</a>
+      <button class="btn btn--ghost btn--block" type="button"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-clock"></use></svg>Təqvimə əlavə et</button>
+    </article>
+    <div class="tiles">
+      <div class="card tile">
+        <span class="tile__icon tile__icon--flame"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-flame"></use></svg></span>
+        <div class="stack stack--tight"><div class="tile__value">4 gün</div><div class="tile__label">Seriya</div></div>
+      </div>
+      <div class="card tile">
+        <span class="tile__icon tile__icon--xp"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-bolt"></use></svg></span>
+        <div class="stack stack--tight"><div class="tile__value">+120</div><div class="tile__label">Bu gün XP</div></div>
+      </div>
+      <div class="card tile">
+        <span class="goal-ring" style="--pct: 64"><span class="goal-ring__inner">64%</span></span>
+        <div class="stack stack--tight"><div class="tile__value">190 / 300</div><div class="tile__label">Həftəlik hədəf (XP)</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="quiz">
+    <div class="section-header"><h2>Quiz</h2><span class="section-header__hint">variantlar real modulla çəkilir</span></div>
+    <div class="grid">
+      <div class="card stack">
+        <div class="quiz-head"><span class="quiz-counter">Sual 3 / 7</span><span class="quiz-timer">04:12</span></div>
+        <div id="kitSteps"></div>
+        <h2 class="quiz-question">Azərbaycan Respublikasının Konstitusiyası neçənci ildə qəbul edilib?</h2>
+        <div id="kitOptionsIdle"></div>
+      </div>
+      <div class="card stack">
+        <div class="quiz-head"><span class="quiz-counter">Sual 3 / 7</span><span class="quiz-timer quiz-timer--urgent">00:09</span></div>
+        <h2 class="quiz-question">Seçildi, cavab gözlənilir</h2>
+        <div id="kitOptionsChosen"></div>
+      </div>
+      <div class="card stack">
+        <div class="verdict verdict--wrong">
+          <span class="verdict__icon" aria-hidden="true"><svg class="icon"><use href="assets/icons.svg#i-x"></use></svg></span>
+          <span class="stack stack--tight"><span class="verdict__title">Səhv</span><span class="verdict__note">Düzgün cavab: B. 1995</span></span>
+        </div>
+        <div id="kitOptionsRevealed"></div>
+      </div>
+      <div class="card stack">
+        <div class="verdict verdict--correct">
+          <span class="verdict__icon" aria-hidden="true"><svg class="icon"><use href="assets/icons.svg#i-check"></use></svg></span>
+          <span class="stack stack--tight"><span class="verdict__title">Düzgün</span><span class="verdict__note">+10 XP</span></span>
+        </div>
+        <div class="row"><span class="streak">5 ardıcıl düzgün</span></div>
+        <div class="stack stack--center">
+          <div class="score-ring" style="--pct: 86"><div class="score-ring__inner"><span class="score-ring__value">86%</span></div></div>
+          <span class="score-ring__label">6 / 7 düzgün</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="siralama">
+    <div class="section-header"><h2>Sıralama və podium</h2></div>
+    <div class="grid">
+      <div class="card stack stack--tight">
+        <div class="rank rank--podium rank--first"><span class="rank__place">1</span><span class="rank__name">Aysel Məmmədova</span><span class="rank__score">7</span></div>
+        <div class="rank rank--podium"><span class="rank__place">2</span><span class="rank__name">Murad</span><span class="rank__score">6</span></div>
+        <div class="rank rank--me"><span class="rank__place">4</span><span class="rank__name">Siz</span><span class="rank__score">5</span></div>
+        <div class="rank"><span class="rank__place">5</span><span class="rank__name">Nigar Əliyeva</span><span class="rank__score">3</span></div>
+      </div>
+      <div class="stage" style="position: static; min-height: 0; overflow: visible; border-radius: var(--radius-lg)">
+        <ol class="podium">
+          <li class="podium__step podium__step--other"><span class="podium__name">Murad</span><span class="podium__score">6 düzgün</span><span class="podium__place">2</span></li>
+          <li class="podium__step podium__step--first"><span class="podium__name">Aysel</span><span class="podium__score">7 düzgün</span><span class="podium__place">1</span></li>
+          <li class="podium__step podium__step--other"><span class="podium__name">Nigar</span><span class="podium__score">5 düzgün</span><span class="podium__place">3</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="formalar">
+    <div class="section-header"><h2>Formalar</h2></div>
+    <div class="card stack">
+      <div class="field">
+        <label class="field__label" for="kitText">Mətn sahəsi</label>
+        <input class="field__input" id="kitText" placeholder="ad@nümunə.az">
+      </div>
+      <div class="field field--invalid">
+        <label class="field__label" for="kitInvalid">Xətalı sahə</label>
+        <input class="field__input" id="kitInvalid" value="qısa" aria-describedby="kitInvalidError" aria-invalid="true">
+        <span class="field__error" id="kitInvalidError">Ən azı 8 simvol</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="kitPin">PIN</label>
+        <input class="field__input field__input--pin" id="kitPin" inputmode="numeric" placeholder="000000">
+      </div>
+      <div class="field">
+        <label class="field__label" for="kitSelect">Seçim</label>
+        <select class="field__select" id="kitSelect"><option>Qanunvericilik</option><option>Məntiq</option></select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="kitArea">Uzun mətn</label>
+        <textarea class="field__textarea" id="kitArea" rows="3">Dərs haqqında qeyd</textarea>
+      </div>
+      <details class="disclosure">
+        <summary class="disclosure__summary">Açılan bölmə</summary>
+        <div class="disclosure__body"><p class="text-sm">Gizli məzmun.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="stack" id="bildirisler">
+    <div class="section-header"><h2>Bildirişlər və vəziyyətlər</h2></div>
+    <div class="notice notice--info">Məlumat: dərs 10:00-da başlayır.</div>
+    <div class="notice notice--success">Saxlanıldı.</div>
+    <div class="notice notice--warning">Diqqət: abunə 3 gün sonra bitir.</div>
+    <div class="notice notice--danger">Xəta: bağlantı kəsildi.</div>
+    <div class="grid">
+      <div class="card state">
+        <div class="state__icon" aria-hidden="true"><svg class="icon"><use href="assets/icons.svg#i-books"></use></svg></div>
+        <div class="state__title">Hələ dərs yoxdur</div>
+        <p class="state__text">Müəllim dərs planlaşdıranda burada görünəcək.</p>
+      </div>
+      <div class="card state">
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="state__title">Yüklənir</div>
+        <div class="skeleton" style="height: var(--space-4); width: 100%"></div>
+        <div class="skeleton" style="height: var(--space-4); width: 70%"></div>
+      </div>
+      <div class="card stack">
+        <div class="progress" role="progressbar" aria-label="Tərəqqi" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"><div class="progress__fill" style="--progress: 40%"></div></div>
+        <div class="metric"><div class="metric__value">83%</div><div class="metric__label">Asan · 3 sual</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="tablar">
+    <div class="section-header"><h2>Tab-lar</h2></div>
+    <div class="tabs" role="tablist" aria-label="Nümunə tab-lar">
+      <button class="tab" type="button" role="tab" aria-selected="true">Konspekt</button>
+      <button class="tab" type="button" role="tab" aria-selected="false">Quiz <span class="tab__count">2</span></button>
+      <button class="tab" type="button" role="tab" aria-selected="false">Qeydim</button>
+      <button class="tab" type="button" role="tab" aria-selected="false">Tutor</button>
+    </div>
+  </section>
+
+  <section class="stack" id="konspekt">
+    <div class="section-header"><h2>Konspekt</h2><span class="section-header__hint">renderSummary ilə</span></div>
+    <div class="card" id="kitSummary"></div>
+  </section>
+
+  <section class="stack" id="vereq">
+    <div class="section-header"><h2>Vərəq</h2></div>
+    <div class="row"><button class="btn btn--primary" type="button" id="kitSheetOpen">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>Vərəqi aç
+    </button></div>
+    <dialog class="sheet" id="kitSheet" aria-labelledby="kitSheetTitle">
+      <div class="sheet__head"><h2 id="kitSheetTitle">Yeni dərs</h2>
+        <button class="btn btn--ghost btn--sm" type="button" data-sheet-close>Bağla</button></div>
+      <div class="sheet__body"><p class="text-sm text-muted">Telefonda altdan çıxır, Esc bağlayır.</p></div>
+    </dialog>
+  </section>
+
+  <section class="stack" id="ikonlar">
+    <div class="section-header"><h2>İkonlar</h2><span class="section-header__hint">assets/icons.svg</span></div>
+    <div class="card"><div class="row" id="kitIcons"></div></div>
+  </section>
+
+</main>
+
+<script type="module">
+  import { renderOptions, markChosen, revealAnswer, renderSteps } from './assets/js/quiz-options.js';
+  import { renderSummary } from './assets/js/summary.js';
+  import { bindSheet } from './assets/js/sheet.js';
+  import { createIcon } from './assets/js/icon.js';
+  import { setTheme } from './assets/js/theme.js';
+
+  const options = ['1991', '1995', '2002', '2009', '2016'];
+  renderSteps(document.getElementById('kitSteps'), { total: 7, currentIndex: 2 });
+  renderOptions(document.getElementById('kitOptionsIdle'), options, () => {});
+  markChosen(renderOptions(document.getElementById('kitOptionsChosen'), options, () => {}), 1);
+  revealAnswer(renderOptions(document.getElementById('kitOptionsRevealed'), options, () => {}),
+    { correctIndex: 1, chosenIndex: 0 });
+
+  document.getElementById('kitSummary').append(renderSummary({
+    title: 'Konstitusiyanın əsasları',
+    intro: 'Konstitusiya dövlətin əsas qanunudur və digər qanunlar ona zidd ola bilməz.',
+    key_points: ['Konstitusiya ən yüksək hüquqi qüvvəyə malikdir.', 'Xalq hakimiyyətin yeganə mənbəyidir.'],
+    terms: [{ term: 'Referendum', definition: 'Xalqın birbaşa səsverməsi' }],
+    facts: ['12 noyabr 1995: Konstitusiya referendumla qəbul edildi'],
+    self_check: [{ question: 'Hakimiyyətin mənbəyi kimdir?', answer: 'Xalq' }],
+  }));
+
+  bindSheet(document.getElementById('kitSheet'), { openers: [document.getElementById('kitSheetOpen')] });
+
+  const sprite = await fetch('assets/icons.svg').then((r) => r.text()).catch(() => '');
+  const names = [...sprite.matchAll(/id="i-([a-z-]+)"/g)].map((m) => m[1]);
+  const iconRow = document.getElementById('kitIcons');
+  for (const name of names) {
+    const item = document.createElement('span');
+    item.className = 'row row--tight text-xs text-muted';
+    item.append(createIcon(name), document.createTextNode(name));
+    iconRow.append(item);
+  }
+
+  for (const button of document.querySelectorAll('[data-theme-set]')) {
+    button.addEventListener('click', () => {
+      setTheme(button.dataset.themeSet);
+    });
+  }
+</script>
+</body>
+</html>

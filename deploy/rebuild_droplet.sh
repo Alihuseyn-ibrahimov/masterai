@@ -171,6 +171,15 @@ if [ ! -f /etc/nginx/sites-available/masterai ] || ! grep -q ssl_certificate /et
 fi
 ln -sf /etc/nginx/sites-available/masterai /etc/nginx/sites-enabled/masterai
 rm -f /etc/nginx/sites-enabled/default
+# CSS/JS sıxılması. nginx.conf-da gzip_* artıq açıqdırsa, eyni direktiv
+# iki dəfə olar və `nginx -t` sınar - onda fayl QOYULMUR.
+if grep -qE '^[[:space:]]*gzip_(types|vary|proxied|comp_level|min_length)' /etc/nginx/nginx.conf; then
+  rm -f /etc/nginx/conf.d/masterai-gzip.conf
+  echo "gzip ayarları nginx.conf-da var - masterai-gzip.conf atlandı"
+else
+  cp "$SRV/deploy/nginx-gzip.conf" /etc/nginx/conf.d/masterai-gzip.conf
+  nginx -t 2>/dev/null || { rm -f /etc/nginx/conf.d/masterai-gzip.conf; echo "masterai-gzip.conf nginx -t-dən keçmədi, silindi"; }
+fi
 nginx -t
 systemctl reload nginx
 
