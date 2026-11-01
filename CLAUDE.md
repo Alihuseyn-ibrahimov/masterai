@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2030 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 328 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2053 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 336 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -379,6 +379,15 @@ bitirəndə otaqdakı tələbə boş plitələr yox, bu ekranı görür. Konspek
 (`renderSummary`) ikonlu bloklardır: nömrəli əsas fikirlər, termin
 kartları, sarı «Yadda saxla», özünü yoxla kartları; `xulaseler.html`
 kartı bütövlükdə linkdir (fənn, giriş, `summaryStats`, `readingMinutes`).
+**PR 6 - proyektor rejimi (`sessiyalar.html`):** konsolda «Proyektora çıxar»
+tam ekran qara `section.stage` açır (Esc / «Çıx» bağlayır). Gözləmə: link +
+nəhəng PIN (bir sətirdə, «123 456»), QR, qoşulan adlar (yeni ad «pop» ilə
+girir, köhnələr yenidən çəkilmir), «Başlat». Gedişat: sayğac + sinfin ÜMUMİ
+faizi + «bitirdi» adları - fərdi xal lövhədə QƏSDƏN yoxdur. Nəticə: podium
+(2-1-3, bərabər xal eyni yer). Məntiq `projector.js`-dədir. QR serverdədir:
+`GET /live/sessions/{id}/join-qr` (müəllim, kurs sərhədi, `SITE_URL/qosul.html?pin=`),
+bitmiş sessiyaya 409 - PIN yeni sessiyaya düşə bilər. Brauzerdə 6 qonaqla
+uc-uca sınanıb (1280, 1920, 390 en).
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

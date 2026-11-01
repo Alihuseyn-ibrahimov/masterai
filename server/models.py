@@ -748,6 +748,15 @@ class LessonAttendRequest(BaseModel):
     code: str | None = Field(default=None, max_length=32)
 
 
+class LiveJoinQr(BaseModel):
+    """Proyektor rejimində böyük QR: PIN linki (`qosul.html?pin=`).
+    Kod sirr DEYİL - PIN onsuz da ekrandadır, QR sadəcə yazmağı qısaldır."""
+
+    pin: str
+    url: str
+    svg: str
+
+
 class LessonQr(BaseModel):
     """Müəllimin ekranındakı QR (gün 6). `svg` serverdə yaranan
     şəkildir, `expires_in` saniyədən sonra kod dəyişir."""

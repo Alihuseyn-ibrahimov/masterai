@@ -198,6 +198,7 @@ CASES = {
     ("POST", "/live/sessions"): ("teacher_b", {}, None, {"question_set_id": "qs_a.id", "chat_id": "chat_b.id"}, None),
     ("GET", "/chats/{chat_id}/live-session"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/live/sessions/{session_id}/report"): ("teacher_b", {"session_id": "finished_a.id"}, None, None, None),
+    ("GET", "/live/sessions/{session_id}/join-qr"): ("teacher_b", {"session_id": "session_a.id"}, None, None, None),
     ("POST", "/homework/assignments"): ("teacher_b", {}, None, {"chat_id": "chat_b.id", "question_set_id": "qs_a.id", "due_date": "2099-01-01"}, None),
     ("GET", "/homework/assignments"): ("teacher_b", {}, {"chat_id": "chat_a.id"}, None, None),
     ("GET", "/homework/assignments/{assignment_id}/difficulty"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),

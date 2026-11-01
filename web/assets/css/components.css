@@ -1497,3 +1497,200 @@ a.avatar:hover { text-decoration: none; }
   gap: var(--space-2);
   margin-top: auto;
 }
+
+/* ===== Proyektor rejimi (`sessiyalar.html`, «oyun enerjisi» PR 6) =====
+ * Bütün sinfin baxdığı tam ekran: qara səth, nəhəng PIN və sayğac.
+ * Ölçülər `--stage-*` tokenləridir - ekranla böyüyür, arxa sıradan oxunur.
+ * QR-ın öz ağ fonu var: kamera qara səthdə də oxuyur. */
+body.is-staged { overflow: hidden; }
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  overflow-y: auto;
+  background: var(--color-ink-surface);
+  color: var(--color-on-ink);
+}
+.stage__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.stage__heading { display: flex; flex-direction: column; min-width: 0; }
+.stage__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+}
+.stage__class, .stage__label, .stage__hint { color: var(--color-on-ink-muted); font-size: var(--text-lg); }
+.stage__label { font-weight: var(--weight-bold); }
+.stage__body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: center;
+}
+.stage__body--center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+/* Gözləmə: solda link + PIN, sağda QR, altda qoşulanlar. PIN BİR sətirdə
+ * qalmalıdır - iki sətrə bölünəndə «042 / 880» iki ayrı rəqəm kimi oxunur. */
+.stage__body--waiting {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "join qr" "people people";
+  align-items: start;
+  align-content: center;
+}
+.stage__join { grid-area: join; }
+.stage__qr { grid-area: qr; }
+.stage__people { grid-area: people; }
+.stage__join, .stage__step { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
+.stage__url {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  color: var(--color-primary-on-ink);
+  overflow-wrap: anywhere;
+}
+.stage__pin {
+  font-family: var(--font-heading);
+  font-size: var(--stage-pin);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+.stage__qr {
+  width: var(--stage-qr);
+  height: var(--stage-qr);
+  border-radius: var(--radius-lg);
+}
+.stage__people { display: flex; flex-direction: column; gap: var(--space-4); align-self: stretch; justify-content: center; }
+.stage__count {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+}
+.stage__count span { color: var(--color-accent); font-variant-numeric: tabular-nums; }
+.stage__names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stage__body--center .stage__names { justify-content: center; }
+.stage__name {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-soft);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  animation: stage-pop var(--motion-base) var(--easing);
+}
+.stage__name--done { background: var(--color-cta); color: var(--color-on-cta); }
+.stage__more { background: transparent; color: var(--color-on-ink-muted); }
+.stage__people .btn { align-self: flex-start; }
+.stage__timer {
+  font-family: var(--font-heading);
+  font-size: var(--stage-timer);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+.stage__meter {
+  width: 100%;
+  max-width: var(--width-prose);
+  height: var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-soft);
+  overflow: hidden;
+}
+.stage__meter-fill {
+  height: 100%;
+  width: var(--progress, 0%);
+  background: var(--color-cta);
+  border-radius: var(--radius-full);
+  transition: width var(--motion-base) var(--easing);
+}
+.stage__rest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: var(--width-form);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text);
+  text-align: left;
+}
+
+/* Podium: 2-1-3 sırası (`projector.js::podium`), birinci yer ən hündür və SARI. */
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--width-prose);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.podium__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
+  animation: stage-pop var(--motion-base) var(--easing);
+}
+.podium__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+}
+.podium__score { color: var(--color-on-ink-muted); font-size: var(--text-lg); }
+.podium__place {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--stage-timer);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-cta);
+  color: var(--color-on-cta);
+  font-family: var(--font-heading);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-black);
+}
+.podium__step--first .podium__place {
+  height: calc(var(--stage-timer) * 1.8);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+@keyframes stage-pop {
+  from { transform: scale(.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage__name, .podium__step { animation: none; }
+}
+@media (max-width: 760px) {
+  .stage { padding: var(--space-4); }
+  .stage__body, .stage__body--waiting { grid-template-columns: minmax(0, 1fr); }
+  .stage__body--waiting { grid-template-areas: "join" "qr" "people"; }
+}
