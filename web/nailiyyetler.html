@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261101a" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261101b" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261101a">
-<link rel="stylesheet" href="assets/css/base.css?v=20261101a">
-<link rel="stylesheet" href="assets/css/components.css?v=20261101a">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261101b">
+<link rel="stylesheet" href="assets/css/base.css?v=20261101b">
+<link rel="stylesheet" href="assets/css/components.css?v=20261101b">
 </head>
 <body>
 <header id="appBar"></header>
@@ -65,8 +65,9 @@
         const card = document.createElement('div');
         card.className = 'card stack stack--tight';
         // Qazanılmamış nişan sönük görünür - amma GİZLƏNMİR, çünki
-        // meyar özü motivasiyadır.
-        if (!badge.earned) card.style.opacity = '0.55';
+        // meyar özü motivasiyadır. Yalnız İKON sönür: əvvəl bütün kart
+        // `opacity` alırdı və meyar mətni oxunmurdu (kontrast 2.6, axe).
+        if (!badge.earned) card.classList.add('card--locked');
 
         /* REAL BUG İDİ: ikonun ADI mətn kimi yazılırdı (`textContent`),
            yəni ekranda nişanın şəkli yox, `seedling`/`bolt` kimi İNGİLİS

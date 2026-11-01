@@ -41,7 +41,23 @@ export function mountShell() {
     pathname: window.location.pathname,
     onLogout: logout,
   });
+  mountSkipLink();
   mountExpiryBanner();
+}
+
+/** «Məzmuna keç»: klaviatura ilə gələn hər səhifədə əvvəlcə naviqasiya
+ *  zolağının bütün linklərindən keçməli olmasın (WCAG 2.4.1). Link yalnız
+ *  fokus alanda görünür. Qorunan səhifələrin ortaq qabı `.app-shell`-dir. */
+function mountSkipLink() {
+  const shell = document.querySelector('.app-shell');
+  if (!shell || document.querySelector('.skip-link')) return;
+  if (!shell.id) shell.id = 'main';
+  shell.tabIndex = -1;
+  const link = document.createElement('a');
+  link.className = 'skip-link';
+  link.href = `#${shell.id}`;
+  link.textContent = 'Məzmuna keç';
+  document.body.prepend(link);
 }
 
 /** Abunənin bitməsinə az qalıbsa müəllimə xəbərdarlıq (spec: 5 gün).

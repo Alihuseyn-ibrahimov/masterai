@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2053 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 336 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2053 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 340 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-10-31-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -396,6 +396,17 @@ proyektor ekranının kiçik surətidir (PIN, qoşulanlar; rəqəmlər nümunəd
 nömrələri A-D variant rənglərindədir. Tələ: `base.css` başlıqlara `--color-text`
 verir - qara zolaqda h1 görünməz idi; telefonda çərçivəsiz «Daxil ol» da qara
 mətnlə itirdi. Hər ikisi render-də tutuldu.
+**PR 8 - əlçatanlıq (axe-core 4.10, 2026-11-01):** 29 səhifə × işıqlı/tünd ×
+390/1280 en × anonim/tələbə/müəllim, real backend ilə. 13 tapıntı, hamısı
+düzəldi, təkrar işdə 0: mətn içi link yalnız rənglə seçilirdi (indi altdan
+xətli, `:where(p, li) > a`); `--color-text-faint` işıqlı rejimdə 12px mətndə
+3.65 verirdi (`#686E79`, 4.57); `.btn[aria-pressed]` qaydası `btn--primary`-nin
+fonunu da əvəz edirdi (tünd rejimdə 1.4); qazanılmamış nişan bütün kartı
+`opacity` ilə söndürürdü (indi `.card--locked` yalnız ikonu). Əlavə: hər
+səhifədə «Məzmuna keç» (`page-shell.js::mountSkipLink`, açılışda statik),
+qara səthlərdə fokus çərçivəsi sarıdır. `web/tests/a11y.test.js` qoruyur.
+axe repoda YOXDUR (build addımı yoxdur): scratchpad-a `npm i axe-core`,
+səhifəyə `addScriptTag` ilə.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
