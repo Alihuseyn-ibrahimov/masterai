@@ -212,3 +212,34 @@ def test_video_without_livekit_keys_is_503(env):
     env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
     r = _video(env, env["ali"], lesson["id"])
     assert r.status_code == 503 and "LiveKit" in r.json()["detail"]
+
+
+def _system_texts(chat_id):
+    return [m["content"] for m in app.state.message_store.list_by_chat(chat_id) if m["kind"] == "system"]
+
+
+def test_start_announces_in_class_chat_once_per_start(env):
+    """Tələbə dərsin başladığını yalnız səhifəni açanda görürdü."""
+    lesson = _create(env)
+    url = f"/live/lessons/{lesson['id']}/start"
+    for _ in range(2):  # artıq canlı dərsə təkrar «başlat» ikinci mesaj yazmır
+        assert env["client"].post(url, headers=_auth(env["teacher"])).status_code == 200
+    texts = _system_texts(env["chat"]["id"])
+    assert texts == ["Dərs başladı: «Konstitusiya: giriş». Qoşulmaq üçün: Bu gün → Qoşul."]
+
+    env["client"].post(f"/live/lessons/{lesson['id']}/end", headers=_auth(env["teacher"]))
+    env["client"].post(url, headers=_auth(env["teacher"]))
+    assert len(_system_texts(env["chat"]["id"])) == 2
+
+
+def test_offline_start_message_points_to_qr(env):
+    lesson = _create(env, mode="offline", title="Sinif dərsi")
+    env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["teacher"]))
+    assert "QR" in _system_texts(env["chat"]["id"])[0]
+
+
+def test_student_start_writes_nothing(env):
+    lesson = _create(env)
+    r = env["client"].post(f"/live/lessons/{lesson['id']}/start", headers=_auth(env["ali"]))
+    assert r.status_code == 403
+    assert _system_texts(env["chat"]["id"]) == []

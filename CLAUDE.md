@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2071 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 348 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2074 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 348 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -513,7 +513,7 @@ bilmir (409): tələbənin oxuduğu mətn sükutla dəyişməməlidir.
 tapşırığı veriləndə sinif çatına «Sistem» mesajı düşür və açıq çatlara
 dərhal gedir (`_announce_in_chat`). Eyni sinfə təkrar dərc ikinci mesaj
 YAZMIR (`dersler.html`-in «Tələbələrə göndər»i təkrar basıla bilər);
-geri alıb yenidən dərc etmək yeni xəbərdir. «Bu gün»də tələbəyə son 14 gündə dərc
+geri alıb yenidən dərc etmək yeni xəbərdir. Dərs başlayanda da (`start_lesson`) sinfə «Dərs başladı» yazılır: onlayn dərsdə «Bu gün → Qoşul», sinif dərsində QR göstərişi; artıq canlı dərsə təkrar başlat yazmır. «Bu gün»də tələbəyə son 14 gündə dərc
 olunmuş ən yeni konspekt kartı görünür (`today.js::freshSummary`;
 oxundu/oxunmadı izlənmir, ona görə müddət məhduddur, `/me/summaries`
 sınsa ekranın qalanı açılır). Testlərdə mesaj store-u
