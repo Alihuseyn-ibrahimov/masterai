@@ -1701,3 +1701,74 @@ body.is-staged { overflow: hidden; }
 /* Qazanılmamış nişan (`nailiyyetler.html`): ikon boz və sönük, mətn tam
  * kontrastda qalır - meyarı oxumaq motivasiyanın özüdür. */
 .card--locked .state__icon { filter: grayscale(1); opacity: .45; }
+
+/* ---- Hesabsız səhifələr: giriş, qeydiyyat, PIN, abunə ----
+ * Açılış səhifəsinin qara lövhəsi burada da davam edir: istifadəçi
+ * «Daxil ol» basanda başqa sayta düşmüş kimi hiss etməməlidir. Kart
+ * lövhənin alt kənarına minir - forma yenə ekranın ortasındadır, amma
+ * səhifənin bir «üzü» var. */
+.auth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.auth__band {
+  background: var(--color-ink-surface);
+  color: var(--color-on-ink);
+  text-align: center;
+  padding: var(--space-12) var(--space-4) calc(var(--space-16) + var(--space-8));
+}
+.auth__band .brand { color: var(--color-on-ink); font-size: var(--text-2xl); }
+.auth__band .brand__accent { color: var(--color-primary-on-ink); }
+.auth__tagline {
+  margin: var(--space-2) auto 0;
+  max-width: var(--width-form);
+  color: var(--color-on-ink-muted);
+  font-size: var(--text-sm);
+}
+.auth__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.auth__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-soft);
+  color: var(--color-on-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.auth__chip .icon { color: var(--color-accent); }
+.auth__body {
+  width: 100%;
+  max-width: var(--width-form);
+  margin: calc(-1 * var(--space-16)) auto 0;
+  padding: 0 var(--space-4) var(--space-8);
+}
+.auth__body--wide { max-width: var(--width-prose); }
+.auth__links { text-align: center; }
+
+/* Qonaq quiz-ə keçəndə lövhə yer tutmasın: sual telefonda bütün
+ * ekranı almalıdır. `:has` dəstəklənməyən köhnə brauzerdə lövhə
+ * sadəcə qalır - funksiya pozulmur. */
+.auth:has(#joinCard[hidden]) .auth__band { display: none; }
+.auth:has(#joinCard[hidden]) .auth__body { margin-top: var(--space-6); }
+
+/* PIN sahəsi: proyektordakı nəhəng PIN-in kiçik əkizi. Tələbə ekrana
+ * baxıb rəqəmləri yazır, yazdığını eyni formada görməlidir. */
+.field__input--pin {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  letter-spacing: .25em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.field__input--pin::placeholder { color: var(--color-text-faint); opacity: .45; letter-spacing: .25em; }
+.auth__body .form-shell { margin-inline: auto; }
