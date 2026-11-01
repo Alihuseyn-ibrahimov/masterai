@@ -2736,15 +2736,29 @@ def delete_lesson(
     lessons.delete(lesson_id)
 
 
+def _lesson_started_text(lesson: dict) -> str:
+    if lesson.get("mode") == "offline":
+        return (f"Dərs başladı: «{lesson['title']}». "
+                "Davamiyyət üçün lövhədəki QR kodu telefonla skan edin.")
+    return f"Dərs başladı: «{lesson['title']}». Qoşulmaq üçün: Bu gün → Qoşul."
+
+
 @app.post("/live/lessons/{lesson_id}/start", response_model=LessonInfo)
-def start_lesson(
+async def start_lesson(
     lesson_id: int,
     user: dict = Depends(get_current_teacher),
     chats: ChatStore = Depends(get_chat_store),
     lessons: LessonStore = Depends(get_lesson_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
 ) -> LessonInfo:
-    _lesson_for_member(lessons, chats, lesson_id, user)
-    return _lesson_info(lessons.set_status(lesson_id, "live"), chats)
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    started = lessons.set_status(lesson_id, "live")
+    if lesson["status"] != "live":
+        # Tələbə dərsin başladığını yalnız «Bu gün»/«Dərslər»i açanda görürdü.
+        # Artıq canlı dərsə təkrar «başlat» ikinci mesaj yazmır.
+        await _announce_in_chat(messages, manager, lesson["chat_id"], _lesson_started_text(started))
+    return _lesson_info(started, chats)
 
 
 @app.post("/live/lessons/{lesson_id}/end", response_model=LessonInfo)
