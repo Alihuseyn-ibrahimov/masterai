@@ -89,6 +89,30 @@ export function heroAction(hero) {
   return { label: 'Dərs səhifəsi', href: `dersim.html?id=${id}`, primary: hero.kind === 'live' };
 }
 
+/** Müəllimin «Başlat və gir» düyməsi bu qədər əvvəldən görünür: daha
+ *  tez başlatmaq sinfə vaxtsız «Dərs başladı» mesajı göndərər. */
+export const TEACHER_START_WINDOW_MIN = 60;
+
+/**
+ * Müəllimin böyük kartdakı düyməsi. Əvvəl həmişə «Dərslər»ə aparırdı:
+ * onlayn dərsə girmək üçün başlat → səhifə yenilənir → «Dərs otağına gir»
+ * → «Otağa gir», üç klik. İndi bir klik: `dars.html?start=1` başladır və
+ * özü qoşulur. Sinif dərsinin idarəsi (QR) «Dərslər»dədir.
+ */
+export function teacherHeroAction(hero, now = new Date()) {
+  if (!hero) return null;
+  const { lesson } = hero;
+  const id = encodeURIComponent(lesson.id);
+  if (lesson.mode === 'online') {
+    if (hero.kind === 'live') return { label: 'Dərs otağına gir', href: `dars.html?id=${id}`, primary: true };
+    const minutes = (new Date(lesson.starts_at).getTime() - now.getTime()) / 60000;
+    if (minutes <= TEACHER_START_WINDOW_MIN) {
+      return { label: 'Başlat və gir', href: `dars.html?id=${id}&start=1`, primary: true };
+    }
+  }
+  return { label: hero.kind === 'live' ? 'Dərsi idarə et' : 'Dərslərə bax', href: 'dersler.html', primary: true };
+}
+
 /** Hələ bitirilməmiş tapşırıqların ən təcilisi; yoxdursa `null`.
  *  `sorted` - `sortByUrgency`-dən keçmiş siyahı. */
 export function nextHomework(sorted) {

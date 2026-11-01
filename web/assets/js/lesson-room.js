@@ -77,6 +77,6 @@ export function roomWaitState(lesson, isTeacher) {
     icon: 'clock', title: 'Dərs hələ başlamayıb', canStart: Boolean(isTeacher), primary: null,
     text: isTeacher
       ? 'Başladanda tələbələr otağa girə biləcək.'
-      : 'Müəllim başladanda bu səhifə özü yenilənəcək.',
+      : 'Müəllim başladanda otağa özünüz qoşulacaqsınız, səhifəni açıq saxlayın.',
   };
 }
