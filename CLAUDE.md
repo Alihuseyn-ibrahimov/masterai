@@ -416,6 +416,12 @@ alır. Paylaşım şəkli PNG-dir (`og-banner.png`): WhatsApp/Telegram/Facebook 
 önizləmə GÖSTƏRMİR - əvvəlki SVG linki heç vaxt şəkil verməmişdi. SVG mənbədir,
 PNG ondan saytın şriftləri ilə Playwright-da çəkilir (yenidən çəkəndə Archivo
 yüklənməlidir, yoxsa «ə» başqa şriftlə çıxar).
+**PR 10 - gələcək dərsə geri sayım:** «Bu gün» kartında və «Dərslər» nişanında
+«Planlaşdırılıb» əvəzinə `startsInText` («2 saat 10 dəq sonra», «sabah, 10:00»,
+«3 gün sonra»; kart 30 saniyədə bir yenilənir). Tələbəyə gələcək onlayn dərsin
+«Dərs otağı» düyməsi artıq VERİLMİR (içəridə yalnız «başlamayıb» yazısı idi),
+müəllimdə qalır. «Təqvimə əlavə et» `.ics` endirir (`lessonIcs`, CRLF, UTC,
+15 dəqiqə əvvəl xatırlatma): bildiriş xidməti və backend dəyişikliyi yoxdur.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

@@ -1092,6 +1092,8 @@ a.avatar:hover { text-decoration: none; }
 .hero-lesson__meta { color: var(--color-on-ink-muted); font-size: var(--text-sm); }
 .hero-lesson .btn { margin-top: var(--space-2); }
 .hero-lesson .btn--secondary { --btn-edge: var(--color-ink-edge); }
+.hero-lesson .btn--ghost { color: var(--color-primary-on-ink); margin-top: 0; }
+.hero-lesson .btn--ghost:hover:not(:disabled) { background: var(--color-ink-soft); }
 
 /* Canlı nöqtə - nəbz. Hərəkət azaldılıbsa dayanır (base.css-dəki
  * ümumi qayda ilə yanaşı burada da açıq yazılır). */

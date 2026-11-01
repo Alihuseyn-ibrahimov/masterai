@@ -48,3 +48,78 @@ export function groupLessons(lessons, now = Date.now()) {
   past.sort((a, b) => at(b) - at(a));
   return { live, upcoming, past };
 }
+
+/** «35 dəqiqə sonra», «2 saat 10 dəq sonra», «sabah, 10:00»,
+ *  «3 gün sonra». Gələcək dərsə «Qoşul» verilmir - əvəzinə tələbə
+ *  nə vaxt qayıtmalı olduğunu görür. Keçmiş vaxt üçün boş sətir:
+ *  status hələ «scheduled»dırsa müəllim gecikir, bunu saymaq tələbəyə
+ *  heç nə vermir. */
+export function startsInText(iso, now = Date.now()) {
+  const start = new Date(iso);
+  const diff = start.getTime() - now;
+  if (Number.isNaN(diff) || diff <= 0) return '';
+  const minutes = Math.ceil(diff / 60000);
+  if (minutes < 60) return `${minutes} dəqiqə sonra`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const today = new Date(now);
+  const dayIndex = (d) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000);
+  const days = dayIndex(start) - dayIndex(today);
+  if (days === 0) return rest ? `${hours} saat ${rest} dəq sonra` : `${hours} saat sonra`;
+  if (days === 1) return `sabah, ${pad(start.getHours())}:${pad(start.getMinutes())}`;
+  return `${days} gün sonra`;
+}
+
+function icsDate(ms) {
+  return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+function icsText(value) {
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;')
+    .replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+
+/** Dərsi təqvimə əlavə etmək üçün .ics faylı (RFC 5545). Backend və
+ *  bildiriş xidməti lazım deyil: telefonun öz təqvimi 15 dəqiqə əvvəl
+ *  xatırladır. Sətirlər CRLF ilə bitir - Outlook LF-i qəbul etmir. */
+export function lessonIcs(lesson, siteUrl, now = Date.now()) {
+  const start = new Date(lesson.starts_at).getTime();
+  if (Number.isNaN(start)) return '';
+  const end = start + (Number(lesson.duration_min) || 60) * 60000;
+  const url = `${siteUrl}/dersim.html?id=${encodeURIComponent(lesson.id)}`;
+  const description = [lesson.chat_name, MODE_LABELS[lesson.mode], url].filter(Boolean).join('\n');
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//MasterAI//Dərslər//AZ',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:lesson-${lesson.id}@masterai.prdostu.com`,
+    `DTSTAMP:${icsDate(now)}`,
+    `DTSTART:${icsDate(start)}`,
+    `DTEND:${icsDate(end)}`,
+    `SUMMARY:${icsText(lesson.title)}`,
+    `DESCRIPTION:${icsText(description)}`,
+    `URL:${url}`,
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${icsText(lesson.title)}`,
+    'TRIGGER:-PT15M',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+    '',
+  ].join('\r\n');
+}
+
+/** Brauzerdə .ics faylını endirir. DOM tələb edir, testdə çağırılmır. */
+export function downloadLessonIcs(lesson, siteUrl) {
+  const blob = new Blob([lessonIcs(lesson, siteUrl)], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `ders-${lesson.id}.ics`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}

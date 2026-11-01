@@ -36,7 +36,7 @@
   import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createIcon } from './assets/js/icon.js';
-  import { formatLessonTime, groupLessons } from './assets/js/lessons.js';
+  import { downloadLessonIcs, formatLessonTime, groupLessons, startsInText } from './assets/js/lessons.js';
   import { deadlineNote, sortByUrgency, todayIso } from './assets/js/deadline.js';
   import { BADGES, describeBadge } from './assets/js/badges.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
@@ -90,7 +90,17 @@
     }
     const { lesson } = hero;
     const chips = el('div', 'hero-lesson__chips');
-    chips.append(hero.kind === 'live' ? chip('Canlı', 'live', 'live') : chip('Növbəti dərs', 'clock'));
+    // Gələcək dərsdə «Növbəti dərs» yerinə geri sayım: tələbə nə vaxt
+    // qayıtmalı olduğunu bilir. Dəqiqədə bir yenilənir.
+    const countdown = hero.kind === 'live' ? null : chip(startsInText(lesson.starts_at) || 'Növbəti dərs', 'clock');
+    chips.append(hero.kind === 'live' ? chip('Canlı', 'live', 'live') : countdown);
+    if (countdown) {
+      const label = countdown.lastChild;
+      const timer = setInterval(() => {
+        if (!countdown.isConnected) { clearInterval(timer); return; }
+        label.textContent = startsInText(lesson.starts_at) || 'Növbəti dərs';
+      }, 30000);
+    }
     chips.append(chip(lesson.mode === 'online' ? 'Onlayn' : 'Sinifdə', lesson.mode === 'online' ? 'video' : 'school'));
     if (hero.kind === 'live' && lesson.mode === 'offline' && !isTeacher) {
       chips.append(chip(lesson.attended ? 'Davamiyyət qeyd olundu' : 'QR ilə davamiyyət', 'qrcode'));
@@ -110,6 +120,14 @@
     if (action.label === 'Qoşul') button.append(createIcon('bolt'));
     button.append(document.createTextNode(action.label));
     card.append(button);
+    if (hero.kind !== 'live') {
+      // Bildiriş xidməti yoxdur: telefonun təqvimi 15 dəqiqə əvvəl xatırladır.
+      const remind = el('button', 'btn btn--ghost btn--block');
+      remind.type = 'button';
+      remind.append(createIcon('clock'), document.createTextNode('Təqvimə əlavə et'));
+      remind.addEventListener('click', () => downloadLessonIcs(lesson, location.origin));
+      card.append(remind);
+    }
     container.append(card);
   }
 
