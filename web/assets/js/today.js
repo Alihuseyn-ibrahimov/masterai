@@ -111,3 +111,31 @@ export function greeting(name) {
   const first = String(name || '').trim().split(/\s+/)[0];
   return first ? `Salam, ${first}` : 'Salam';
 }
+
+/* Son dərc olunmuş konspekt «Bu gün»də görünür. Səbəb: tələbə konspektdən
+ * yalnız «Dərslər → Xülasələr»ə girəndə xəbər tuturdu. Oxundu/oxunmadı
+ * izlənmir (backend sahəsi yoxdur), ona görə köhnə konspekt əbədi qalmasın
+ * deyə yalnız son FRESH_SUMMARY_DAYS gün göstərilir. */
+export const FRESH_SUMMARY_DAYS = 14;
+
+/** Son `days` gündə dərc olunmuş ən yeni konspekt və neçə gün əvvəl. */
+export function freshSummary(summaries, today, days = FRESH_SUMMARY_DAYS) {
+  const now = dayNumber(today);
+  if (now === null) return null;
+  let best = null;
+  for (const summary of summaries || []) {
+    const day = dayNumber(summary && summary.published_at);
+    if (day === null || day > now || day <= now - days) continue;
+    if (!best || String(summary.published_at) > String(best.summary.published_at)) {
+      best = { summary, ageDays: now - day };
+    }
+  }
+  return best;
+}
+
+/** 0 → «Bu gün», 1 → «Dünən», N → «N gün əvvəl». */
+export function ageText(ageDays) {
+  if (ageDays <= 0) return 'Bu gün';
+  if (ageDays === 1) return 'Dünən';
+  return `${ageDays} gün əvvəl`;
+}

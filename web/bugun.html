@@ -41,7 +41,7 @@
   import { BADGES, describeBadge } from './assets/js/badges.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
   import {
-    WEEKLY_GOAL_XP, earnedCount, goalPercent, greeting, heroAction, heroLesson,
+    WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting, heroAction, heroLesson,
     nextBadge, nextHomework, streakDays, xpSince,
   } from './assets/js/today.js';
 
@@ -147,7 +147,7 @@
   }
 
   function renderStudent(container, data) {
-    const [history, assignments, badges] = data;
+    const [history, assignments, badges, summaries] = data;
     const today = todayIso();
     container.innerHTML = '';
 
@@ -185,6 +185,24 @@
       homeworkSection.append(el('div', 'card card--flat text-muted', 'Açıq tapşırıq yoxdur. Afərin!'));
     }
     container.append(homeworkSection);
+
+    const fresh = freshSummary(summaries, today);
+    if (fresh) {
+      const summarySection = el('section');
+      summarySection.append(sectionTitle('Yeni konspekt', 'Hamısı', 'xulaseler.html'));
+      const card = el('a', 'card card--interactive today-card');
+      card.href = `xulase.html?id=${encodeURIComponent(fresh.summary.id)}`;
+      const top = el('div', 'today-card__top');
+      const subject = el('span', 'chip-subject', subjectLabel(fresh.summary.subject));
+      subject.style.setProperty('--subject', subjectColorVar(fresh.summary.subject));
+      top.append(subject, el('span', 'text-xs text-muted', ageText(fresh.ageDays)));
+      card.append(top, el('div', 'today-card__title', fresh.summary.title));
+      const intro = fresh.summary.content && fresh.summary.content.intro;
+      if (intro) card.append(el('p', 'summary-card__intro', intro));
+      card.append(el('span', 'btn btn--secondary btn--block', 'Oxu'));
+      summarySection.append(card);
+      container.append(summarySection);
+    }
 
     const described = BADGES.map((badge) => describeBadge(
       (badges || []).find((row) => row.badge_type === badge.key) || { badge_type: badge.key, earned: false },
@@ -264,6 +282,8 @@
         request('/history/me'),
         request('/homework/my-assignments'),
         request('/badges/me'),
+        // Konspekt bloku əlavədir: sorğu sınsa ekranın qalanı yenə açılır.
+        request('/me/summaries').catch(() => []),
       ]), renderStudent);
     }
   }
