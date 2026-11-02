@@ -41,7 +41,7 @@
   import { BADGES, describeBadge } from './assets/js/badges.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
   import {
-    WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting, heroAction, heroLesson,
+    WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting, heroAction, heroLesson, teacherHeroAction,
     nextBadge, nextHomework, streakDays, xpSince,
   } from './assets/js/today.js';
 
@@ -112,12 +112,10 @@
     if (hero.kind === 'live' && lesson.mode === 'offline' && !isTeacher && !lesson.attended) {
       card.append(el('p', 'hero-lesson__meta', 'Davamiyyət üçün lövhədəki QR kodu telefonla skan edin.'));
     }
-    const action = isTeacher
-      ? { label: hero.kind === 'live' ? 'Dərsi idarə et' : 'Dərslərə bax', href: 'dersler.html', primary: true }
-      : heroAction(hero);
+    const action = isTeacher ? teacherHeroAction(hero) : heroAction(hero);
     const button = el('a', `btn ${action.primary ? 'btn--primary' : 'btn--secondary'} btn--lg btn--block`);
     button.href = action.href;
-    if (action.label === 'Qoşul') button.append(createIcon('bolt'));
+    if (action.href.startsWith('dars.html')) button.append(createIcon('bolt'));
     button.append(document.createTextNode(action.label));
     card.append(button);
     if (hero.kind !== 'live') {

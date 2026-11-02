@@ -196,9 +196,9 @@
       return node;
     }
 
-    function link(label, href) {
+    function link(label, href, className = 'btn--ghost') {
       const node = document.createElement('a');
-      node.className = 'btn btn--ghost btn--sm';
+      node.className = `btn ${className} btn--sm`;
       node.href = href;
       node.textContent = label;
       return node;
@@ -248,7 +248,12 @@
       const actions = document.createElement('div');
       actions.className = 'bank__actions';
       if (isTeacher) {
-        if (lesson.status !== 'live') {
+        if (lesson.status !== 'live' && lesson.mode === 'online') {
+          // Bir klik: otaq səhifəsi dərsi başladır və özü qoşulur (əvvəl
+          // başlat → «Dərs otağı» → «Otağa gir» idi).
+          actions.append(link(lesson.status === 'ended' ? 'Yenidən başlat' : 'Başlat və otağa gir',
+            `dars.html?id=${encodeURIComponent(lesson.id)}&start=1`, 'btn--primary'));
+        } else if (lesson.status !== 'live') {
           actions.append(button(lesson.status === 'ended' ? 'Yenidən başlat' : 'Dərsi başlat', 'btn--primary',
             () => act(`/live/lessons/${lesson.id}/start`, { method: 'POST' })));
         } else {
@@ -271,11 +276,11 @@
       }
       // Tələbəyə gələcək dərsin otağı verilmir: içəridə yalnız «dərs
       // başlamayıb» yazısı var. Əvəzinə təqvimə əlavə etmək təklif olunur.
-      if (lesson.mode === 'online' && (lesson.status === 'live' || (isTeacher && lesson.status === 'scheduled'))) {
+      if (lesson.mode === 'online' && lesson.status === 'live') {
         const enter = document.createElement('a');
-        enter.className = `btn ${lesson.status === 'live' ? 'btn--primary' : 'btn--secondary'} btn--sm`;
+        enter.className = 'btn btn--primary btn--sm';
         enter.href = `dars.html?id=${encodeURIComponent(lesson.id)}`;
-        enter.textContent = lesson.status === 'live' ? 'Dərs otağına gir' : 'Dərs otağı';
+        enter.textContent = 'Dərs otağına gir';
         actions.append(enter);
       } else if (!isTeacher && lesson.status === 'live') {
         if (lesson.attended) {

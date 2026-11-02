@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2074 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 348 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2077 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 351 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -422,6 +422,14 @@ yüklənməlidir, yoxsa «ə» başqa şriftlə çıxar).
 «Dərs otağı» düyməsi artıq VERİLMİR (içəridə yalnız «başlamayıb» yazısı idi),
 müəllimdə qalır. «Təqvimə əlavə et» `.ics` endirir (`lessonIcs`, CRLF, UTC,
 15 dəqiqə əvvəl xatırlatma): bildiriş xidməti və backend dəyişikliyi yoxdur.
+**Bir kliklə dərsə giriş (2026-11-01):** əvvəl tələbə «Qoşul» → «Otağa gir»,
+müəllim Dərslər → «Dərsi başlat» → «Dərs otağına gir» → «Otağa gir» basırdı.
+İndi `dars.html` canlı onlayn dərsdə ÖZÜ qoşulur (səhifə başına bir dəfə: alınmasa
+«Otağa gir» düyməsi qalır, 15 saniyəlik yoxlama təkrar cəhd ETMİR); gözləyən tələbə
+müəllim başladan kimi özü girir. Müəllimin «Başlat və gir»i `dars.html?id=N&start=1`-dir
+(«Dərslər»də onlayn dərsdə, «Bu gün»də yalnız başlamağa ≤60 dəqiqə qalanda -
+`teacherHeroAction`): başladır və qoşulur, `start` parametri URL-dən dərhal silinir ki,
+yeniləmə bitmiş dərsi təkrar başlatmasın. Brauzer səsi bloklasa «Səsi aç» əsas düymədir.
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
 vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -
@@ -513,7 +521,7 @@ bilmir (409): tələbənin oxuduğu mətn sükutla dəyişməməlidir.
 tapşırığı veriləndə sinif çatına «Sistem» mesajı düşür və açıq çatlara
 dərhal gedir (`_announce_in_chat`). Eyni sinfə təkrar dərc ikinci mesaj
 YAZMIR (`dersler.html`-in «Tələbələrə göndər»i təkrar basıla bilər);
-geri alıb yenidən dərc etmək yeni xəbərdir. Dərs başlayanda da (`start_lesson`) sinfə «Dərs başladı» yazılır: onlayn dərsdə «Bu gün → Qoşul», sinif dərsində QR göstərişi; artıq canlı dərsə təkrar başlat yazmır. «Bu gün»də tələbəyə son 14 gündə dərc
+geri alıb yenidən dərc etmək yeni xəbərdir. Dərs başlayanda da (`start_lesson`) sinfə «Dərs başladı» yazılır: onlayn dərsdə «Bu gün → Qoşul», sinif dərsində QR göstərişi; artıq canlı dərsə təkrar başlat yazmır. Planlanmış dərs yarananda («Yeni dərs: ..., 05.11.2026, 10:00 (Bakı vaxtı), onlayn»), vaxtı və ya forması dəyişəndə («Dərs dəyişdi») və silinəndə («Dərs ləğv olundu») da yazılır; başlıq/qeyd düzəlişi və bitmiş dərsin vaxtı YAZILMIR. Vaxt serverdə sabit UTC+4 ilə (`_BAKU_TZ`) mətnə çevrilir: çat mesajı düz mətndir, brauzer onu yerli vaxta çevirmir. `course_planner push` hər dərs üçün bir mesaj yazır. «Bu gün»də tələbəyə son 14 gündə dərc
 olunmuş ən yeni konspekt kartı görünür (`today.js::freshSummary`;
 oxundu/oxunmadı izlənmir, ona görə müddət məhduddur, `/me/summaries`
 sınsa ekranın qalanı açılır). Testlərdə mesaj store-u

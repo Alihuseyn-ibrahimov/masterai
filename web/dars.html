@@ -63,7 +63,7 @@
     <button class="btn btn--primary btn--lg" type="button" id="joinButton">Otağa gir</button>
   </div>
 
-  <button class="btn btn--secondary" type="button" id="audioButton" hidden>Səsi aç (brauzer icazə istəyir)</button>
+  <button class="btn btn--primary" type="button" id="audioButton" hidden>Səsi aç (brauzer icazə istəyir)</button>
   <div class="video-grid" id="grid" aria-live="polite"></div>
 
   <div class="video-controls" id="controls" hidden>
@@ -99,6 +99,8 @@
     let room = null;
     let lesson = null;
     let pollTimer = null;
+    let autoJoinTried = false;
+    let joining = false;
     const tiles = new Map();
 
     function showError(message) {
@@ -126,6 +128,13 @@
       $('connStatus').hidden = !canJoin;
       if (!canJoin) showWait();
       $('joinDefaults').textContent = isTeacher ? 'açıq' : 'sönülü';
+      // «Qoşul» basan artıq otağa girmək istəyir: ikinci «Otağa gir» kliki
+      // yoxdur. Gözləyən tələbə də müəllim başladan kimi özü girir. Yalnız
+      // BİR dəfə: alınmasa düymə qalır, 15 saniyəlik yoxlama təkrar etmir.
+      if (canJoin && !autoJoinTried) {
+        autoJoinTried = true;
+        join();
+      }
     }
 
     function showWait() {
@@ -231,8 +240,11 @@
     /* ---- Otaq ---- */
 
     async function join() {
+      if (joining || room) return;
+      joining = true;
       showError('');
       $('joinButton').disabled = true;
+      $('joinButton').textContent = 'Qoşulur…';
       try {
         const access = await request(`/me/lessons/${lessonId}/video`, { method: 'POST' });
         room = new LK.Room({ adaptiveStream: true, dynacast: true });
@@ -304,6 +316,9 @@
         setStatus('disconnected');
         $('joinCard').hidden = false;
         $('joinButton').disabled = false;
+        $('joinButton').textContent = 'Otağa gir';
+      } finally {
+        joining = false;
       }
     }
 
@@ -392,22 +407,33 @@
         showError(error.message);
       }
     });
-    $('startButton').addEventListener('click', async () => {
+    async function startAndJoin() {
       try {
         await request(`/live/lessons/${lessonId}/start`, { method: 'POST' });
+        autoJoinTried = false;  // başladan müəllim dərhal otağa girir
         await loadLesson();
-        await join();
       } catch (error) {
         showError(error.message);
       }
-    });
+    }
+    $('startButton').addEventListener('click', startAndJoin);
+
+    /* `?start=1` - «Bu gün»/«Dərslər»dəki «Başlat və gir»: bir kliklə
+       başlat + otağa gir. Parametr dərhal silinir: səhifəni yeniləmək
+       bitmiş dərsi təkrar başlatmamalıdır. */
+    const params = new URLSearchParams(window.location.search);
+    const startRequested = params.get('start') === '1' && isTeacher;
+    if (params.has('start')) {
+      params.delete('start');
+      history.replaceState(null, '', `${window.location.pathname}?${params}`);
+    }
 
     if (!LK) {
       showError('Video kitabxanası yüklənmədi. Səhifəni yeniləyin.');
     } else if (!Number.isInteger(lessonId) || lessonId <= 0) {
       showError('Dərs seçilməyib.');
     } else {
-      loadLesson().catch((error) => showError(error.message));
+      (startRequested ? startAndJoin() : loadLesson()).catch((error) => showError(error.message));
       // Başlamamış dərsi gözləyən tələbə səhifəni özü yeniləmək məcburiyyətində qalmasın.
       pollTimer = setInterval(() => {
         if (room) return clearInterval(pollTimer);

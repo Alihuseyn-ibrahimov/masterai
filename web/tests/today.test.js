@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   XP_PER_CORRECT, WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting,
-  heroAction, heroLesson, nextBadge, nextHomework, streakDays, xpSince,
+  heroAction, heroLesson, teacherHeroAction, nextBadge, nextHomework, streakDays, xpSince,
 } from '../assets/js/today.js';
 
 const entry = (date, score = 1) => ({ date, score, total_questions: 5 });
@@ -134,5 +134,32 @@ describe('ageText', () => {
     assert.equal(ageText(0), 'Bu gün');
     assert.equal(ageText(1), 'Dünən');
     assert.equal(ageText(5), '5 gün əvvəl');
+  });
+});
+
+describe('teacherHeroAction', () => {
+  const now = new Date('2026-11-05T09:30:00Z');
+  const at = (iso, extra = {}) => ({ id: 7, mode: 'online', status: 'scheduled', starts_at: iso, ...extra });
+
+  test('canlı onlayn dərs birbaşa otağa', () => {
+    const action = teacherHeroAction({ kind: 'live', lesson: at('2026-11-05T09:00:00Z', { status: 'live' }) }, now);
+    assert.deepEqual(action, { label: 'Dərs otağına gir', href: 'dars.html?id=7', primary: true });
+  });
+
+  test('yaxın onlayn dərs bir kliklə başlayır', () => {
+    /* Əvvəl: Dərslər → başlat → «Dərs otağı» → «Otağa gir». */
+    const soon = teacherHeroAction({ kind: 'next', lesson: at('2026-11-05T10:30:00Z') }, now);
+    assert.deepEqual(soon, { label: 'Başlat və gir', href: 'dars.html?id=7&start=1', primary: true });
+    const late = teacherHeroAction({ kind: 'next', lesson: at('2026-11-05T09:00:00Z') }, now);
+    assert.equal(late.href, 'dars.html?id=7&start=1');
+  });
+
+  test('uzaq dərs və sinif dərsi «Dərslər»ə aparır', () => {
+    /* Günlər əvvəl başlatmaq sinfə vaxtsız «Dərs başladı» yazardı. */
+    assert.equal(teacherHeroAction({ kind: 'next', lesson: at('2026-11-05T10:31:00Z') }, now).href, 'dersler.html');
+    const offline = at('2026-11-05T09:00:00Z', { mode: 'offline', status: 'live' });
+    assert.deepEqual(teacherHeroAction({ kind: 'live', lesson: offline }, now),
+      { label: 'Dərsi idarə et', href: 'dersler.html', primary: true });
+    assert.equal(teacherHeroAction(null, now), null);
   });
 });
