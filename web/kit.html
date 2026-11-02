@@ -6,7 +6,7 @@
 <title>Komponent kataloqu - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102g" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102g">
 </head>
 <body>
 <!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
@@ -192,6 +192,7 @@
         </div>
       </div>
       <div class="card" id="kitEmpty"></div>
+      <div class="card stack" id="kitThinking"><p class="text-xs text-muted"><code>createThinking</code>: AI fonda işləyəndə (sual bankı, xülasə, AI yoxlama).</p></div>
     </div>
     <section class="today-head">
       <div class="stack stack--tight"><span class="today-greeting">Salam, Aysel</span><h1>Bu gün</h1></div>
@@ -380,7 +381,7 @@
   import { bindSheet } from './assets/js/sheet.js';
   import { createIcon } from './assets/js/icon.js';
   import { setTheme } from './assets/js/theme.js';
-  import { createEmptyState, mountMascots, setMascotState } from './assets/js/mascot.js';
+  import { createEmptyState, createThinking, mountMascots, setMascotState } from './assets/js/mascot.js';
   import { celebrateFinish } from './assets/js/celebrate.js';
 
   const options = ['1991', '1995', '2002', '2009', '2016'];
@@ -408,6 +409,7 @@
   document.getElementById('kitEmpty').append(createEmptyState({
     title: 'Hələ tapşırıq yoxdur', text: 'Müəlliminiz tapşırıq təyin edəndə burada görünəcək.',
   }));
+  document.getElementById('kitThinking').prepend(createThinking('AI sualları hazırlayır, adətən 1-3 dəqiqə. Siyahı özü yenilənir.'));
   const kitFinishRoot = { getElementById: (id) => document.getElementById(`kit-${id}`) };
   document.getElementById('kitFinishButtons').addEventListener('click', (event) => {
     const score = Number(event.target.closest('[data-score]')?.dataset.score);

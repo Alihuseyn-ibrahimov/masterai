@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102g" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102g">
 </head>
 <body>
 <header id="appBar"></header>
@@ -46,7 +46,10 @@
         <strong>AI yoxlama komandası</strong>
         <button class="btn btn--secondary btn--sm" type="button" id="aiReviewButton">AI ilə yoxla</button>
       </div>
-      <p class="text-sm" id="aiReviewStatus"></p>
+      <div class="row">
+        <span class="mascot thinking__mascot" id="aiReviewMascot" data-mascot="thinking" hidden></span>
+        <p class="text-sm" id="aiReviewStatus"></p>
+      </div>
       <p class="text-xs text-muted">AI rəyi sualları dəyişmir: təklifə baxıb özünüz tətbiq edirsiniz.</p>
     </div>
 
@@ -59,6 +62,7 @@
 
 <script type="module">
   import { request } from './assets/js/api.js';
+  import { createEmptyState, renderMascot } from './assets/js/mascot.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectLabel } from './assets/js/subjects.js';
   import {
@@ -128,6 +132,7 @@
       const aiBox = document.getElementById('aiReview');
       const aiButton = document.getElementById('aiReviewButton');
       const aiStatus = document.getElementById('aiReviewStatus');
+      const aiMascot = renderMascot(document.getElementById('aiReviewMascot'));
 
       function loadAiReview() {
         return request(`/live/question-sets/${setId}/review`)
@@ -141,6 +146,8 @@
         aiStatus.textContent = reviewStatusLine(aiReview, questions.length);
         aiStatus.className = aiReview && aiReview.status === 'failed' ? 'text-sm qcard__finding' : 'text-sm';
         aiButton.disabled = processing;
+        // Komanda işləyəndə düşünən bayquş görünür (Faza 5).
+        aiMascot.hidden = !processing;
         aiButton.textContent = processing ? 'Yoxlanır...'
           : (aiReview && aiReview.status === 'ready' ? 'Yenidən yoxla' : 'AI ilə yoxla');
         clearTimeout(aiPoll);
@@ -515,8 +522,9 @@
         renderAiReview();
         renderDifficultySummary();
         if (!questions.length) {
-          content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg></div>'
-            + '<div class="state__title">Bu bankda sual yoxdur</div></div>';
+          content.replaceChildren(createEmptyState({
+            title: 'Bu bankda sual yoxdur',
+          }));
           return;
         }
         const byQuestion = findingsByQuestion(quality && quality.findings);

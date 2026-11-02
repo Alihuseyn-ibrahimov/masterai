@@ -2041,3 +2041,20 @@ body.is-staged { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .xp-pop--go { animation: none; }
 }
+
+/* ---- Müəllim ekranlarında bayquş (2026-11-02, Faza 5) ----
+ * AI fonda işləyəndə düşünən bayquş (`createThinking`: sual bankı, xülasə,
+ * AI yoxlama). Proyektorda: gözləmədə salam verir, gedişatda düşünür,
+ * podiumda sevinir və konfetti atır. */
+.mascot[hidden] { display: none; }   /* `display: inline-block` [hidden]-i üstələyir */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.thinking__mascot { --mascot-size: var(--space-12); }
+.thinking__text { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+
+.stage__greet { display: flex; align-items: center; gap: var(--space-4); }
+.stage__mascot { --mascot-size: calc(var(--space-16) * 1.5); }
+.podium { position: relative; }
