@@ -648,6 +648,8 @@ def auth_register(
     store: UserStore = Depends(get_user_store),
     secret: str = Depends(get_token_secret),
     limiter: RateLimiter = Depends(get_register_rate_limiter),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
 ) -> AuthResponse:
     """Qapalı qeydiyyat (spec 2026-09-29 §4.1).
 
@@ -678,6 +680,15 @@ def auth_register(
             raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
     else:
         course = store.courses.get_by_join_code(req.course_code)
+        # Qrupun (sinif çatının) öz kodu da qəbul olunur: müəllim hər qrupa ayrıca
+        # kod verir, tələbə həmin kodla qeydiyyatdan keçir və YALNIZ o qrupa
+        # qoşulma istəyi göndərir (üzv olmur, müəllim təsdiq edir). Kurs kodu
+        # əvvəl yoxlanır; qrup kodu yalnız kurs kodu tapılmayanda.
+        group = None
+        if course is None:
+            group = chats.get_by_invite_code(req.course_code)
+            if group is not None:
+                course = store.courses.get(group.get("course_id"))
         if course is None or not course_is_open(course, now):
             limiter.record(ip)
             raise HTTPException(status_code=404, detail=_COURSE_CODE_NOT_FOUND)
@@ -685,6 +696,8 @@ def auth_register(
             user = store.create_student(
                 req.email, password_hash, req.display_name, course_id=course["id"]
             )
+            if group is not None:
+                join_requests.request(chat_id=group["id"], user_id=user["id"])
         except CourseFull:
             raise HTTPException(
                 status_code=409,
