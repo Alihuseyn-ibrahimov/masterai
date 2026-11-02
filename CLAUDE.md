@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 376 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 380 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-02-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -481,6 +481,14 @@ bayquş faizə görə reaksiya verir (80%+ konfetti, <50% sakit təşviq). XP qa
 bir cümlə (`today.js::mascotLine`: bu günkü XP → gözləyən tapşırıq → seriya → salam).
 Konfetti yönü `--cx/--cy/--cr` yerli dəyişənləridir; «hərəkəti azalt»da sayğac dərhal
 son rəqəmi yazır, konfetti çəkilmir.
+**Faza 5 - müəllim ekranlarında bayquş:** AI fonda işləyəndə düşünən bayquş
+(`mascot.js::createThinking`): «Hazırlanır» bank kartı (`bank-card.js`), xülasə hazırlanır
+(`xulase.html`), AI yoxlama komandası işləyir (`suallar.html`). Boş siyahılar (`muellim`,
+`suallar`, `hesabatlar`, `sessiyalar`) də `createEmptyState`-dədir. Proyektorda
+(`sessiyalar.html`) üç bayquş: gözləmədə salam (masaüstündə gözləri kursoru izləyir), gedişatda
+düşünür, podiumda sevinir + konfetti - BİR dəfə (`podiumCelebrated`, yeni sessiyada sıfırlanır).
+Tələ: `.mascot { display: inline-block }` `hidden` atributunu üstələyirdi - `.mascot[hidden]` qaydası
+əlavə olundu.
 
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və

@@ -12,6 +12,7 @@
  */
 
 import { statusBadge, subjectColorVar, subjectLabel } from './subjects.js';
+import { createThinking } from './mascot.js';
 
 /** Canlı sessiyada işlədilə bilən bank: hazırdır VƏ reading deyil.
  *  Reading sualları mətnə əsaslanır, canlı sessiyada isə mətn tələbənin
@@ -82,7 +83,10 @@ export function createBankCard(set, options = {}) {
     card.append(kind);
   }
 
-  if (options.note) {
+  if (options.note && set.status === 'processing') {
+    // AI işləyir: izahın yanında düşünən bayquş (Faza 5).
+    card.append(createThinking(options.note));
+  } else if (options.note) {
     const note = document.createElement('p');
     note.className = 'bank__meta';
     note.textContent = options.note;

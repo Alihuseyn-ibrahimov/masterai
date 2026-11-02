@@ -90,3 +90,31 @@ describe('«Bu gün» bayquşunun cümləsi', () => {
     assert.match(mascotLine({ isTeacher: true, todayXp: 50 }).text, /konspekt və quizi/);
   });
 });
+
+describe('müəllim ekranlarında bayquş (Faza 5)', () => {
+  test('boş siyahılar ortaq köməkçi ilə çəkilir', () => {
+    for (const page of ['muellim.html', 'suallar.html', 'hesabatlar.html', 'sessiyalar.html']) {
+      const html = read(`../${page}`);
+      assert.match(html, /createEmptyState\(/, page);
+      assert.doesNotMatch(html, /state__icon/, page);
+    }
+  });
+
+  test('AI fonda işləyəndə düşünən bayquş görünür', () => {
+    assert.match(read('../assets/js/bank-card.js'), /status === 'processing'[\s\S]{0,80}createThinking/);
+    assert.match(read('../xulase.html'), /createThinking\('AI xülasəni/);
+    assert.match(read('../suallar.html'), /aiMascot\.hidden = !processing/);
+  });
+
+  test('proyektorda üç vəziyyət: gözləmə, gedişat, podium bir dəfə bayram edir', () => {
+    const html = read('../sessiyalar.html');
+    assert.equal((html.match(/mascot mascot--on-ink stage__mascot/g) || []).length, 3);
+    assert.match(html, /data-mascot="thinking"/);
+    assert.match(html, /podiumCelebrated = false;\n      const chat/);
+    assert.match(html, /burstConfetti\(list/);
+  });
+
+  test('gizli bayquş həqiqətən gizlənir', () => {
+    assert.match(read('../assets/css/components.css'), /\.mascot\[hidden\]\s*\{\s*display: none/);
+  });
+});

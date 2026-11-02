@@ -173,3 +173,22 @@ export function createEmptyState({ title, text = '', state = 'sleep' }, doc = do
   }
   return box;
 }
+
+/**
+ * «AI hazırlayır» sətri: düşünən bayquş + izah (Faza 5). Sual bankı,
+ * xülasə və AI yoxlaması fonda gedəndə müəllim boş gözləmir, kimin
+ * işlədiyini görür. Mətn `textContent` ilə gedir.
+ */
+export function createThinking(text, doc = document) {
+  const row = doc.createElement('div');
+  row.className = 'thinking';
+  const mascot = doc.createElement('span');
+  mascot.className = 'mascot thinking__mascot';
+  mascot.dataset.mascot = 'thinking';
+  renderMascot(mascot);
+  const line = doc.createElement('p');
+  line.className = 'thinking__text';
+  line.textContent = text;
+  row.append(mascot, line);
+  return row;
+}

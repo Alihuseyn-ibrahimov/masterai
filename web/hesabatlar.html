@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102g" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102g">
 </head>
 <body>
 <header id="appBar"></header>
@@ -88,6 +88,7 @@
 
 <script type="module">
   import { request } from './assets/js/api.js';
+  import { createEmptyState } from './assets/js/mascot.js';
   import { hasLevelStats, renderDifficultyStats } from './assets/js/difficulty.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
@@ -150,9 +151,10 @@
     function renderAssignments(container, assignments) {
       container.innerHTML = '';
       if (!assignments.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-report"></use></svg></div>'
-          + '<div class="state__title">Bu çatda tapşırıq yoxdur</div>'
-          + '<div class="state__text">Yuxarıdan yeni tapşırıq təyin edin.</div></div>';
+        container.replaceChildren(createEmptyState({
+          title: 'Bu çatda tapşırıq yoxdur',
+          text: 'Yuxarıdan yeni tapşırıq təyin edin.',
+        }));
         return;
       }
       const list = document.createElement('div');
@@ -219,9 +221,10 @@
           questionSetSelect.append(option);
         }
         if (!chats.length) {
-          content.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg></div>'
-            + '<div class="state__title">Çatınız yoxdur</div>'
-            + '<div class="state__text">Tapşırıq təyin etmək üçün əvvəlcə qrup çatına üzv olun.</div></div>';
+          content.replaceChildren(createEmptyState({
+            title: 'Çatınız yoxdur',
+            text: 'Tapşırıq təyin etmək üçün əvvəlcə qrup çatına üzv olun.',
+          }));
           return;
         }
         reloadAssignments();

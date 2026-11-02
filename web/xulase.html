@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102g" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102g">
 <!-- Çap (və «PDF kimi saxla»): yalnız xülasənin özü qalır. Ölçü və
      rəng yoxdur - token qaydası pozulmur. -->
 <style media="print">
@@ -55,6 +55,7 @@
   import { ApiError, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectLabel } from './assets/js/subjects.js';
+  import { createThinking } from './assets/js/mascot.js';
   import {
     contentError, contentFromForm, listToLines, pairsToLines, readingMinutes, renderSummary,
   } from './assets/js/summary.js';
@@ -158,9 +159,7 @@
         content.innerHTML = '';
 
         if (summary.status === 'processing') {
-          const text = document.createElement('p');
-          text.textContent = 'AI xülasəni hazırlayır, adətən 1 dəqiqəyə qədər. Səhifə özü yenilənir.';
-          panel.append(text);
+          panel.append(createThinking('AI xülasəni hazırlayır, adətən 1 dəqiqəyə qədər. Səhifə özü yenilənir.'));
           pollTimer = setTimeout(load, POLL_MS);
           return;
         }
