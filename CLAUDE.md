@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2077 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 351 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2077 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 355 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -430,6 +430,15 @@ müəllim başladan kimi özü girir. Müəllimin «Başlat və gir»i `dars.htm
 («Dərslər»də onlayn dərsdə, «Bu gün»də yalnız başlamağa ≤60 dəqiqə qalanda -
 `teacherHeroAction`): başladır və qoşulur, `start` parametri URL-dən dərhal silinir ki,
 yeniləmə bitmiş dərsi təkrar başlatmasın. Brauzer səsi bloklasa «Səsi aç» əsas düymədir.
+**Açılışda canlı nümunələr (2026-11-02, motionsites.ai-dən ilham):** `landing-demo.js`.
+Hero sualı özü oynayır (sinif cavablayır zolağı, «tələbə» variantı seçir, düzgün açılır,
+seriya nişanı artır, iki sual növbələşir), başlıqda söz dəyişir («qalanını / konspekti /
+quizi / davamiyyəti»), proyektor nümunəsində adlar bir-bir qoşulur (bir dəfə). Statik
+HTML demonun ilk kadrıdır: JS-siz və «hərəkəti azalt»da heç nə başlamır. Ekrandan çıxanda
+və tab gizlənəndə dövrə dayanır. Başlığa ən uzun sözün hündürlüyü qədər `min-height`
+verilir (yoxsa «davamiyyəti» sətir artırıb altını tullayırdı). `.option__mark`-ı `hidden`
+ilə gizlətmək İŞLƏMİR (öz `display`-i var) - işarə düzgün varianta köçürülür. Ümumi
+«aşağıdan sürüşərək görün» effekti QƏSDƏN yoxdur (əvvəl şablon əlaməti kimi silinmişdi).
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
 vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -
