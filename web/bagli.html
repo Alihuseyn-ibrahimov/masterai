@@ -6,7 +6,7 @@
 <title>Abunə bitib - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102g" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102h" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax giris.html). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102g">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102g">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102g">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102h">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102h">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102h">
 </head>
 <body>
 <!-- Server kursun abunəsi bitəndə HTTP 402 / WebSocket 4402 qaytarır,
@@ -25,14 +25,12 @@
      Sessiya silinmir: ödənişdən sonra «Yenidən yoxla» kifayətdir. -->
 <main class="auth" id="main">
   <header class="auth__band">
+      <span class="mascot mascot--on-ink auth__mascot" data-mascot="sleep"></span>
       <a class="brand" href="index.html">Master<span class="brand__accent">AI</span></a>
   </header>
   <div class="stack stack--loose auth__body">
 
     <div class="card stack">
-      <div class="state__icon" aria-hidden="true">
-        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-alert"></use></svg>
-      </div>
       <h1 style="font-size: var(--text-xl)">Kursun abunəsi bitib</h1>
       <p class="text-muted">
         Kursunuzun MasterAI-dan istifadə müddəti başa çatıb. Məlumatlarınız
@@ -51,6 +49,9 @@
 
 <script type="module">
   import { ApiError, clearSession, getToken, request } from './assets/js/api.js';
+  import { mountMascots } from './assets/js/mascot.js';
+
+  mountMascots();
 
   const statusBox = document.getElementById('statusBox');
   const retryBtn = document.getElementById('retryBtn');

@@ -118,3 +118,26 @@ describe('müəllim ekranlarında bayquş (Faza 5)', () => {
     assert.match(read('../assets/css/components.css'), /\.mascot\[hidden\]\s*\{\s*display: none/);
   });
 });
+
+describe('hesabsız səhifələrdə bayquş (Faza 6)', () => {
+  test('dörd səhifənin lövhəsində bayquş var, abunə bitəndə yatır', () => {
+    for (const page of ['giris.html', 'qeydiyyat.html', 'qosul.html']) {
+      assert.match(read(`../${page}`), /mascot mascot--on-ink auth__mascot" data-mascot="idle"/, page);
+    }
+    assert.match(read('../bagli.html'), /auth__mascot" data-mascot="sleep"/);
+  });
+
+  test('səhv şifrədə bayquş təəccüblənir, yazanda sakitləşir', () => {
+    const js = read('../assets/js/auth-page.js');
+    assert.match(js, /setMascotState\(mascot, 'surprised'\)/);
+    assert.match(js, /addEventListener\('input'/);
+  });
+
+  test('paylaşım şəklində bayquş var (SVG mənbə)', () => {
+    assert.match(read('../assets/og-banner.svg'), /Maskot/);
+  });
+
+  test('hüquqi səhifələrin footer linki qara fonda yaşıl qalmır', () => {
+    assert.match(read('../assets/css/landing.css'), /\.landing-footer a:not\(\.btn\) \{ color: var\(--color-on-ink-muted\)/);
+  });
+});

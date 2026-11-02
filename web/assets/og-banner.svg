@@ -14,12 +14,18 @@
     <text x="884" y="466" text-anchor="middle" fill="#F9F8F5">AI tutor</text>
   </g>
   <text x="80" y="566" font-family="Inter, Segoe UI, sans-serif" font-size="28" fill="#A8AEB8">masterai.prdostu.com</text>
-  <rect x="1040" y="80" width="80" height="80" rx="20" fill="#67B0F9"/>
-  <rect x="1040" y="176" width="80" height="80" rx="20" fill="#FC9E47"/>
-  <rect x="1040" y="272" width="80" height="80" rx="20" fill="#F786BE"/>
-  <rect x="1040" y="368" width="80" height="80" rx="20" fill="#44D4E2"/>
-  <text x="1080" y="134" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">A</text>
-  <text x="1080" y="230" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">B</text>
-  <text x="1080" y="326" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">C</text>
-  <text x="1080" y="422" text-anchor="middle" font-family="Archivo, Segoe UI, sans-serif" font-size="40" font-weight="800" fill="#0B0F18">D</text>
+  <!-- Maskot (mascot.js-dəki forma, qara fonda ağ kontur), gözləri mətnə baxır. -->
+  <g transform="translate(870 96) scale(2.3)" stroke-linejoin="round">
+    <path d="M28 32 L20 8 L44 22 Q60 16 76 22 L100 8 L92 32 C102 44 106 58 106 76 C106 106 86 126 60 126 C34 126 14 106 14 76 C14 58 18 44 28 32 Z" fill="#59DE65" stroke="#F9F8F5" stroke-width="3"/>
+    <path d="M20 70 C6 84 10 104 26 110 C22 96 24 84 32 74 Z" fill="#17933E" stroke="#F9F8F5" stroke-width="2.5"/>
+    <path d="M100 70 C114 84 110 104 94 110 C98 96 96 84 88 74 Z" fill="#17933E" stroke="#F9F8F5" stroke-width="2.5"/>
+    <ellipse cx="60" cy="96" rx="26" ry="22" fill="#F9F8F5"/>
+    <path d="M48 92 q4 4 8 0 M64 92 q4 4 8 0 M56 102 q4 4 8 0" fill="none" stroke="#D48E00" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="42" cy="56" r="15" fill="#F9F8F5" stroke="#0B0F18" stroke-width="3"/>
+    <circle cx="78" cy="56" r="15" fill="#F9F8F5" stroke="#0B0F18" stroke-width="3"/>
+    <path d="M57 55 Q60 51 63 55" fill="none" stroke="#0B0F18" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="38" cy="57" r="6" fill="#0B0F18"/><circle cx="40" cy="55" r="2" fill="#F9F8F5"/>
+    <circle cx="74" cy="57" r="6" fill="#0B0F18"/><circle cx="76" cy="55" r="2" fill="#F9F8F5"/>
+    <path d="M52 70 L68 70 L60 84 Z" fill="#FFD32E" stroke="#0B0F18" stroke-width="2"/>
+  </g>
 </svg>
