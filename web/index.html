@@ -9,7 +9,7 @@
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0B0F18">
 <link rel="canonical" href="https://masterai.prdostu.com/">
-<link rel="manifest" href="manifest.json?v=20261101c">
+<link rel="manifest" href="manifest.json?v=20261102a">
 
 <!-- Open Graph - Telegram/WhatsApp link önizləməsi.
      MasterAI üçün xüsusilə vacibdir: müəllimlər sessiya linkini qrup
@@ -19,7 +19,7 @@
 <meta property="og:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta property="og:description" content="Video dərs, dərsin səsindən AI konspekt və quiz, QR davamiyyət, AI tutor.">
 <meta property="og:url" content="https://masterai.prdostu.com/">
-<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261101c">
+<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102a">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -29,7 +29,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta name="twitter:description" content="Video dərs, dərsin səsindən AI konspekt və quiz, QR davamiyyət, AI tutor.">
-<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261101c">
+<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102a">
 
 <script type="application/ld+json">
 {
@@ -47,7 +47,7 @@
 
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261101c" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102a" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -59,10 +59,10 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261101c">
-<link rel="stylesheet" href="assets/css/base.css?v=20261101c">
-<link rel="stylesheet" href="assets/css/components.css?v=20261101c">
-<link rel="stylesheet" href="assets/css/landing.css?v=20261101c">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102a">
+<link rel="stylesheet" href="assets/css/landing.css?v=20261102a">
 </head>
 <body>
 <a class="skip-link" href="#main">Məzmuna keç</a>
@@ -83,7 +83,7 @@
   <div class="hero-band">
   <section class="hero container">
     <div class="stack stack--loose">
-      <h1 class="hero__title" data-enter style="--enter-order: 0">Dərs keçin, qalanını <span class="hero__accent">AI</span> hazırlasın</h1>
+      <h1 class="hero__title" data-enter style="--enter-order: 0">Dərs keçin, <span class="rotator"><span class="sr-only">qalanını</span><span class="rotator__word" data-rotator aria-hidden="true">qalanını</span></span> <span class="hero__accent">AI</span> hazırlasın</h1>
       <p class="hero__lead" data-enter style="--enter-order: 1">
         Onlayn video dərs və ya sinifdə. Dərsin səsindən və lövhəsindən AI konspekt
         və test sualları hazırlayır, tələbə öz kabinetində təkrarlayır, sualını
@@ -111,16 +111,19 @@
         <span class="trace__label">bu dərsdən</span>
       </div>
 
-      <div class="trace__question" data-enter style="--enter-order: 5">
-        <span class="trace__badge" aria-hidden="true">
+      <!-- `data-demo`: landing-demo.js bu sualı canlı oynadır (sinif cavablayır,
+           düzgün açılır, seriya artır). Burada yazılan statik vəziyyət JS-siz
+           və «hərəkəti azalt» rejimində olduğu kimi qalır. -->
+      <div class="trace__question" data-enter data-demo style="--enter-order: 5">
+        <span class="trace__badge" aria-hidden="true" data-demo-streak="3">
           <svg class="icon icon--sm"><use href="assets/icons.svg#i-flame"></use></svg>
-          3 ardıcıl düzgün
+          <span>3 ardıcıl düzgün</span>
         </span>
         <div class="row row--between">
           <span class="chip-subject" style="--subject: var(--subject-qanunvericilik)">Qanunvericilik</span>
-          <span class="text-xs text-muted">Sual 3/10</span>
+          <span class="text-xs text-muted" data-demo-number>Sual 3/10</span>
         </div>
-        <h2 class="trace__prompt">
+        <h2 class="trace__prompt" data-demo-prompt>
           Dövlət qulluqçusuna aşağıdakılardan hansı qəti qadağandır?
         </h2>
         <div class="stack stack--tight">
@@ -138,10 +141,14 @@
             <span class="option__text">Yaradıcılıq fəaliyyəti</span>
           </div>
         </div>
-        <p class="text-sm text-muted">
+        <p class="text-sm text-muted" data-demo-explain>
           İzah: qanun sahibkarlıq fəaliyyətini birbaşa qadağan edir, elmi və pedaqoji
           fəaliyyəti isə istisna kimi saxlayır.
         </p>
+        <div class="trace__answers" aria-hidden="true">
+          <span class="trace__bar" data-demo-bar style="--progress: 89%"></span>
+          <span class="text-xs text-muted" data-demo-answered>16 / 18 tələbə cavabladı</span>
+        </div>
       </div>
     </figure>
   </section>
@@ -167,8 +174,8 @@
     <figure class="showcase__screen" aria-label="Proyektor ekranının nümunəsi">
       <span class="showcase__label">Telefonda açın və PIN yazın</span>
       <span class="showcase__pin">482 913</span>
-      <span class="showcase__count"><b>7</b> nəfər qoşulub</span>
-      <ul class="showcase__names">
+      <span class="showcase__count"><b data-join-count>7</b> nəfər qoşulub</span>
+      <ul class="showcase__names" data-join-names>
         <li>Aysel</li><li>Murad</li><li>Nigar</li><li>Elşən</li><li>Gülnar</li><li>Rəşad</li><li>Leyla</li>
       </ul>
     </figure>
@@ -332,6 +339,10 @@
     if (!document.querySelector('[data-enter]')) return;
     document.documentElement.classList.add('js-hero');
   })();
+</script>
+<script type="module">
+  import { startLandingDemos } from './assets/js/landing-demo.js?v=20261102a';
+  startLandingDemos();
 </script>
 </body>
 </html>

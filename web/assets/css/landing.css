@@ -18,7 +18,8 @@
  * ---- Cəsarət bir yerdə xərclənir ----
  * Səhifədə yadda qalan tək element hero-dakı `.trace` obyektidir:
  * material yuxarıda, ondan hazırlanmış sual aşağıda. Qalan hər şey
- * qəsdən sakitdir. Bölmə-bölmə açılan animasiya SİLİNDİ — hər bölməyə
+ * qəsdən sakitdir (2026-11-02-dən o sual canlı oynayır, aşağıya bax).
+ * Bölmə-bölmə açılan animasiya SİLİNDİ — hər bölməyə
  * eyni "aşağıdan sürüşərək görün" effekti generasiya olunmuş səhifənin
  * ən tanınan əlamətidir. Bir orkestrləşdirilmiş an qalır: hero-nun
  * yüklənməsi.
@@ -226,6 +227,56 @@
 @media (prefers-reduced-motion: reduce) {
   .js-hero [data-enter],
   .js-hero .trace__line { animation: none; opacity: 1; transform: none; }
+}
+
+/* ---- Canlı nümunələr (2026-11-02, landing-demo.js) ----
+ * Hero-dakı sual özü oynayır: sinif cavablayır (zolaq), «tələbə»
+ * variantı seçir, düzgün açılır, seriya nişanı «partlayır». Başlıqdakı
+ * söz dəyişir. Proyektor nümunəsində adlar bir-bir qoşulur. Hamısı
+ * məhsulun REAL anlarıdır, dekorativ fon hərəkəti YOX. «Hərəkəti azalt»
+ * seçiləndə skript heç nə başlatmır və statik HTML qalır. */
+.rotator { display: inline-block; }
+.rotator__word {
+  display: inline-block;
+  color: var(--color-cta);
+  transition: opacity var(--motion-base) var(--easing),
+              transform var(--motion-base) var(--easing);
+}
+.rotator__word--out { opacity: 0; transform: translateY(calc(var(--space-2) * -1)); }
+
+.trace__answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.trace__bar {
+  display: block;
+  height: var(--space-1);
+  border-radius: var(--radius-full);
+  background: linear-gradient(var(--color-cta), var(--color-cta)) no-repeat 0 0 / var(--progress, 0%) 100%,
+              var(--color-surface-alt);
+  transition: background-size var(--motion-base) var(--easing);
+}
+.trace__question .option { transition: border-color var(--motion-base) var(--easing),
+                                       background var(--motion-base) var(--easing),
+                                       color var(--motion-base) var(--easing); }
+.trace__question [data-demo-prompt],
+.trace__question .option__text { transition: opacity var(--motion-base) var(--easing); }
+
+.trace__badge--pop { animation: badge-pop 420ms var(--easing); }
+@keyframes badge-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18) rotate(-4deg); }
+  100% { transform: scale(1); }
+}
+.showcase__name--pop { animation: name-pop 320ms var(--easing); }
+@keyframes name-pop {
+  from { opacity: 0; transform: scale(.6); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trace__badge--pop, .showcase__name--pop { animation: none; }
+  .rotator__word, .trace__bar { transition: none; }
 }
 
 /* ---- İddialar: xətli siyahı, KART YOX ----
