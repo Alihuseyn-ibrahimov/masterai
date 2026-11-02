@@ -13,6 +13,8 @@
  *   Node-da test olunur; DOM hissəsi `start*` funksiyalarındadır.
  */
 
+import { mountMascots, setMascotState } from './mascot.js';
+
 /** Başlıqda dəyişən söz: «Dərs keçin, ___ AI hazırlasın». İlk söz
  *  HTML-dəki statik sözdür (SEO və ekran oxuyucu onu görür). */
 export const HEADLINE_WORDS = ['qalanını', 'konspekti', 'quizi', 'davamiyyəti'];
@@ -135,6 +137,8 @@ export function startQuestionDemo(doc = document, win = window) {
   // İŞLƏMİR: `.option__mark` öz `display`-i ilə onu üstələyir (render-də
   // tutuldu - işarə köhnə variantda qalırdı).
   const mark = card.querySelector('.option__mark');
+  // Bayquş sualın küncündə: düzgün açılanda sevinir, yeni sualda gözləyir.
+  const mascot = card.querySelector('[data-demo-mascot]');
   const timeline = demoTimeline();
   let streak = Number($('[data-demo-streak]').dataset.demoStreak) || 3;
   let questionIndex = 0;
@@ -153,6 +157,10 @@ export function startQuestionDemo(doc = document, win = window) {
       if (mark && moment.phase === 'correct' && isCorrect) option.append(mark);
     });
     if (mark && moment.phase !== 'correct') mark.remove();
+    if (mascot) {
+      const mood = moment.phase === 'correct' ? 'happy' : 'idle';
+      if (mascot.dataset.mascot !== mood) setMascotState(mascot, mood);
+    }
     // `visibility`, `hidden` yox: izah yeri saxlanır, kart hündürlüyü
     // hər dövrədə tullanmır.
     $('[data-demo-explain]').style.visibility = moment.phase === 'correct' ? '' : 'hidden';
@@ -229,6 +237,7 @@ export function startShowcaseJoin(doc = document, win = window) {
 }
 
 export function startLandingDemos(doc = document, win = window) {
+  mountMascots(doc, win);
   startHeadlineRotator(doc, win);
   startQuestionDemo(doc, win);
   startShowcaseJoin(doc, win);

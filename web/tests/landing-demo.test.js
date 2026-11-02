@@ -47,3 +47,12 @@ describe('hero sual demosu', () => {
     assert.ok(html.includes(streakText(3)));
   });
 });
+
+describe('dəftər açılışı (Faza 3)', () => {
+  test('bayquş hero sualının küncündə və footer-dədir, yelpik bölməsi var', () => {
+    assert.match(html, /class="mascot trace__mascot" data-mascot="idle" data-demo-mascot/);
+    assert.match(html, /class="mascot mascot--on-ink closing__mascot" data-mascot="idle"/);
+    assert.match(html, /<div class="fan">/);
+    assert.equal((html.match(/class="fan__card /g) || []).length, 4);
+  });
+});

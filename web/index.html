@@ -9,7 +9,7 @@
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#0B0F18">
 <link rel="canonical" href="https://masterai.prdostu.com/">
-<link rel="manifest" href="manifest.json?v=20261102d">
+<link rel="manifest" href="manifest.json?v=20261102e">
 
 <!-- Open Graph - Telegram/WhatsApp link önizləməsi.
      MasterAI üçün xüsusilə vacibdir: müəllimlər sessiya linkini qrup
@@ -19,7 +19,7 @@
 <meta property="og:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta property="og:description" content="Video dərs, dərsin səsindən AI konspekt və quiz, QR davamiyyət, AI tutor.">
 <meta property="og:url" content="https://masterai.prdostu.com/">
-<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102d">
+<meta property="og:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102e">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -29,7 +29,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MasterAI - dərs keçin, qalanını AI hazırlasın">
 <meta name="twitter:description" content="Video dərs, dərsin səsindən AI konspekt və quiz, QR davamiyyət, AI tutor.">
-<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102d">
+<meta name="twitter:image" content="https://masterai.prdostu.com/assets/og-banner.png?v=20261102e">
 
 <script type="application/ld+json">
 {
@@ -47,7 +47,7 @@
 
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102d" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -59,10 +59,10 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102d">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102d">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102d">
-<link rel="stylesheet" href="assets/css/landing.css?v=20261102d">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/landing.css?v=20261102e">
 </head>
 <body>
 <a class="skip-link" href="#main">Məzmuna keç</a>
@@ -116,7 +116,19 @@
       <!-- `data-demo`: landing-demo.js bu sualı canlı oynadır (sinif cavablayır,
            düzgün açılır, seriya artır). Burada yazılan statik vəziyyət JS-siz
            və «hərəkəti azalt» rejimində olduğu kimi qalır. -->
+      <div class="trace__desk">
+      <!-- Sualın arxasından görünən digər materiallar: eyni dərsdən konspekt
+           və QR davamiyyət. Telefonda gizlidir (yer yoxdur). -->
+      <div class="hero-peek hero-peek--left" aria-hidden="true">
+        <span class="hero-peek__title"><svg class="icon icon--sm"><use href="assets/icons.svg#i-notes"></use></svg>Konspekt</span>
+        <span class="hero-peek__line"></span><span class="hero-peek__line"></span><span class="hero-peek__line hero-peek__line--short"></span>
+      </div>
+      <div class="hero-peek hero-peek--right" aria-hidden="true">
+        <span class="hero-peek__title"><svg class="icon icon--sm"><use href="assets/icons.svg#i-qrcode"></use></svg>Davamiyyət</span>
+        <span class="hero-peek__big">16 / 18</span>
+      </div>
       <div class="trace__question" data-enter data-demo style="--enter-order: 5">
+        <span class="mascot trace__mascot" data-mascot="idle" data-demo-mascot></span>
         <span class="trace__badge" aria-hidden="true" data-demo-streak="3">
           <svg class="icon icon--sm"><use href="assets/icons.svg#i-flame"></use></svg>
           <span>3 ardıcıl düzgün</span>
@@ -152,9 +164,45 @@
           <span class="text-xs text-muted" data-demo-answered>16 / 18 tələbə cavabladı</span>
         </div>
       </div>
+      </div>
     </figure>
   </section>
   </div>
+
+  <!-- Layout ailəsi 8: dəftər. Bir dərsdən çıxan dörd material yelpik kimi
+       masaya səpələnib (`.fan`, components.css). Məzmun nümunədir, amma hər
+       kart məhsulun real hissəsidir. -->
+  <section class="container lesson-out">
+    <div class="lesson-out__head">
+      <h2>Bir dərsdən <span class="marker">dörd</span> material</h2>
+      <p class="lesson-out__lead">Dərs bitir, müəllim bir düymə basır. Tələbənin dərs səhifəsinə bunlar düşür.</p>
+      <svg class="scribble lesson-out__arrow" viewBox="0 0 120 60" aria-hidden="true">
+        <path pathLength="1" d="M6 8 C 40 4, 70 20, 96 48 M96 48 L 84 46 M96 48 L 96 36"/>
+      </svg>
+    </div>
+    <div class="fan">
+      <article class="fan__card card stack stack--tight">
+        <span class="lesson-out__kind"><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg>Konspekt</span>
+        <h3>Dövlət qulluğu: məhdudiyyətlər</h3>
+        <p class="text-sm text-muted">5 əsas fikir, 4 termin və «Yadda saxla» bloku. Müəllim oxuyub dərc edir.</p>
+      </article>
+      <article class="fan__card card stack stack--tight">
+        <span class="lesson-out__kind"><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-target"></use></svg>Quiz</span>
+        <h3>10 sual</h3>
+        <p class="text-sm text-muted">Asan, orta, çətin bölgüsü ilə. Hər sualı AI komandası yoxlayır.</p>
+      </article>
+      <article class="fan__card card stack stack--tight">
+        <span class="lesson-out__kind"><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-qrcode"></use></svg>Davamiyyət</span>
+        <h3>16 / 18 tələbə</h3>
+        <p class="text-sm text-muted">Onlayn dərsdə özü yazılır, sinifdə proyektordakı QR ilə.</p>
+      </article>
+      <article class="fan__card card stack stack--tight">
+        <span class="lesson-out__kind"><svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg>AI tutor</span>
+        <h3>«Bəs istisna nədir?»</h3>
+        <p class="text-sm text-muted">Tələbə soruşur, tutor yalnız bu dərsin mətnindən cavab verir və mənbəni göstərir.</p>
+      </article>
+    </div>
+  </section>
 
   <!-- Layout ailəsi 7: sinif ekranı. Proyektor rejiminin özü (sessiyalar.html)
        eyni quruluşdadır: PIN, qoşulanlar, podium. Rəqəmlər nümunədir,
@@ -309,21 +357,28 @@
     </details>
   </section>
 
-  <!-- Layout ailəsi 6: mərkəzləşmiş bağlanış -->
-  <section class="closing">
-    <h2>İlk dərsinizi <span class="marker marker--draw">bu gün</span> planlayın</h2>
-    <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
-  </section>
-
 </main>
 
+<!-- Bağlanış + footer bir qara lövhədə (İlham: MotionSites «Playful Idea»):
+     solda keçidlər, ortada brend və bayquş, sağda çağırış. Bayquşun gözləri
+     masaüstündə kursoru izləyir. -->
 <footer class="landing-footer">
-  <div class="container row row--between">
-    <span>MasterAI</span>
-    <span class="row">
+  <div class="container closing">
+    <nav class="closing__links" aria-label="Footer">
+      <a href="qeydiyyat.html">Pulsuz başla</a>
+      <a href="giris.html">Daxil ol</a>
+      <a href="qosul.html">PIN ilə qoşul</a>
       <a href="mexfilik.html">Məxfilik</a>
       <a href="sertler.html">İstifadə şərtləri</a>
-    </span>
+    </nav>
+    <div class="closing__brand">
+      <span class="mascot mascot--on-ink closing__mascot" data-mascot="idle"></span>
+      <span class="brand">Master<span class="brand__accent">AI</span></span>
+    </div>
+    <div class="closing__cta">
+      <h2>İlk dərsinizi <span class="marker marker--draw">bu gün</span> planlayın</h2>
+      <a class="btn btn--primary btn--lg" href="qeydiyyat.html">Pulsuz başla</a>
+    </div>
   </div>
 </footer>
 
@@ -343,7 +398,7 @@
   })();
 </script>
 <script type="module">
-  import { startLandingDemos } from './assets/js/landing-demo.js?v=20261102d';
+  import { startLandingDemos } from './assets/js/landing-demo.js?v=20261102e';
   startLandingDemos();
 </script>
 </body>

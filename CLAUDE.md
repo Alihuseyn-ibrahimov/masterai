@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 362 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 363 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -461,6 +461,15 @@ masaüstündə (`hover: hover` + `pointer: fine`) və yalnız idle-da kursoru iz
 Bədən `--color-cta`, qarın `--color-on-ink`: `accent-soft` tünd rejimdə qəhvəyi olurdu
 (render-də tutuldu). Qara səthdə `.mascot--on-ink`. Ölçü `--mascot-size`. Maskot
 bəzəkdir (`aria-hidden`), mənanı yanındakı mətn verir. `kit.html#maskot`.
+**Faza 3 - açılış dəftər kimi:** hero artıq qara lövhə DEYİL, nöqtəli vərəqdir
+(`radial-gradient` + `--color-border`); qara qalan: üst zolaq, dərs parçası kartı
+(«lövhə») və footer. Vərəqdə ox qara mürəkkəbdir, «bu dərsdən» `--color-accent-text`,
+dəyişən söz `--color-primary` (parlaq sarı/yaşıl açıq fonda AA keçmir). Sual kartının
+arxasından konspekt və davamiyyət kartları görünür (`.hero-peek`, telefonda gizli),
+sağ üst küncdə bayquş: demo düzgün cavabı açanda sevinir (`data-demo-mascot`).
+Yeni bölmə «Bir dərsdən dörd material» `.fan` ilədir. Bağlanış footer-ə köçdü:
+keçidlər · bayquş + brend · çağırış (Playful Idea kompozisiyası). axe 0 xəta
+(1280/390, işıqlı/tünd).
 
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və

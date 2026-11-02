@@ -29,7 +29,11 @@
  * zolağı ilə eyni səth) - səhifə tətbiqin özü kimi görünür. Aralarındakı
  * bölmələr sakit qalır, amma ikonlar fənn rənginin pastel xanalarında,
  * addım nömrələri variant rənglərindədir (A-D). Rəng yenə də yalnız
- * məzmunu işarələyir: yaşıl/qırmızı siqnal kimi saxlanılır. */
+ * məzmunu işarələyir: yaşıl/qırmızı siqnal kimi saxlanılır.
+ *
+ * ---- «Dəftər + maskot» (2026-11-02) ----
+ * Hero qara lövhədən nöqtəli dəftər vərəqinə keçdi, bağlanış footer-ə
+ * birləşdi (qara). Bayquş hero sualında və footer-dədir. Ətraflı: CLAUDE.md. */
 
 .landing-bar {
   position: sticky;
@@ -49,14 +53,22 @@
 .landing-bar .brand__accent { color: var(--color-primary-on-ink); }
 .landing-bar .btn--secondary { --btn-edge: var(--color-ink-edge); }
 
-/* ---- Qara lövhə zolaqları: hero və bağlanış ---- */
+/* ---- Hero: dəftər vərəqi (2026-11-02, «Dəftər + maskot» Faza 3) ----
+ * Əvvəl qara lövhə idi. İndi nöqtəli dəftər vərəqidir: üstündə qara
+ * «lövhə» kartı (dərsin səsindən parça), qələmlə çəkilmiş ox və sual
+ * kartı, küncündə bayquş. Qara səth yalnız üst zolaqda, lövhə kartında
+ * və footer-də qalır. Nöqtələr `--color-border`-dir: tünd rejimdə də
+ * fonla birlikdə dəyişir. */
 .hero-band {
-  background: var(--color-ink-surface);
-  color: var(--color-on-ink);
+  background:
+    radial-gradient(circle, var(--color-border) 1px, transparent 1.5px) 0 0 / var(--space-6) var(--space-6),
+    var(--color-bg);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: clip;   /* arxa kartlar ekranın kənarından çıxmasın */
 }
-.hero-band .btn--secondary { --btn-edge: var(--color-ink-edge); }
-.hero-band .btn--ghost { color: var(--color-primary-on-ink); }
-.hero-band .btn--ghost:hover:not(:disabled) { background: var(--color-ink-soft); }
+/* Qələm: vərəqdə ox qara mürəkkəbdir (sarı ox açıq fonda itir). */
+.hero-band .scribble { stroke: var(--color-text); }
 
 /* ---- Hero ----
  * Mərkəzləşmiş hero qəsdən tərk edilib: mərkəz bütün elementləri eyni
@@ -71,8 +83,7 @@
   padding-block: var(--space-16) var(--space-12);
 }
 .hero__title {
-  /* base.css başlıqlara `--color-text` verir - qara lövhədə görünməz olardı. */
-  color: var(--color-on-ink);
+  color: var(--color-text);
   font-size: var(--text-4xl);
   font-weight: var(--weight-black);
   line-height: 1.05;
@@ -86,7 +97,7 @@
 .hero__lead {
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
-  color: var(--color-on-ink-muted);
+  color: var(--color-text-muted);
   max-width: 34ch;
   text-wrap: pretty;
 }
@@ -111,8 +122,12 @@
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--space-2) var(--space-4);
   padding: var(--space-6);
-  background: var(--color-ink-soft);
+  /* Lövhə: vərəqin üstündə yeganə qara kart. */
+  background: var(--color-ink-surface);
+  color: var(--color-on-ink);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  transform: rotate(-1deg);
 }
 /* Kənar nömrə — qanun sənədinin öz naxışı. Dekorasiya deyil:
  * mətnin hansı maddədən olduğunu göstərir. */
@@ -166,7 +181,8 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
-  color: var(--color-accent);
+  /* Vərəqdə: sarı mətn açıq fonda AA keçmir, tünd sarı keçir. */
+  color: var(--color-accent-text);
 }
 
 .trace__question {
@@ -204,6 +220,57 @@
   text-wrap: pretty;
 }
 
+/* Masa: sual kartı önde, arxasından eyni dərsin konspekti və davamiyyəti
+ * görünür (yelpiyin «canlı» variantı). Arxa kartlar bəzəkdir. */
+.trace__desk { position: relative; }
+.trace__desk .trace__question { z-index: 1; }
+.hero-peek {
+  position: absolute;
+  top: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 46%;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+}
+.hero-peek--left { left: calc((var(--space-16) + var(--space-6)) * -1); transform: rotate(-8deg); }
+.hero-peek--right { right: calc(var(--space-12) * -1); transform: rotate(7deg); }
+.hero-peek__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-muted);
+}
+.hero-peek--right .hero-peek__title { justify-content: flex-end; }
+.hero-peek__line {
+  display: block;
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+}
+.hero-peek__line--short { width: 60%; }
+.hero-peek__big {
+  align-self: flex-end;
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+}
+/* Bayquş sual kartının sağ üst küncündə oturur, seriya nişanı onun
+ * yanındadır (sol küncdə qələm oxu və «bu dərsdən» var). */
+.trace__mascot {
+  --mascot-size: var(--space-16);
+  position: absolute;
+  top: calc(var(--mascot-size) * -0.8);
+  right: var(--space-6);
+}
+.trace__desk .trace__badge { right: calc(var(--space-6) + var(--space-16) + var(--space-2)); }
+
 /* Hero yüklənmə ardıcıllığı — səhifədə BİR dəfə, bir yerdə.
  * Gizlətmə `.js-hero` sinfi ilə şərtlənir və həmin sinfi skriptin ÖZÜ
  * əlavə edir: JS işləməsə hero sadəcə görünür qalır. */
@@ -239,7 +306,8 @@
 .rotator { display: inline-block; }
 .rotator__word {
   display: inline-block;
-  color: var(--color-cta);
+  /* Parlaq yaşıl açıq vərəqdə mətn kimi oxunmur - mətn yaşılı. */
+  color: var(--color-primary);
   transition: opacity var(--motion-base) var(--easing),
               transform var(--motion-base) var(--easing);
 }
@@ -392,21 +460,76 @@
   max-width: var(--width-prose);
 }
 
-/* ---- Bağlanış ----
- * Səhifədə mərkəzləşən YEGANƏ bölmə. Qalan hər şey sola dayandığı üçün
- * bu mərkəz defolt deyil, ziddiyyətdir — və ona görə işləyir. */
-.closing {
+/* ---- Bir dərsdən dörd material: yelpik ---- */
+.lesson-out { display: flex; flex-direction: column; gap: var(--space-6); }
+.lesson-out__head {
+  position: relative;
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--width-prose);
+}
+.lesson-out__lead { color: var(--color-text-muted); }
+.lesson-out__arrow {
+  position: absolute;
+  right: calc(var(--space-16) * -2);
+  bottom: calc(var(--space-6) * -1);
+  width: calc(var(--space-16) * 1.6);
+  stroke: var(--color-text);
+}
+.lesson-out .fan { padding-block: var(--space-8); }
+.lesson-out .fan__card h3 { font-size: var(--text-lg); font-weight: var(--weight-bold); }
+.lesson-out__kind {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
-  margin-top: var(--space-12);
-  padding: var(--space-16) var(--space-4);
-  text-align: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+/* ---- Footer = bağlanış (İlham: MotionSites «Playful Idea») ----
+ * Bir qara lövhə, üç sütun: keçidlər · brend və bayquş · çağırış.
+ * Telefonda alt-alta: bayquş, çağırış, keçidlər. */
+.landing-footer {
+  margin-top: var(--space-16);
+  border-top: 1px solid var(--color-border);   /* tünd rejimdə fondan ayrılsın */
+  padding-block: var(--space-16);
   background: var(--color-ink-surface);
   color: var(--color-on-ink);
 }
-.closing h2 { color: var(--color-on-ink); }
+.closing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-12);
+}
+.closing__links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.closing__links a { color: var(--color-on-ink-muted); text-decoration: none; font-weight: var(--weight-medium); }
+.closing__links a:hover { color: var(--color-on-ink); }
+.closing__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.closing__brand .brand { color: var(--color-on-ink); font-size: var(--text-2xl); }
+.closing__brand .brand__accent { color: var(--color-primary-on-ink); }
+.closing__mascot { --mascot-size: calc(var(--space-16) * 2); }
+.closing__cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-6);
+  text-align: right;
+}
+.closing__cta h2 { color: var(--color-on-ink); }
 
 /* ---- Sinif ekranı nümunəsi ----
  * Proyektor rejiminin (`.stage`) kiçildilmiş surəti: eyni qara səth,
@@ -473,19 +596,13 @@
   font-weight: var(--weight-bold);
 }
 .showcase__names li:last-child { background: var(--color-cta); color: var(--color-on-cta); }
-.closing h2 {
+.closing__cta h2 {
   font-size: var(--text-3xl);
   font-weight: var(--weight-black);
   letter-spacing: var(--tracking-tight);
   text-wrap: balance;
 }
 
-.landing-footer {
-  border-top: 1px solid var(--color-border);
-  padding: var(--space-8) 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
 
 @media (max-width: 768px) {
   /* Real render testində tapıldı: üç düymə 56px-lik zolağa sığmır,
@@ -515,8 +632,16 @@
   .audience { grid-template-columns: 1fr; gap: var(--space-8); }
   .steps    { padding-left: var(--space-4); gap: var(--space-6); }
   .step     { column-gap: var(--space-4); }
-  .closing  { padding-block: var(--space-8); }
-  .closing h2 { font-size: var(--text-2xl); }
+  .hero-peek { display: none; }
+  .trace__mascot { --mascot-size: var(--space-12); }
+  .trace__desk .trace__badge { right: calc(var(--space-6) + var(--space-12) + var(--space-2)); }
+  .lesson-out__arrow { display: none; }
+  .landing-footer { padding-block: var(--space-12); }
+  .closing { grid-template-columns: 1fr; gap: var(--space-8); justify-items: center; text-align: center; }
+  .closing__brand { order: 0; }
+  .closing__cta { order: 1; align-items: center; text-align: center; }
+  .closing__links { order: 2; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-4); }
+  .closing__cta h2 { font-size: var(--text-2xl); }
 }
 
 @media (max-width: 480px) {
