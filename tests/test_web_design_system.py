@@ -82,10 +82,11 @@ class TestTokensAreTheSingleSource:
         # `--pct` (xal dairəsinin faizi), `--btn-edge` (düymənin «3D»
         # zolağının rəngi, variant özü verir) də komponent parametrləridir:
         # JS/HTML inline `style` ilə ötürülür, sabit deyil. `--draw-delay`
-        # marker/əl oxunun nə vaxt çəkiləcəyidir (yeri özü verir).
+        # marker/əl oxunun nə vaxt çəkiləcəyidir (yeri özü verir),
+        # `--mascot-size` maskotun ölçüsüdür.
         local = {"--subject", "--progress", "--enter-order",
                  "--opt", "--quiz-accent", "--pct", "--btn-edge",
-                 "--draw-delay"}
+                 "--draw-delay", "--mascot-size"}
         undefined = used - token_names - local
         assert not undefined, f"{path.name}: təyin olunmamış token: {sorted(undefined)}"
 

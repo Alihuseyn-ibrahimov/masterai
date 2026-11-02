@@ -1867,3 +1867,76 @@ body.is-staged { overflow: hidden; }
   .fan__card { transition: none; }
   .scribble--draw path { animation: none; stroke-dashoffset: 0; }
 }
+
+/* ---- Maskot: eynəkli bayquş (2026-11-02) ----
+ * Forma `mascot.js`-dədir, rənglər burada. Ölçü `--mascot-size` ilə
+ * (defolt 64px). Vəziyyət `data-mascot`-dadır; hər vəziyyət yalnız öz
+ * hissələrini göstərir. Animasiyalar qısadır və «hərəkəti azalt»da yoxdur.
+ * Yaşıl bədən brend CTA rəngidir: maskot həm işıqlı, həm qara səthdə seçilir. */
+.mascot {
+  display: inline-block;
+  flex: none;
+  width: var(--mascot-size, var(--space-16));
+  aspect-ratio: 120 / 130;
+  line-height: 0;
+}
+.mascot svg { width: 100%; height: 100%; overflow: visible; }
+.mascot__body { fill: var(--color-cta); stroke: var(--color-ink-surface); stroke-width: 3; stroke-linejoin: round; }
+.mascot__wing { fill: var(--color-cta-edge); stroke: var(--color-ink-surface); stroke-width: 2.5; stroke-linejoin: round; }
+.mascot__belly { fill: var(--color-on-ink); }   /* iki rejimdə də açıq: accent-soft tünd rejimdə qəhvəyi olur */
+.mascot__feathers { fill: none; stroke: var(--color-accent-edge); stroke-width: 2; stroke-linecap: round; }
+.mascot__socket { fill: var(--color-on-ink); stroke: var(--color-ink-surface); stroke-width: 3; }
+.mascot__bridge { fill: none; stroke: var(--color-ink-surface); stroke-width: 3; stroke-linecap: round; }
+.mascot__pupil { fill: var(--color-ink-surface); transition: transform var(--motion-fast) linear; }
+.mascot__glint { fill: var(--color-on-ink); }
+.mascot__lids { fill: none; stroke: var(--color-ink-surface); stroke-width: 3.5; stroke-linecap: round; }
+.mascot__beak,
+.mascot__beak-open { fill: var(--color-accent); stroke: var(--color-ink-surface); stroke-width: 2; stroke-linejoin: round; }
+.mascot__extra { fill: var(--color-text); }   /* bayquşun xaricindədir: fonla dəyişir */
+.mascot__extra--sleep { fill: none; stroke: var(--color-text); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.mascot__look,
+.mascot__figure,
+.mascot__extra--sleep,
+.mascot__wing { transform-box: fill-box; transform-origin: center; }
+.mascot__wing--left { transform-origin: right top; }
+.mascot__wing--right { transform-origin: left top; }
+
+/* Hər vəziyyətdə görünməyən hissələr. */
+.mascot__lids,
+.mascot__beak-open,
+.mascot__extra { display: none; }
+.mascot[data-mascot="happy"] .mascot__look,
+.mascot[data-mascot="sleep"] .mascot__look { display: none; }
+.mascot[data-mascot="happy"] .mascot__lids--happy,
+.mascot[data-mascot="sleep"] .mascot__lids--sleep,
+.mascot[data-mascot="surprised"] .mascot__beak-open,
+.mascot[data-mascot="thinking"] .mascot__extra--thinking,
+.mascot[data-mascot="sleep"] .mascot__extra--sleep { display: inline; }
+.mascot[data-mascot="surprised"] .mascot__pupil { transform: scale(.6); transform-box: fill-box; transform-origin: center; }
+
+/* Qara səthdə (üst zolaq, hero, proyektor) qara kontur itir - ağ olur. */
+.mascot--on-ink .mascot__body,
+.mascot--on-ink .mascot__wing { stroke: var(--color-on-ink); }
+.mascot--on-ink .mascot__extra { fill: var(--color-on-ink); }
+.mascot--on-ink .mascot__extra--sleep { fill: none; stroke: var(--color-on-ink); }
+
+/* Hərəkət */
+.mascot[data-mascot="idle"] .mascot__look { animation: mascot-blink 6s infinite; }
+.mascot--react[data-mascot="happy"] .mascot__figure { animation: mascot-hop var(--motion-slow) var(--easing) 2; }
+.mascot--react[data-mascot="happy"] .mascot__wing--left { animation: mascot-wing-left var(--motion-slow) var(--easing) 2; }
+.mascot--react[data-mascot="happy"] .mascot__wing--right { animation: mascot-wing-right var(--motion-slow) var(--easing) 2; }
+.mascot--react[data-mascot="surprised"] .mascot__figure { animation: mascot-shake var(--motion-slow) var(--easing); }
+.mascot[data-mascot="thinking"] .mascot__extra--thinking circle { animation: mascot-dot 1.2s infinite; }
+.mascot[data-mascot="thinking"] .mascot__extra--thinking circle:nth-child(2) { animation-delay: .2s; }
+.mascot[data-mascot="thinking"] .mascot__extra--thinking circle:nth-child(3) { animation-delay: .4s; }
+.mascot[data-mascot="sleep"] .mascot__extra--sleep { animation: mascot-float 2.4s var(--easing) infinite; }
+@keyframes mascot-blink { 0%, 95%, 100% { transform: none; } 97% { transform: scaleY(.1); } }
+@keyframes mascot-hop { 0%, 100% { transform: none; } 40% { transform: translateY(-8%); } }
+@keyframes mascot-wing-left { 0%, 100% { transform: none; } 40% { transform: rotate(28deg); } }
+@keyframes mascot-wing-right { 0%, 100% { transform: none; } 40% { transform: rotate(-28deg); } }
+@keyframes mascot-shake { 0%, 100% { transform: none; } 20%, 60% { transform: rotate(-6deg); } 40%, 80% { transform: rotate(6deg); } }
+@keyframes mascot-dot { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes mascot-float { 0%, 100% { transform: none; opacity: 1; } 50% { transform: translateY(-30%); opacity: .5; } }
+@media (prefers-reduced-motion: reduce) {
+  .mascot *, .mascot__pupil { animation: none !important; transition: none; }
+}
