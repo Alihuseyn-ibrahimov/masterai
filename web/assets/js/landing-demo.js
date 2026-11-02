@@ -131,7 +131,7 @@ export function startQuestionDemo(doc = document, win = window) {
   if (!card || prefersReducedMotion(win)) return;
   const $ = (selector) => card.querySelector(selector);
   const options = [...card.querySelectorAll('.option')];
-  // Bir ✓ işarəsi düzgün varianta köçürülür. `hidden` atributu burada
+  // Bir «düzgün» işarəsi (i-check) düzgün varianta köçürülür. `hidden` atributu burada
   // İŞLƏMİR: `.option__mark` öz `display`-i ilə onu üstələyir (render-də
   // tutuldu - işarə köhnə variantda qalırdı).
   const mark = card.querySelector('.option__mark');
