@@ -136,23 +136,6 @@ li { list-style: none; }
    göründü. */
 .grid--start { align-items: start; }
 
-/* Statistika şəbəkəsi — mediapulse naxışı: geniş ekranda 4 sütun,
- * mobildə 2 (1 deyil — rəqəmlər qısadır, 1 sütun yer itirir). */
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
-}
-
-/* Tam ekran hündürlüyündə mərkəzləşmiş məzmun — giriş/qeydiyyat
- * kimi tək kartlı səhifələr üçün. */
-.page-centered {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-}
-
 /* Giriş/qeydiyyat/PIN formasının qutusu.
  *
  * REAL BUG İDİ: səhifələr `style="width: var(--width-form)"` yazırdı,
@@ -171,7 +154,6 @@ li { list-style: none; }
 
 @media (max-width: 768px) {
   .container   { padding: var(--space-4) var(--space-3); }
-  .metric-grid { grid-template-columns: repeat(2, 1fr); }
   h1 { font-size: var(--text-2xl); }
   h2 { font-size: var(--text-xl); }
 }

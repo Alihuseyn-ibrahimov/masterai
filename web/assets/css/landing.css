@@ -609,11 +609,6 @@
 
 
 @media (max-width: 768px) {
-  /* Real render testində tapıldı: üç düymə 56px-lik zolağa sığmır,
-     sarılıb brendin ÜSTÜNƏ çıxırdı. "PIN ilə qoşul" gizlədilir —
-     eyni keçid hero-da böyük düymə kimi onsuz da var, ona görə
-     itki yoxdur. */
-  .landing-bar__extra { display: none; }
   .landing-bar { padding: 0 var(--space-3); }
 
   .hero {
