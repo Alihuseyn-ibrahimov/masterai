@@ -2063,3 +2063,58 @@ body.is-staged { overflow: hidden; }
  * Lövhədə brendin üstündə. Girişdə səhv şifrədə təəccüblənir
  * (`auth-page.js`), abunə bitəndə (`bagli.html`) yatır. */
 .auth__mascot { --mascot-size: var(--space-16); display: block; margin: 0 auto var(--space-3); }
+
+/* ---- Dəftər qələmi tətbiqin içində (2026-11-02, plandan qalan iş) ----
+ * `.highlight` - fosforlu qələm xətti: sətirdən sətrə keçə bilir
+ * (`box-decoration-break`), ona görə uzun terminlərdə də işləyir.
+ * `.marker` kimi sarıdır, üstündə tünd mətn. */
+.highlight {
+  padding: 0 .15em;
+  background: linear-gradient(transparent 12%, var(--color-accent) 12%, var(--color-accent) 92%, transparent 92%);
+  color: var(--color-accent-ink);
+  -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+}
+
+/* Seçilmiş tab: düzbucaqlı «hap» əvəzinə marker zolağı (eyni maska).
+ * Rəngdən əlavə forma da dəyişir, ona görə seçim rəngə bağlı qalmır. */
+.tab[aria-selected="true"] {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.tab[aria-selected="true"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'%3E%3Cpath d='M2 7 Q25 3 50 4.5 T98 4 Q100 15 98.5 26 Q75 28.5 50 26.5 T1.5 27 Q0 16 2 7 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'%3E%3Cpath d='M2 7 Q25 3 50 4.5 T98 4 Q100 15 98.5 26 Q75 28.5 50 26.5 T1.5 27 Q0 16 2 7 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transform: rotate(-1deg);
+}
+
+/* Cari səhifə: fonun altında əl ilə çəkilmiş dalğalı xətt. */
+.app-nav__link[aria-current="page"],
+.bottom-nav__link[aria-current="page"] { position: relative; }
+.app-nav__link[aria-current="page"]::after,
+.bottom-nav__link[aria-current="page"]::after {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-1);
+  height: var(--space-2);
+  background: var(--color-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M2 6 Q20 2 38 5.5 T72 5 T98 4' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M2 6 Q20 2 38 5.5 T72 5 T98 4' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+/* Alt panel açıq səthdədir: sarı xətt orada görünmür, yaşıl olur. */
+.bottom-nav__link[aria-current="page"]::after {
+  left: 30%;
+  right: 30%;
+  bottom: var(--space-2);
+  background: var(--color-primary);
+}

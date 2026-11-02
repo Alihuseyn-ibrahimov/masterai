@@ -96,7 +96,10 @@ function section(title, icon, node, modifier) {
   const head = el('div', 'summary-block__head');
   const tile = el('span', 'summary-block__icon');
   tile.append(createIcon(icon));
-  head.append(tile, el('h3', '', title));
+  const heading = el('h3');
+  /* «Yadda saxla» başlığı dəftərdəki kimi marker ilə: səhifədə bir yer. */
+  heading.append(modifier === 'facts' ? el('span', 'marker', title) : title);
+  head.append(tile, heading);
   wrap.append(head, node);
   return wrap;
 }
@@ -119,7 +122,11 @@ export function renderSummary(content) {
     const terms = el('dl', 'summary-terms');
     for (const term of content.terms) {
       const row = el('div', 'summary-terms__row');
-      row.append(el('dt', '', term.term), el('dd', '', term.definition));
+      /* Termin fosforlu qələmlə xətt çəkilmiş kimi (`.highlight` sətirdən
+       * sətrə keçə bilir, `.marker` isə tək sözlükdür). */
+      const dt = el('dt');
+      dt.append(el('span', 'highlight', term.term));
+      row.append(dt, el('dd', '', term.definition));
       terms.append(row);
     }
     root.append(section('Açar terminlər', 'books', terms));
