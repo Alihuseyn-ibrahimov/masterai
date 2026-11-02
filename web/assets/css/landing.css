@@ -79,13 +79,10 @@
   letter-spacing: var(--tracking-tight);
   text-wrap: balance;
 }
-/* «AI» sarı vurğu zolağının üstündədir - səhifədə sarının ilk yeri. */
-.hero__accent {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-}
+/* «AI» sarı marker zolağının üstündədir - səhifədə sarının ilk yeri.
+ * Forma `.marker`-dədir (components.css), burada yalnız çəkilmə anı:
+ * başlıq blur-dan açılandan sonra. */
+.hero__title .marker { --marker-delay: 420ms; }
 .hero__lead {
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
@@ -158,18 +155,25 @@
   padding-left: var(--space-8);
   height: var(--space-12);
 }
-.trace__line {
+/* Material ilə sual arasındakı əl ilə çəkilmiş ox (əvvəl düz xətt idi):
+ * müəllimin lövhədə çəkdiyi ox kimi. `pathLength="1"` ilə çəkilmə
+ * `stroke-dashoffset` animasiyasıdır. */
+.trace__arrow {
   justify-self: center;
-  width: 2px;
+  width: var(--space-8);
   height: 100%;
-  background: var(--color-accent);
-  transform-origin: top;
+  overflow: visible;
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .trace__label {
   font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
-  color: var(--color-on-ink-muted);
+  color: var(--color-accent);
 }
 
 .trace__question {
@@ -216,17 +220,28 @@
   animation: hero-enter var(--motion-base) var(--easing) forwards;
   animation-delay: calc(var(--enter-order, 0) * var(--motion-fast));
 }
-.js-hero .trace__line {
-  transform: scaleY(0);
-  animation: trace-draw var(--motion-base) var(--easing) forwards;
+.js-hero .trace__arrow path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trace-draw 600ms var(--easing) forwards;
   animation-delay: calc(4 * var(--motion-fast));
 }
+/* Başlıq aşağıdan sürüşmür, yumşaq blur-dan «aydınlaşır» (İlham:
+ * MotionSites «Skyprompt»). Yalnız h1, bir dəfə. */
+.js-hero .hero__title[data-enter] {
+  transform: scale(1.04);
+  filter: blur(var(--space-2));
+  animation-name: hero-blur-in;
+  animation-duration: 700ms;
+}
 @keyframes hero-enter { to { opacity: 1; transform: none; } }
-@keyframes trace-draw { to { transform: scaleY(1); } }
+@keyframes hero-blur-in { to { opacity: 1; transform: none; filter: none; } }
+@keyframes trace-draw { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .js-hero [data-enter],
-  .js-hero .trace__line { animation: none; opacity: 1; transform: none; }
+  .js-hero .hero__title[data-enter] { animation: none; opacity: 1; transform: none; filter: none; }
+  .js-hero .trace__arrow path { animation: none; stroke-dashoffset: 0; }
 }
 
 /* ---- Canlı nümunələr (2026-11-02, landing-demo.js) ----

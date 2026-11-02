@@ -1774,3 +1774,37 @@ body.is-staged { overflow: hidden; }
 }
 .field__input--pin::placeholder { color: var(--color-text-faint); opacity: .45; letter-spacing: .25em; }
 .auth__body .form-shell { margin-inline: auto; }
+
+/* ---- Marker vurğusu (2026-11-02) ----
+ * Başlıqda bir açar söz kobud kənarlı sarı fırça zolağının üstündə -
+ * dəftərdə marker kimi. Hamar qutu QƏSDƏN deyil: o, hazır şablon
+ * görünüşü verir. Forma SVG maskadır (rəng tokendən gəlir, maska yalnız
+ * formadır), mətn zolağın üstündə qalır (`isolation`). `.marker--draw`
+ * zolağı bir dəfə soldan sağa çəkir; «hərəkəti azalt»da dərhal görünür.
+ * Qaydası: səhifədə bir-iki söz, cümlə yox. İlham: MotionSites «Skyprompt». */
+.marker {
+  position: relative;
+  isolation: isolate;
+  padding: 0 .18em;
+  color: var(--color-accent-ink);
+  white-space: nowrap;
+}
+.marker::before {
+  content: '';
+  position: absolute;
+  inset: .02em -.06em -.04em;
+  z-index: -1;
+  background: var(--color-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'%3E%3Cpath d='M2 7 Q25 3 50 4.5 T98 4 Q100 15 98.5 26 Q75 28.5 50 26.5 T1.5 27 Q0 16 2 7 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'%3E%3Cpath d='M2 7 Q25 3 50 4.5 T98 4 Q100 15 98.5 26 Q75 28.5 50 26.5 T1.5 27 Q0 16 2 7 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transform: rotate(-1.2deg);
+}
+.marker--draw::before {
+  clip-path: inset(0 100% 0 0);
+  animation: marker-draw 520ms var(--easing) forwards;
+  animation-delay: var(--marker-delay, 0ms);
+}
+@keyframes marker-draw { to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .marker--draw::before { animation: none; clip-path: none; }
+}

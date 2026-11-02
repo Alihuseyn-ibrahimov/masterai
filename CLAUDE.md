@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2077 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 355 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 355 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -439,6 +439,14 @@ və tab gizlənəndə dövrə dayanır. Başlığa ən uzun sözün hündürlüy
 verilir (yoxsa «davamiyyəti» sətir artırıb altını tullayırdı). `.option__mark`-ı `hidden`
 ilə gizlətmək İŞLƏMİR (öz `display`-i var) - işarə düzgün varianta köçürülür. Ümumi
 «aşağıdan sürüşərək görün» effekti QƏSDƏN yoxdur (əvvəl şablon əlaməti kimi silinmişdi).
+**Marker vurğusu + əl oxu (2026-11-02, MotionSites təkliflərindən):** `.marker`
+(components.css) kobud kənarlı sarı fırça zolağıdır: forma SVG MASKADIR, rəng
+`--color-accent`-dən; `.marker--draw` zolağı bir dəfə soldan sağa çəkir
+(`--marker-delay`), «hərəkəti azalt»da dərhal görünür. Açılışda «AI», «bu gün»,
+«oyun» sözlərindədir - qayda: səhifədə bir-iki söz, cümlə yox. Material ilə sual
+arasındakı düz xətt əl ilə çəkilmiş SVG oxa çevrildi (`pathLength="1"` +
+`stroke-dashoffset`). Hero başlığı sürüşmür, blur-dan aydınlaşır. Tələ: oxun
+yanındakı yazını uzatmaq telefonda seriya nişanının altına düşür - qısa qalmalıdır.
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
 vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -
