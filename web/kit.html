@@ -6,7 +6,7 @@
 <title>Komponent kataloqu - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
 </head>
 <body>
 <!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
@@ -169,6 +169,37 @@
         <p class="text-sm" style="color: var(--color-on-ink)">Qara səthdə <code>.mascot--on-ink</code>: kontur ağ olur.</p>
       </div>
     </div>
+    <h3>Tələbə ekranlarında</h3>
+    <div class="grid">
+      <div class="card stack">
+        <div class="verdict verdict--correct">
+          <span class="verdict__icon" aria-hidden="true"><svg class="icon icon--lg"><use href="assets/icons.svg#i-check"></use></svg></span>
+          <span class="stack stack--tight"><span class="verdict__title">Düzgün</span><span class="verdict__note">Davam et - növbəti sual gözləyir.</span></span>
+          <span class="mascot verdict__mascot" data-mascot="happy"></span>
+        </div>
+        <div class="row"><span class="xp-pop">+10 XP</span><span class="streak">3 ardıcıl düzgün</span></div>
+        <p class="text-xs text-muted"><code>reactToAnswer</code> (celebrate.js): səhvdə bayquş təəccüblənir, XP çipi gizlənir.</p>
+      </div>
+      <div class="card stack stack--center">
+        <span class="mascot finish__mascot" id="kit-finishMascot" data-mascot="idle"></span>
+        <div class="score-ring" id="kit-scoreRing"><div class="score-ring__inner"><span class="score-ring__value" id="kit-scoreRingValue">-</span></div></div>
+        <span class="xp-pop" id="kit-finishXp" hidden></span>
+        <p class="finish__line" id="kit-finishLine" hidden></p>
+        <div class="row" id="kitFinishButtons">
+          <button class="btn btn--secondary btn--sm" type="button" data-score="9">9/10</button>
+          <button class="btn btn--secondary btn--sm" type="button" data-score="6">6/10</button>
+          <button class="btn btn--secondary btn--sm" type="button" data-score="2">2/10</button>
+        </div>
+      </div>
+      <div class="card" id="kitEmpty"></div>
+    </div>
+    <section class="today-head">
+      <div class="stack stack--tight"><span class="today-greeting">Salam, Aysel</span><h1>Bu gün</h1></div>
+      <div class="today-head__buddy">
+        <p class="say">Bu gün +30 XP. Əla gedirsən!</p>
+        <span class="mascot today-head__mascot" data-mascot="happy"></span>
+      </div>
+    </section>
   </section>
 
   <section class="stack" id="bu-gun">
@@ -349,7 +380,8 @@
   import { bindSheet } from './assets/js/sheet.js';
   import { createIcon } from './assets/js/icon.js';
   import { setTheme } from './assets/js/theme.js';
-  import { mountMascots, setMascotState } from './assets/js/mascot.js';
+  import { createEmptyState, mountMascots, setMascotState } from './assets/js/mascot.js';
+  import { celebrateFinish } from './assets/js/celebrate.js';
 
   const options = ['1991', '1995', '2002', '2009', '2016'];
   renderSteps(document.getElementById('kitSteps'), { total: 7, currentIndex: 2 });
@@ -371,6 +403,15 @@
   document.getElementById('kitMascotButtons').addEventListener('click', (event) => {
     const state = event.target.closest('[data-state]')?.dataset.state;
     if (state) setMascotState(document.getElementById('kitMascot'), state);
+  });
+
+  document.getElementById('kitEmpty').append(createEmptyState({
+    title: 'Hələ tapşırıq yoxdur', text: 'Müəlliminiz tapşırıq təyin edəndə burada görünəcək.',
+  }));
+  const kitFinishRoot = { getElementById: (id) => document.getElementById(`kit-${id}`) };
+  document.getElementById('kitFinishButtons').addEventListener('click', (event) => {
+    const score = Number(event.target.closest('[data-score]')?.dataset.score);
+    if (score) celebrateFinish(kitFinishRoot, score, 10);
   });
 
   bindSheet(document.getElementById('kitSheet'), { openers: [document.getElementById('kitSheetOpen')] });

@@ -83,10 +83,11 @@ class TestTokensAreTheSingleSource:
         # zolağının rəngi, variant özü verir) də komponent parametrləridir:
         # JS/HTML inline `style` ilə ötürülür, sabit deyil. `--draw-delay`
         # marker/əl oxunun nə vaxt çəkiləcəyidir (yeri özü verir),
-        # `--mascot-size` maskotun ölçüsüdür.
+        # `--mascot-size` maskotun ölçüsüdür, `--cx`/`--cy`/`--cr` konfetti
+        # parçasının yönüdür (celebrate.js).
         local = {"--subject", "--progress", "--enter-order",
                  "--opt", "--quiz-accent", "--pct", "--btn-edge",
-                 "--draw-delay", "--mascot-size"}
+                 "--draw-delay", "--mascot-size", "--cx", "--cy", "--cr"}
         undefined = used - token_names - local
         assert not undefined, f"{path.name}: təyin olunmamış token: {sorted(undefined)}"
 

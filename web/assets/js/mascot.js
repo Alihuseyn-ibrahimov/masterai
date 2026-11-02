@@ -148,3 +148,28 @@ export function mountMascots(doc = document, win = window) {
   doc.querySelectorAll('[data-mascot]').forEach(renderMascot);
   return followPointer(doc, win);
 }
+
+/**
+ * Boş siyahı: yatan bayquş + başlıq + izah (Faza 4). Əvvəl hər səhifə öz
+ * `state__icon` ikonunu `innerHTML` ilə yazırdı. Mətn `textContent` ilə
+ * gedir, bayquş dərhal çəkilir (ayrıca `mountMascots` lazım deyil).
+ */
+export function createEmptyState({ title, text = '', state = 'sleep' }, doc = document) {
+  const box = doc.createElement('div');
+  box.className = 'state';
+  const mascot = doc.createElement('span');
+  mascot.className = 'mascot state__mascot';
+  mascot.dataset.mascot = state;
+  renderMascot(mascot);
+  const heading = doc.createElement('div');
+  heading.className = 'state__title';
+  heading.textContent = title;
+  box.append(mascot, heading);
+  if (text) {
+    const hint = doc.createElement('div');
+    hint.className = 'state__text';
+    hint.textContent = text;
+    box.append(hint);
+  }
+  return box;
+}

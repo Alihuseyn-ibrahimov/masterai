@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 363 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 376 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-02-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -470,6 +470,17 @@ sağ üst küncdə bayquş: demo düzgün cavabı açanda sevinir (`data-demo-ma
 Yeni bölmə «Bir dərsdən dörd material» `.fan` ilədir. Bağlanış footer-ə köçdü:
 keçidlər · bayquş + brend · çağırış (Playful Idea kompozisiyası). axe 0 xəta
 (1280/390, işıqlı/tünd).
+**Faza 4 - tələbə ekranlarında bayquş:** boş siyahılar (`tapsiriqlar`, `tarixce`,
+`xulaseler`, `dersler`, `chatlar`) yatan bayquşu `mascot.js::createEmptyState` ilə çəkir
+(`state__icon` + `innerHTML` artıq yoxdur). Quiz reaksiyası `celebrate.js`-dədir, üç ekran
+üçün ORTAQDIR (`tapsiriq`, `sessiya`, `qosul` via `live-play-screen.js`): nəticə blokunda
+bayquş sevinir/təəccüblənir, düzgündə «+10 XP» atılır; yekun kartda xal 0-dan sayılır,
+bayquş faizə görə reaksiya verir (80%+ konfetti, <50% sakit təşviq). XP qaydası
+`today.js::XP_PER_CORRECT`-dən idxal olunur - «Bu gün» kartı ilə eyni mənbə. Qonaq
+(`qosul`) ekranında XP YOXDUR: nəticəsi tarixçəyə düşmür. «Bu gün» başlığında bayquş +
+bir cümlə (`today.js::mascotLine`: bu günkü XP → gözləyən tapşırıq → seriya → salam).
+Konfetti yönü `--cx/--cy/--cr` yerli dəyişənləridir; «hərəkəti azalt»da sayğac dərhal
+son rəqəmi yazır, konfetti çəkilmir.
 
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və

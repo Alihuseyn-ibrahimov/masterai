@@ -163,3 +163,21 @@ export function ageText(ageDays) {
   if (ageDays === 1) return 'Dünən';
   return `${ageDays} gün əvvəl`;
 }
+
+/* Bayquşun «Bu gün»dəki cümləsi (Faza 4). Bir cümlə, ən faydalı xəbər:
+ * bu günkü XP → gözləyən tapşırıq → seriya → ümumi salam. Tapşırıq adı
+ * müəllimin mətnidir: ekrana textContent ilə yazılır, burada yalnız
+ * uzunluğu kəsilir ki, nitq qutusu iki sətri aşmasın. */
+const SAY_TITLE_MAX = 40;
+
+export function mascotLine({ isTeacher = false, todayXp = 0, streak = 0, next = null } = {}) {
+  if (isTeacher) return { state: 'idle', text: 'Dərsi siz keçin, konspekt və quizi mən hazırlayım.' };
+  if (todayXp > 0) return { state: 'happy', text: `Bu gün +${todayXp} XP. Əla gedirsən!` };
+  if (next && next.title) {
+    const title = String(next.title);
+    const short = title.length > SAY_TITLE_MAX ? `${title.slice(0, SAY_TITLE_MAX - 1).trimEnd()}…` : title;
+    return { state: 'idle', text: `«${short}» səni gözləyir.` };
+  }
+  if (streak > 0) return { state: 'idle', text: `${streak} günlük seriyanı bu gün də davam etdir.` };
+  return { state: 'idle', text: 'Bu gün nə öyrənirik?' };
+}

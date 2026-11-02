@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
 </head>
 <body>
 <header id="appBar"></header>
@@ -102,6 +102,7 @@
   import { getUser, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createIcon } from './assets/js/icon.js';
+  import { createEmptyState } from './assets/js/mascot.js';
   import { formatCode, isCompleteCode, normalizeCode } from './assets/js/invite-code.js';
   import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
 
@@ -117,20 +118,11 @@
     const isOwner = (chat) => Boolean(chat.invite_code);
 
     function emptyState() {
-      const state = document.createElement('div');
-      state.className = 'state';
-      const iconWrap = document.createElement('div');
-      iconWrap.className = 'state__icon';
-      iconWrap.append(createIcon('message'));
-      const title = document.createElement('div');
-      title.className = 'state__title';
-      title.textContent = 'Hələ çatınız yoxdur';
-      const hint = document.createElement('div');
-      hint.className = 'state__text';
-      hint.textContent = 'Müəlliminizin verdiyi dəvət kodu ilə «Koda görə qoşul» '
-        + 'düyməsindən istək göndərin və ya yeni qrup çatı yaradın.';
-      state.append(iconWrap, title, hint);
-      return state;
+      return createEmptyState({
+        title: 'Hələ çatınız yoxdur',
+        text: 'Müəlliminizin verdiyi dəvət kodu ilə «Koda görə qoşul» '
+          + 'düyməsindən istək göndərin və ya yeni qrup çatı yaradın.',
+      });
     }
 
     /** Kartın başlıq sətri - çat səhifəsinə keçid. AYRICA <a>-dır,

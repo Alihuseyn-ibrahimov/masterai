@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
 </head>
 <body>
 <header id="appBar"></header>
@@ -41,6 +41,7 @@
 
 <script type="module">
   import { request } from './assets/js/api.js';
+  import { createEmptyState } from './assets/js/mascot.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
   import { readingMinutes, summaryStats } from './assets/js/summary.js';
@@ -51,9 +52,10 @@
     function renderSummaries(container, summaries) {
       container.innerHTML = '';
       if (!summaries.length) {
-        container.innerHTML = '<div class="state"><div class="state__icon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-file-text"></use></svg></div>'
-          + '<div class="state__title">Xülasə yoxdur</div>'
-          + '<div class="state__text">Müəlliminiz dərs xülasəsini çata dərc edəndə burada görünəcək.</div></div>';
+        container.replaceChildren(createEmptyState({
+          title: 'Xülasə yoxdur',
+          text: 'Müəlliminiz dərs xülasəsini çata dərc edəndə burada görünəcək.',
+        }));
         return;
       }
       /* 2026-10-31: kart bütövlükdə linkdir - fənn nişanı, başlıq, girişin

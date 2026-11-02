@@ -6,7 +6,7 @@
 <title>Bu gün - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax `assets/js/theme.js`). -->
 <script>
   try {
@@ -14,16 +14,23 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
 </head>
 <body>
 <header id="appBar"></header>
 <div class="container app-shell stack stack--loose">
-  <section class="stack stack--tight">
-    <span class="today-greeting" id="greeting">Salam</span>
-    <h1>Bu gün</h1>
+  <section class="today-head">
+    <div class="stack stack--tight">
+      <span class="today-greeting" id="greeting">Salam</span>
+      <h1>Bu gün</h1>
+    </div>
+    <!-- Bayquş + bir cümlə (Faza 4). Cümlə mətndir, bayquş bəzəkdir. -->
+    <div class="today-head__buddy">
+      <p class="say" id="mascotSay" hidden></p>
+      <span class="mascot today-head__mascot" id="todayMascot" data-mascot="idle"></span>
+    </div>
   </section>
 
   <div id="hero"></div>
@@ -42,8 +49,16 @@
   import { subjectColorVar, subjectLabel } from './assets/js/subjects.js';
   import {
     WEEKLY_GOAL_XP, ageText, earnedCount, freshSummary, goalPercent, greeting, heroAction, heroLesson, teacherHeroAction,
-    nextBadge, nextHomework, streakDays, xpSince,
+    mascotLine, nextBadge, nextHomework, streakDays, xpSince,
   } from './assets/js/today.js';
+  import { mountMascots, setMascotState } from './assets/js/mascot.js';
+
+  function say(line) {
+    const bubble = document.getElementById('mascotSay');
+    bubble.textContent = line.text;
+    bubble.hidden = !line.text;
+    setMascotState(document.getElementById('todayMascot'), line.state);
+  }
 
   /* Kiçik DOM köməkçisi. İstifadəçi/server mətni HƏMİŞƏ textContent
      ilə yazılır (innerHTML yox). */
@@ -163,6 +178,7 @@
     container.append(el('p', 'text-xs text-faint', 'Hər düzgün cavab 10 XP. Seriya - ardıcıl məşq etdiyiniz günlər.'));
 
     const next = nextHomework(sortByUrgency(assignments || [], today));
+    say(mascotLine({ todayXp: xpSince(history, today, 1), streak, next }));
     const homeworkSection = el('section');
     homeworkSection.append(sectionTitle('Növbəti tapşırıq', 'Hamısı', 'tapsiriqlar.html'));
     if (next) {
@@ -268,6 +284,8 @@
     const user = getUser() || {};
     const isTeacher = Boolean(user.is_teacher);
     document.getElementById('greeting').textContent = greeting(user.display_name);
+    mountMascots();
+    if (isTeacher) say(mascotLine({ isTeacher }));
 
     loadInto(document.getElementById('hero'), () => request('/me/lessons'),
       (box, lessons) => renderHero(box, lessons, isTeacher));
