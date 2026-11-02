@@ -6,7 +6,7 @@
 <title>Bu gün - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102i" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102k" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax `assets/js/theme.js`). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102i">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102i">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102i">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102k">
 </head>
 <body>
 <header id="appBar"></header>
@@ -24,7 +24,7 @@
   <section class="today-head">
     <div class="stack stack--tight">
       <span class="today-greeting" id="greeting">Salam</span>
-      <h1>Bu gün</h1>
+      <h1><span class="marker marker--draw">Bu gün</span></h1>
     </div>
     <!-- Bayquş + bir cümlə (Faza 4). Cümlə mətndir, bayquş bəzəkdir. -->
     <div class="today-head__buddy">
@@ -160,6 +160,37 @@
     return wrap;
   }
 
+  /* Açılışdakı «Bir dərsdən dörd material» yelpiyinin tətbiqdəki
+     qarşılığı: başlıq + əl ilə çəkilmiş ox + keçid kartları. Kart
+     bütövlükdə linkdir. Ox QƏSDƏN çəkilmə animasiyasız: məzmun sorğudan
+     sonra gəlir və yarımçıq çəkilmiş ox iki nöqtə kimi görünürdü. */
+  function desk(title, cards) {
+    const section = el('section', 'desk');
+    const head = el('div', 'desk__head');
+    head.append(el('h2', '', title));
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'scribble desk__arrow');
+    svg.setAttribute('viewBox', '0 0 120 60');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('pathLength', '1');
+    path.setAttribute('d', 'M6 10 C 40 4, 72 18, 98 46 M98 46 L 85 45 M98 46 L 97 33');
+    svg.append(path);
+    head.append(svg);
+    const fan = el('div', 'fan');
+    for (const card of cards) {
+      const link = el('a', 'fan__card card stack stack--tight');
+      link.href = card.href;
+      const kind = el('span', 'desk__kind');
+      kind.append(createIcon(card.icon), document.createTextNode(card.kind));
+      link.append(kind, el('h3', '', card.title), el('p', 'text-sm text-muted', card.text));
+      fan.append(link);
+    }
+    section.append(head, fan);
+    return section;
+  }
+
   function renderStudent(container, data) {
     const [history, assignments, badges, summaries] = data;
     const today = todayIso();
@@ -168,7 +199,7 @@
     const streak = streakDays(history, today);
     const weekXp = xpSince(history, today, 7);
     const pct = goalPercent(weekXp);
-    const tiles = el('div', 'tiles');
+    const tiles = el('div', 'tiles tiles--notes');
     tiles.append(tile(iconTile('flame', 'flame'), `${streak} gün`, 'Seriya'));
     tiles.append(tile(iconTile('bolt', 'xp'), `+${xpSince(history, today, 1)}`, 'Bu gün XP'));
     const ring = el('span', 'goal-ring');
@@ -218,6 +249,18 @@
       summarySection.append(card);
       container.append(summarySection);
     }
+
+    const open = (assignments || []).filter((row) => row.status !== 'tamamlanıb').length;
+    container.append(desk('Dəftərim', [
+      { icon: 'notes', kind: 'Konspekt', title: `${(summaries || []).length} konspekt`,
+        text: 'Müəllimin dərsdən sonra dərc etdiyi qısa qeydlər.', href: 'xulaseler.html' },
+      { icon: 'target', kind: 'Tapşırıq', title: `${open} açıq tapşırıq`,
+        text: 'Öz sürətinlə həll et, vaxt limiti yoxdur.', href: 'tapsiriqlar.html' },
+      { icon: 'message', kind: 'AI tutor', title: '«Bəs istisna nədir?»',
+        text: 'Keçilmiş dərslərdən soruş, cavab mənbə ilə gəlir.', href: 'tutor.html' },
+      { icon: 'chart-bar', kind: 'Tarixçə', title: `${(history || []).length} nəticə`,
+        text: 'Canlı sessiya və ev tapşırığı nəticələrin bir yerdə.', href: 'tarixce.html' },
+    ]));
 
     const described = BADGES.map((badge) => describeBadge(
       (badges || []).find((row) => row.badge_type === badge.key) || { badge_type: badge.key, earned: false },
@@ -278,7 +321,7 @@
     container.innerHTML = '';
     const sets = (summary && summary.question_sets) || {};
     const homework = (summary && summary.homework) || {};
-    const tiles = el('div', 'tiles');
+    const tiles = el('div', 'tiles tiles--notes');
     tiles.append(tile(iconTile('books', 'xp'), String(sets.ready || 0), 'Hazır sual bankı'));
     tiles.append(tile(iconTile('notes', 'flame'), String(homework.active || 0), 'Aktiv tapşırıq'));
     tiles.append(tile(iconTile('refresh', 'xp'), String(sets.processing || 0), 'Hazırlanan bank'));
@@ -296,21 +339,16 @@
       container.append(section);
     }
 
-    const actions = el('section');
-    actions.append(sectionTitle('Sürətli hərəkətlər'));
-    const grid = el('div', 'quick-actions');
-    for (const [label, href, cls] of [
-      ['Dərs planla', 'dersler.html#yeni', 'btn--primary'],
-      ['Quiz yarat', 'muellim.html', 'btn--accent'],
-      ['Canlı quiz sessiyası', 'sessiyalar.html', 'btn--secondary'],
-      ['Hesabatlar', 'hesabatlar.html', 'btn--secondary'],
-    ]) {
-      const link = el('a', `btn ${cls} btn--block`, label);
-      link.href = href;
-      grid.append(link);
-    }
-    actions.append(grid);
-    container.append(actions);
+    container.append(desk('Sürətli hərəkətlər', [
+      { icon: 'presentation', kind: 'Dərs', title: 'Dərs planla',
+        text: 'Onlayn və ya sinifdə. Tələbələr çatda xəbər alır.', href: 'dersler.html#yeni' },
+      { icon: 'target', kind: 'Quiz', title: 'Quiz yarat',
+        text: 'Material yüklə, AI sualları hazırlasın.', href: 'muellim.html' },
+      { icon: 'bolt', kind: 'Canlı', title: 'Canlı quiz',
+        text: 'Proyektorda PIN, tələbələr telefondan qoşulur.', href: 'sessiyalar.html' },
+      { icon: 'chart-bar', kind: 'Hesabat', title: 'Hesabatlar',
+        text: 'Kim başlayıb, kim bitirib, hansı sual çətin olub.', href: 'hesabatlar.html' },
+    ]));
     renderJoinCode(container, course);
   }
 

@@ -6,7 +6,7 @@
 <title>Komponent kataloqu - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102i" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102k" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102i">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102i">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102i">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102k">
 </head>
 <body>
 <!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
@@ -139,6 +139,18 @@
         <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Davamiyyət</span><p class="text-sm">QR ilə 16 / 18 tələbə.</p></div>
         <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">AI tutor</span><p class="text-sm">«Bəs istisna nədir?» [1]</p></div>
       </div>
+    </div>
+    <div class="card stack">
+      <p>Tətbiqdə: <code>.desk</code> (başlıq + ox + keçid kartları, «Bu gün»dəki «Dəftərim») və qeyd kağızı kimi xanalar (<code>.tiles--notes</code>). Tətbiq səhifəsinin fonu nöqtəli vərəqdir, <code>h1</code>-in altında əl xətti var.</p>
+      <section class="desk">
+        <div class="desk__head"><h2>Dəftərim</h2>
+          <svg class="scribble desk__arrow" viewBox="0 0 120 60" aria-hidden="true"><path pathLength="1" d="M6 10 C 40 4, 72 18, 98 46 M98 46 L 85 45 M98 46 L 97 33"/></svg>
+        </div>
+        <div class="fan">
+          <a class="fan__card card stack stack--tight" href="#defter"><span class="desk__kind"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-notes"></use></svg>Konspekt</span><h3>3 konspekt</h3><p class="text-sm text-muted">Müəllimin dərc etdiyi qeydlər.</p></a>
+          <a class="fan__card card stack stack--tight" href="#defter"><span class="desk__kind"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-message"></use></svg>AI tutor</span><h3>«Bəs istisna nədir?»</h3><p class="text-sm text-muted">Cavab mənbə ilə gəlir.</p></a>
+        </div>
+      </section>
     </div>
   </section>
 

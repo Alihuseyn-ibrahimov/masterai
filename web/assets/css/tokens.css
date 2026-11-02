@@ -114,7 +114,6 @@
 
   /* ---- Brend ---- */
   --color-primary:            #157A35;
-  --color-primary-hover:      #0F6229;
   --color-primary-soft:       #DDF7DF;
   --color-on-primary:         #FFFFFF;
 
@@ -163,9 +162,6 @@
   --color-danger-soft:        #FFDFD9;
   --color-info:               #3B4250;
   --color-info-soft:          #E6EAF0;
-
-  --color-mark:               #7A5600;
-  --color-mark-soft:          #FFF3C4;
 
   /* ---- Fənn rəngləri: PASTEL doldurma, üstündə TÜND mətn ----
    * Əvvəl kənar xətti və mətn rəngi idi; indi çip və hərf nişanı
@@ -264,7 +260,6 @@
   --leading-tight:  1.2;
   --leading-normal: 1.55;
 
-  --weight-normal:   400;
   --weight-medium:   500;
   --weight-semibold: 600;
   --weight-bold:     700;
@@ -302,7 +297,6 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --color-primary:       #6FDB7E;
-    --color-primary-hover: #8DE69A;
     --color-primary-soft:  #0F3718;
     --color-on-primary:    #04120A;
 
@@ -344,8 +338,6 @@
     --color-danger-soft:  #4F1A17;
     --color-info:         #B9C0CC;
     --color-info-soft:    #232935;
-    --color-mark:         #FFD32E;
-    --color-mark-soft:    #3A2E05;
 
     --subject-mentiq:          #FC9E47;
     --subject-informatika:     #B298F9;
@@ -370,7 +362,6 @@
 
 [data-theme="dark"] {
   --color-primary:       #6FDB7E;
-  --color-primary-hover: #8DE69A;
   --color-primary-soft:  #0F3718;
   --color-on-primary:    #04120A;
 
@@ -412,8 +403,6 @@
   --color-danger-soft:  #4F1A17;
   --color-info:         #B9C0CC;
   --color-info-soft:    #232935;
-  --color-mark:         #FFD32E;
-  --color-mark-soft:    #3A2E05;
 
   --subject-mentiq:          #FC9E47;
   --subject-informatika:     #B298F9;

@@ -2118,3 +2118,84 @@ body.is-staged { overflow: hidden; }
   bottom: var(--space-2);
   background: var(--color-primary);
 }
+
+/* ---- Hesabın içi açılış kimi: dəftər vərəqi (2026-11-02) ----
+ * İstifadəçi: «açılış qəşəngdir, hesabın içi çox sadə görünür». Açılışın
+ * üç əlaməti bütün daxili səhifələrə keçir, hər səhifəyə ayrıca yazmadan:
+ * 1) nöqtəli vərəq fonu (açılış hero-su ilə eyni nöqtə, `.hero-band`);
+ * 2) səhifə başlığının altında əl ilə çəkilmiş sarı xətt;
+ * 3) «Bu gün»də başlıq marker ilə, keçidlər kart yelpiyində (`.fan`).
+ * Fon `body:has(> #appBar)`-dadır: üst zolağı olan hər səhifə tətbiq
+ * səhifəsidir, açılış və giriş öz fonunu saxlayır. */
+body:has(> #appBar) {
+  background:
+    radial-gradient(circle, var(--color-border) 1px, transparent 1.5px) 0 0 / var(--space-6) var(--space-6),
+    var(--color-bg);
+}
+.app-shell h1::after {
+  content: '';
+  display: block;
+  width: min(5em, 100%);
+  height: var(--space-2);
+  margin-top: var(--space-1);
+  background: var(--color-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M2 6 Q20 2 38 5.5 T72 5 T98 4' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") left center / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M2 6 Q20 2 38 5.5 T72 5 T98 4' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") left center / 100% 100% no-repeat;
+}
+/* Marker olan başlıqda xətt artıqdır: vurğu bir dəfə verilir. */
+.app-shell h1:has(.marker)::after { display: none; }
+
+/* Göstərici xanalar dəftərə yapışdırılmış qeyd kağızları kimi azca
+ * əyilir; üstünə gələndə düzlənir. Telefonda (alt-alta) əyilmə yoxdur. */
+.tiles--notes .tile { transition: transform var(--motion-base) var(--easing); }
+.tiles--notes .tile:nth-child(1) { transform: rotate(-1.2deg); }
+.tiles--notes .tile:nth-child(2) { transform: rotate(.8deg) translateY(var(--edge-pressed)); }
+.tiles--notes .tile:nth-child(3) { transform: rotate(-.6deg); }
+.tiles--notes .tile:hover { transform: none; }
+@media (max-width: 600px) {
+  .tiles--notes .tile:nth-child(n) { transform: none; }
+}
+
+/* Açılışdakı «Bir dərsdən dörd material» bölməsinin tətbiqdəki qarşılığı:
+ * başlıq + əl oxu + keçid kartları yelpikdə. */
+.desk { display: flex; flex-direction: column; gap: var(--space-2); }
+.desk__head { position: relative; display: flex; align-items: flex-end; gap: var(--space-3); }
+.desk__head h2 { margin: 0; }
+.desk__arrow {
+  width: calc(var(--space-16) * 1.2);
+  height: var(--space-12);
+  flex-shrink: 0;
+  stroke: var(--color-text);
+}
+.desk .fan { padding-block: var(--space-6) var(--space-8); }
+.desk .fan__card { color: var(--color-text); text-decoration: none; gap: var(--space-2); }
+.desk .fan__card:hover { text-decoration: none; border-color: var(--color-border-strong); }
+.desk .fan__card h3 { font-size: var(--text-lg); font-weight: var(--weight-black); margin: 0; }
+.desk__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+.desk__kind .icon { color: var(--color-primary); }
+@media (max-width: 600px) {
+  .desk__arrow { display: none; }
+  .desk .fan { padding-block: var(--space-3) 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiles--notes .tile { transition: none; }
+}
+/* Tətbiqdə kartlar oxunmalıdır: açılışdakından az minir və az əyilir. */
+.desk .fan__card { margin-inline: calc(var(--space-1) * -1); }
+.desk .fan__card:nth-child(1) { transform: rotate(-4deg) translateY(var(--space-2)); }
+.desk .fan__card:nth-child(2) { transform: rotate(-1.5deg); }
+.desk .fan__card:nth-child(3) { transform: rotate(1.5deg); }
+.desk .fan__card:nth-child(4) { transform: rotate(4deg) translateY(var(--space-2)); }
+.desk .fan__card:hover,
+.desk .fan__card:focus-visible { z-index: 1; transform: translateY(calc(var(--space-2) * -1)); }
+@media (max-width: 600px) {
+  .desk .fan__card:nth-child(n) { margin: 0; transform: none; }
+}
