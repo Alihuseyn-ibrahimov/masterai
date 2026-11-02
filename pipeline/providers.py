@@ -32,6 +32,17 @@ AI_TEMPERATURE = float(os.environ.get("AI_TEMPERATURE", "0.5"))
 VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL", "").rstrip("/")
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "masterai-mcq")
 VLLM_TIMEOUT = float(os.environ.get("VLLM_TIMEOUT", "90"))
+
+# Hər provayder çağırışının vaxt limiti və SDK-nın öz təkrar cəhd sayı
+# (2026-11-02, produksiyada bank 6+ dəqiqə «hazırlanır»da qaldı). SDK
+# defoltları fallback zəncirini mənasız edirdi: Anthropic-də 600 saniyə,
+# hər ikisində 2 təkrar (429-da `retry-after` qədər gözləməklə). Yəni bir
+# chunk Groq-da dəqiqələrlə ilişə bilərdi, Claude-a keçid gec gəlirdi.
+# İndi: bir təkrar, sonra növbəti provayder; zəncirin özü ehtiyatdır.
+GROQ_TIMEOUT = 60.0
+CLAUDE_TIMEOUT = 120.0
+OLLAMA_TIMEOUT = 60.0
+SDK_MAX_RETRIES = 1
 VLLM_MAX_TOKENS = int(os.environ.get("VLLM_MAX_TOKENS", "2048"))
 
 KNOWN_PROVIDERS = ("vllm", "groq", "claude", "ollama")
@@ -123,7 +134,9 @@ def build_completers() -> dict[str, Completer]:
 def _groq_completer(model: str) -> Completer:
     import groq
 
-    client = groq.Groq(api_key=os.environ["GROQ_API_KEY"])
+    client = groq.Groq(
+        api_key=os.environ["GROQ_API_KEY"], timeout=GROQ_TIMEOUT, max_retries=SDK_MAX_RETRIES,
+    )
 
     def complete(system: str, user: str) -> str:
         resp = client.chat.completions.create(
@@ -142,7 +155,9 @@ def _groq_completer(model: str) -> Completer:
 def _claude_completer(model: str) -> Completer:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(
+        api_key=os.environ["ANTHROPIC_API_KEY"], timeout=CLAUDE_TIMEOUT, max_retries=SDK_MAX_RETRIES,
+    )
 
     def complete(system: str, user: str) -> str:
         # `temperature` QƏSDƏN yoxdur: Claude Sonnet 5 / Opus 5 və 4.7+
@@ -168,7 +183,7 @@ def _claude_completer(model: str) -> Completer:
 def _ollama_completer(model: str, host: str) -> Completer:
     import ollama
 
-    client = ollama.Client(host=host)
+    client = ollama.Client(host=host, timeout=OLLAMA_TIMEOUT)
 
     def complete(system: str, user: str) -> str:
         resp = client.chat(

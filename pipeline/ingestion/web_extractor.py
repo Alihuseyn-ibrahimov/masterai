@@ -18,6 +18,7 @@ logger = logging.getLogger("masterai.pipeline.web_extractor")
 # (konkret sayt strukturuna bağlı olmadan) gözləyir.
 _JS_READY_TIMEOUT_SECONDS = 25.0
 _JS_POLL_INTERVAL_SECONDS = 1.0
+_PAGE_LOAD_TIMEOUT_SECONDS = 45
 # Real testdə (e-qanun.az) tapılıb: bəzi SPA-lar ƏVVƏLCƏ kiçik bir
 # "qabıq" (başlıq/status/düymə) göstərir, əsl sənəd mətni isə bir qədər
 # GECİKMƏ ilə (ayrıca API sorğusu) gəlir — "ardıcıl 2 ölçmə dəyişmirsə
@@ -186,9 +187,19 @@ def _start_driver(factory, sleeper=time.sleep):
 def _download_js_rendered(url: str) -> str:
     from selenium import webdriver
 
+    from selenium.common.exceptions import TimeoutException
+
     driver = _start_driver(webdriver.Chrome)
     try:
-        driver.get(url)
+        # Selenium-un defolt səhifə yükləmə limiti 300 saniyədir: asılı
+        # qalan reklam/analitika skripti bütün bankı dəqiqələrlə saxlayırdı.
+        # Limit keçəndə səhifə dayandırılır, yüklənmiş hissə oxunur.
+        driver.set_page_load_timeout(_PAGE_LOAD_TIMEOUT_SECONDS)
+        try:
+            driver.get(url)
+        except TimeoutException:
+            logger.warning("page_load_timeout url=%s", url)
+            driver.execute_script("window.stop();")
         _wait_for_page_ready(driver)
         removed = driver.execute_script(_REMOVE_LINE_THROUGH_JS)
         if removed:
