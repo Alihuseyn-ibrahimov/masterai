@@ -58,6 +58,9 @@ class MeCourseInfo(BaseModel):
     days_left: int | None
     is_open: bool
     profile: str
+    # Tələbənin qeydiyyatda yazdığı kod. YALNIZ müəllimə qaytarılır (tələbədə
+    # `None`): kodu bilən istənilən adam kursa tələbə kimi qeydiyyatdan keçir.
+    join_code: str | None = None
 
 
 class AuthResponse(BaseModel):
