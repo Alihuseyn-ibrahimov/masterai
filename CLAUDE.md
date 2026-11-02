@@ -497,6 +497,7 @@ teqləri; `region`/`landmark-one-main` best-practice-dir və tətbiq səhifələ
 yoxdur) 23 səhifə × 1280/390 × işıqlı/tünd × anonim/tələbə/müəllim: tapıntı yalnız Faza 3-ün
 reqressiyası idi - hüquqi səhifələrin footer-i qara oldu, yaşıl link 3.5 kontrast verdi
 (`.landing-footer a:not(.btn)`). Təkrar işdə 0.
+**Plandan qalan: dəftər qələmi tətbiqin içində (2026-11-02):** seçilmiş tab (`dersim.html`) artıq sarı «hap» deyil, `.marker` maskası ilə fırça zolağıdır; menyuda cari bölmənin altında əl ilə çəkilmiş dalğalı xətt var (üst zolaqda sarı, açıq alt paneldə `--color-primary`). Konspektdə termin `.highlight`-dadır (fosforlu qələm, `box-decoration-break: clone` - `.marker` `nowrap`-dır və uzun termini telefonda daşırardı), «Yadda saxla» başlığı `.marker`. axe 0 (`bugun`, `dersim`, `xulase`; 1280/390, işıqlı/tünd).
 
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
