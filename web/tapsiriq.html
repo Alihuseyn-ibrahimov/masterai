@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
      səhifə yüklənişində 404 yaranır (render testində görüldü). -->
-<link rel="icon" href="assets/icon.svg?v=20261102e" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102f" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
      NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
      çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
@@ -20,9 +20,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102e">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102e">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102f">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102f">
 </head>
 <body>
 <header id="appBar"></header>
@@ -69,8 +69,9 @@
           <span class="verdict__title" id="verdictTitle"></span>
           <span class="verdict__note" id="verdictNote"></span>
         </span>
+        <span class="mascot verdict__mascot" id="verdictMascot" data-mascot="idle"></span>
       </div>
-      <div class="row"><span class="streak" id="streak" hidden></span></div>
+      <div class="row"><span class="xp-pop" id="xpPop" hidden></span><span class="streak" id="streak" hidden></span></div>
       <!-- Sual mətni geri bildirimdə TƏKRARLANIR: izah suala istinad
            edir, sual isə artıq ekrandan getmişdi. -->
       <p class="text-sm text-muted" id="feedbackQuestion"></p>
@@ -81,12 +82,15 @@
     </div>
 
     <div class="card stack stack--center" id="doneCard" hidden>
+      <span class="mascot finish__mascot" id="finishMascot" data-mascot="idle"></span>
       <div class="score-ring" id="scoreRing">
         <div class="score-ring__inner">
           <span class="score-ring__value" id="scoreRingValue">-</span>
         </div>
       </div>
       <span class="score-ring__label" id="scoreRingLabel"></span>
+      <span class="xp-pop" id="finishXp" hidden></span>
+      <p class="finish__line" id="finishLine" hidden></p>
       <h3>Tapşırıq tamamlandı</h3>
       <p id="finalScore"></p>
       <a class="btn btn--secondary" href="tapsiriqlar.html">Tapşırıqlara qayıt</a>
@@ -102,6 +106,8 @@
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
   import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
   import { createIcon } from './assets/js/icon.js';
+  import { celebrateFinish, reactToAnswer } from './assets/js/celebrate.js';
+  import { mountMascots } from './assets/js/mascot.js';
   /* Variant çəkilişi canlı sessiya ilə EYNİ modulda - əvvəl hər iki
      ekran onu ayrı-ayrı yazırdı və ikisi də `btn btn--secondary`
      işlədirdi (ekranda beş boz düymə). */
@@ -112,6 +118,7 @@
 
   if (requireLogin()) {
     mountShell();
+    mountMascots();
 
     const assignmentId = Number(new URLSearchParams(window.location.search).get('id'));
     const errorBox = document.getElementById('errorBox');
@@ -186,6 +193,8 @@
         ? 'Davam et - növbəti sual gözləyir.'
         : 'İzahı oxu, növbəti sualda işinə yarayacaq.';
 
+      reactToAnswer(document, result.is_correct);
+
       const streakEl = document.getElementById('streak');
       streakEl.hidden = streak < 2;
       streakEl.textContent = `${streak} ardıcıl düzgün`;
@@ -241,10 +250,10 @@
       if (questions) {
         const pct = Math.round((score / questions) * 100);
         document.getElementById('scoreRing').style.setProperty('--pct', String(pct));
-        document.getElementById('scoreRingValue').textContent = `${score}/${questions}`;
         document.getElementById('scoreRingLabel').textContent = `${pct}% düzgün`;
       }
       show('done');
+      celebrateFinish(document, score, questions);
     }
 
     if (!Number.isInteger(assignmentId) || assignmentId <= 0) {

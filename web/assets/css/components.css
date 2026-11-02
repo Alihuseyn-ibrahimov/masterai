@@ -1940,3 +1940,104 @@ body.is-staged { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .mascot *, .mascot__pupil { animation: none !important; transition: none; }
 }
+
+/* ---- Tələbə ekranlarında bayquş (2026-11-02, Faza 4) ----
+ * Boş siyahı: yatan bayquş (`createEmptyState`). Quiz: nəticə blokunun
+ * sağında reaksiya verir, düzgündə «+10 XP» atılır; yekun kartda xal
+ * sayılır, 80%+ nəticədə konfetti. «Bu gün»: başlığın yanında bir cümlə. */
+.state__mascot { --mascot-size: var(--space-16); }
+
+.verdict__mascot { --mascot-size: var(--space-12); margin-left: auto; }
+
+.xp-pop {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+  font-variant-numeric: tabular-nums;
+}
+.xp-pop--go { animation: xp-pop var(--motion-slow) var(--easing); }
+@keyframes xp-pop {
+  0% { transform: translateY(40%) scale(.6); opacity: 0; }
+  60% { transform: translateY(-15%) scale(1.1); opacity: 1; }
+  100% { transform: none; }
+}
+
+.finish__mascot { --mascot-size: var(--space-16); }
+.finish__line { color: var(--color-text-muted); text-align: center; }
+
+/* Konfetti xal dairəsinin mərkəzindən səpələnir. Parçaların yönü JS-dən
+ * (`--cx`, `--cy`, `--cr`), rəngi variant rənglərindən (`--opt`). */
+.score-ring { position: relative; }
+.confetti {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  pointer-events: none;
+}
+.confetti__bit {
+  position: absolute;
+  width: var(--space-2);
+  height: var(--space-3);
+  border-radius: 2px;
+  background: var(--opt);
+  opacity: 0;
+  animation: confetti-fly 1.4s var(--easing) forwards;
+}
+.confetti__bit:nth-child(3n) { border-radius: var(--radius-full); height: var(--space-2); }
+@keyframes confetti-fly {
+  0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--cx), calc(var(--cy) + var(--space-12))) rotate(var(--cr)); opacity: 0; }
+}
+
+.today-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.today-head__buddy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.today-head__mascot { --mascot-size: var(--space-16); }
+/* Nitq qutusu: quyruğu bayquşa baxır. */
+.say {
+  position: relative;
+  max-width: var(--width-fan-card);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-text);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+.say::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: calc(var(--space-2) * -1);
+  width: var(--space-3);
+  height: var(--space-3);
+  border-top: 2px solid var(--color-text);
+  border-right: 2px solid var(--color-text);
+  background: var(--color-surface);
+  transform: translateY(-50%) rotate(45deg);
+}
+@media (max-width: 600px) {
+  .today-head { align-items: flex-start; flex-direction: column; }
+  .today-head__buddy { align-self: stretch; }
+  .say { flex: 1; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xp-pop--go { animation: none; }
+}

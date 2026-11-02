@@ -13,8 +13,10 @@
  */
 
 import { answerFeedback } from './answer-feedback.js';
+import { celebrateFinish, reactToAnswer } from './celebrate.js';
 import { createIcon } from './icon.js';
 import { formatCountdown } from './live-socket.js';
+import { renderMascot } from './mascot.js';
 import {
   markChosen, renderOptions, renderSteps, resetOptions, revealAnswer,
 } from './quiz-options.js';
@@ -53,6 +55,8 @@ export class PlayScreen {
       if (el) this.cards[name] = el;
     }
     this.errorBox = root.getElementById('errorBox');
+    /* Nəticə və bitiş kartlarındakı bayquş (Faza 4). */
+    root.querySelectorAll('.mascot[data-mascot]').forEach(renderMascot);
 
     const next = root.getElementById('nextBtn');
     if (next) next.addEventListener('click', () => this.onNext());
@@ -153,6 +157,8 @@ export class PlayScreen {
       }
     }
 
+    reactToAnswer(this.root, data.is_correct);
+
     const streakEl = this.root.getElementById('streak');
     if (streakEl) {
       streakEl.hidden = this.streak < 2;
@@ -223,12 +229,12 @@ export class PlayScreen {
       if (ring && data.total_questions) {
         const pct = Math.round((data.correct_count / data.total_questions) * 100);
         ring.style.setProperty('--pct', String(pct));
-        const value = this.root.getElementById('scoreRingValue');
-        if (value) value.textContent = `${data.correct_count}/${data.total_questions}`;
         const label = this.root.getElementById('scoreRingLabel');
         if (label) label.textContent = `${pct}% düzgün`;
       }
       this.show('personal');
+      // Kart görünəndən SONRA: sayğac və konfetti gizli kartda itərdi.
+      celebrateFinish(this.root, data.correct_count, data.total_questions);
       return;
     }
     if (data.type === 'finished') {
