@@ -54,4 +54,6 @@ def test_llm_clients_have_explicit_timeouts(monkeypatch):
     providers._claude_completer("m")
     assert seen["groq"]["timeout"] == providers.GROQ_TIMEOUT
     assert seen["claude"]["timeout"] == providers.CLAUDE_TIMEOUT
-    assert seen["groq"]["max_retries"] == seen["claude"]["max_retries"] == 1
+    # Groq 429-da gözləmir, dərhal Claude-a keçir (pulsuz plan: 8000 TPM).
+    assert seen["groq"]["max_retries"] == 0
+    assert seen["claude"]["max_retries"] == 1

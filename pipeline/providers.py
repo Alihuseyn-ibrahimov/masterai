@@ -43,6 +43,11 @@ GROQ_TIMEOUT = 60.0
 CLAUDE_TIMEOUT = 120.0
 OLLAMA_TIMEOUT = 60.0
 SDK_MAX_RETRIES = 1
+# Groq-da təkrar YOXDUR: pulsuz planın limiti dəqiqədə 8000 tokendir, bir
+# chunk sorğusu isə ~5-6 min token. Yəni 429 demək olar hər bankda gəlir və
+# SDK `retry-after` qədər (produksiya jurnalında 25 san) gözləyirdi. 429-da
+# dərhal Claude-a keçmək həm sürətli, həm də Groq-un limitini boşaldır.
+GROQ_MAX_RETRIES = 0
 VLLM_MAX_TOKENS = int(os.environ.get("VLLM_MAX_TOKENS", "2048"))
 
 KNOWN_PROVIDERS = ("vllm", "groq", "claude", "ollama")
@@ -135,7 +140,7 @@ def _groq_completer(model: str) -> Completer:
     import groq
 
     client = groq.Groq(
-        api_key=os.environ["GROQ_API_KEY"], timeout=GROQ_TIMEOUT, max_retries=SDK_MAX_RETRIES,
+        api_key=os.environ["GROQ_API_KEY"], timeout=GROQ_TIMEOUT, max_retries=GROQ_MAX_RETRIES,
     )
 
     def complete(system: str, user: str) -> str:
