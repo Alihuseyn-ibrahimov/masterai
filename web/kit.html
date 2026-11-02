@@ -6,7 +6,7 @@
 <title>Komponent kataloqu - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102c" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102d" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102c">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102c">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102c">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102d">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102d">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102d">
 </head>
 <body>
 <!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
@@ -137,6 +137,36 @@
         <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Quiz</span><p class="text-sm">10 sual, 30/50/20 çətinlik.</p></div>
         <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Davamiyyət</span><p class="text-sm">QR ilə 16 / 18 tələbə.</p></div>
         <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">AI tutor</span><p class="text-sm">«Bəs istisna nədir?» [1]</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="maskot">
+    <div class="section-header"><h2>Maskot</h2><span class="section-header__hint">eynəkli bayquş, masaüstündə gözləri kursoru izləyir</span></div>
+    <div class="card stack">
+      <div class="row" style="--mascot-size: var(--space-16); align-items: flex-end">
+        <figure class="stack stack--tight"><span class="mascot" data-mascot="idle"></span><figcaption class="text-xs text-muted">idle: gözləyir</figcaption></figure>
+        <figure class="stack stack--tight"><span class="mascot" data-mascot="happy"></span><figcaption class="text-xs text-muted">happy: düzgün</figcaption></figure>
+        <figure class="stack stack--tight"><span class="mascot" data-mascot="surprised"></span><figcaption class="text-xs text-muted">surprised: səhv</figcaption></figure>
+        <figure class="stack stack--tight"><span class="mascot" data-mascot="thinking"></span><figcaption class="text-xs text-muted">thinking: AI hazırlayır</figcaption></figure>
+        <figure class="stack stack--tight"><span class="mascot" data-mascot="sleep"></span><figcaption class="text-xs text-muted">sleep: boş siyahı</figcaption></figure>
+      </div>
+      <div class="row">
+        <span class="mascot" id="kitMascot" data-mascot="idle" style="--mascot-size: calc(var(--space-16) * 2)"></span>
+        <div class="stack stack--tight">
+          <p class="text-sm">Reaksiyanı sına (<code>setMascotState</code>):</p>
+          <div class="row" id="kitMascotButtons">
+            <button class="btn btn--secondary" type="button" data-state="idle">Gözləyir</button>
+            <button class="btn btn--secondary" type="button" data-state="happy">Düzgün</button>
+            <button class="btn btn--secondary" type="button" data-state="surprised">Səhv</button>
+            <button class="btn btn--secondary" type="button" data-state="thinking">Düşünür</button>
+            <button class="btn btn--secondary" type="button" data-state="sleep">Yatır</button>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-ink-surface)">
+        <span class="mascot mascot--on-ink" data-mascot="idle"></span>
+        <p class="text-sm" style="color: var(--color-on-ink)">Qara səthdə <code>.mascot--on-ink</code>: kontur ağ olur.</p>
       </div>
     </div>
   </section>
@@ -319,6 +349,7 @@
   import { bindSheet } from './assets/js/sheet.js';
   import { createIcon } from './assets/js/icon.js';
   import { setTheme } from './assets/js/theme.js';
+  import { mountMascots, setMascotState } from './assets/js/mascot.js';
 
   const options = ['1991', '1995', '2002', '2009', '2016'];
   renderSteps(document.getElementById('kitSteps'), { total: 7, currentIndex: 2 });
@@ -335,6 +366,12 @@
     facts: ['12 noyabr 1995: Konstitusiya referendumla qəbul edildi'],
     self_check: [{ question: 'Hakimiyyətin mənbəyi kimdir?', answer: 'Xalq' }],
   }));
+
+  mountMascots();
+  document.getElementById('kitMascotButtons').addEventListener('click', (event) => {
+    const state = event.target.closest('[data-state]')?.dataset.state;
+    if (state) setMascotState(document.getElementById('kitMascot'), state);
+  });
 
   bindSheet(document.getElementById('kitSheet'), { openers: [document.getElementById('kitSheetOpen')] });
 

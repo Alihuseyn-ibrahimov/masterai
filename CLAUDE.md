@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 355 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2080 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 362 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-01-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -453,7 +453,15 @@ https://claude.ai/artifact/Pxr4RDQfXyD2qRcP7jPgSh (6 faza). Şrift Archivo-da qa
 `.scribble` (əl ilə çəkilmiş ox, inline SVG + `pathLength="1"`, `.scribble--draw`),
 `.fan`/`.fan__card` (2-4 kart yelpik kimi, hover-də düzlənir, ≤600 en alt-alta),
 `--motion-slow` (bir dəfəlik «çəkilmə»), `--draw-delay` (marker və ox üçün ortaq).
-Hamısı `kit.html#defter`-dədir. Növbəti: Faza 2 - SVG maskot.
+Hamısı `kit.html#defter`-dədir. **Faza 2 - maskot (eynəkli
+bayquş):** `mascot.js` (`mountMascots`, `setMascotState`), yer tutucu
+`<span class="mascot" data-mascot="idle">`, 5 vəziyyət: idle, happy (düzgün),
+surprised (səhv), thinking (AI hazırlayır), sleep (boş siyahı). Gözlər YALNIZ
+masaüstündə (`hover: hover` + `pointer: fine`) və yalnız idle-da kursoru izləyir.
+Bədən `--color-cta`, qarın `--color-on-ink`: `accent-soft` tünd rejimdə qəhvəyi olurdu
+(render-də tutuldu). Qara səthdə `.mascot--on-ink`. Ölçü `--mascot-size`. Maskot
+bəzəkdir (`aria-hidden`), mənanı yanındakı mətn verir. `kit.html#maskot`.
+
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
 vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -
