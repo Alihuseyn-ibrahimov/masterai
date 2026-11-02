@@ -150,3 +150,40 @@ class TestRateLimit:
             _register(env["client"], invite="uydurma", ip="1.1.1.1")
         r = _register(env["client"], code=env["open"]["join_code"], ip="1.1.1.1")
         assert r.status_code == 429
+
+
+class TestGroupCode:
+    """Qrupun (sinif çatının) kodu ilə qeydiyyat: tələbə kursa düşür və YALNIZ
+    həmin qrupa qoşulma istəyi göndərir — üzv olmur, başqa qrupları görmür."""
+
+    @pytest.fixture
+    def groups(self, env):
+        from server.chat_join_request_store import ChatJoinRequestStore
+        from server.chat_store import ChatStore
+        from server.app import get_chat_join_request_store, get_chat_store
+
+        chats = ChatStore(":memory:")
+        join_requests = ChatJoinRequestStore(":memory:")
+        app.dependency_overrides[get_chat_store] = lambda: chats
+        app.dependency_overrides[get_chat_join_request_store] = lambda: join_requests
+        teacher = env["users"].create("t@x.az", "hash", "Müəllim", course_id=env["open"]["id"])
+        group_a = chats.create("group", teacher["id"], "Qanunvericilik", course_id=env["open"]["id"])
+        group_b = chats.create("group", teacher["id"], "Dövlət qulluğu", course_id=env["open"]["id"])
+        return {"chats": chats, "requests": join_requests, "a": group_a, "b": group_b}
+
+    def test_group_code_registers_and_requests_only_that_group(self, env, groups):
+        r = _register(env["client"], code=groups["a"]["invite_code"])
+        assert r.status_code == 201
+        user = env["users"].get_by_email("a@x.az")
+        assert user["course_id"] == env["open"]["id"]
+        assert [row["user_id"] for row in groups["requests"].list_pending(groups["a"]["id"])] == [user["id"]]
+        assert groups["requests"].list_pending(groups["b"]["id"]) == []
+        # İstək üzvlük DEYİL: təsdiqə qədər heç bir qrupu görmür.
+        assert groups["chats"].list_by_user(user["id"]) == []
+
+    def test_group_code_of_closed_course_same_404(self, env, groups):
+        teacher = env["users"].create("t2@x.az", "hash", "M", course_id=env["expired"]["id"])
+        closed = groups["chats"].create("group", teacher["id"], "Bağlı", course_id=env["expired"]["id"])
+        r = _register(env["client"], code=closed["invite_code"])
+        assert r.status_code == 404
+        assert r.json()["detail"] == _GENERIC_404
