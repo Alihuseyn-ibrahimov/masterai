@@ -41,6 +41,7 @@
 
 <script type="module">
   import { getUser, request } from './assets/js/api.js';
+  import { formatCode } from './assets/js/invite-code.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createIcon } from './assets/js/icon.js';
   import { downloadLessonIcs, formatLessonTime, groupLessons, startsInText } from './assets/js/lessons.js';
@@ -240,7 +241,40 @@
     container.append(badgeSection);
   }
 
-  function renderTeacher(container, summary) {
+  /* Tələbə qeydiyyat kodu. Əvvəl yalnız sahib panelində görünürdü, yəni
+     müəllim yeni tələbəyə nə deyəcəyini bilmirdi. Link kodu özü yazır. */
+  function renderJoinCode(container, course) {
+    if (!course || !course.join_code) return;
+    const section = el('section');
+    section.append(sectionTitle('Yeni tələbə üçün kod'));
+    const card = el('div', 'card stack');
+    card.append(el('div', 'text-sm text-muted', `${course.name} kursuna qeydiyyat kodu`));
+    const code = el('div', 'today-card__title', formatCode(course.join_code));
+    code.style.letterSpacing = '0.15em';
+    card.append(code);
+    const link = `${window.location.origin}/qeydiyyat.html?code=${encodeURIComponent(course.join_code)}`;
+    const row = el('div', 'quick-actions');
+    for (const [label, text] of [['Kodu kopyala', formatCode(course.join_code)], ['Linki kopyala', link]]) {
+      const button = el('button', 'btn btn--secondary btn--block', label);
+      button.type = 'button';
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Kopyalandı';
+        } catch {
+          button.textContent = 'Əl ilə kopyalayın';
+        }
+      });
+      row.append(button);
+    }
+    card.append(row);
+    card.append(el('div', 'text-xs text-muted',
+      'Yalnız bir qrupa qəbul etmək istəyirsinizsə, Çatlar bölməsindəki həmin qrupun kodunu verin: tələbə onunla da qeydiyyatdan keçir və yalnız o qrupa qoşulur.'));
+    section.append(card);
+    container.append(section);
+  }
+
+  function renderTeacher(container, summary, course) {
     container.innerHTML = '';
     const sets = (summary && summary.question_sets) || {};
     const homework = (summary && summary.homework) || {};
@@ -277,6 +311,7 @@
     }
     actions.append(grid);
     container.append(actions);
+    renderJoinCode(container, course);
   }
 
   if (requireLogin()) {
@@ -292,7 +327,11 @@
 
     const content = document.getElementById('content');
     if (isTeacher) {
-      loadInto(content, () => request('/live/teacher-summary'), renderTeacher);
+      // Kod bloku əlavədir: sorğu sınsa ekranın qalanı yenə açılır.
+      loadInto(content, () => Promise.all([
+        request('/live/teacher-summary'),
+        request('/me/course').catch(() => null),
+      ]), (box, [summary, course]) => renderTeacher(box, summary, course));
     } else {
       loadInto(content, () => Promise.all([
         request('/history/me'),

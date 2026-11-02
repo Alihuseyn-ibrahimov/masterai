@@ -8,6 +8,7 @@ POST /chats/join-requests + təsdiq axını, WS /ws/chat/{id}) + AI quiz orkestr
 from __future__ import annotations
 
 import asyncio
+import time
 from functools import partial
 import json
 import logging
@@ -647,6 +648,8 @@ def auth_register(
     store: UserStore = Depends(get_user_store),
     secret: str = Depends(get_token_secret),
     limiter: RateLimiter = Depends(get_register_rate_limiter),
+    chats: ChatStore = Depends(get_chat_store),
+    join_requests: ChatJoinRequestStore = Depends(get_chat_join_request_store),
 ) -> AuthResponse:
     """Qapalı qeydiyyat (spec 2026-09-29 §4.1).
 
@@ -677,6 +680,15 @@ def auth_register(
             raise HTTPException(status_code=409, detail="Bu e-poçt artıq qeydiyyatdadır")
     else:
         course = store.courses.get_by_join_code(req.course_code)
+        # Qrupun (sinif çatının) öz kodu da qəbul olunur: müəllim hər qrupa ayrıca
+        # kod verir, tələbə həmin kodla qeydiyyatdan keçir və YALNIZ o qrupa
+        # qoşulma istəyi göndərir (üzv olmur, müəllim təsdiq edir). Kurs kodu
+        # əvvəl yoxlanır; qrup kodu yalnız kurs kodu tapılmayanda.
+        group = None
+        if course is None:
+            group = chats.get_by_invite_code(req.course_code)
+            if group is not None:
+                course = store.courses.get(group.get("course_id"))
         if course is None or not course_is_open(course, now):
             limiter.record(ip)
             raise HTTPException(status_code=404, detail=_COURSE_CODE_NOT_FOUND)
@@ -684,6 +696,8 @@ def auth_register(
             user = store.create_student(
                 req.email, password_hash, req.display_name, course_id=course["id"]
             )
+            if group is not None:
+                join_requests.request(chat_id=group["id"], user_id=user["id"])
         except CourseFull:
             raise HTTPException(
                 status_code=409,
@@ -757,6 +771,7 @@ def get_my_course(
         days_left=days_left(course, now),
         is_open=course_is_open(course, now),
         profile=course["profile"],
+        join_code=course["join_code"] if user["is_teacher"] else None,
     )
 
 
@@ -1878,6 +1893,16 @@ def list_materials(
     return [MaterialInfo(**m) for m in materials.list_by_chat(chat_id)]
 
 
+# Bir bankın emalına ümumi tavan (2026-11-02). Ayrı-ayrı çağırışların öz
+# limitləri var (providers.py, web_extractor.py), amma 30 suallıq uzun
+# materialda onlar toplana bilər. Bu tavan bankın sonsuza qədər
+# «Hazırlanır»da qalmamasının zəmanətidir; normal emal 1-7 dəqiqədir.
+QUESTION_SET_DEADLINE_SECONDS = 15 * 60
+QUESTION_SET_DEADLINE_ERROR = (
+    "AI 15 dəqiqədə sualları hazırlaya bilmədi. Yenidən cəhd edin və ya sual sayını azaldın."
+)
+
+
 def _question_set_info(qs: dict, question_count: int) -> QuestionSetInfo:
     return QuestionSetInfo(**qs, question_count=question_count)
 
@@ -1899,17 +1924,30 @@ async def _process_question_set(
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
     deyil (nəticə `question_sets.status`+`error` sahələrindən polling
     ilə oxunur, bax dizayn sənədi)."""
+    started = time.monotonic()
     try:
-        result = await asyncio.to_thread(
-            partial(
-                generator, source, question_count, profile=profile, bank_kind=bank_kind,
-                difficulty_mix=difficulty_mix, subject=subject,
-            )
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                partial(
+                    generator, source, question_count, profile=profile, bank_kind=bank_kind,
+                    difficulty_mix=difficulty_mix, subject=subject,
+                )
+            ),
+            timeout=QUESTION_SET_DEADLINE_SECONDS,
         )
+    except asyncio.TimeoutError:
+        # Thread dayandırıla bilmir, sonra bitsə nəticəsi atılır: bank artıq
+        # «uğursuz»dur və müəllim yenidən cəhd edə bilər.
+        logger.error("Sual bankı vaxt limitini keçdi (question_set_id=%s)", question_set_id)
+        question_set_store.mark_failed(question_set_id, QUESTION_SET_DEADLINE_ERROR)
     except Exception as exc:
         logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
         question_set_store.mark_failed(question_set_id, str(exc))
     else:
+        logger.info(
+            "question_set_ready id=%s questions=%s seconds=%.0f",
+            question_set_id, len(result.questions), time.monotonic() - started,
+        )
         if result.passage:
             question_set_store.set_passage(question_set_id, result.passage)
         for mcq in result.questions:

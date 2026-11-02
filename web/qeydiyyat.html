@@ -49,11 +49,11 @@
              onda bu sahə gizlənir, çünki backend ikisini birlikdə qəbul
              etmir. -->
         <div class="field" id="courseCodeField">
-          <label class="field__label" for="courseCode">Kurs kodu</label>
+          <label class="field__label" for="courseCode">Kurs və ya qrup kodu</label>
           <input class="field__input" id="courseCode" name="courseCode" type="text"
                  autocomplete="off" autocapitalize="characters" required maxlength="16"
                  placeholder="K7M-3QX">
-          <span class="text-xs text-muted">Kodu müəlliminizdən alın</span>
+          <span class="text-xs text-muted">Müəlliminizin verdiyi kod. Qrup kodu ilə girsəniz, yalnız həmin qrupa qoşulursunuz.</span>
         </div>
         <div class="notice notice--info" id="inviteNote" hidden>
           <span>Müəllim dəvəti ilə qeydiyyatdan keçirsiniz.</span>
@@ -94,6 +94,12 @@
 
   // Müəllim dəvət linki: qeydiyyat.html?invite=<token>
   const inviteToken = new URLSearchParams(window.location.search).get('invite') || '';
+  // Müəllimin göndərdiyi link: qeydiyyat.html?code=U3H9AN - kod özü yazılır.
+  const presetCode = new URLSearchParams(window.location.search).get('code') || '';
+  if (presetCode && !inviteToken) {
+    document.getElementById('courseCode').value = presetCode.slice(0, 16);
+  }
+
   if (inviteToken) {
     const codeField = document.getElementById('courseCodeField');
     codeField.hidden = true;

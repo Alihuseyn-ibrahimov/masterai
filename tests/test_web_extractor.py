@@ -174,6 +174,10 @@ class _FakeDriver:
         self._body_texts = body_texts
         self.script_calls = 0
         self.body_calls = 0
+        self.page_load_timeout = None
+
+    def set_page_load_timeout(self, seconds):
+        self.page_load_timeout = seconds
 
     def execute_script(self, script: str) -> str:
         value = self._ready_states[min(self.script_calls, len(self._ready_states) - 1)]
@@ -458,3 +462,30 @@ def test_download_js_rendered_strips_line_through_via_computed_style(monkeypatch
     web_extractor._download_js_rendered("https://example.az/spa")
 
     assert any("line-through" in script for script in executed)
+
+
+def test_download_js_rendered_sets_page_load_timeout_and_survives_it(monkeypatch):
+    """Selenium-un defolt 300 saniyəlik limiti bankı dəqiqələrlə saxlayırdı."""
+    from selenium import webdriver as real_webdriver
+    from selenium.common.exceptions import TimeoutException
+
+    monkeypatch.setattr(web_extractor, "_JS_READY_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(web_extractor, "_JS_POLL_INTERVAL_SECONDS", 0.01)
+    created = []
+
+    class _HangingDriver(_FakeDriver):
+        def __init__(self, options=None):
+            super().__init__(ready_states=["complete"], body_texts=["x"])
+            self.page_source = "<html><body>yarımçıq</body></html>"
+            created.append(self)
+
+        def get(self, url):
+            raise TimeoutException("yüklənmə bitmədi")
+
+        def quit(self):
+            pass
+
+    monkeypatch.setattr(real_webdriver, "Chrome", _HangingDriver)
+    html = web_extractor._download_js_rendered("https://example.az/slow")
+    assert "yarımçıq" in html
+    assert created[0].page_load_timeout == web_extractor._PAGE_LOAD_TIMEOUT_SECONDS
