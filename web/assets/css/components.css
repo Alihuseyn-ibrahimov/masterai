@@ -2058,3 +2058,8 @@ body.is-staged { overflow: hidden; }
 .stage__greet { display: flex; align-items: center; gap: var(--space-4); }
 .stage__mascot { --mascot-size: calc(var(--space-16) * 1.5); }
 .podium { position: relative; }
+
+/* ---- Hesabsız səhifələrdə bayquş (2026-11-02, Faza 6) ----
+ * Lövhədə brendin üstündə. Girişdə səhv şifrədə təəccüblənir
+ * (`auth-page.js`), abunə bitəndə (`bagli.html`) yatır. */
+.auth__mascot { --mascot-size: var(--space-16); display: block; margin: 0 auto var(--space-3); }

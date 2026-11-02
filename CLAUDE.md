@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 380 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 384 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-02-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -489,6 +489,14 @@ son rəqəmi yazır, konfetti çəkilmir.
 düşünür, podiumda sevinir + konfetti - BİR dəfə (`podiumCelebrated`, yeni sessiyada sıfırlanır).
 Tələ: `.mascot { display: inline-block }` `hidden` atributunu üstələyirdi - `.mascot[hidden]` qaydası
 əlavə olundu.
+**Faza 6 - hesabsız səhifələr + yekun yoxlama (plan BİTDİ):** `giris`, `qeydiyyat`, `qosul`
+lövhəsində bayquş (`.auth__mascot`); səhv şifrədə təəccüblənir, yazmağa başlayanda sakitləşir
+(`auth-page.js`); `bagli`-da yatır. Paylaşım şəklində (`og-banner.svg` → PNG, Archivo+Inter
+data-URI ilə Playwright-da çəkilir) A-D kvadratlarının yerində bayquş. axe (WCAG 2.0/2.1 A+AA
+teqləri; `region`/`landmark-one-main` best-practice-dir və tətbiq səhifələrində `<main>` QƏSDƏN
+yoxdur) 23 səhifə × 1280/390 × işıqlı/tünd × anonim/tələbə/müəllim: tapıntı yalnız Faza 3-ün
+reqressiyası idi - hüquqi səhifələrin footer-i qara oldu, yaşıl link 3.5 kontrast verdi
+(`.landing-footer a:not(.btn)`). Təkrar işdə 0.
 
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və

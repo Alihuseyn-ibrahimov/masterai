@@ -6,6 +6,7 @@
 
 import { isLoggedIn } from './api.js';
 import { takeNext } from './next-path.js';
+import { mountMascots, setMascotState } from './mascot.js';
 
 /** Daxil olmuş istifadəçini öz səhifəsinə göndərir - müəllim və tələbə
  *  fərqli başlanğıc ekranı görür. */
@@ -36,6 +37,12 @@ export function redirectIfAlreadyLoggedIn() {
  */
 export function wireAuthForm({ form, errorBox, submitButton, submit }) {
   const idleLabel = submitButton.textContent;
+  // Lövhədəki bayquş (Faza 6): səhv şifrədə təəccüblənir, yenidən yazanda sakitləşir.
+  mountMascots();
+  const mascot = document.querySelector('.auth__mascot');
+  form.addEventListener('input', () => {
+    if (mascot && mascot.dataset.mascot !== 'idle') setMascotState(mascot, 'idle');
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -51,6 +58,7 @@ export function wireAuthForm({ form, errorBox, submitButton, submit }) {
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.hidden = false;
+      if (mascot) setMascotState(mascot, 'surprised');
       submitButton.disabled = false;
       submitButton.textContent = idleLabel;
       // Fokusu ilk sahəyə qaytarmaq düzəlişi asanlaşdırır.

@@ -530,6 +530,10 @@
   text-align: right;
 }
 .closing__cta h2 { color: var(--color-on-ink); }
+/* Hüquqi səhifələrin sadə footer-i də qara lövhədədir: yaşıl link
+ * (`--color-primary`) qara fonda 3.5 kontrast verirdi (axe, Faza 6). */
+.landing-footer a:not(.btn) { color: var(--color-on-ink-muted); }
+.landing-footer a:not(.btn):hover { color: var(--color-on-ink); }
 
 /* ---- Sinif ekranı nümunəsi ----
  * Proyektor rejiminin (`.stage`) kiçildilmiş surəti: eyni qara səth,
