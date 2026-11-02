@@ -82,7 +82,7 @@
 /* «AI» sarı marker zolağının üstündədir - səhifədə sarının ilk yeri.
  * Forma `.marker`-dədir (components.css), burada yalnız çəkilmə anı:
  * başlıq blur-dan açılandan sonra. */
-.hero__title .marker { --marker-delay: 420ms; }
+.hero__title .marker { --draw-delay: 420ms; }
 .hero__lead {
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
@@ -155,19 +155,12 @@
   padding-left: var(--space-8);
   height: var(--space-12);
 }
-/* Material ilə sual arasındakı əl ilə çəkilmiş ox (əvvəl düz xətt idi):
- * müəllimin lövhədə çəkdiyi ox kimi. `pathLength="1"` ilə çəkilmə
- * `stroke-dashoffset` animasiyasıdır. */
+/* Material ilə sual arasındakı əl ilə çəkilmiş ox (`.scribble`,
+ * components.css): müəllimin lövhədə çəkdiyi ox kimi. Burada yalnız ölçü. */
 .trace__arrow {
   justify-self: center;
   width: var(--space-8);
   height: 100%;
-  overflow: visible;
-  fill: none;
-  stroke: var(--color-accent);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 .trace__label {
   font-size: var(--text-xs);
@@ -220,28 +213,21 @@
   animation: hero-enter var(--motion-base) var(--easing) forwards;
   animation-delay: calc(var(--enter-order, 0) * var(--motion-fast));
 }
-.js-hero .trace__arrow path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: trace-draw 600ms var(--easing) forwards;
-  animation-delay: calc(4 * var(--motion-fast));
-}
+.trace__arrow { --draw-delay: calc(4 * var(--motion-fast)); }
 /* Başlıq aşağıdan sürüşmür, yumşaq blur-dan «aydınlaşır» (İlham:
  * MotionSites «Skyprompt»). Yalnız h1, bir dəfə. */
 .js-hero .hero__title[data-enter] {
   transform: scale(1.04);
   filter: blur(var(--space-2));
   animation-name: hero-blur-in;
-  animation-duration: 700ms;
+  animation-duration: var(--motion-slow);
 }
 @keyframes hero-enter { to { opacity: 1; transform: none; } }
 @keyframes hero-blur-in { to { opacity: 1; transform: none; filter: none; } }
-@keyframes trace-draw { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .js-hero [data-enter],
   .js-hero .hero__title[data-enter] { animation: none; opacity: 1; transform: none; filter: none; }
-  .js-hero .trace__arrow path { animation: none; stroke-dashoffset: 0; }
 }
 
 /* ---- Canlı nümunələr (2026-11-02, landing-demo.js) ----

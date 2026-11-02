@@ -288,10 +288,12 @@
   --width-container: 1200px;
   --width-prose:      720px;
   --width-form:       420px;
+  --width-fan-card:   240px;  /* kart yelpiyində bir kartın eni */
 
   /* ---- Hərəkət ---- */
   --motion-fast: 120ms;
   --motion-base: 200ms;
+  --motion-slow: 600ms;   /* bir dəfəlik «çəkilmə»: marker, əl oxu, başlıq */
   --easing: cubic-bezier(.2, 0, .2, 1);
 }
 

@@ -442,11 +442,18 @@ ilə gizlətmək İŞLƏMİR (öz `display`-i var) - işarə düzgün varianta k
 **Marker vurğusu + əl oxu (2026-11-02, MotionSites təkliflərindən):** `.marker`
 (components.css) kobud kənarlı sarı fırça zolağıdır: forma SVG MASKADIR, rəng
 `--color-accent`-dən; `.marker--draw` zolağı bir dəfə soldan sağa çəkir
-(`--marker-delay`), «hərəkəti azalt»da dərhal görünür. Açılışda «AI», «bu gün»,
+(`--draw-delay`), «hərəkəti azalt»da dərhal görünür. Açılışda «AI», «bu gün»,
 «oyun» sözlərindədir - qayda: səhifədə bir-iki söz, cümlə yox. Material ilə sual
 arasındakı düz xətt əl ilə çəkilmiş SVG oxa çevrildi (`pathLength="1"` +
 `stroke-dashoffset`). Hero başlığı sürüşmür, blur-dan aydınlaşır. Tələ: oxun
 yanındakı yazını uzatmaq telefonda seriya nişanının altına düşür - qısa qalmalıdır.
+**Yenidən dizayn «Dəftər + maskot» (2026-11-02, istifadəçi seçdi):** plan
+https://claude.ai/artifact/Pxr4RDQfXyD2qRcP7jPgSh (6 faza). Şrift Archivo-da qalır
+(Epilogue da ə/İ/ğ-ni saxlayır, amma daha enlidir, faydası az). Faza 1 komponentləri:
+`.scribble` (əl ilə çəkilmiş ox, inline SVG + `pathLength="1"`, `.scribble--draw`),
+`.fan`/`.fan__card` (2-4 kart yelpik kimi, hover-də düzlənir, ≤600 en alt-alta),
+`--motion-slow` (bir dəfəlik «çəkilmə»), `--draw-delay` (marker və ox üçün ortaq).
+Hamısı `kit.html#defter`-dədir. Növbəti: Faza 2 - SVG maskot.
 **PR 11 - komponent kataloqu + sıxılma:** `web/kit.html` (noindex) hər komponenti
 və vəziyyətini bir səhifədə göstərir; quiz variantları, addımlar, konspekt və
 vərəq REAL modullarla (`quiz-options.js`, `summary.js`, `sheet.js`) çəkilir -

@@ -6,7 +6,7 @@
 <title>Komponent kataloqu - MasterAI</title>
 <meta name="theme-color" content="#0B0F18">
 <meta name="robots" content="noindex">
-<link rel="icon" href="assets/icon.svg?v=20261102b" type="image/svg+xml">
+<link rel="icon" href="assets/icon.svg?v=20261102c" type="image/svg+xml">
 <!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur (bax theme.js). -->
 <script>
   try {
@@ -14,9 +14,9 @@
     if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
   } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
 </script>
-<link rel="stylesheet" href="assets/css/tokens.css?v=20261102b">
-<link rel="stylesheet" href="assets/css/base.css?v=20261102b">
-<link rel="stylesheet" href="assets/css/components.css?v=20261102b">
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102c">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102c">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102c">
 </head>
 <body>
 <!-- Komponent kataloqu: sistemdəki hər komponent və onun vəziyyətləri BİR
@@ -120,6 +120,23 @@
       <div class="card card--locked stack stack--tight">
         <div class="state__icon" aria-hidden="true"><svg class="icon"><use href="assets/icons.svg#i-trophy"></use></svg></div>
         <h3 style="font-size: var(--text-base)">Qazanılmamış nişan</h3><p class="text-sm text-muted">Yalnız ikon sönür, mətn oxunaqlı qalır.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" id="defter">
+    <div class="section-header"><h2>Dəftər elementləri</h2><span class="section-header__hint">marker, əl oxu, kart yelpiyi</span></div>
+    <div class="card stack">
+      <p>Əl oxu (<code>.scribble</code>, <code>.scribble--draw</code> bir dəfə çəkir):</p>
+      <svg class="scribble scribble--draw" width="120" height="48" viewBox="0 0 120 48" aria-hidden="true">
+        <path pathLength="1" d="M4 30 C 30 6, 70 44, 110 18 M110 18 L 100 16 M110 18 L 106 28"/>
+      </svg>
+      <p>Kart yelpiyi (<code>.fan</code> + <code>.fan__card</code>, 2-4 kart; telefonda alt-alta):</p>
+      <div class="fan">
+        <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Konspekt</span><p class="text-sm">5 əsas fikir, 4 termin, «Yadda saxla».</p></div>
+        <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Quiz</span><p class="text-sm">10 sual, 30/50/20 çətinlik.</p></div>
+        <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">Davamiyyət</span><p class="text-sm">QR ilə 16 / 18 tələbə.</p></div>
+        <div class="fan__card card stack stack--tight"><span class="badge badge--neutral">AI tutor</span><p class="text-sm">«Bəs istisna nədir?» [1]</p></div>
       </div>
     </div>
   </section>

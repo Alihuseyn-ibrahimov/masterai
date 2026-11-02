@@ -1801,10 +1801,69 @@ body.is-staged { overflow: hidden; }
 }
 .marker--draw::before {
   clip-path: inset(0 100% 0 0);
-  animation: marker-draw 520ms var(--easing) forwards;
-  animation-delay: var(--marker-delay, 0ms);
+  animation: marker-draw var(--motion-slow) var(--easing) forwards;
+  animation-delay: var(--draw-delay, 0ms);
 }
 @keyframes marker-draw { to { clip-path: inset(0 0 0 0); } }
 @media (prefers-reduced-motion: reduce) {
   .marker--draw::before { animation: none; clip-path: none; }
+}
+
+/* ---- Əl ilə çəkilmiş ox / xətt (2026-11-02) ----
+ * Lövhədə təbaşirlə çəkilmiş kimi: dairəvi uclu sarı xətt. Forma hər yerdə
+ * inline <svg>-dir (fərqli əyrilər lazımdır), path-a `pathLength="1"` yazılır.
+ * `.scribble--draw` onu bir dəfə çəkir. Ölçünü istifadə edən yer verir. */
+.scribble {
+  overflow: visible;
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.scribble--draw path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: scribble-draw var(--motion-slow) var(--easing) forwards;
+  animation-delay: var(--draw-delay, 0ms);
+}
+@keyframes scribble-draw { to { stroke-dashoffset: 0; } }
+
+/* ---- Kart yelpiyi (2026-11-02) ----
+ * Masaya səpələnmiş dərs materialları: 2-4 kart bir-birinin üstünə azca
+ * minir və yelpik kimi əyilir. Üstünə gələndə / fokusda kart düzlənib
+ * qalxır. Hərəkət yalnız `transform`-dur (layout dəyişmir). Telefonda
+ * kartlar alt-alta düzülür və əyilmir: kiçik ekranda üst-üstə minən kart
+ * oxunmur. İlham: MotionSites «Skyprompt». */
+.fan {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--space-6) var(--space-8);
+}
+.fan__card {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(100%, var(--width-fan-card));
+  margin-inline: calc(var(--space-3) * -1);
+  align-items: flex-start;   /* nişan kartın enini tutmasın */
+  transition: transform var(--motion-base) var(--easing);
+}
+.fan__card:nth-child(1) { transform: rotate(-8deg) translateY(var(--space-4)); }
+.fan__card:nth-child(2) { transform: rotate(-3deg); }
+.fan__card:nth-child(3) { transform: rotate(3deg); }
+.fan__card:nth-child(4) { transform: rotate(8deg) translateY(var(--space-4)); }
+.fan__card:hover,
+.fan__card:focus-within {
+  z-index: 1;
+  transform: translateY(calc(var(--space-3) * -1));
+}
+@media (max-width: 600px) {
+  .fan { flex-direction: column; align-items: stretch; gap: var(--space-3); padding: 0; }
+  .fan__card,
+  .fan__card:nth-child(n) { width: 100%; margin: 0; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fan__card { transition: none; }
+  .scribble--draw path { animation: none; stroke-dashoffset: 0; }
 }
