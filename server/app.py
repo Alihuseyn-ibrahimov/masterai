@@ -758,6 +758,7 @@ def get_my_course(
         days_left=days_left(course, now),
         is_open=course_is_open(course, now),
         profile=course["profile"],
+        join_code=course["join_code"] if user["is_teacher"] else None,
     )
 
 

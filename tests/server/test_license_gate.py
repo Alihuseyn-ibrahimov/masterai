@@ -203,6 +203,19 @@ class TestMeCourse:
         assert body["status"] == "owner"
         assert body["days_left"] is None
 
+    def test_join_code_only_for_teacher(self, env):
+        """Kodu bilən kursa tələbə kimi qeydiyyatdan keçir: tələbəyə göstərilmir,
+        müəllimə göstərilir ki, yeni tələbəyə nə deyəcəyini bilsin."""
+        student = env["make_user"]("s@x.az", env["open"])
+        teacher = env["make_user"]("t@x.az", env["open"], teacher=True)
+        code = env["users"].courses.get(env["open"]["id"])["join_code"] if "users" in env else None
+        s_body = env["client"].get("/me/course", headers=_auth(student)).json()
+        t_body = env["client"].get("/me/course", headers=_auth(teacher)).json()
+        assert s_body["join_code"] is None
+        assert t_body["join_code"]
+        if code:
+            assert t_body["join_code"] == code
+
     def test_requires_auth(self, env):
         assert env["client"].get("/me/course").status_code == 401
 

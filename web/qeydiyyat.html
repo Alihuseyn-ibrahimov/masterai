@@ -94,6 +94,12 @@
 
   // Müəllim dəvət linki: qeydiyyat.html?invite=<token>
   const inviteToken = new URLSearchParams(window.location.search).get('invite') || '';
+  // Müəllimin göndərdiyi link: qeydiyyat.html?code=U3H9AN - kod özü yazılır.
+  const presetCode = new URLSearchParams(window.location.search).get('code') || '';
+  if (presetCode && !inviteToken) {
+    document.getElementById('courseCode').value = presetCode.slice(0, 16);
+  }
+
   if (inviteToken) {
     const codeField = document.getElementById('courseCodeField');
     codeField.hidden = true;
