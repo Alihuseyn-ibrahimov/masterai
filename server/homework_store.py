@@ -101,6 +101,17 @@ class HomeworkStore:
                     confirmed_at     TEXT,
                     UNIQUE(attempt_id, open_question_id)
                 );
+
+                -- Tapşırıq müzakirəsi (Faza 3 PR 2, 2026-11-03): sinif
+                -- çatından AYRI, tapşırığa bağlı mövzu - "bu sualda nəyi
+                -- buraxdım" kimi suallar ümumi çatı doldurmasın.
+                CREATE TABLE IF NOT EXISTS homework_discussion_messages (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    assignment_id INTEGER NOT NULL,
+                    sender_id     INTEGER NOT NULL,
+                    content       TEXT NOT NULL,
+                    created_at    TEXT NOT NULL
+                );
                 """
             )
             self._conn.commit()
@@ -417,3 +428,29 @@ class HomeworkStore:
                 f"WHERE asg.chat_id IN ({marks})",
                 tuple(chat_ids),
             ).fetchone()[0]
+
+    # ---- Tapşırıq müzakirəsi (Faza 3 PR 2) ----
+
+    def add_discussion_message(self, assignment_id: int, sender_id: int, content: str) -> dict:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO homework_discussion_messages (assignment_id, sender_id, content, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (assignment_id, sender_id, content, _utc_now_iso()),
+            )
+            self._conn.commit()
+            row = self._conn.execute(
+                "SELECT id, assignment_id, sender_id, content, created_at "
+                "FROM homework_discussion_messages WHERE id = ?",
+                (cur.lastrowid,),
+            ).fetchone()
+            return dict(row)
+
+    def list_discussion_messages(self, assignment_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, assignment_id, sender_id, content, created_at "
+                "FROM homework_discussion_messages WHERE assignment_id = ? ORDER BY id ASC",
+                (assignment_id,),
+            )
+            return [dict(row) for row in cur.fetchall()]

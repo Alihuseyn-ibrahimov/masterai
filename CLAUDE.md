@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2278 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 394 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2348 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -643,6 +643,23 @@ Veb: `profil.html`-də «Mövzular üzrə nəticə» bloku (yalnız tələbə) �
 demək artıq siqnaldır, boş siyahı göstərmək mənasız). Real modellə
 hələ sınanmayıb.
 
+**PR 3 - Adaptiv test («zəif yerlərimi məşq et»).** `server/adaptive_quiz.py::build_adaptive_quiz`
+PR 2-nin zəif mövzularından, tələbənin ARTIQ GÖRDÜYÜ banklardan (canlı
+sessiya + ev tapşırığı — `topic_stats_for_student`-in eyni iki mənbəyi)
+sual seçir — yeni kurs sərhədi yoxlaması lazım deyil, çünki bu banklar
+onsuz da tələbənin əlçatan datasıdır. `difficulty_model` varsa (gün 15),
+proqnozu 0.4-0.75 aralığına ən yaxın suallar üstünlük alır — çox asan
+öyrətmir, çox çətin demoralizə edir. **Bu, QİYMƏTLƏNDİRİLƏN tapşırıq
+DEYİL:** `GET /me/adaptive-quiz` düzgün cavab+izahı DAXİL qaytarır
+(müəllimin redaktə ekranı ilə eyni, `list_live_questions`), heç nə
+saxlanmır — yeni `attempt` cədvəli, yeni "tək cəhd" qaydası lazım
+olmadı. Veb: `adaptiv.html` (sual-sual client-tərəfli, server round-trip
+yoxdur), `profil.html`-in zəif mövzu bloku zəif mövzu varsa «Zəif
+yerlərimi məşq et» düyməsini göstərir. Real modellə hələ sınanmayıb.
+
+Bununla Faza 2 («Sokratik mentor + adaptiv öyrənmə») planın 3 PR-i
+tamamlandı (PR 1 #65, PR 2 #66, PR 3 — bax PR siyahısı).
+
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
@@ -665,6 +682,42 @@ surətini + `uploads/`-u bir arxivə yığır, `/var/backups/masterai`-də
 `BACKUP_TELEGRAM_CHAT_ID` varsa Telegram-a göndərir (kənar nüsxə).
 Açarlar yoxdursa jurnalda xəbərdarlıq var: surət YALNIZ serverdədir.
 Telegram limiti 50 MB - arxiv böyüyəndə başqa yer lazım olacaq.
+
+## Faza 3 «İdarəetmə paneli» (2026-11-03-dən)
+
+**PR 1 - İnkişaf qrafikləri.** `server/progress_stats.py`: `weekly_percent`/
+`subject_percent` TARİXÇƏ ilə EYNİ data mənbəyi üzərində qurulur
+(`_history_entries_for_student`-in qaytardığı siyahı) — canlı sessiya +
+ev tapşırığı nəticələrini HƏFTƏ (ISO, bazar ertəsi) və FƏNN üzrə
+qruplaşdırıb faiz hesablayır. `attendance_stats_for_users` isə
+`lesson_store`-dan: yalnız BİTMİŞ dərslər sayılır, məxrəc dərs × tələbə
+sayıdır (hər tələbənin faizini ayrı hesablayıb ORTALAMAQDAN fərqlidir —
+az dərsi olan tələbənin bir buraxması ortalamanı həddən artıq aşağı
+salmasın). Dərs yoxdursa `percent: None` (`difficulty.js::statPercent`-in
+eyni qaydası — uydurma 0% göstərmək yanlış olardı).
+
+`GET /me/progress` (tələbə, öz nəticəsi) və `GET /live/chats/{id}/progress`
+(müəllim, sinif üzrə CƏM — `/chats/{id}/leaderboard`-ın eyni naxışı,
+müəllim siyahıdan çıxarılır) EYNİ formanı qaytarır. Qrafik üçün yeni
+komponent YAZILMADI — mövcud `.progress`/`.progress__fill` zolağı
+(`assets/js/progress-stats.js`) kifayət etdi, build addımsız sayt
+qaydasına uyğun. Veb: `profil.html`-də (tələbə) və `hesabatlar.html`-də
+(müəllim, mövcud çat seçicisinə bağlı — ayrıca forma lazım olmadı) bir
+kart. Real modellə hələ sınanmayıb (bu PR AI çağırmır, test datası
+kifayətdir).
+
+**PR 2 - Tapşırıq müzakirəsi.** Hər ev tapşırığının öz müzakirə mövzusu
+var — sinif çatından QƏSDƏN AYRI: "bu sualda nəyi buraxdım" kimi
+suallar ümumi çatı doldurmasın. Yeni cədvəl `homework_discussion_messages`
+(`server/homework_store.py`, `message_store.py`-nin eyni sadə naxışı -
+AI/status sahəsi yoxdur, sadəcə mətn). İcazə `create_homework_assignment`-in
+eyni qaydasıdır: tapşırığı yaradan müəllim VƏ çatın hər üzvü (tələbə
+daxil) yaza/oxuya bilər - `_require_assignment_chat_member`.
+`POST/GET /homework/assignments/{id}/discussion`. Veb: `tapsiriq.html`-də
+(tələbə) quiz vəziyyətindən ASILI OLMAYARAQ həmişə görünən bölmə,
+`hesabatlar.html`-də (müəllim) hər tapşırıq kartında açılan panel -
+mesajlar YALNIZ panel açılanda yüklənir (`<details>` `toggle` + `once`),
+hər tapşırıq üçün əvvəlcədən sorğu getməsin.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

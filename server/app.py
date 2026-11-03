@@ -115,6 +115,8 @@ from .live_session_runner import watch_session_duration as watch_live_session_du
 from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
+from .adaptive_quiz import build_adaptive_quiz
+from .progress_stats import attendance_stats, attendance_stats_for_users, subject_percent, weekly_percent
 from .topic_stats import split_strong_weak, topic_stats_for_student
 from .models import (
     WsTicketResponse,
@@ -164,6 +166,10 @@ from .models import (
     SummaryInfo,
     TopicStat,
     TopicStatsOut,
+    WeeklyPercent,
+    SubjectPercent,
+    AttendanceStat,
+    ProgressOut,
     AuditLogRow,
     CourseDeadline,
     CourseActivity,
@@ -196,6 +202,8 @@ from .models import (
     HomeworkAnswerResult,
     HomeworkAssignmentInfo,
     HomeworkAttemptState,
+    HomeworkDiscussionCreate,
+    HomeworkDiscussionMessage,
     HomeworkHintRequest,
     HomeworkHintResult,
     HomeworkQuestionPayload,
@@ -4282,6 +4290,80 @@ def get_my_topic_stats(
     )
 
 
+@app.get("/me/adaptive-quiz", response_model=list[LiveQuestionInfo])
+def get_my_adaptive_quiz(
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    difficulty_model=Depends(get_difficulty_model),
+) -> list[LiveQuestionInfo]:
+    """Faza 2 PR 3 - «zəif yerlərimi məşq et» (bax `server/adaptive_quiz.py`).
+    Düzgün cavab+izah DAXİLDİR: bu, qiymətləndirilən tapşırıq deyil,
+    sərbəst məşqdir, nəticə saxlanmır."""
+    questions = build_adaptive_quiz(
+        user["id"], live_sessions=live_sessions, homework=homework,
+        question_sets=question_sets, difficulty_model=difficulty_model,
+    )
+    return [LiveQuestionInfo(**q) for q in questions]
+
+
+@app.get("/me/progress", response_model=ProgressOut)
+def get_my_progress(
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> ProgressOut:
+    """Faza 3 PR 1 - İnkişaf qrafikləri (bax `server/progress_stats.py`)."""
+    entries = _history_entries_for_student(
+        user["id"], live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+    chat_ids = [chat["id"] for chat in chats.list_by_user(user["id"])]
+    return ProgressOut(
+        weekly=[WeeklyPercent(**w) for w in weekly_percent(entries)],
+        by_subject=[SubjectPercent(**s) for s in subject_percent(entries)],
+        attendance=AttendanceStat(**attendance_stats(user["id"], chat_ids, lessons)),
+    )
+
+
+@app.get("/live/chats/{chat_id}/progress", response_model=ProgressOut)
+def get_class_progress(
+    chat_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> ProgressOut:
+    """Faza 3 PR 1 - müəllim üçün sinif üzrə eyni qrafiklər. Müəllim
+    SİYAHIDAN ÇIXARILIR - `/chats/{id}/leaderboard`-ın eyni qaydası."""
+    _chat_in_course(chats, chat_id, user)
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    student_ids = []
+    entries = []
+    for member_id in chats.list_member_ids(chat_id):
+        member = users.get_by_id(member_id)
+        if member is None or member["is_teacher"]:
+            continue
+        student_ids.append(member_id)
+        entries.extend(_history_entries_for_student(
+            member_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+        ))
+
+    return ProgressOut(
+        weekly=[WeeklyPercent(**w) for w in weekly_percent(entries)],
+        by_subject=[SubjectPercent(**s) for s in subject_percent(entries)],
+        attendance=AttendanceStat(**attendance_stats_for_users(student_ids, [chat_id], lessons)),
+    )
+
+
 _BADGE_TYPES = ("ilk_addim", "yuz_faiz", "fenn_ustasi", "suretli_eqli", "silsile_5")
 _SURETLI_EQLI_MAX_MINUTES = 3
 _FENN_USTASI_MIN_COUNT = 5
@@ -4605,6 +4687,54 @@ def confirm_open_answer(
     if req.points > max_points:
         raise HTTPException(status_code=400, detail=f"Bal {max_points}-dən çox ola bilməz")
     return _open_review_row(homework.confirm_open_answer(answer_id, req.points, req.comment.strip()), users)
+
+
+def _discussion_message_out(row: dict, users: UserStore) -> HomeworkDiscussionMessage:
+    sender = users.get_by_id(row["sender_id"])
+    return HomeworkDiscussionMessage(
+        id=row["id"], assignment_id=row["assignment_id"], sender_id=row["sender_id"],
+        display_name=sender["display_name"] if sender else "Silinmiş istifadəçi",
+        content=row["content"], created_at=row["created_at"],
+    )
+
+
+def _require_assignment_chat_member(homework: HomeworkStore, chats: ChatStore, assignment_id: int, user: dict) -> dict:
+    """Tapşırıq müzakirəsi (Faza 3 PR 2) - sinif çatından AYRI mövzu, amma
+    icazə EYNİDİR: tapşırığı yaradan müəllim VƏ çatın hər üzvü (tələbə
+    daxil) iştirak edə bilər."""
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
+    if user["id"] not in chats.list_member_ids(assignment["chat_id"]):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    return assignment
+
+
+@app.get("/homework/assignments/{assignment_id}/discussion", response_model=list[HomeworkDiscussionMessage])
+def list_homework_discussion(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HomeworkDiscussionMessage]:
+    _require_assignment_chat_member(homework, chats, assignment_id, user)
+    return [_discussion_message_out(row, users) for row in homework.list_discussion_messages(assignment_id)]
+
+
+@app.post("/homework/assignments/{assignment_id}/discussion", response_model=HomeworkDiscussionMessage, status_code=201)
+def add_homework_discussion_message(
+    assignment_id: int,
+    req: HomeworkDiscussionCreate,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> HomeworkDiscussionMessage:
+    _require_assignment_chat_member(homework, chats, assignment_id, user)
+    content = req.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Mesaj boşdur")
+    row = homework.add_discussion_message(assignment_id, user["id"], content)
+    return _discussion_message_out(row, users)
 
 
 def _schedule_live_duration_watch(

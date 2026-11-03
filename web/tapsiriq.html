@@ -118,6 +118,19 @@
       <p class="text-sm text-muted">Cavabı öz sözlərinizlə yazın. Hər suala bir dəfə cavab verilir.</p>
       <div class="stack" id="writtenList"></div>
     </section>
+
+    <!-- Tapşırıq müzakirəsi (Faza 3 PR 2): sinif çatından AYRI mövzu -
+         "bu sualda nəyi buraxdım" kimi suallar ümumi çatı doldurmasın.
+         Quiz vəziyyətindən asılı olmayaraq həmişə görünür. -->
+    <section class="stack" id="discussionSection">
+      <div class="section-header"><h2>Müzakirə</h2></div>
+      <p class="text-sm text-muted">Bu tapşırıqla bağlı sual və şərhlər - yalnız müəllim və bu çatın üzvləri görür.</p>
+      <div class="stack stack--tight" id="discussionList"></div>
+      <form class="row" id="discussionForm">
+        <input class="field__input" id="discussionInput" placeholder="Sual yazın…" maxlength="2000" required>
+        <button class="btn btn--primary btn--sm" type="submit">Göndər</button>
+      </form>
+    </section>
   </section>
 
 </div>
@@ -440,9 +453,52 @@
       return card;
     }
 
+    /* ---- Müzakirə (Faza 3 PR 2) ---- */
+    function renderDiscussionMessage(message) {
+      const row = el('div', 'card stack stack--tight');
+      row.append(el('strong', 'text-sm', message.display_name), el('p', 'text-sm', message.content));
+      return row;
+    }
+
+    async function loadDiscussion() {
+      let messages;
+      try {
+        messages = await request(`/homework/assignments/${assignmentId}/discussion`);
+      } catch {
+        return;   // müzakirə köməkçidir, testin nəticəsini gizlətməsin
+      }
+      const list = document.getElementById('discussionList');
+      if (!messages.length) {
+        list.replaceChildren(el('p', 'text-sm text-muted', 'Hələ mesaj yoxdur.'));
+        return;
+      }
+      list.replaceChildren(...messages.map(renderDiscussionMessage));
+    }
+
+    document.getElementById('discussionForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = document.getElementById('discussionInput');
+      const content = input.value.trim();
+      if (!content) return;
+      const button = event.target.querySelector('button');
+      button.disabled = true;
+      try {
+        await request(`/homework/assignments/${assignmentId}/discussion`, {
+          method: 'POST', body: { content },
+        });
+        input.value = '';
+        loadDiscussion();
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
     if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
       showError('Tapşırıq ünvanı düzgün deyil.');
     } else {
+      loadDiscussion();
       request(`/homework/assignments/${assignmentId}/start`, { method: 'POST' })
         .then((state) => {
           attemptId = state.attempt_id;

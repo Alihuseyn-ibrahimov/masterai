@@ -425,6 +425,20 @@ class HomeworkReportRow(BaseModel):
     score: int | None
 
 
+# Tapşırıq müzakirəsi (Faza 3 PR 2) — sinif çatından AYRI mövzu.
+class HomeworkDiscussionCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class HomeworkDiscussionMessage(BaseModel):
+    id: int
+    assignment_id: int
+    sender_id: int
+    display_name: str
+    content: str
+    created_at: str
+
+
 class MyAssignmentInfo(BaseModel):
     assignment_id: int
     chat_id: int
@@ -482,6 +496,39 @@ class TopicStatsOut(BaseModel):
 
     strong: list[TopicStat]
     weak: list[TopicStat]
+
+
+class WeeklyPercent(BaseModel):
+    """Faza 3 PR 1 - İnkişaf qrafikləri. `week_start` ISO tarixdir
+    (bazar ertəsi), bax `server/progress_stats.py`."""
+
+    week_start: str
+    correct: int
+    total: int
+    percent: int
+
+
+class SubjectPercent(BaseModel):
+    subject: str
+    correct: int
+    total: int
+    percent: int
+
+
+class AttendanceStat(BaseModel):
+    attended: int
+    total: int
+    # Dərs yoxdursa `None` - uydurma 0% göstərmək yanlış olardı.
+    percent: int | None = None
+
+
+class ProgressOut(BaseModel):
+    """`GET /me/progress` (tələbə) və `GET /live/chats/{chat_id}/progress`
+    (müəllim, sinif üzrə) - EYNİ forma."""
+
+    weekly: list[WeeklyPercent]
+    by_subject: list[SubjectPercent]
+    attendance: AttendanceStat
 
 
 class LeaderboardRow(BaseModel):
