@@ -31,6 +31,7 @@ from server.app import (
     get_live_session_store,
     get_material_store,
     get_message_store,
+    get_payment_store,
     get_question_set_store,
     get_question_store,
     get_quiz_attempt_store,
@@ -49,6 +50,7 @@ from server.connection_manager import ConnectionManager
 from server.friendship_store import FriendshipStore
 from server.homework_store import HomeworkStore
 from server.lesson_store import LessonStore
+from server.payment_store import PaymentStore
 from server.live_connection_manager import LiveConnectionManager
 from server.live_session_store import LiveSessionStore
 from server.material_store import MaterialStore
@@ -88,6 +90,7 @@ def world(tmp_path):
         get_badge_store: BadgeStore(":memory:"),
         get_summary_store: SummaryStore(":memory:"),
         get_lesson_store: LessonStore(":memory:"),
+        get_payment_store: PaymentStore(":memory:"),
         get_join_rate_limiter: RateLimiter(max_attempts=1000),
         get_register_rate_limiter: RateLimiter(max_attempts=1000),
         get_upload_dir: str(tmp_path),
@@ -214,6 +217,12 @@ CASES = {
     ("GET", "/homework/assignments/{assignment_id}/open-answers"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
     ("GET", "/homework/assignments/{assignment_id}/discussion"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
     ("POST", "/homework/assignments/{assignment_id}/discussion"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, {"content": "oğurlandı"}, None),
+    ("POST", "/live/chats/{chat_id}/payments/fee"): ("teacher_b", {"chat_id": "chat_a.id"}, None, {"student_id": "student_a.id", "monthly_amount": 20}, None),
+    ("GET", "/live/chats/{chat_id}/payments"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
+    ("POST", "/live/chats/{chat_id}/payments/mark"): ("teacher_b", {"chat_id": "chat_a.id"}, None, {"student_id": "student_a.id", "month": "2026-11"}, None),
+    ("DELETE", "/live/chats/{chat_id}/payments"): ("teacher_b", {"chat_id": "chat_a.id"}, {"student_id": "student_a.id", "month": "2026-11"}, None, None),
+    ("POST", "/live/chats/{chat_id}/payments/{student_id}/remind"): ("teacher_b",
+        {"chat_id": "chat_a.id", "student_id": "student_a.id"}, None, {"month": "2026-11"}, None),
     ("POST", "/homework/open-answers/{answer_id}/confirm"): ("teacher_b", {"answer_id": "open_answer_a.id"}, None, {"points": 1}, None),
     ("DELETE", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None, None, None),
     ("POST", "/live/question-sets/{question_set_id}/flashcards"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, {"count": 1}, None),

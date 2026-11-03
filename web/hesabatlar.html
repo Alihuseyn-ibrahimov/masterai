@@ -60,6 +60,19 @@
     <div class="card stack" id="progressCard"></div>
   </section>
 
+  <!-- Faza 3 PR 3 (2026-11-03) - əl ilə ödəniş izləməsi. Onlayn kartla
+       ödəniş bu fazada YOX (bax plan sənədi). -->
+  <section class="stack" id="paymentsSection" hidden>
+    <div class="section-header">
+      <h2>Ödənişlər</h2>
+      <div class="field">
+        <label class="field__label sr-only" for="paymentsMonth">Ay</label>
+        <input class="field__input" id="paymentsMonth" type="month">
+      </div>
+    </div>
+    <div class="stack" id="paymentsCard"></div>
+  </section>
+
   <section class="stack">
     <div class="section-header"><h2>Təyin edilmiş tapşırıqlar</h2></div>
     <div id="content"></div>
@@ -341,6 +354,7 @@
       }
       loadInto(content, () => request(`/homework/assignments?chat_id=${chatId}`), renderAssignments);
       reloadProgress(chatId);
+      reloadPayments(chatId);
     }
 
     const progressSection = document.getElementById('progressSection');
@@ -368,6 +382,114 @@
           container.append(attendance);
         });
     }
+
+    /* Ödəniş izləməsi (Faza 3 PR 3): əl ilə, onlayn kartla ödəniş YOX. */
+    const paymentsSection = document.getElementById('paymentsSection');
+    const paymentsMonth = document.getElementById('paymentsMonth');
+    const now = new Date();
+    paymentsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    function renderPaymentRow(chatId, row) {
+      const card = el('div', 'card stack stack--tight');
+      const head = el('div', 'row row--between');
+      head.append(el('strong', '', row.display_name),
+        el('span', row.paid ? 'badge badge--success' : 'badge badge--neutral',
+          row.paid ? `Ödənilib · ${row.paid_amount} AZN` : 'Ödənilməyib'));
+      card.append(head);
+
+      const feeForm = el('form', 'row');
+      const feeInput = el('input', 'field__input field__input--points');
+      feeInput.type = 'number';
+      feeInput.min = '0';
+      feeInput.placeholder = 'AZN';
+      feeInput.value = row.monthly_amount ?? '';
+      feeInput.setAttribute('aria-label', `${row.display_name} üçün aylıq məbləğ`);
+      const feeSave = el('button', 'btn btn--secondary btn--sm', 'Məbləği təyin et');
+      feeSave.type = 'submit';
+      feeForm.append(feeInput, feeSave);
+      feeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (feeInput.value === '') return;
+        feeSave.disabled = true;
+        try {
+          await request(`/live/chats/${chatId}/payments/fee`, {
+            method: 'POST',
+            body: { student_id: row.student_id, monthly_amount: Number(feeInput.value) },
+          });
+          reloadPayments(chatId);
+        } catch (error) {
+          flash(errorBox, error.message);
+        } finally {
+          feeSave.disabled = false;
+        }
+      });
+      card.append(feeForm);
+
+      const actions = el('div', 'row');
+      if (row.paid) {
+        const unmark = el('button', 'btn btn--ghost btn--sm', 'Ödənişi ləğv et');
+        unmark.type = 'button';
+        unmark.addEventListener('click', async () => {
+          unmark.disabled = true;
+          try {
+            await request(`/live/chats/${chatId}/payments`
+              + `?student_id=${row.student_id}&month=${paymentsMonth.value}`, { method: 'DELETE' });
+            reloadPayments(chatId);
+          } catch (error) {
+            flash(errorBox, error.message);
+            unmark.disabled = false;
+          }
+        });
+        actions.append(unmark);
+      } else {
+        const mark = el('button', 'btn btn--primary btn--sm', 'Ödədi');
+        mark.type = 'button';
+        mark.disabled = row.monthly_amount == null;
+        mark.addEventListener('click', async () => {
+          mark.disabled = true;
+          try {
+            await request(`/live/chats/${chatId}/payments/mark`, {
+              method: 'POST', body: { student_id: row.student_id, month: paymentsMonth.value },
+            });
+            reloadPayments(chatId);
+          } catch (error) {
+            flash(errorBox, error.message);
+            mark.disabled = false;
+          }
+        });
+        const remind = el('button', 'btn btn--secondary btn--sm', 'Xatırlat');
+        remind.type = 'button';
+        remind.disabled = row.monthly_amount == null;
+        remind.addEventListener('click', async () => {
+          remind.disabled = true;
+          try {
+            await request(`/live/chats/${chatId}/payments/${row.student_id}/remind`, {
+              method: 'POST', body: { month: paymentsMonth.value },
+            });
+            flash(okBox, 'Xatırlatma çata göndərildi.');
+          } catch (error) {
+            flash(errorBox, error.message);
+          } finally {
+            remind.disabled = false;
+          }
+        });
+        actions.append(mark, remind);
+      }
+      card.append(actions);
+      return card;
+    }
+
+    function reloadPayments(chatId) {
+      loadInto(document.getElementById('paymentsCard'),
+        () => request(`/live/chats/${chatId}/payments?month=${paymentsMonth.value}`),
+        (container, data) => {
+          paymentsSection.hidden = !data.rows.length;
+          if (!data.rows.length) return;
+          container.replaceChildren(...data.rows.map((row) => renderPaymentRow(chatId, row)));
+        });
+    }
+
+    paymentsMonth.addEventListener('change', () => reloadPayments(Number(chatSelect.value)));
 
     /* Tapşırıq kartında sual bankının ADINI göstərmək üçün id→ad
        xəritəsi. Səhifə onsuz da `/live/question-sets`-i seçici üçün

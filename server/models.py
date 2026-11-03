@@ -425,6 +425,42 @@ class HomeworkReportRow(BaseModel):
     score: int | None
 
 
+# Ödəniş izləməsi (Faza 3 PR 3) — əl ilə qeyd, onlayn kartla ödəniş YOX.
+_MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+
+
+class PaymentFeeSet(BaseModel):
+    student_id: int
+    monthly_amount: int = Field(ge=0, le=100000)
+
+
+class MarkPaymentRequest(BaseModel):
+    student_id: int
+    month: str = Field(pattern=_MONTH_PATTERN)
+    # `None` — fee-dəki məbləğdən götürülür.
+    amount: int | None = Field(default=None, ge=0, le=100000)
+
+
+class RemindPaymentRequest(BaseModel):
+    month: str = Field(pattern=_MONTH_PATTERN)
+
+
+class PaymentRow(BaseModel):
+    student_id: int
+    display_name: str
+    # `None` — bu tələbə üçün hələ aylıq məbləğ təyin olunmayıb, borc
+    # siyahısına düşmür (uydurma borc göstərmək yanlış olardı).
+    monthly_amount: int | None
+    paid: bool
+    paid_amount: int | None
+    paid_at: str | None
+
+
+class PaymentsOut(BaseModel):
+    month: str
+    rows: list[PaymentRow]
+
+
 # Tapşırıq müzakirəsi (Faza 3 PR 2) — sinif çatından AYRI mövzu.
 class HomeworkDiscussionCreate(BaseModel):
     content: str = Field(min_length=1, max_length=2000)

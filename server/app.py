@@ -115,6 +115,7 @@ from .live_session_runner import watch_session_duration as watch_live_session_du
 from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
+from .payment_store import PaymentStore, current_month
 from .adaptive_quiz import build_adaptive_quiz
 from .progress_stats import attendance_stats, attendance_stats_for_users, subject_percent, weekly_percent
 from .topic_stats import split_strong_weak, topic_stats_for_student
@@ -218,14 +219,19 @@ from .models import (
     LiveSessionInfo,
     LiveSessionReport,
     LoginRequest,
+    MarkPaymentRequest,
     MaterialInfo,
     MyAssignmentInfo,
+    PaymentFeeSet,
+    PaymentRow,
+    PaymentsOut,
     QualityFinding,
     QuestionSetInfo,
     QuestionSetQuality,
     QuizSessionInfo,
     QuizStartRequest,
     RegisterRequest,
+    RemindPaymentRequest,
     SendFriendRequestRequest,
     SetTeacherRequest,
     UpdateQuestionRequest,
@@ -319,6 +325,7 @@ app.state.homework_store = HomeworkStore(os.environ.get("HOMEWORK_DB_PATH", "hom
 app.state.badge_store = BadgeStore(os.environ.get("BADGES_DB_PATH", "badges.db"))
 app.state.summary_store = SummaryStore(os.environ.get("SUMMARIES_DB_PATH", "summaries.db"))
 app.state.lesson_store = LessonStore(os.environ.get("LESSONS_DB_PATH", "lessons.db"))
+app.state.payment_store = PaymentStore(os.environ.get("PAYMENTS_DB_PATH", "payments.db"))
 # Yarımçıq emallar: fon task-ları proses-daxilidir, servis restart olanda
 # ölürlər və status əbədi `processing` qalırdı (produksiyada 3 həftə
 # «Hazırlanır» göstərən iki bank tapıldı). Bu, YALNIZ tək worker-lə
@@ -527,6 +534,11 @@ def get_summary_store() -> SummaryStore:
 def get_lesson_store() -> LessonStore:
     """Dərs cədvəli store-u (testdə `:memory:` ilə override olunur)."""
     return app.state.lesson_store
+
+
+def get_payment_store() -> PaymentStore:
+    """Ödəniş izləməsi store-u (testdə `:memory:` ilə override olunur)."""
+    return app.state.payment_store
 
 
 def get_livekit_config() -> LiveKitConfig | None:
@@ -4735,6 +4747,139 @@ def add_homework_discussion_message(
         raise HTTPException(status_code=400, detail="Mesaj boşdur")
     row = homework.add_discussion_message(assignment_id, user["id"], content)
     return _discussion_message_out(row, users)
+
+
+def _require_teacher_chat_member(chats: ChatStore, chat_id: int, user: dict) -> dict:
+    """Ödəniş izləməsi (Faza 3 PR 3) - müəllimliyi `get_current_teacher`
+    asılılığı yoxlayır, bura YALNIZ "bu çatın üzvüsən" qalır."""
+    chat = _chat_in_course(chats, chat_id, user)
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın müəllimi deyilsiniz")
+    return chat
+
+
+def _require_chat_student(chats: ChatStore, users: UserStore, chat_id: int, student_id: int) -> dict:
+    """Ödəniş qeydi başqa kursdan tələbəyə YÖNƏLDİLƏ bilməsin - `chat_id`
+    artıq kurs sərhədindən keçib, bu ƏLAVƏ "elə bu çatın üzvüdür" yoxlamasıdır."""
+    if student_id not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=404, detail="Tələbə tapılmadı")
+    student = users.get_by_id(student_id)
+    if student is None:
+        raise HTTPException(status_code=404, detail="Tələbə tapılmadı")
+    return student
+
+
+def _payment_row(student: dict, fees: dict[int, int], paid: dict[int, dict]) -> PaymentRow:
+    record = paid.get(student["id"])
+    return PaymentRow(
+        student_id=student["id"], display_name=student["display_name"],
+        monthly_amount=fees.get(student["id"]),
+        paid=record is not None,
+        paid_amount=record["amount"] if record else None,
+        paid_at=record["paid_at"] if record else None,
+    )
+
+
+@app.post("/live/chats/{chat_id}/payments/fee", response_model=PaymentFeeSet)
+def set_payment_fee(
+    chat_id: int,
+    req: PaymentFeeSet,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> PaymentFeeSet:
+    _require_teacher_chat_member(chats, chat_id, user)
+    _require_chat_student(chats, users, chat_id, req.student_id)
+    payments.set_fee(chat_id, req.student_id, req.monthly_amount)
+    return req
+
+
+@app.get("/live/chats/{chat_id}/payments", response_model=PaymentsOut)
+def list_payments(
+    chat_id: int,
+    month: str | None = None,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> PaymentsOut:
+    """Ay YOXDURSA cari ay (server UTC-si) - müəllim «bu ayın borcları»nı
+    əlavə sorğu yazmadan açır."""
+    _require_teacher_chat_member(chats, chat_id, user)
+    target_month = month or current_month()
+    fees = payments.list_fees_for_chat(chat_id)
+    paid = payments.list_payments_for_chat(chat_id, target_month)
+    rows = []
+    for member_id in chats.list_member_ids(chat_id):
+        member = users.get_by_id(member_id)
+        if member is None or member["is_teacher"]:
+            continue
+        rows.append(_payment_row(member, fees, paid))
+    return PaymentsOut(month=target_month, rows=rows)
+
+
+@app.post("/live/chats/{chat_id}/payments/mark", response_model=PaymentRow)
+def mark_payment(
+    chat_id: int,
+    req: MarkPaymentRequest,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> PaymentRow:
+    _require_teacher_chat_member(chats, chat_id, user)
+    student = _require_chat_student(chats, users, chat_id, req.student_id)
+    amount = req.amount
+    if amount is None:
+        fee = payments.list_fees_for_chat(chat_id).get(req.student_id)
+        if fee is None:
+            raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
+        amount = fee
+    payments.mark_paid(chat_id, req.student_id, req.month, amount, marked_by=user["id"])
+    fees = payments.list_fees_for_chat(chat_id)
+    paid = payments.list_payments_for_chat(chat_id, req.month)
+    return _payment_row(student, fees, paid)
+
+
+@app.delete("/live/chats/{chat_id}/payments", status_code=204)
+def unmark_payment(
+    chat_id: int,
+    student_id: int,
+    month: str,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> None:
+    _require_teacher_chat_member(chats, chat_id, user)
+    _require_chat_student(chats, users, chat_id, student_id)
+    payments.unmark_paid(chat_id, student_id, month)
+
+
+@app.post("/live/chats/{chat_id}/payments/{student_id}/remind", status_code=204)
+async def remind_payment(
+    chat_id: int,
+    student_id: int,
+    req: RemindPaymentRequest,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> None:
+    """Xatırlatma sinif çatına yazılır (DM yoxdur - birbaşa mesaj dostluq
+    şərtinə bağlıdır, müəllim-tələbə arasında bu şərt həmişə yoxdur)."""
+    _require_teacher_chat_member(chats, chat_id, user)
+    student = _require_chat_student(chats, users, chat_id, student_id)
+    fee = payments.list_fees_for_chat(chat_id).get(student_id)
+    if fee is None:
+        raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
+    await _announce_in_chat(
+        messages, manager, chat_id,
+        f"💳 Xatırlatma: {student['display_name']}, {req.month} ayı üçün {fee} AZN aidat gözlənilir.",
+    )
 
 
 def _schedule_live_duration_watch(
