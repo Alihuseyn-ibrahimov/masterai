@@ -658,7 +658,30 @@ yoxdur), `profil.html`-in zəif mövzu bloku zəif mövzu varsa «Zəif
 yerlərimi məşq et» düyməsini göstərir. Real modellə hələ sınanmayıb.
 
 Bununla Faza 2 («Sokratik mentor + adaptiv öyrənmə») planın 3 PR-i
-tamamlandı (PR 1 #65, PR 2+3 #66 — hər ikisi merge olunub).
+tamamlandı (PR 1 #65, PR 2 #66, PR 3 — bax PR siyahısı).
+
+## Server silindi, sıfırdan qurulma (2026-10-30)
+
+DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
+birlikdə bütün bazalar (`data/*.db`) və eyni maşındakı digər servislər.
+Yeni droplet üçün bir skript: `deploy/rebuild_droplet.sh` (firewall,
+swap, jurnal limiti, tesseract-aze, rəsmi Chrome .deb, repo klonu
+`/opt/masterai`-ə, `.env` - VARSA toxunulmur, systemd, sayt
+`/opt/masterai-web`-ə, real nginx faylı, certbot). Təkrar işlətmək
+təhlükəsizdir, yeniləmə yolu da odur. Monorepo (`/opt/pr-agent/repo`)
+artıq İŞLƏDİLMİR.
+
+Təzə bazada admin yoxdur: saytda qeydiyyat → `deploy/bootstrap_admin.py`
+(müəllim + admin + sahib bayraqları birdən).
+
+**Dərs:** serverdən kənarda backup YOX idi. Hesab dayandırılanda data
+da getdi. İndi `deploy/backup_data.py` hər gecə 03:00 UTC-də
+(`masterai-backup.timer`) bütün `*.db`-lərin sqlite `backup` API-si ilə
+surətini + `uploads/`-u bir arxivə yığır, `/var/backups/masterai`-də
+14 gün saxlayır və `.env`-də `BACKUP_TELEGRAM_BOT_TOKEN` +
+`BACKUP_TELEGRAM_CHAT_ID` varsa Telegram-a göndərir (kənar nüsxə).
+Açarlar yoxdursa jurnalda xəbərdarlıq var: surət YALNIZ serverdədir.
+Telegram limiti 50 MB - arxiv böyüyəndə başqa yer lazım olacaq.
 
 ## Faza 3 «İdarəetmə paneli» (2026-11-03-dən)
 
