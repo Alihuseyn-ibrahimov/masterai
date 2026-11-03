@@ -46,7 +46,7 @@ const TEACHER_DESTINATIONS = [
   /* Canlı quiz sessiyası dərsin bir hissəsidir: sessiyalar dərs
      bölməsindən linklə açılır. */
   { href: 'dersler.html', label: 'Dərslər', icon: 'school', matches: ['dersler.html', 'dersim.html', 'dars.html', 'sessiyalar.html', 'tutor.html'] },
-  { href: 'muellim.html', label: 'Quiz yarat', short: 'Quiz', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html'] },
+  { href: 'muellim.html', label: 'Quiz yarat', short: 'Quiz', icon: 'books', matches: ['muellim.html', 'suallar.html', 'xulase.html', 'aciq-suallar.html'] },
   { href: 'chatlar.html', label: 'Çatlar', icon: 'message', matches: ['chatlar.html', 'chat.html'] },
   { href: 'hesabatlar.html', label: 'Hesabatlar', short: 'Hesabat', icon: 'report', matches: ['hesabatlar.html', 'tarixce.html'] },
 ];

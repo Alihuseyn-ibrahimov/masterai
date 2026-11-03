@@ -831,3 +831,45 @@ class LessonQuizCreate(BaseModel):
     subject: str
     question_count: int = Field(default=10, ge=3, le=30)
     make_summary: bool = True
+
+
+# ---- Açıq suallar (Faza 1 «Müəllim AI asistenti», 2026-11-03) ------------
+
+
+class OpenRubricItem(BaseModel):
+    criterion: str = Field(min_length=1, max_length=300)
+    points: int = Field(ge=1, le=5)
+
+
+class OpenQuestionOut(BaseModel):
+    id: int
+    question_set_id: int
+    kind: Literal["qisa", "esse"]
+    question: str
+    model_answer: str
+    rubric: list[OpenRubricItem]
+    max_points: int
+    difficulty: Difficulty | None = None
+
+
+class OpenQuestionsOut(BaseModel):
+    """Bankın açıq sualları + son generasiyanın vəziyyəti.
+    `status`: none | processing | ready | failed. Suallar yığılır: uğursuz
+    generasiya əvvəlki sualları silmir."""
+
+    status: str
+    error: str | None = None
+    items: list[OpenQuestionOut] = []
+
+
+class GenerateOpenQuestionsRequest(BaseModel):
+    count: int = Field(default=5, ge=1, le=15)
+    kind: Literal["qarisiq", "qisa", "esse"] = "qarisiq"
+
+
+class UpdateOpenQuestionRequest(BaseModel):
+    kind: Literal["qisa", "esse"]
+    question: str = Field(min_length=5, max_length=1000)
+    model_answer: str = Field(min_length=1, max_length=3000)
+    rubric: list[OpenRubricItem] = Field(min_length=1, max_length=6)
+    difficulty: Difficulty | None = None

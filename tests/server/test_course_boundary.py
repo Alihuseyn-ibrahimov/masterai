@@ -138,6 +138,10 @@ def world(tmp_path):
         w[f"qs_{side}"] = question_sets.get(qs["id"])
 
     w["question_a"] = question_sets.list_questions(w["qs_a"]["id"])[0]
+    question_sets.start_open_job(w["qs_a"]["id"])
+    question_sets.finish_open_job(w["qs_a"]["id"], [{"kind": "qisa", "question": "Nədir?", "model_answer": "x",
+                                                    "rubric": [{"criterion": "x", "points": 1}]}])
+    w["open_question_a"] = question_sets.list_open_questions(w["qs_a"]["id"])[0]
     w["session_a"] = live.create_session(w["qs_a"]["id"], chat_id=w["chat_a"]["id"],
                                          created_by=w["teacher_a"]["id"])
     finished = live.create_session(w["qs_a"]["id"], chat_id=w["chat_a"]["id"],
@@ -195,6 +199,11 @@ CASES = {
     ("PATCH", "/live/questions/{question_id}"): ("teacher_b", {"question_id": "question_a.id"}, None,
         {"question": "Oğurlandı?", "options": ["1", "2", "3", "4", "5"], "correct_index": 1, "explanation": "x"}, None),
     ("DELETE", "/live/questions/{question_id}"): ("teacher_b", {"question_id": "question_a.id"}, None, None, None),
+    ("POST", "/live/question-sets/{question_set_id}/open-questions"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, {"count": 1}, None),
+    ("GET", "/live/question-sets/{question_set_id}/open-questions"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("PATCH", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None,
+        {"kind": "qisa", "question": "Oğurlandı?", "model_answer": "x", "rubric": [{"criterion": "x", "points": 1}]}, None),
+    ("DELETE", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None, None, None),
     ("POST", "/live/sessions"): ("teacher_b", {}, None, {"question_set_id": "qs_a.id", "chat_id": "chat_b.id"}, None),
     ("GET", "/chats/{chat_id}/live-session"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/live/sessions/{session_id}/report"): ("teacher_b", {"session_id": "finished_a.id"}, None, None, None),
