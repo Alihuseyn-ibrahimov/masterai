@@ -233,6 +233,7 @@ CASES = {
     ("GET", "/history/student/{student_id}"): ("teacher_b", {"student_id": "student_a.id"}, None, None, None),
     ("POST", "/homework/assignments/{assignment_id}/start"): ("student_b", {"assignment_id": "assignment_a.id"}, None, None, None),
     ("POST", "/homework/attempts/{attempt_id}/answer"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"question_index": 0, "chosen_index": 0}, None),
+    ("POST", "/homework/attempts/{attempt_id}/hint"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"question_index": 0, "chosen_index": 0}, None),
     ("POST", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
     ("GET", "/live/question-sets/{question_set_id}/summary"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
     ("POST", "/live/question-sets/{question_set_id}/review"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
