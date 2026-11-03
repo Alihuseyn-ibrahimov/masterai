@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2132 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 389 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2147 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -531,6 +531,21 @@ olunur, uğursuz generasiya onları silmir. Marşrutlar:
 `PATCH/DELETE /live/open-questions/{id}`. Veb: `aciq-suallar.html?bank=N`
 («Quiz yarat»dakı bank kartında «Açıq suallar»), meyarlar redaktədə «bal | meyar»
 sətirləridir (`open-questions.js`). Real modellə hələ sınanmayıb.
+
+**PR 2 - açıq cavabın AI yoxlaması.** Bankın açıq sualları ev tapşırığında
+MCQ hissəsi bitəndən sonra «Yazılı hissə» kimi görünür (`tapsiriq.html`), hər
+suala bir cavab (≤5000 simvol, 409 təkrar). `pipeline/open_grading.py` cavabı
+meyar-meyar ballandırır (hər meyar 0..bal, kəsilir) + 1-3 cümləlik rəy; model bir
+meyarı buraxsa bir təkrar, sonra `GradingError` → status `failed`, yarımçıq bal
+UYDURULMUR. 3 sözdən qısa cavab və injection (`guardrails.is_injection`) LLM-ə
+getmir (0 bal, `flagged`), cavab LLM-ə `mask_pii`-dən sonra `<cavab>` blokunda
+gedir. **AI balı TƏKLİFDİR:** yekun balı müəllim `hesabatlar.html`-də «Yazılı
+cavablar» blokunda təsdiqləyir (`POST /homework/open-answers/{id}/confirm`, AI
+bitməmiş də olsa; sonra gələn AI nəticəsi təsdiqi əzmir). Cavab sətri sualın,
+nümunə cavabın və meyarların SURƏTİNİ saxlayır (`homework_open_answers`): müəllim
+sualı sonra redaktə və ya silsə bal pozulmur. Nümunə cavab tələbəyə yalnız
+yoxlamadan sonra verilir. MCQ xalına, tarixçəyə və liderlik lövhəsinə hələ
+QATILMIR. Real modellə hələ sınanmayıb.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

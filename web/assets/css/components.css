@@ -1772,6 +1772,8 @@ body.is-staged { overflow: hidden; }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* Bal sahəsi (açıq cavabın təsdiqi): 0-30 arası ədəd, enli sahə lazım deyil. */
+.field__input--points { width: 7ch; flex: none; }
 .field__input--pin::placeholder { color: var(--color-text-faint); opacity: .45; letter-spacing: .25em; }
 .auth__body .form-shell { margin-inline: auto; }
 

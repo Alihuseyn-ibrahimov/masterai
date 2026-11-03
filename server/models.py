@@ -873,3 +873,58 @@ class UpdateOpenQuestionRequest(BaseModel):
     model_answer: str = Field(min_length=1, max_length=3000)
     rubric: list[OpenRubricItem] = Field(min_length=1, max_length=6)
     difficulty: Difficulty | None = None
+
+
+# ---- Açıq cavabın AI yoxlaması (Faza 1, PR 2) -----------------------------
+
+
+class OpenCriterionGrade(BaseModel):
+    criterion: str
+    points: int
+    awarded: int
+    comment: str = ""
+
+
+class OpenAnswerOut(BaseModel):
+    """Tələbənin açıq cavabı. `status`: grading | graded | failed | confirmed.
+    `final_points` yalnız müəllim təsdiqləyəndən sonra var; o vaxta qədər
+    `ai_points` TƏKLİFDİR. `model_answer` cavab yoxlanandan sonra göstərilir."""
+
+    id: int
+    open_question_id: int
+    question: str
+    answer: str
+    status: str
+    max_points: int
+    ai_points: int | None = None
+    criteria: list[OpenCriterionGrade] = []
+    feedback: str | None = None
+    final_points: int | None = None
+    teacher_comment: str | None = None
+    model_answer: str | None = None
+
+
+class OpenTaskItem(BaseModel):
+    open_question_id: int
+    kind: str
+    question: str
+    max_points: int
+    answer: OpenAnswerOut | None = None
+
+
+class SubmitOpenAnswerRequest(BaseModel):
+    open_question_id: int
+    answer: str = Field(min_length=1, max_length=5000)
+
+
+class OpenAnswerReviewRow(OpenAnswerOut):
+    student_id: int
+    display_name: str
+    # LLM-siz verilən 0 bal: «qisa» (çox qısa cavab) və ya «injection».
+    flagged: str | None = None
+    error: str | None = None
+
+
+class ConfirmOpenAnswerRequest(BaseModel):
+    points: int = Field(ge=0, le=30)
+    comment: str = Field(default="", max_length=1000)
