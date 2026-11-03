@@ -115,6 +115,7 @@ from .live_session_runner import watch_session_duration as watch_live_session_du
 from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
+from .topic_stats import split_strong_weak, topic_stats_for_student
 from .models import (
     WsTicketResponse,
     DifficultyStat,
@@ -161,6 +162,8 @@ from .models import (
     PublishFlashcardsRequest,
     UpdateFlashcardRequest,
     SummaryInfo,
+    TopicStat,
+    TopicStatsOut,
     AuditLogRow,
     CourseDeadline,
     CourseActivity,
@@ -4258,6 +4261,24 @@ def get_student_history(
         raise HTTPException(status_code=403, detail="Bu tələbə ilə ortaq çatınız yoxdur")
     return _history_entries_for_student(
         student_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+
+
+@app.get("/me/topics", response_model=TopicStatsOut)
+def get_my_topic_stats(
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> TopicStatsOut:
+    """Faza 2 PR 2 - «güclü/zəif mövzular» (bax `server/topic_stats.py`)."""
+    stats = topic_stats_for_student(
+        user["id"], live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+    strong, weak = split_strong_weak(stats)
+    return TopicStatsOut(
+        strong=[TopicStat(**s) for s in strong],
+        weak=[TopicStat(**s) for s in weak],
     )
 
 

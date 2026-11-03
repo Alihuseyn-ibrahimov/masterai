@@ -70,6 +70,14 @@
     </div>
   </section>
 
+  <!-- Faza 2 PR 2 (2026-11-03) - güclü/zəif mövzular. Yalnız tələbəyə,
+       cavablar mövzu etiketi daşıyan suallardan topladıqda görünür
+       (bax `server/topic_stats.py`). -->
+  <section id="topicStatsSection" hidden>
+    <div class="section-header"><h2>Mövzular üzrə nəticə</h2></div>
+    <div class="card" id="topicStatsCard"></div>
+  </section>
+
   <!-- Yalnız platforma sahibinə. Naviqasiyada deyil: bölmə sayı 5-lə
        məhdudlaşıb (ölçülüb, bax nav.js). Bu link yalnız GÖRÜNÜŞDÜR -
        qoruma serverdədir (`/owner/*` başqasına 404). -->
@@ -93,11 +101,12 @@
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { getUser } from './assets/js/api.js';
-  import { logout, mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { getUser, request } from './assets/js/api.js';
+  import { loadInto, logout, mountShell, requireLogin } from './assets/js/page-shell.js';
   /* Tema məntiqi PAYLAŞILAN moduldadır - əvvəl yalnız bu səhifənin
      içində idi və digər səhifələr seçimi oxumurdu. */
   import { readStoredTheme, setTheme } from './assets/js/theme.js';
+  import { hasTopicStats, renderTopicStats } from './assets/js/topics.js';
 
 
 
@@ -125,6 +134,16 @@
     }
     if (!user.is_teacher) {
       document.getElementById('studentExtras').hidden = false;
+      // Kifayət qədər cavab yoxdursa (və ya mövzusuz köhnə suallardan
+      // ibarətdirsə) bölmə boş görünməsin deyə tam GİZLƏDİLİR - digər
+      // boş hallar `mascot.js::createEmptyState` ilə göstərilir, burada
+      // isə "hələ heç nə" demək artıq məlumatdır, siqnal deyil.
+      loadInto(document.getElementById('topicStatsCard'), () => request('/me/topics'), (container, data) => {
+        if (!hasTopicStats(data)) return;
+        document.getElementById('topicStatsSection').hidden = false;
+        container.innerHTML = '';
+        container.append(renderTopicStats(data));
+      });
     }
     if (user.is_platform_owner) {
       document.getElementById('ownerExtras').hidden = false;

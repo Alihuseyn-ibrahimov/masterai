@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2253 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2278 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 394 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -613,6 +613,35 @@ modellə hələ sınanmayıb.
 (FastAPI override-ı hər çağırışda yenidən işə salır) - sayğac heç vaxt
 saxlanmırdı, ikinci sorğu da 200 qaytarırdı. Həll: BİR instansı əvvəlcə
 dəyişənə tutub, override-ı o dəyişənə göndərmək (closure).
+
+**PR 2 - Zəif mövzu analizi.** `pipeline/generation.py`-nin promptuna
+təlimat əlavə olundu: hər sual üçün AI materialdan 2-4 sözlə `topic`
+sahəsi yazır (məs. "seçki hüququ") — `pipeline/difficulty.py`-nin eyni
+naxışı, amma sərbəst mətn, 3 səviyyəli enum deyil
+(`MCQQuestion.topic`, `_normalize_topic`: 60 simvola kəsilir, boş/sətir
+olmayan dəyər `None`). `live_questions.topic` sütunu (`COALESCE`
+pattern-i `difficulty` ilə eynidir — `topic=None` köhnə dəyərə
+toxunmur). **Prompt şablonu QƏSDƏN dəyişdi** (`tests/test_course_profiles.py`
+hash-i yeniləndi — bax o fayldakı şərh); yalnız `MCQQuestion`-a sahə
+əlavə etmək hash-i DƏYİŞMƏZDİ (`format_instructions` ayrı placeholder-dır),
+amma AI-ın sahəni doldurması üçün açıq təlimat lazım idi.
+
+`server/topic_stats.py::topic_stats_for_student` tarixçə ilə EYNİ iki
+mənbəni (`app.py::_history_entries_for_student`-in naxışı) gəzir, amma
+xronoloji siyahı qurmur — hər cavabı (`question_index` → `list_questions()`-un
+mövqeyi, canlı sessiya VƏ ev tapşırığında eyni mənbə) mövzu üzrə
+qruplaşdırıb faiz hesablayır. Mövzusuz (köhnə) suallar HESABA
+QATILMIR. `split_strong_weak`: ən azı 2 cavabı olan mövzular, 80%+
+güclü, 60%-dən az zəif, arada olan («aydın deyil») heç bir siyahıya
+düşmür. `GET /me/topics` — ID parametri yoxdur (`user["id"]`-dən
+hər şey), ona görə `test_course_boundary.py`-ə giriş lazım deyil,
+`test_endpoint_guards.py` avtomatik örtür (`/history/me`/`/badges/me`
+ilə eyni, yoxlanıb).
+
+Veb: `profil.html`-də «Mövzular üzrə nəticə» bloku (yalnız tələbə) —
+`assets/js/topics.js`, boş olanda bölmə TAM gizlənir (bu, "hələ heç nə"
+demək artıq siqnaldır, boş siyahı göstərmək mənasız). Real modellə
+hələ sınanmayıb.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

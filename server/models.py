@@ -223,6 +223,8 @@ class LiveQuestionInfo(BaseModel):
     explanation: str
     created_at: str
     difficulty: Difficulty | None = None
+    # Mövzu etiketi (Faza 2 PR 2) - zəif mövzu analizi üçün.
+    topic: str | None = None
     # Gün 15: PyTorch ilə öyrədilmiş modelin proqnozu (model faylı yoxdursa None).
     predicted_correct: float | None = None
     predicted_difficulty: Difficulty | None = None
@@ -463,6 +465,23 @@ class HistoryEntry(BaseModel):
     date: str
     chat_id: int | None = None
     session_id: int | None = None
+
+
+class TopicStat(BaseModel):
+    """Bir mövzu üzrə tələbənin faizi (Faza 2 PR 2 - zəif mövzu analizi)."""
+
+    topic: str
+    correct: int
+    total: int
+    percent: int
+
+
+class TopicStatsOut(BaseModel):
+    """`GET /me/topics` — ən azı 2 cavabı olan mövzular. Aradakı (60-80%)
+    heç bir siyahıya düşmür, bax `server/topic_stats.py`."""
+
+    strong: list[TopicStat]
+    weak: list[TopicStat]
 
 
 class LeaderboardRow(BaseModel):

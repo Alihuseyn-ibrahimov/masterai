@@ -132,6 +132,35 @@ class TestAnswer:
             store.answer(attempt["id"], 0, 0, True, total_questions=1)
 
 
+class TestListAnswersForAttempt:
+    """Faza 2 PR 2 - zəif mövzu analizi (`server/topic_stats.py`)."""
+
+    def test_empty_when_no_answers(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        attempt = store.get_or_create_attempt(a["id"], student_id=5)
+        assert store.list_answers_for_attempt(attempt["id"]) == []
+
+    def test_returns_answers_ordered_by_question_index(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        attempt = store.get_or_create_attempt(a["id"], student_id=5)
+        store.answer(attempt["id"], 0, chosen_index=0, is_correct=True, total_questions=2)
+        store.answer(attempt["id"], 1, chosen_index=1, is_correct=False, total_questions=2)
+        rows = store.list_answers_for_attempt(attempt["id"])
+        assert [r["question_index"] for r in rows] == [0, 1]
+        assert rows[0]["is_correct"] is True
+        assert rows[1]["is_correct"] is False
+        assert rows[0]["attempt_id"] == attempt["id"]
+
+    def test_ignores_other_attempts(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        attempt1 = store.get_or_create_attempt(a["id"], student_id=5)
+        attempt2 = store.get_or_create_attempt(a["id"], student_id=6)
+        store.answer(attempt1["id"], 0, chosen_index=0, is_correct=True, total_questions=1)
+        store.answer(attempt2["id"], 0, chosen_index=1, is_correct=False, total_questions=1)
+        assert len(store.list_answers_for_attempt(attempt1["id"])) == 1
+        assert len(store.list_answers_for_attempt(attempt2["id"])) == 1
+
+
 class TestChatLeaderboard:
     def test_empty_when_no_completed_attempts(self, store):
         assert store.get_chat_leaderboard(1) == {}
