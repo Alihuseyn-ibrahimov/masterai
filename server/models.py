@@ -404,6 +404,18 @@ class HomeworkAnswerResult(BaseModel):
     next_question: HomeworkQuestionPayload | None
 
 
+# Sokratik köməkçi (Faza 2 PR 1) — YALNIZ ev tapşırığında, canlı sessiyada YOX.
+class HomeworkHintRequest(BaseModel):
+    question_index: int
+    chosen_index: int
+
+
+class HomeworkHintResult(BaseModel):
+    is_correct: bool
+    # Cavab düzgündürsə hint yoxdur - tələbə birbaşa `POST .../answer` çağırır.
+    hint: str | None = None
+
+
 class HomeworkReportRow(BaseModel):
     student_id: int
     display_name: str

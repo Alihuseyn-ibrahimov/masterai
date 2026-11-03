@@ -80,6 +80,7 @@ from pipeline.open_questions import generate_open_questions
 from pipeline.open_grading import grade_open_answer
 from pipeline.guardrails import PII_NOTICE
 from pipeline.tutor_graph import run_tutor
+from pipeline.socratic import SocraticError, generate_hint
 from pipeline.ingestion.errors import IngestionError
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
@@ -192,6 +193,8 @@ from .models import (
     HomeworkAnswerResult,
     HomeworkAssignmentInfo,
     HomeworkAttemptState,
+    HomeworkHintRequest,
+    HomeworkHintResult,
     HomeworkQuestionPayload,
     HomeworkReportRow,
     InviteCodeInfo,
@@ -285,6 +288,11 @@ app.state.pin_rate_limiter = RateLimiter(PIN_MAX_FAILURES, 60)
 # dəqiqədə 20 sual - normal öyrənməni sıxmır, skriptlə Groq limitini yemir.
 TUTOR_MAX_QUESTIONS = 20
 app.state.tutor_rate_limiter = RateLimiter(TUTOR_MAX_QUESTIONS, 10 * 60)
+# Sokratik hint (Faza 2 PR 1): hər çağırış bir LLM sorğusudur, STATELESS-dir
+# (tələbə eyni sualda istədiyi qədər "Kömək istə" basa bilər) - tutor ilə
+# eyni qayda, bir qədər səxavətli (bir sualda bir neçə hint normaldır).
+HINT_MAX_REQUESTS = 30
+app.state.hint_rate_limiter = RateLimiter(HINT_MAX_REQUESTS, 10 * 60)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.ws_tickets = WsTicketStore()
@@ -395,6 +403,16 @@ def get_tutor_rate_limiter() -> RateLimiter:
 def get_tutor():
     """Sual + mənbələr + tarixçə → agentin vəziyyəti (gün 9, LangGraph; testdə fake)."""
     return run_tutor
+
+
+def get_hint_rate_limiter() -> RateLimiter:
+    return app.state.hint_rate_limiter
+
+
+def get_socratic_hinter():
+    """(material, sual, variantlar, səhv/düzgün indeks) → Sokratik hint
+    (Faza 2 PR 1; testdə fake funksiya ilə override olunur)."""
+    return generate_hint
 
 
 def get_pin_rate_limiter() -> RateLimiter:
@@ -4378,6 +4396,62 @@ def answer_homework_question(
         explanation=question["explanation"],
         next_question=next_question,
     )
+
+
+@app.post("/homework/attempts/{attempt_id}/hint", response_model=HomeworkHintResult)
+async def hint_homework_question(
+    attempt_id: int,
+    req: HomeworkHintRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    limiter: RateLimiter = Depends(get_hint_rate_limiter),
+    hinter=Depends(get_socratic_hinter),
+) -> HomeworkHintResult:
+    """Sokratik köməkçi (Faza 2 PR 1) — YALNIZ ev tapşırığında, canlı
+    sessiyada YOX (istifadəçi qərarı: dərsdə uzun izah vaxt itkisidir).
+    STATELESS-dir: `homework_store`-a HEÇ NƏ yazmır, "tək cəhd" qaydasına
+    toxunmur - yekun bal yalnız `POST .../answer` çağırılanda yazılır,
+    tələbə bu marşrutu istədiyi qədər çağıra bilər (limitlə)."""
+    attempt = homework.get_attempt(attempt_id)
+    if attempt is None or attempt["student_id"] != user["id"]:
+        raise HTTPException(status_code=404, detail="Cəhd tapılmadı")
+    if attempt["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Cəhd artıq tamamlanıb")
+
+    assignment = homework.get_assignment(attempt["assignment_id"])
+    question_set = question_sets.get(assignment["question_set_id"])
+    questions = question_sets.list_questions(assignment["question_set_id"])
+    if not 0 <= req.question_index < len(questions):
+        raise HTTPException(status_code=400, detail="Sual indeksi düzgün deyil")
+    if req.question_index != attempt["current_question_index"]:
+        raise HTTPException(status_code=400, detail="Bu artıq cari sual deyil")
+    if not 0 <= req.chosen_index < 5:
+        raise HTTPException(status_code=400, detail="Variant indeksi düzgün deyil")
+
+    question = questions[req.question_index]
+    is_correct = req.chosen_index == question["correct_index"]
+    if is_correct:
+        # Düzgün cavaba hint lazım deyil - client birbaşa `/answer` çağırsın.
+        return HomeworkHintResult(is_correct=True, hint=None)
+
+    if not limiter.allow(f"hint:{user['id']}"):
+        raise HTTPException(
+            status_code=429, detail="Çox kömək istədiniz. Bir neçə dəqiqədən sonra yenidən cəhd edin.",
+        )
+
+    source = MaterialSource(kind=question_set["material_kind"], location=question_set["material_location"])
+    try:
+        hint = await asyncio.to_thread(
+            hinter, source, question["question"], question["options"], req.chosen_index,
+            question["correct_index"],
+        )
+    except SocraticError:
+        logger.exception("Sokratik hint alınmadı (attempt_id=%s)", attempt_id)
+        raise HTTPException(
+            status_code=503, detail="Kömək hazırda hazırlana bilmir, bir azdan yenidən cəhd edin.",
+        )
+    return HomeworkHintResult(is_correct=False, hint=hint)
 
 
 # ---- Açıq cavabın AI yoxlaması (Faza 1, PR 2) ----------------------------

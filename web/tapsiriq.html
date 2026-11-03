@@ -58,6 +58,21 @@
       <div id="quizSteps" class="quiz-steps" aria-hidden="true"></div>
       <h2 class="quiz-question" id="questionText"></h2>
       <div id="options" class="option-list"></div>
+
+      <!-- Sokratik köməkçi (Faza 2 PR 1): YALNIZ ev tapşırığında.
+           Variant seçmək bura HƏLƏ cavabı göndərmir - tələbə əvvəlcə
+           "Kömək istə" ilə yoxlaya, sonra "Cavabı göndər" ilə son
+           cəhdini edə bilər. Canlı sinif quizində (sessiya.html) bu
+           əlavə addım QƏSDƏN yoxdur - vaxt itkisinə səbəb olardı. -->
+      <div class="row">
+        <button class="btn btn--secondary btn--sm" type="button" id="hintBtn" disabled>Kömək istə</button>
+        <button class="btn btn--primary btn--sm" type="button" id="submitBtn" disabled>Cavabı göndər</button>
+      </div>
+      <div id="hintSlot"></div>
+      <div class="notice notice--info row row--tight" id="hintArea" hidden>
+        <span class="mascot" id="hintMascot" data-mascot="surprised" aria-hidden="true"></span>
+        <p class="text-sm" id="hintText"></p>
+      </div>
     </div>
 
     <div class="card stack" id="feedbackCard" hidden>
@@ -115,7 +130,7 @@
   import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
   import { createIcon } from './assets/js/icon.js';
   import { celebrateFinish, reactToAnswer } from './assets/js/celebrate.js';
-  import { createThinking, mountMascots } from './assets/js/mascot.js';
+  import { createThinking, mountMascots, setMascotState } from './assets/js/mascot.js';
   import { answerStatusLine, criterionLine, kindLabel } from './assets/js/open-questions.js';
   /* Variant çəkilişi canlı sessiya ilə EYNİ modulda - əvvəl hər iki
      ekran onu ayrı-ayrı yazırdı və ikisi də `btn btn--secondary`
@@ -160,9 +175,39 @@
     let optionButtons = [];
     /* Ardıcıl düzgün cavab - İKİDƏN başlayaraq göstərilir. */
     let streak = 0;
+    /* Toxunulan variant HƏLƏ cavab deyil - "Kömək istə"/"Cavabı göndər"
+       bu indeksə görə işləyir (bax yuxarı HTML qeydi). */
+    let selectedIndex = null;
+
+    const hintBtn = document.getElementById('hintBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const hintArea = document.getElementById('hintArea');
+    const hintSlot = document.getElementById('hintSlot');
+
+    function hideHint() {
+      hintArea.hidden = true;
+      hintSlot.replaceChildren();
+    }
+
+    function updateActionButtons() {
+      const has = selectedIndex !== null;
+      hintBtn.disabled = !has;
+      submitBtn.disabled = !has;
+    }
+
+    function selectOption(index) {
+      selectedIndex = index;
+      optionButtons.forEach((button, i) => {
+        button.classList.toggle('option--chosen', i === index);
+      });
+      hideHint();
+      updateActionButtons();
+    }
 
     function renderQuestion(question) {
       currentQuestion = question;
+      selectedIndex = null;
+      hideHint();
       document.getElementById('counter').textContent =
         `Sual ${question.index + 1}/${question.total}`;
       renderSteps(document.getElementById('quizSteps'), {
@@ -173,10 +218,46 @@
 
       optionButtons = renderOptions(
         document.getElementById('options'), question.options,
-        (index) => submitAnswer(question.index, index),
+        (index) => selectOption(index),
       );
+      updateActionButtons();
       show('question');
     }
+
+    async function askHint() {
+      if (selectedIndex === null || !currentQuestion) return;
+      hintBtn.disabled = true;
+      submitBtn.disabled = true;
+      hintArea.hidden = true;
+      hintSlot.replaceChildren(createThinking('AI köməkçi düşünür…'));
+      try {
+        const result = await request(`/homework/attempts/${attemptId}/hint`, {
+          method: 'POST',
+          body: { question_index: currentQuestion.index, chosen_index: selectedIndex },
+        });
+        hintSlot.replaceChildren();
+        if (result.is_correct) {
+          setMascotState(document.getElementById('hintMascot'), 'happy');
+          document.getElementById('hintText').textContent =
+            'Düz yoldasınız. "Cavabı göndər" düyməsinə basa bilərsiniz.';
+        } else {
+          setMascotState(document.getElementById('hintMascot'), 'surprised');
+          document.getElementById('hintText').textContent =
+            result.hint || 'Materialı bir daha diqqətlə oxuyun.';
+        }
+        hintArea.hidden = false;
+      } catch (error) {
+        hintSlot.replaceChildren();
+        showError(error.message);
+      } finally {
+        updateActionButtons();
+      }
+    }
+
+    hintBtn.addEventListener('click', askHint);
+    submitBtn.addEventListener('click', () => {
+      if (selectedIndex !== null) submitAnswer(currentQuestion.index, selectedIndex);
+    });
 
     function renderFeedback(result, chosenIndex) {
       const feedback = answerFeedback({
@@ -227,6 +308,9 @@
       // İkiqat toxunuş serverdə "artıq cavablanıb" xətası verir və
       // istifadəçi səbəbini anlamır.
       markChosen(optionButtons, chosenIndex);
+      hintBtn.disabled = true;
+      submitBtn.disabled = true;
+      hideHint();
       try {
         const result = await request(`/homework/attempts/${attemptId}/answer`, {
           method: 'POST',
@@ -237,6 +321,8 @@
       } catch (error) {
         showError(error.message);
         resetOptions(optionButtons);
+        if (selectedIndex !== null) optionButtons[selectedIndex]?.classList.add('option--chosen');
+        updateActionButtons();
       }
     }
 

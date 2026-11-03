@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2236 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2253 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -582,6 +582,37 @@ tapılmasa/bağlıdırsa aydın Azərbaycanca xəta. Veb: `muellim.html`-in
 material forması 3 yeni sahə (video fayl, YouTube linki, mətn
 <textarea>) - köhnə `link`/`pdf`/`image` sahələri dəyişmədi. Real
 modellə və real YouTube linki ilə hələ sınanmayıb.
+
+## Faza 2 «Sokratik mentor + adaptiv öyrənmə» (2026-11-03-dən)
+
+İstifadəçi konkret tələb qoydu: Sokratik rejim YALNIZ ev tapşırığına
+əlavə olunmalıdır, canlı sinif quizinə YOX — dərs zamanı uzun AI
+izahları quiz vaxtını yeyər. Bu, Faza 1-in plan sənədindəki
+("ev tapşırığında səhv cavabdan sonra") ifadə ilə üst-üstə düşür, ona
+görə uyğunsuzluq yaranmadı.
+
+**PR 1 - Sokratik köməkçi.** `pipeline/socratic.py`: düzgün cavabı
+DEMİR, materialdan (`pipeline.rag`-ın BM25/`split_documents`-i, AI
+tutordan - gün 8/9 - EYNİ idxal, təzədən yazılmadı) yönləndirici sual
+qurur. **Marşrut STATELESS-dir:** `POST /homework/attempts/{id}/hint`
+`homework_store`-a HEÇ NƏ yazmır, "tək cəhd" qaydasına (bir sualın
+`current_question_index`-i yalnız `/answer`-də dəyişir) toxunmur -
+risk minimuma salınıb, mövcud `/answer` dəyişməyib. Cavab düzgündürsə
+`hint: null`, səhvdirsə hint mətni; model ehtiyatsızlıqla düzgün
+variantın mətnini yazsa (≥10 simvol substring) generic hintə keçilir
+(sistem promptunun təlimatından ƏLAVƏ müdafiə qatı). Limit 30/10dəq
+(`RateLimiter`, istifadəçi üzrə). Veb (`tapsiriq.html`): variant
+seçmək HƏLƏ cavabı göndərmir - "Kömək istə" seçilmiş variantı yoxlayır
+(səhvdirsə hint göstərir, yenidən seçmək mümkündür), "Cavabı göndər"
+yalnız bu düymə ilə mövcud `/answer`-i çağırır. Sinif quizi
+(`sessiya.html`, `live-play-screen.js`) QƏSDƏN TOXUNULMAYIB. Real
+modellə hələ sınanmayıb.
+
+**Testlərdə tutulan tələ:** `app.dependency_overrides[get_hint_rate_limiter]
+= lambda: RateLimiter(1, 600)` hər sorğuda TƏZƏ instans yaradırdı
+(FastAPI override-ı hər çağırışda yenidən işə salır) - sayğac heç vaxt
+saxlanmırdı, ikinci sorğu da 200 qaytarırdı. Həll: BİR instansı əvvəlcə
+dəyişənə tutub, override-ı o dəyişənə göndərmək (closure).
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
