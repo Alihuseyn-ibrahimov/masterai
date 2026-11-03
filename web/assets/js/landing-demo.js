@@ -30,17 +30,17 @@ export function nextWord(words, current) {
 export const DEMO_QUESTIONS = [
   {
     number: 3,
-    prompt: 'Dövlət qulluqçusuna aşağıdakılardan hansı qəti qadağandır?',
-    options: ['Elmi və pedaqoji fəaliyyət', 'Sahibkarlıq fəaliyyəti ilə məşğul olmaq', 'Yaradıcılıq fəaliyyəti'],
+    prompt: 'Xəzər dənizi hansı xüsusiyyətinə görə dünyada birincidir?',
+    options: ['Ən dərin dəniz olması', 'Ən böyük qapalı su hövzəsi olması', 'Ən duzlu dəniz olması'],
     correct: 1,
-    explain: 'İzah: qanun sahibkarlıq fəaliyyətini birbaşa qadağan edir, elmi və pedaqoji fəaliyyəti isə istisna kimi saxlayır.',
+    explain: 'İzah: Xəzərin okeana çıxışı yoxdur və o, dünyanın ən böyük qapalı su hövzəsidir.',
   },
   {
     number: 4,
-    prompt: 'Hansı fəaliyyət sahibkarlıq qadağasına aid DEYİL?',
-    options: ['Pedaqoji fəaliyyət', 'Ticarət şirkəti açmaq', 'Mənfəət üçün xidmət göstərmək'],
+    prompt: 'Xəzərin suyu okean suyu ilə müqayisədə necədir?',
+    options: ['Xeyli az duzludur', 'Ondan daha duzludur', 'Tamamilə şirindir'],
     correct: 0,
-    explain: 'İzah: elmi, pedaqoji və yaradıcılıq fəaliyyəti qadağaya aid deyil - dərsdə məhz bu istisna vurğulanıb.',
+    explain: 'İzah: Xəzərin suyu okean suyundan xeyli az duzludur - dərsdə məhz bu fərq vurğulanıb.',
   },
 ];
 
