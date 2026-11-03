@@ -53,6 +53,13 @@
     </div>
   </section>
 
+  <!-- Faza 3 PR 1 (2026-11-03) - seçilmiş çatın inkişaf qrafikləri.
+       Eyni çat seçicisi işlədilir - ayrıca sorğu/forma lazım deyil. -->
+  <section class="stack" id="progressSection" hidden>
+    <div class="section-header"><h2>İnkişaf qrafikləri</h2></div>
+    <div class="card stack" id="progressCard"></div>
+  </section>
+
   <section class="stack">
     <div class="section-header"><h2>Təyin edilmiş tapşırıqlar</h2></div>
     <div id="content"></div>
@@ -96,6 +103,7 @@
   import {
     answerStatusLine, criterionLine, pointsError, suggestedPoints,
   } from './assets/js/open-questions.js';
+  import { attendanceLine, hasProgressData, renderBySubject, renderWeekly } from './assets/js/progress-stats.js';
 
   const STATUS_BADGE = {
     'tamamlanıb': 'badge badge--success',
@@ -276,6 +284,33 @@
         return;
       }
       loadInto(content, () => request(`/homework/assignments?chat_id=${chatId}`), renderAssignments);
+      reloadProgress(chatId);
+    }
+
+    const progressSection = document.getElementById('progressSection');
+    function reloadProgress(chatId) {
+      loadInto(document.getElementById('progressCard'), () => request(`/live/chats/${chatId}/progress`),
+        (container, data) => {
+          progressSection.hidden = !hasProgressData(data);
+          if (!hasProgressData(data)) return;
+          container.innerHTML = '';
+          if (data.weekly.length) {
+            const title = document.createElement('p');
+            title.className = 'text-sm text-muted';
+            title.textContent = 'Həftəlik düzgün faiz';
+            container.append(title, renderWeekly(data.weekly));
+          }
+          if (data.by_subject.length) {
+            const title = document.createElement('p');
+            title.className = 'text-sm text-muted';
+            title.textContent = 'Fənn üzrə müqayisə';
+            container.append(title, renderBySubject(data.by_subject));
+          }
+          const attendance = document.createElement('p');
+          attendance.className = 'text-sm text-muted';
+          attendance.textContent = attendanceLine(data.attendance);
+          container.append(attendance);
+        });
     }
 
     /* Tapşırıq kartında sual bankının ADINI göstərmək üçün id→ad

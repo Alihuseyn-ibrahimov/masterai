@@ -195,6 +195,7 @@ CASES = {
     ("POST", "/chats/{chat_id}/invite-code"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/chats/{chat_id}/members"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/chats/{chat_id}/leaderboard"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
+    ("GET", "/live/chats/{chat_id}/progress"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("POST", "/chats/{chat_id}/quiz/start"): ("teacher_b", {"chat_id": "chat_a.id"}, None, {"material_id": "material_a.id"}, None),
     ("POST", "/chats/{chat_id}/materials"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, {"kind": "link", "location": "https://x.az"}),
     ("GET", "/chats/{chat_id}/materials"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),

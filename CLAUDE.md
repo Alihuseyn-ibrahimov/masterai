@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2308 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 394 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2332 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -658,9 +658,30 @@ yoxdur), `profil.html`-in zəif mövzu bloku zəif mövzu varsa «Zəif
 yerlərimi məşq et» düyməsini göstərir. Real modellə hələ sınanmayıb.
 
 Bununla Faza 2 («Sokratik mentor + adaptiv öyrənmə») planın 3 PR-i
-tamamlandı (PR 1 #65 merge, PR 2 #66, PR 3 — bax PR siyahısı).
+tamamlandı (PR 1 #65, PR 2+3 #66 — hər ikisi merge olunub).
 
-## Server silindi, sıfırdan qurulma (2026-10-30)
+## Faza 3 «İdarəetmə paneli» (2026-11-03-dən)
+
+**PR 1 - İnkişaf qrafikləri.** `server/progress_stats.py`: `weekly_percent`/
+`subject_percent` TARİXÇƏ ilə EYNİ data mənbəyi üzərində qurulur
+(`_history_entries_for_student`-in qaytardığı siyahı) — canlı sessiya +
+ev tapşırığı nəticələrini HƏFTƏ (ISO, bazar ertəsi) və FƏNN üzrə
+qruplaşdırıb faiz hesablayır. `attendance_stats_for_users` isə
+`lesson_store`-dan: yalnız BİTMİŞ dərslər sayılır, məxrəc dərs × tələbə
+sayıdır (hər tələbənin faizini ayrı hesablayıb ORTALAMAQDAN fərqlidir —
+az dərsi olan tələbənin bir buraxması ortalamanı həddən artıq aşağı
+salmasın). Dərs yoxdursa `percent: None` (`difficulty.js::statPercent`-in
+eyni qaydası — uydurma 0% göstərmək yanlış olardı).
+
+`GET /me/progress` (tələbə, öz nəticəsi) və `GET /live/chats/{id}/progress`
+(müəllim, sinif üzrə CƏM — `/chats/{id}/leaderboard`-ın eyni naxışı,
+müəllim siyahıdan çıxarılır) EYNİ formanı qaytarır. Qrafik üçün yeni
+komponent YAZILMADI — mövcud `.progress`/`.progress__fill` zolağı
+(`assets/js/progress-stats.js`) kifayət etdi, build addımsız sayt
+qaydasına uyğun. Veb: `profil.html`-də (tələbə) və `hesabatlar.html`-də
+(müəllim, mövcud çat seçicisinə bağlı — ayrıca forma lazım olmadı) bir
+kart. Real modellə hələ sınanmayıb (bu PR AI çağırmır, test datası
+kifayətdir).
 
 DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
 birlikdə bütün bazalar (`data/*.db`) və eyni maşındakı digər servislər.

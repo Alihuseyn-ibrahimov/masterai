@@ -116,6 +116,7 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .adaptive_quiz import build_adaptive_quiz
+from .progress_stats import attendance_stats, attendance_stats_for_users, subject_percent, weekly_percent
 from .topic_stats import split_strong_weak, topic_stats_for_student
 from .models import (
     WsTicketResponse,
@@ -165,6 +166,10 @@ from .models import (
     SummaryInfo,
     TopicStat,
     TopicStatsOut,
+    WeeklyPercent,
+    SubjectPercent,
+    AttendanceStat,
+    ProgressOut,
     AuditLogRow,
     CourseDeadline,
     CourseActivity,
@@ -4299,6 +4304,62 @@ def get_my_adaptive_quiz(
         question_sets=question_sets, difficulty_model=difficulty_model,
     )
     return [LiveQuestionInfo(**q) for q in questions]
+
+
+@app.get("/me/progress", response_model=ProgressOut)
+def get_my_progress(
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> ProgressOut:
+    """Faza 3 PR 1 - İnkişaf qrafikləri (bax `server/progress_stats.py`)."""
+    entries = _history_entries_for_student(
+        user["id"], live_sessions=live_sessions, question_sets=question_sets, homework=homework
+    )
+    chat_ids = [chat["id"] for chat in chats.list_by_user(user["id"])]
+    return ProgressOut(
+        weekly=[WeeklyPercent(**w) for w in weekly_percent(entries)],
+        by_subject=[SubjectPercent(**s) for s in subject_percent(entries)],
+        attendance=AttendanceStat(**attendance_stats(user["id"], chat_ids, lessons)),
+    )
+
+
+@app.get("/live/chats/{chat_id}/progress", response_model=ProgressOut)
+def get_class_progress(
+    chat_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+) -> ProgressOut:
+    """Faza 3 PR 1 - müəllim üçün sinif üzrə eyni qrafiklər. Müəllim
+    SİYAHIDAN ÇIXARILIR - `/chats/{id}/leaderboard`-ın eyni qaydası."""
+    _chat_in_course(chats, chat_id, user)
+    if user["id"] not in chats.list_member_ids(chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+
+    student_ids = []
+    entries = []
+    for member_id in chats.list_member_ids(chat_id):
+        member = users.get_by_id(member_id)
+        if member is None or member["is_teacher"]:
+            continue
+        student_ids.append(member_id)
+        entries.extend(_history_entries_for_student(
+            member_id, live_sessions=live_sessions, question_sets=question_sets, homework=homework
+        ))
+
+    return ProgressOut(
+        weekly=[WeeklyPercent(**w) for w in weekly_percent(entries)],
+        by_subject=[SubjectPercent(**s) for s in subject_percent(entries)],
+        attendance=AttendanceStat(**attendance_stats_for_users(student_ids, [chat_id], lessons)),
+    )
 
 
 _BADGE_TYPES = ("ilk_addim", "yuz_faiz", "fenn_ustasi", "suretli_eqli", "silsile_5")

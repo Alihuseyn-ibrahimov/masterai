@@ -10,7 +10,9 @@ from fastapi.testclient import TestClient
 from pipeline.models import MCQQuestion
 from server.app import (
     app,
+    get_chat_store,
     get_homework_store,
+    get_lesson_store,
     get_live_session_store,
     get_question_set_store,
     get_token_secret,
@@ -19,6 +21,7 @@ from server.app import (
 from server.auth import create_token
 from server.chat_store import ChatStore
 from server.homework_store import HomeworkStore
+from server.lesson_store import LessonStore
 from server.live_session_store import LiveSessionStore
 from server.question_set_store import QuestionSetStore
 from server.topic_stats import split_strong_weak, topic_stats_for_student
@@ -34,11 +37,14 @@ def env():
     question_sets = QuestionSetStore(":memory:")
     homework = HomeworkStore(":memory:")
     live_sessions = LiveSessionStore(":memory:")
+    lessons = LessonStore(":memory:")
 
     app.dependency_overrides[get_user_store] = lambda: users
+    app.dependency_overrides[get_chat_store] = lambda: chats
     app.dependency_overrides[get_question_set_store] = lambda: question_sets
     app.dependency_overrides[get_homework_store] = lambda: homework
     app.dependency_overrides[get_live_session_store] = lambda: live_sessions
+    app.dependency_overrides[get_lesson_store] = lambda: lessons
     app.dependency_overrides[get_token_secret] = lambda: _SECRET
 
     client = TestClient(app)
@@ -53,7 +59,7 @@ def env():
 
     yield {
         "client": client, "users": users, "chats": chats, "question_sets": question_sets,
-        "homework": homework, "live_sessions": live_sessions,
+        "homework": homework, "live_sessions": live_sessions, "lessons": lessons,
         "teacher": teacher, "student": student, "chat": chat,
     }
     app.dependency_overrides.clear()
@@ -220,3 +226,55 @@ class TestMyAdaptiveQuizEndpoint:
         assert all(q["topic"] == "zəif mövzu" for q in questions)
         # Düzgün cavab+izah DAXİLDİR - bu sərbəst məşqdir, qiymətləndirmə yox.
         assert "correct_index" in questions[0] and "explanation" in questions[0]
+
+
+class TestMyProgressEndpoint:
+    """Faza 3 PR 1 - `GET /me/progress` (bax `server/progress_stats.py`)."""
+
+    def test_requires_auth(self, env):
+        assert env["client"].get("/me/progress").status_code == 401
+
+    def test_empty_history_gives_empty_stats(self, env):
+        r = env["client"].get("/me/progress", headers=_auth(env["student"]))
+        assert r.status_code == 200
+        body = r.json()
+        assert body["weekly"] == []
+        assert body["by_subject"] == []
+        assert body["attendance"] == {"attended": 0, "total": 0, "percent": None}
+
+    def test_includes_subject_breakdown(self, env):
+        qs = _question_set(env, [None, None], subject="kimya")
+        _live_session_with_answers(env, qs, user_id=env["student"]["id"], correctness=[True, False])
+        r = env["client"].get("/me/progress", headers=_auth(env["student"]))
+        body = r.json()
+        assert body["by_subject"] == [{"subject": "kimya", "correct": 1, "total": 2, "percent": 50}]
+
+
+class TestClassProgressEndpoint:
+    """Faza 3 PR 1 - `GET /live/chats/{chat_id}/progress` (müəllim)."""
+
+    def test_requires_auth(self, env):
+        assert env["client"].get(f"/live/chats/{env['chat']['id']}/progress").status_code == 401
+
+    def test_non_teacher_gets_403(self, env):
+        r = env["client"].get(f"/live/chats/{env['chat']['id']}/progress", headers=_auth(env["student"]))
+        assert r.status_code == 403
+
+    def test_non_member_teacher_gets_403(self, env):
+        other_teacher = env["users"].create("baska@masternr1.az", "hash", "Başqa")
+        env["users"].set_teacher(other_teacher["id"], True)
+        other_teacher = env["users"].get_by_id(other_teacher["id"])
+        r = env["client"].get(f"/live/chats/{env['chat']['id']}/progress", headers=_auth(other_teacher))
+        assert r.status_code == 403
+
+    def test_unknown_chat_returns_404(self, env):
+        r = env["client"].get("/live/chats/999/progress", headers=_auth(env["teacher"]))
+        assert r.status_code == 404
+
+    def test_aggregates_students_excludes_teacher(self, env):
+        qs = _question_set(env, [None, None], subject="kimya")
+        _live_session_with_answers(env, qs, user_id=env["student"]["id"], correctness=[True, False])
+        r = env["client"].get(f"/live/chats/{env['chat']['id']}/progress", headers=_auth(env["teacher"]))
+        assert r.status_code == 200
+        body = r.json()
+        assert body["by_subject"] == [{"subject": "kimya", "correct": 1, "total": 2, "percent": 50}]

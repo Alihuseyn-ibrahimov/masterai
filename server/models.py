@@ -484,6 +484,39 @@ class TopicStatsOut(BaseModel):
     weak: list[TopicStat]
 
 
+class WeeklyPercent(BaseModel):
+    """Faza 3 PR 1 - İnkişaf qrafikləri. `week_start` ISO tarixdir
+    (bazar ertəsi), bax `server/progress_stats.py`."""
+
+    week_start: str
+    correct: int
+    total: int
+    percent: int
+
+
+class SubjectPercent(BaseModel):
+    subject: str
+    correct: int
+    total: int
+    percent: int
+
+
+class AttendanceStat(BaseModel):
+    attended: int
+    total: int
+    # Dərs yoxdursa `None` - uydurma 0% göstərmək yanlış olardı.
+    percent: int | None = None
+
+
+class ProgressOut(BaseModel):
+    """`GET /me/progress` (tələbə) və `GET /live/chats/{chat_id}/progress`
+    (müəllim, sinif üzrə) - EYNİ forma."""
+
+    weekly: list[WeeklyPercent]
+    by_subject: list[SubjectPercent]
+    attendance: AttendanceStat
+
+
 class LeaderboardRow(BaseModel):
     """Çat-üzrə liderlik lövhəsi sətri.
 
