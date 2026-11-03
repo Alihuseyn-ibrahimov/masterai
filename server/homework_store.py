@@ -295,6 +295,20 @@ class HomeworkStore:
             ).fetchall()
             return {row["idx"]: (row["correct"], row["total"]) for row in rows}
 
+    def list_answers_for_attempt(self, attempt_id: int) -> list[dict]:
+        """Bir cəhdin bütün cavabları, sual indeksi üzrə — zəif mövzu
+        analizi üçün (bax `server/topic_stats.py`)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, attempt_id, question_index, chosen_index, is_correct, answered_at "
+                "FROM homework_answers WHERE attempt_id = ? ORDER BY question_index",
+                (attempt_id,),
+            )
+            rows = [dict(row) for row in cur.fetchall()]
+            for row in rows:
+                row["is_correct"] = bool(row["is_correct"])
+            return rows
+
     def get_chat_leaderboard(self, chat_id: int) -> dict[int, int]:
         """Çatın hər üzvünün TAMAMLANMIŞ ev tapşırıqlarının cəm xalı —
         `student_id -> total_score`. Cəhdi olmayan üzvlər burada

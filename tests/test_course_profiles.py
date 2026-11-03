@@ -25,9 +25,10 @@ from pipeline.quality import audit_questions
 
 # 2026-09-30, profil dəyişikliyindən ƏVVƏL götürülüb.
 _EXAM_SYSTEM_SHA = "e7766d086299622f4fe32ea6da8949c1f422af518d6dc7e5306294bac4c7ca22"
-# İnsan şablonu 2026-10-30-da QƏSDƏN dəyişdi (istifadəçi istəyi): variant
-# uzunluğu qaydası əlavə olundu. Hash yeni şablonu qoruyur.
-_EXAM_HUMAN_SHA = "332f4f7f738efd05ce5fb5a32af93e119f5ecaf784ba9cf9ef00c8f3ed8df11d"
+# İnsan şablonu 2026-11-03-də QƏSDƏN dəyişdi (Faza 2 PR 2 - zəif mövzu
+# analizi): hər suala `topic` sahəsi yazılması təlimatı əlavə olundu.
+# Hash yeni şablonu qoruyur.
+_EXAM_HUMAN_SHA = "26b0cb7594565f92d1224a8409f9feba6509f52010405b04fa6600e735725400"
 
 
 def _sha(text: str) -> str:

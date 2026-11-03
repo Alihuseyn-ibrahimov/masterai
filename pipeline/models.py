@@ -41,11 +41,22 @@ class MCQQuestion(BaseModel):
     explanation: str
     # Köhnə suallarda və səviyyə yazmayan cavablarda `None`.
     difficulty: Difficulty | None = None
+    # Mövzu etiketi (2026-11-03, Faza 2 PR 2 - zəif mövzu analizi). AI
+    # qoyur, 2-4 söz, materialdan; köhnə suallarda `None`.
+    topic: str | None = None
 
     @field_validator("difficulty", mode="before")
     @classmethod
     def _normalize_difficulty(cls, value):
         return normalize_difficulty(value)
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def _normalize_topic(cls, value):
+        if not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:60] or None
 
 
 class PipelineResult(BaseModel):

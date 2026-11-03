@@ -148,6 +148,63 @@ def test_update_question_changes_content(store):
     assert store.get_question(created["id"]) == updated
 
 
+def test_add_question_stores_topic(store):
+    """Faza 2 PR 2 - zəif mövzu analizi (`server/topic_stats.py`)."""
+    qs = store.create(
+        subject="hüquq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    mcq = MCQQuestion(
+        question="Sual?", options=["A", "B", "C", "D", "E"],
+        correct_index=0, explanation="izah", topic="seçki hüququ",
+    )
+    created = store.add_question(qs["id"], mcq)
+    assert created["topic"] == "seçki hüququ"
+    assert store.get_question(created["id"])["topic"] == "seçki hüququ"
+    assert store.list_questions(qs["id"])[0]["topic"] == "seçki hüququ"
+
+
+def test_legacy_question_has_none_topic(store):
+    qs = store.create(
+        subject="hüquq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    created = store.add_question(qs["id"], _mcq())
+    assert created["topic"] is None
+
+
+def test_update_question_topic_none_leaves_existing_value(store):
+    """`topic=None` o sahəyə TOXUNMUR (köhnə client göndərməsə) — eyni
+    `COALESCE` naxışı `difficulty` üçün."""
+    qs = store.create(
+        subject="hüquq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    mcq = MCQQuestion(
+        question="Sual?", options=["A", "B", "C", "D", "E"],
+        correct_index=0, explanation="izah", topic="seçki hüququ",
+    )
+    created = store.add_question(qs["id"], mcq)
+    updated = store.update_question(
+        created["id"], question="Yeni mətn?", options=["A", "B", "C", "D", "E"],
+        correct_index=0, explanation="izah",
+    )
+    assert updated["topic"] == "seçki hüququ"
+
+
+def test_update_question_can_change_topic(store):
+    qs = store.create(
+        subject="hüquq", title="A", material_kind="link",
+        material_location="https://a.az", created_by=1,
+    )
+    created = store.add_question(qs["id"], _mcq())
+    updated = store.update_question(
+        created["id"], question="Sual?", options=["A", "B", "C", "D", "E"],
+        correct_index=0, explanation="izah", topic="əmək hüququ",
+    )
+    assert updated["topic"] == "əmək hüququ"
+
+
 def test_delete_question_removes_it(store):
     qs = store.create(
         subject="mentiq", title="A", material_kind="link",

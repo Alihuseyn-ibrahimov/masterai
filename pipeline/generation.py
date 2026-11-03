@@ -110,7 +110,10 @@ _PROMPT = PromptTemplate.from_template(
     "Hər sualın tam 5 variantı olmalıdır, yalnız biri düzgün, hər sualın öz "
     "izahı olmalıdır.\n"
     "Düzgün variant uzunluğu və təfsilatı ilə seçilməməlidir: 5 variantın "
-    "hamısı təxminən eyni uzunluqda olsun, düzgün cavab ən uzun variant olmasın.\n\n"
+    "hamısı təxminən eyni uzunluqda olsun, düzgün cavab ən uzun variant olmasın.\n"
+    "Hər suala `topic` sahəsi yaz: sualın aid olduğu mövzunu materialdan "
+    "2-4 sözlə Azərbaycan dilində müəyyən et (məs. \"seçki hüququ\", "
+    "\"əmək müqaviləsi\") - zəif mövzu analizi üçün lazımdır.\n\n"
     "Material:\n---\n{chunk}\n---\n\n{subject_note}{difficulty_note}{retry_note}{format_instructions}"
 )
 

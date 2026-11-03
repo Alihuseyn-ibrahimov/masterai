@@ -101,6 +101,10 @@ class QuestionSetStore:
                 # səviyyəsi `live_questions.difficulty`-dədir.
                 "ALTER TABLE question_sets ADD COLUMN difficulty_mix TEXT",
                 "ALTER TABLE live_questions ADD COLUMN difficulty TEXT",
+                # Mövzu etiketi (Faza 2 PR 2, 2026-11-03) - zəif mövzu
+                # analizi üçün (bax `server/topic_stats.py`). AI qoyur,
+                # köhnə suallarda NULL.
+                "ALTER TABLE live_questions ADD COLUMN topic TEXT",
             ):
                 try:
                     self._conn.execute(ddl)
@@ -625,8 +629,8 @@ class QuestionSetStore:
         with self._lock:
             cur = self._conn.execute(
                 "INSERT INTO live_questions "
-                "(question_set_id, question, options, correct_index, explanation, created_at, difficulty) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(question_set_id, question, options, correct_index, explanation, created_at, difficulty, topic) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     question_set_id,
                     mcq.question,
@@ -635,6 +639,7 @@ class QuestionSetStore:
                     mcq.explanation,
                     _utc_now_iso(),
                     mcq.difficulty,
+                    mcq.topic,
                 ),
             )
             self._conn.commit()
@@ -643,8 +648,8 @@ class QuestionSetStore:
     def get_question(self, question_id: int) -> dict | None:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, difficulty "
-                "FROM live_questions WHERE id = ?",
+                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, "
+                "difficulty, topic FROM live_questions WHERE id = ?",
                 (question_id,),
             )
             row = cur.fetchone()
@@ -658,17 +663,19 @@ class QuestionSetStore:
         correct_index: int,
         explanation: str,
         difficulty: str | None = None,
+        topic: str | None = None,
     ) -> dict | None:
         """Müəllimin sual redaktəsi (bax Sual redaktə/təsdiq ekranı, Faza 5)
         — sual sayı/sırası dəyişmir, yalnız məzmun yenilənir.
-        `difficulty=None` səviyyəyə TOXUNMUR (köhnə client onu göndərmir)."""
+        `difficulty=None`/`topic=None` o sahəyə TOXUNMUR (köhnə client
+        onları göndərmir)."""
         with self._lock:
             self._conn.execute("DELETE FROM question_reviews WHERE question_id = ?", (question_id,))
             self._conn.execute(
                 "UPDATE live_questions SET question = ?, options = ?, correct_index = ?, "
-                "explanation = ?, difficulty = COALESCE(?, difficulty) WHERE id = ?",
+                "explanation = ?, difficulty = COALESCE(?, difficulty), topic = COALESCE(?, topic) WHERE id = ?",
                 (question, json.dumps(options, ensure_ascii=False), correct_index, explanation,
-                 difficulty, question_id),
+                 difficulty, topic, question_id),
             )
             self._conn.commit()
             return self.get_question(question_id)
@@ -682,8 +689,8 @@ class QuestionSetStore:
     def list_questions(self, question_set_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, difficulty "
-                "FROM live_questions WHERE question_set_id = ? ORDER BY id",
+                "SELECT id, question_set_id, question, options, correct_index, explanation, created_at, "
+                "difficulty, topic FROM live_questions WHERE question_set_id = ? ORDER BY id",
                 (question_set_id,),
             )
             return [_question_row_to_dict(row) for row in cur.fetchall()]

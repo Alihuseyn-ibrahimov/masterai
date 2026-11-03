@@ -78,6 +78,31 @@ class TestMCQQuestion:
         )
         assert q.correct_index == good_index
 
+    def test_topic_defaults_to_none(self):
+        q = MCQQuestion(question="...", options=_valid_options(), correct_index=0, explanation="...")
+        assert q.topic is None
+
+    def test_topic_strips_whitespace(self):
+        q = MCQQuestion(question="...", options=_valid_options(), correct_index=0,
+                        explanation="...", topic="  seçki hüququ  ")
+        assert q.topic == "seçki hüququ"
+
+    def test_topic_truncated_to_60_chars(self):
+        q = MCQQuestion(question="...", options=_valid_options(), correct_index=0,
+                        explanation="...", topic="a" * 100)
+        assert q.topic == "a" * 60
+
+    @pytest.mark.parametrize("bad_topic", [123, 4.5, ["x"], {"a": 1}])
+    def test_topic_non_string_becomes_none(self, bad_topic):
+        q = MCQQuestion(question="...", options=_valid_options(), correct_index=0,
+                        explanation="...", topic=bad_topic)
+        assert q.topic is None
+
+    def test_topic_blank_after_strip_becomes_none(self):
+        q = MCQQuestion(question="...", options=_valid_options(), correct_index=0,
+                        explanation="...", topic="   ")
+        assert q.topic is None
+
 
 class TestPipelineResult:
     def test_holds_questions_and_source(self):
