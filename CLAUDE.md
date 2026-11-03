@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2332 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2348 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -706,26 +706,18 @@ qaydasına uyğun. Veb: `profil.html`-də (tələbə) və `hesabatlar.html`-də
 kart. Real modellə hələ sınanmayıb (bu PR AI çağırmır, test datası
 kifayətdir).
 
-DigitalOcean hesabı ödənişə görə dayandırıldı, droplet SİLİNDİ — onunla
-birlikdə bütün bazalar (`data/*.db`) və eyni maşındakı digər servislər.
-Yeni droplet üçün bir skript: `deploy/rebuild_droplet.sh` (firewall,
-swap, jurnal limiti, tesseract-aze, rəsmi Chrome .deb, repo klonu
-`/opt/masterai`-ə, `.env` - VARSA toxunulmur, systemd, sayt
-`/opt/masterai-web`-ə, real nginx faylı, certbot). Təkrar işlətmək
-təhlükəsizdir, yeniləmə yolu da odur. Monorepo (`/opt/pr-agent/repo`)
-artıq İŞLƏDİLMİR.
-
-Təzə bazada admin yoxdur: saytda qeydiyyat → `deploy/bootstrap_admin.py`
-(müəllim + admin + sahib bayraqları birdən).
-
-**Dərs:** serverdən kənarda backup YOX idi. Hesab dayandırılanda data
-da getdi. İndi `deploy/backup_data.py` hər gecə 03:00 UTC-də
-(`masterai-backup.timer`) bütün `*.db`-lərin sqlite `backup` API-si ilə
-surətini + `uploads/`-u bir arxivə yığır, `/var/backups/masterai`-də
-14 gün saxlayır və `.env`-də `BACKUP_TELEGRAM_BOT_TOKEN` +
-`BACKUP_TELEGRAM_CHAT_ID` varsa Telegram-a göndərir (kənar nüsxə).
-Açarlar yoxdursa jurnalda xəbərdarlıq var: surət YALNIZ serverdədir.
-Telegram limiti 50 MB - arxiv böyüyəndə başqa yer lazım olacaq.
+**PR 2 - Tapşırıq müzakirəsi.** Hər ev tapşırığının öz müzakirə mövzusu
+var — sinif çatından QƏSDƏN AYRI: "bu sualda nəyi buraxdım" kimi
+suallar ümumi çatı doldurmasın. Yeni cədvəl `homework_discussion_messages`
+(`server/homework_store.py`, `message_store.py`-nin eyni sadə naxışı -
+AI/status sahəsi yoxdur, sadəcə mətn). İcazə `create_homework_assignment`-in
+eyni qaydasıdır: tapşırığı yaradan müəllim VƏ çatın hər üzvü (tələbə
+daxil) yaza/oxuya bilər - `_require_assignment_chat_member`.
+`POST/GET /homework/assignments/{id}/discussion`. Veb: `tapsiriq.html`-də
+(tələbə) quiz vəziyyətindən ASILI OLMAYARAQ həmişə görünən bölmə,
+`hesabatlar.html`-də (müəllim) hər tapşırıq kartında açılan panel -
+mesajlar YALNIZ panel açılanda yüklənir (`<details>` `toggle` + `once`),
+hər tapşırıq üçün əvvəlcədən sorğu getməsin.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

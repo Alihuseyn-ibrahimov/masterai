@@ -212,6 +212,8 @@ CASES = {
     ("GET", "/homework/attempts/{attempt_id}/open-questions"): ("student_b", {"attempt_id": "attempt_a.id"}, None, None, None),
     ("POST", "/homework/attempts/{attempt_id}/open-answers"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"open_question_id": "open_question_a.id", "answer": "oğurlandı"}, None),
     ("GET", "/homework/assignments/{assignment_id}/open-answers"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
+    ("GET", "/homework/assignments/{assignment_id}/discussion"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
+    ("POST", "/homework/assignments/{assignment_id}/discussion"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, {"content": "oğurlandı"}, None),
     ("POST", "/homework/open-answers/{answer_id}/confirm"): ("teacher_b", {"answer_id": "open_answer_a.id"}, None, {"points": 1}, None),
     ("DELETE", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None, None, None),
     ("POST", "/live/question-sets/{question_set_id}/flashcards"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, {"count": 1}, None),

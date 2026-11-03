@@ -202,6 +202,8 @@ from .models import (
     HomeworkAnswerResult,
     HomeworkAssignmentInfo,
     HomeworkAttemptState,
+    HomeworkDiscussionCreate,
+    HomeworkDiscussionMessage,
     HomeworkHintRequest,
     HomeworkHintResult,
     HomeworkQuestionPayload,
@@ -4685,6 +4687,54 @@ def confirm_open_answer(
     if req.points > max_points:
         raise HTTPException(status_code=400, detail=f"Bal {max_points}-dən çox ola bilməz")
     return _open_review_row(homework.confirm_open_answer(answer_id, req.points, req.comment.strip()), users)
+
+
+def _discussion_message_out(row: dict, users: UserStore) -> HomeworkDiscussionMessage:
+    sender = users.get_by_id(row["sender_id"])
+    return HomeworkDiscussionMessage(
+        id=row["id"], assignment_id=row["assignment_id"], sender_id=row["sender_id"],
+        display_name=sender["display_name"] if sender else "Silinmiş istifadəçi",
+        content=row["content"], created_at=row["created_at"],
+    )
+
+
+def _require_assignment_chat_member(homework: HomeworkStore, chats: ChatStore, assignment_id: int, user: dict) -> dict:
+    """Tapşırıq müzakirəsi (Faza 3 PR 2) - sinif çatından AYRI mövzu, amma
+    icazə EYNİDİR: tapşırığı yaradan müəllim VƏ çatın hər üzvü (tələbə
+    daxil) iştirak edə bilər."""
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
+    if user["id"] not in chats.list_member_ids(assignment["chat_id"]):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    return assignment
+
+
+@app.get("/homework/assignments/{assignment_id}/discussion", response_model=list[HomeworkDiscussionMessage])
+def list_homework_discussion(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[HomeworkDiscussionMessage]:
+    _require_assignment_chat_member(homework, chats, assignment_id, user)
+    return [_discussion_message_out(row, users) for row in homework.list_discussion_messages(assignment_id)]
+
+
+@app.post("/homework/assignments/{assignment_id}/discussion", response_model=HomeworkDiscussionMessage, status_code=201)
+def add_homework_discussion_message(
+    assignment_id: int,
+    req: HomeworkDiscussionCreate,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> HomeworkDiscussionMessage:
+    _require_assignment_chat_member(homework, chats, assignment_id, user)
+    content = req.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Mesaj boşdur")
+    row = homework.add_discussion_message(assignment_id, user["id"], content)
+    return _discussion_message_out(row, users)
 
 
 def _schedule_live_duration_watch(

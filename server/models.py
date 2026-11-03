@@ -425,6 +425,20 @@ class HomeworkReportRow(BaseModel):
     score: int | None
 
 
+# Tapşırıq müzakirəsi (Faza 3 PR 2) — sinif çatından AYRI mövzu.
+class HomeworkDiscussionCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class HomeworkDiscussionMessage(BaseModel):
+    id: int
+    assignment_id: int
+    sender_id: int
+    display_name: str
+    content: str
+    created_at: str
+
+
 class MyAssignmentInfo(BaseModel):
     assignment_id: int
     chat_id: int

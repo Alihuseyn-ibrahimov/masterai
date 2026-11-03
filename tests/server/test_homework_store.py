@@ -188,3 +188,32 @@ class TestChatLeaderboard:
         a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
         store.get_or_create_attempt(a["id"], student_id=5)  # in_progress qalır
         assert store.get_chat_leaderboard(1) == {}
+
+
+class TestDiscussion:
+    """Faza 3 PR 2 - tapşırıq müzakirəsi, sinif çatından ayrı mövzu."""
+
+    def test_empty_by_default(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        assert store.list_discussion_messages(a["id"]) == []
+
+    def test_add_returns_row_with_timestamp(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        row = store.add_discussion_message(a["id"], sender_id=5, content="Salam")
+        assert row["content"] == "Salam"
+        assert row["sender_id"] == 5
+        assert row["assignment_id"] == a["id"]
+        assert row["created_at"]
+
+    def test_list_is_chronological(self, store):
+        a = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        store.add_discussion_message(a["id"], sender_id=5, content="Birinci")
+        store.add_discussion_message(a["id"], sender_id=1, content="İkinci")
+        rows = store.list_discussion_messages(a["id"])
+        assert [r["content"] for r in rows] == ["Birinci", "İkinci"]
+
+    def test_does_not_leak_across_assignments(self, store):
+        a1 = store.create_assignment(1, 7, "2026-09-14", created_by=1)
+        a2 = store.create_assignment(1, 8, "2026-09-20", created_by=1)
+        store.add_discussion_message(a1["id"], sender_id=5, content="Tapşırıq 1-ə aid")
+        assert store.list_discussion_messages(a2["id"]) == []

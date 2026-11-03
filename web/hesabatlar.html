@@ -158,8 +158,64 @@
           request(`/homework/assignments/${assignment.id}/open-answers`)
             .then((answers) => { if (answers.length) target.append(renderOpenAnswers(answers)); })
             .catch(() => {});
+          target.append(renderDiscussion(assignment.id));
         },
       );
+    }
+
+    /* Tapşırıq müzakirəsi (Faza 3 PR 2): sinif çatından AYRI mövzu. */
+    function renderDiscussion(assignmentId) {
+      const box = el('details', 'disclosure');
+      box.append(el('summary', 'disclosure__summary', 'Müzakirə'));
+      const body = el('div', 'disclosure__body stack');
+      const list = el('div', 'stack stack--tight');
+      const form = el('form', 'row');
+      const input = el('input', 'field__input');
+      input.placeholder = 'Cavab yazın…';
+      input.maxLength = 2000;
+      input.setAttribute('aria-label', 'Müzakirəyə mesaj');
+      const send = el('button', 'btn btn--primary btn--sm', 'Göndər');
+      send.type = 'submit';
+      form.append(input, send);
+      body.append(list, form);
+      box.append(body);
+
+      function load() {
+        request(`/homework/assignments/${assignmentId}/discussion`)
+          .then((messages) => {
+            if (!messages.length) {
+              list.replaceChildren(el('p', 'text-sm text-muted', 'Hələ mesaj yoxdur.'));
+              return;
+            }
+            list.replaceChildren(...messages.map((m) => {
+              const row = el('div', 'card stack stack--tight');
+              row.append(el('strong', 'text-sm', m.display_name), el('p', 'text-sm', m.content));
+              return row;
+            }));
+          })
+          .catch(() => {});
+      }
+
+      box.addEventListener('toggle', () => { if (box.open) load(); }, { once: true });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const content = input.value.trim();
+        if (!content) return;
+        send.disabled = true;
+        try {
+          await request(`/homework/assignments/${assignmentId}/discussion`, {
+            method: 'POST', body: { content },
+          });
+          input.value = '';
+          load();
+        } catch (error) {
+          flash(errorBox, error.message);
+        } finally {
+          send.disabled = false;
+        }
+      });
+
+      return box;
     }
 
     /* Yazılı cavablar (Faza 1, PR 2): AI balı TƏKLİFDİR, müəllim təsdiqləyir. */
