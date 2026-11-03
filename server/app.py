@@ -70,7 +70,8 @@ from pipeline.models import MaterialSource, MCQQuestion
 from pipeline.pipeline import generate_quiz
 from pipeline.quality import audit_questions
 from pipeline.summary import LessonSummary, summarize_material
-from pipeline.transcribe import transcribe_audio
+from pipeline.transcribe import TranscriptionError, transcribe_audio
+from pipeline.youtube_transcript import YoutubeTranscriptError, fetch_transcript
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
@@ -234,6 +235,10 @@ from .uploads import PayloadTooLarge, save_upload
 from .user_store import CourseFull, DuplicateEmail, InvalidInvite, UserStore
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+# Whisper (Groq) ölçü limiti ilə eyni (bax lesson-recorder.js-in ~5 dəqiqəlik
+# hissələri) — tam dərs yazısı üçün bu deyil, canlı dərs otağı istifadə
+# edilməlidir, bu yalnız qısa video material üçündür.
+MAX_VIDEO_UPLOAD_BYTES = 24 * 1024 * 1024
 _DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 
 # Müəllimin material yükləyəndə təyin edə biləcəyi ümumi sual sayı aralığı
@@ -505,6 +510,11 @@ def get_transcriber():
     return transcribe_audio
 
 
+def get_youtube_transcriber():
+    """YouTube linki→altyazı mətni funksiyası (Faza 1 PR 4; testdə fake funksiya ilə override olunur)."""
+    return fetch_transcript
+
+
 def get_board_reader():
     """Lövhə şəkli→mətn funksiyası (gün 7; testdə fake ilə override olunur)."""
     return read_board
@@ -626,6 +636,17 @@ def _baku_day_start_utc(now: datetime) -> datetime:
     local = now.astimezone(_BAKU_TZ)
     start = local.replace(hour=0, minute=0, second=0, microsecond=0)
     return start.astimezone(timezone.utc)
+
+
+def _write_text_material(upload_dir: str, text: str) -> str:
+    """Video transkripti/YouTube altyazısı/yapışdırılmış mətni `.txt` faylına
+    yazır — pipeline bunu link/PDF/şəkil ilə EYNİ yoldan (`kind="text"`)
+    oxuyur (bax dərs mətni → sual bankı axını, `pipeline/ingestion/text_extractor.py`)."""
+    os.makedirs(upload_dir, exist_ok=True)
+    path = os.path.join(upload_dir, f"{uuid.uuid4().hex}.txt")
+    with open(path, "w", encoding="utf-8") as out:
+        out.write(text)
+    return path
 
 
 def _enforce_upload_quota(
@@ -2021,6 +2042,8 @@ async def create_question_set(
     kind: str = Form(...),
     location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    # Düz mətn yapışdırma (Faza 1 PR 4) — yalnız `kind="text"` üçün.
+    text_content: str | None = Form(default=None),
     question_count: int = Form(default=10),
     bank_kind: str = Form(default="practice"),
     # Çətinlik bölgüsü (Faza 2, 2026-10-30) — cəmi 100. Köhnə client
@@ -2038,6 +2061,8 @@ async def create_question_set(
     materials: MaterialStore = Depends(get_material_store),
     summaries: SummaryStore = Depends(get_summary_store),
     summarizer=Depends(get_summarizer),
+    transcriber=Depends(get_transcriber),
+    youtube_transcriber=Depends(get_youtube_transcriber),
 ) -> QuestionSetInfo:
     _enforce_upload_quota(user, users, materials, question_sets)
     profile = _course_profile(users, user["course_id"])
@@ -2047,7 +2072,7 @@ async def create_question_set(
         raise HTTPException(status_code=400, detail="Reading bankı yalnız ingilis dili kursunda mövcuddur")
     if subject not in SUBJECTS:
         raise HTTPException(status_code=400, detail="Naməlum fənn")
-    if kind not in ("link", "pdf", "image"):
+    if kind not in ("link", "pdf", "image", "video", "youtube", "text"):
         raise HTTPException(status_code=400, detail="Naməlum material növü")
     if not (_MIN_QUESTION_COUNT <= question_count <= _MAX_QUESTION_COUNT):
         raise HTTPException(
@@ -2060,7 +2085,54 @@ async def create_question_set(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Çətinlik bölgüsü: {exc}") from exc
 
-    if kind == "link":
+    # Video, YouTube və düz mətn HƏR ÜÇÜ eyni yerə gəlir: materialın özü
+    # mətndir, pipeline-a `kind="text"` kimi ötürülür (bax `text_extractor`,
+    # dərs mətni ilə EYNİ yoldur). Transkripsiya/altyazı sürətli şəbəkə
+    # çağırışıdır — fon tapşırığı yox, burda sinxron edilir ki, teacher
+    # səhv linki/faylı dərhal görsün (link/pdf-in `location` yoxlanması ilə
+    # eyni fəlsəfə).
+    pipeline_kind = kind
+    if kind == "video":
+        if file is None:
+            raise HTTPException(status_code=400, detail="Video faylı tələb olunur")
+        try:
+            video_path = await save_upload(
+                file, upload_dir=upload_dir, max_bytes=MAX_VIDEO_UPLOAD_BYTES
+            )
+        except PayloadTooLarge:
+            raise HTTPException(
+                status_code=413,
+                detail="Video faylı çox böyükdür (≤24 MB) - tam dərs yazısı üçün canlı dərs otağından istifadə edin",
+            )
+        try:
+            text = await asyncio.to_thread(transcriber, video_path)
+        except TranscriptionError as exc:
+            raise HTTPException(status_code=400, detail=f"Video mətnə çevrilmədi: {exc}") from exc
+        finally:
+            os.remove(video_path)
+        if len(text) < _MIN_TRANSCRIPT_CHARS:
+            raise HTTPException(status_code=400, detail="Videonun mətni sual üçün çox qısadır")
+        source_location = _write_text_material(upload_dir, text)
+        pipeline_kind = "text"
+    elif kind == "youtube":
+        if not location:
+            raise HTTPException(status_code=400, detail="YouTube linki tələb olunur")
+        try:
+            text = await asyncio.to_thread(youtube_transcriber, location)
+        except YoutubeTranscriptError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if len(text) < _MIN_TRANSCRIPT_CHARS:
+            raise HTTPException(status_code=400, detail="Videonun altyazısı sual üçün çox qısadır")
+        source_location = _write_text_material(upload_dir, text)
+        pipeline_kind = "text"
+    elif kind == "text":
+        text = (text_content or "").strip()
+        if len(text) < _MIN_TRANSCRIPT_CHARS:
+            raise HTTPException(
+                status_code=400, detail=f"Mətn ən azı {_MIN_TRANSCRIPT_CHARS} simvol olmalıdır",
+            )
+        source_location = _write_text_material(upload_dir, text)
+    elif kind == "link":
         if not location:
             raise HTTPException(status_code=400, detail="Link üçün 'location' tələb olunur")
         source_location = location
@@ -2077,7 +2149,7 @@ async def create_question_set(
     question_set = question_sets.create(
         subject=subject,
         title=title,
-        material_kind=kind,
+        material_kind=pipeline_kind,
         material_location=source_location,
         created_by=user["id"],
         course_id=user["course_id"],
@@ -2093,7 +2165,7 @@ async def create_question_set(
     task = asyncio.create_task(
         _process_question_set(
             question_set["id"],
-            MaterialSource(kind=kind, location=source_location),
+            MaterialSource(kind=pipeline_kind, location=source_location),
             generator=generator,
             question_set_store=question_sets,
             question_count=question_count,

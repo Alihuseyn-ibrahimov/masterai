@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2215 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2236 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -563,6 +563,25 @@ səhv («bilmirəm») qutunu 1-ə salır, amma eyni sessiyada dərhal təkrar
 göstərməmək üçün 10 dəqiqəlik gecikmə qoyur. Hər kart+istifadəçi cütü üçün
 AYRI vəziyyət (`flashcard_reviews`), yəni eyni dəstəni iki tələbə fərqli
 templə keçir. Real modellə hələ sınanmayıb.
+
+**PR 4 - video və mətn materialı (Faza 1-in son addımı).** `/live/question-sets`
+üç yeni `kind` qəbul edir: `video` (qısa video fayl, ≤24 MB - Whisper
+(Groq) limiti ilə eyni, TAM dərs yazısı üçün deyil, bunun üçün canlı dərs
+otağı var), `youtube` (link - video ENDİRİLMİR, YouTube-un öz altyazısı
+`youtube-transcript-api` ilə oxunur, əvvəlcə `az`, sonra `en`, `ru` cəhd
+olunur) və `text` (müəllim mətni birbaşa yapışdırır). **Üçü də eyni yerə
+gəlir:** nəticə mətn sinxron olaraq (fon tapşırığı yox - sürətli şəbəkə
+çağırışıdır, link/pdf-in `location` yoxlaması ilə eyni fəlsəfə) `.txt`
+faylına yazılır və mövcud pipeline-a `kind="text"` kimi verilir (dərs
+mətni → sual bankı axını ilə EYNİ yol, `pipeline/ingestion/text_extractor.py`
+dəyişmədi). Video faylı transkripsiyadan sonra SİLİNİR. Mətn 300
+simvoldan qısadırsa (video/youtube transkripti daxil) 400 - boş bank
+yaranmır. `pipeline/youtube_transcript.py`: video ID-ni URL-dən regex
+ilə çıxarır (adi link, `youtu.be`, `shorts`, `embed`), altyazı
+tapılmasa/bağlıdırsa aydın Azərbaycanca xəta. Veb: `muellim.html`-in
+material forması 3 yeni sahə (video fayl, YouTube linki, mətn
+<textarea>) - köhnə `link`/`pdf`/`image` sahələri dəyişmədi. Real
+modellə və real YouTube linki ilə hələ sınanmayıb.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

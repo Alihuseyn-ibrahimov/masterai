@@ -28,6 +28,7 @@ langgraph>=1.2,<2  # gün 9: AI tutor agenti (vəziyyət qrafı)
 mcp>=1.12,<2  # gün 11: müəllim MCP serveri (teacher_mcp/, müəllimin kompüterində işləyir)
 email-validator>=2.1
 python-multipart>=0.0.12
+youtube-transcript-api>=1.0,<2  # Faza 1 PR 4: YouTube linkindən altyazı (video endirmir)
 gunicorn>=23.0  # yalnız prod deploy üçün (bax deploy/masterai.service), dev-də adi uvicorn kifayətdir
 
 # Statik analiz qapısı (tests/test_static_analysis.py).
