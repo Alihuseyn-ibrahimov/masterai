@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2379 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2384 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 401 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -582,6 +582,22 @@ tapılmasa/bağlıdırsa aydın Azərbaycanca xəta. Veb: `muellim.html`-in
 material forması 3 yeni sahə (video fayl, YouTube linki, mətn
 <textarea>) - köhnə `link`/`pdf`/`image` sahələri dəyişmədi. Real
 modellə və real YouTube linki ilə hələ sınanmayıb.
+
+**PR 5 - quiz olmadan konspekt (istifadəçi əlavəsi, 2026-11-03).**
+`POST /live/question-sets`-ə `skip_questions` sahəsi: müəllim material
+yükləyəndə sual bankı yaratmağı gözləmədən birbaşa xülasə sifariş edə
+bilsin. `True` olanda server `make_summary`-ni client nə göndərsə də
+MƏCBURƏN `True` edir (əks halda heç nə əmələ gəlməzdi) və
+`_process_question_set` MCQ generatorunu ÜMUMİYYƏTLƏ ÇAĞIRMIR - bank
+dərhal "ready" olur, 0 sualla. Reading bankı ilə birgə 400 (mənasızdır).
+**Sualsız "ready" bank YENİ vəziyyətdir** - əvvəl generator həmişə ≥3
+sual tələb edirdi (yoxsa uğursuz sayılırdı), ona görə `create_live_session`
+və `create_homework_assignment`-ə aydın 400 qapısı əlavə olundu
+(`question_sets.count_questions(...) == 0`), `bank-card.js::isLiveEligible`
+və `muellim.html`/`hesabatlar.html`-in bank seçiciləri də bunu süzür.
+Veb: `muellim.html`-də «Yalnız xülasə (sual yaratma)» checkbox-ı sual
+sayı/çətinlik sahələrini gizlədir və «Dərs xülasəsi də hazırla»-nı
+kilidləyir. Real modellə hələ sınanmayıb.
 
 ## Faza 2 «Sokratik mentor + adaptiv öyrənmə» (2026-11-03-dən)
 

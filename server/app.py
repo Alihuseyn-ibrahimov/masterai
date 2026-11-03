@@ -2033,40 +2033,49 @@ async def _process_question_set(
     difficulty_mix: tuple[int, int, int] | None = None,
     summary_job: tuple[int, object, SummaryStore] | None = None,
     subject: str | None = None,
+    skip_questions: bool = False,
 ) -> None:
     """Canlı sessiya sual bankını fon thread-ində emal edir — mövcud
     `_process_material`-a bənzər naxış, amma çat/mesaj sisteminə bağlı
     deyil (nəticə `question_sets.status`+`error` sahələrindən polling
     ilə oxunur, bax dizayn sənədi)."""
     started = time.monotonic()
-    try:
-        result = await asyncio.wait_for(
-            asyncio.to_thread(
-                partial(
-                    generator, source, question_count, profile=profile, bank_kind=bank_kind,
-                    difficulty_mix=difficulty_mix, subject=subject,
-                )
-            ),
-            timeout=QUESTION_SET_DEADLINE_SECONDS,
-        )
-    except asyncio.TimeoutError:
-        # Thread dayandırıla bilmir, sonra bitsə nəticəsi atılır: bank artıq
-        # «uğursuz»dur və müəllim yenidən cəhd edə bilər.
-        logger.error("Sual bankı vaxt limitini keçdi (question_set_id=%s)", question_set_id)
-        question_set_store.mark_failed(question_set_id, QUESTION_SET_DEADLINE_ERROR)
-    except Exception as exc:
-        logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
-        question_set_store.mark_failed(question_set_id, str(exc))
-    else:
-        logger.info(
-            "question_set_ready id=%s questions=%s seconds=%.0f",
-            question_set_id, len(result.questions), time.monotonic() - started,
-        )
-        if result.passage:
-            question_set_store.set_passage(question_set_id, result.passage)
-        for mcq in result.questions:
-            question_set_store.add_question(question_set_id, mcq)
+    if skip_questions:
+        # Quiz olmadan konspekt (istifadəçi əlavəsi, 2026-11-03): MCQ
+        # generatoru ÜMUMİYYƏTLƏ çağırılmır, bank dərhal "ready" olur,
+        # 0 sualla. Canlı sessiya/ev tapşırığı belə bankı rədd edir
+        # (bax `create_live_session`/`create_homework_assignment`).
         question_set_store.mark_ready(question_set_id)
+        logger.info("question_set_ready id=%s questions=0 (skip_questions)", question_set_id)
+    else:
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    partial(
+                        generator, source, question_count, profile=profile, bank_kind=bank_kind,
+                        difficulty_mix=difficulty_mix, subject=subject,
+                    )
+                ),
+                timeout=QUESTION_SET_DEADLINE_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            # Thread dayandırıla bilmir, sonra bitsə nəticəsi atılır: bank artıq
+            # «uğursuz»dur və müəllim yenidən cəhd edə bilər.
+            logger.error("Sual bankı vaxt limitini keçdi (question_set_id=%s)", question_set_id)
+            question_set_store.mark_failed(question_set_id, QUESTION_SET_DEADLINE_ERROR)
+        except Exception as exc:
+            logger.exception("Sual bankı emalı uğursuz oldu (question_set_id=%s)", question_set_id)
+            question_set_store.mark_failed(question_set_id, str(exc))
+        else:
+            logger.info(
+                "question_set_ready id=%s questions=%s seconds=%.0f",
+                question_set_id, len(result.questions), time.monotonic() - started,
+            )
+            if result.passage:
+                question_set_store.set_passage(question_set_id, result.passage)
+            for mcq in result.questions:
+                question_set_store.add_question(question_set_id, mcq)
+            question_set_store.mark_ready(question_set_id)
 
     # Xülasə (Faza 3) suallardan SONRA, ardıcıl: link materialında hər
     # emal Chrome açır və VPS-in yaddaşı iki paralel Chrome-a çatmır.
@@ -2094,6 +2103,11 @@ async def create_question_set(
     hard_percent: int = Form(default=DEFAULT_MIX[2]),
     # Dərs xülasəsi də hazırlansın (Faza 3, 2026-10-30).
     make_summary: bool = Form(default=False),
+    # Quiz olmadan konspekt (istifadəçi əlavəsi, 2026-11-03): müəllim
+    # materialdan birbaşa xülasə istəyə bilsin, sual bankı yaratmağı
+    # gözləmədən. Bu True olanda `make_summary` məcburən True sayılır
+    # (əks halda heç nə əmələ gəlməzdi).
+    skip_questions: bool = Form(default=False),
     user: dict = Depends(get_current_teacher),
     question_sets: QuestionSetStore = Depends(get_question_set_store),
     generator=Depends(get_material_generator),
@@ -2115,16 +2129,23 @@ async def create_question_set(
         raise HTTPException(status_code=400, detail="Naməlum fənn")
     if kind not in ("link", "pdf", "image", "video", "youtube", "text"):
         raise HTTPException(status_code=400, detail="Naməlum material növü")
-    if not (_MIN_QUESTION_COUNT <= question_count <= _MAX_QUESTION_COUNT):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Sual sayı {_MIN_QUESTION_COUNT}-{_MAX_QUESTION_COUNT} arasında olmalıdır",
-        )
+    if skip_questions and bank_kind == "reading":
+        raise HTTPException(status_code=400, detail="Reading bankı sualsız yaradıla bilməz")
+    if skip_questions:
+        # Sualsız bankın yeganə məqsədi konspektdir - əks halda heç nə
+        # əmələ gəlməz, ona görə client-in göndərdiyi dəyərə baxmırıq.
+        make_summary = True
     difficulty_mix = (easy_percent, medium_percent, hard_percent)
-    try:
-        validate_difficulty_mix(difficulty_mix)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Çətinlik bölgüsü: {exc}") from exc
+    if not skip_questions:
+        if not (_MIN_QUESTION_COUNT <= question_count <= _MAX_QUESTION_COUNT):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sual sayı {_MIN_QUESTION_COUNT}-{_MAX_QUESTION_COUNT} arasında olmalıdır",
+            )
+        try:
+            validate_difficulty_mix(difficulty_mix)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Çətinlik bölgüsü: {exc}") from exc
 
     # Video, YouTube və düz mətn HƏR ÜÇÜ eyni yerə gəlir: materialın özü
     # mətndir, pipeline-a `kind="text"` kimi ötürülür (bax `text_extractor`,
@@ -2215,6 +2236,7 @@ async def create_question_set(
             difficulty_mix=difficulty_mix,
             summary_job=summary_job,
             subject=subject,
+            skip_questions=skip_questions,
         )
     )
     app.state.active_question_set_tasks[question_set["id"]] = task
@@ -3900,6 +3922,13 @@ async def create_live_session(
             status_code=400,
             detail="Reading bankı yalnız ev tapşırığı üçündür - canlı sessiyada mətn göstərilmir",
         )
+    if question_sets.count_questions(req.question_set_id) == 0:
+        # Quiz olmadan konspekt (2026-11-03): belə bank yalnız xülasə
+        # üçündür, sualı yoxdur - canlı sessiya mənasız olardı.
+        raise HTTPException(
+            status_code=400,
+            detail="Bu bank yalnız xülasə üçündür - canlı sessiyada sual yoxdur",
+        )
 
     session = live_sessions.create_session(
         req.question_set_id, chat_id=req.chat_id, created_by=user["id"]
@@ -4074,6 +4103,10 @@ async def create_homework_assignment(
     question_set = _question_set_in_course(question_sets, req.question_set_id, user)
     if question_set["status"] != "ready":
         raise HTTPException(status_code=400, detail="Sual bankı hələ hazır deyil")
+    if question_sets.count_questions(req.question_set_id) == 0:
+        # Quiz olmadan konspekt (2026-11-03): sualı olmayan bank ev
+        # tapşırığı kimi təyin oluna bilməz.
+        raise HTTPException(status_code=400, detail="Bu bank yalnız xülasə üçündür - ev tapşırığı üçün sualı yoxdur")
 
     assignment = homework.create_assignment(
         req.chat_id, req.question_set_id, req.due_date, created_by=user["id"]

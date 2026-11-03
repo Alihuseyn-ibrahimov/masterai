@@ -505,9 +505,10 @@
           option.textContent = chat.name || `Çat #${chat.id}`;
           chatSelect.append(option);
         }
-        // Yalnız HAZIR banklar təyin edilə bilər - backend yarımçıq
-        // bankı 400 ilə rədd edir.
-        for (const set of sets.filter((s) => s.status === 'ready')) {
+        // Yalnız HAZIR VƏ sualı olan banklar təyin edilə bilər - backend
+        // yarımçıq bankı VƏ sualsız (quiz olmadan konspekt) bankı 400 ilə
+        // rədd edir.
+        for (const set of sets.filter((s) => s.status === 'ready' && s.question_count > 0)) {
           const option = document.createElement('option');
           option.value = String(set.id);
           option.textContent = set.title;

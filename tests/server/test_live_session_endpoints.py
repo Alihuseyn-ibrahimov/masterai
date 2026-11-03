@@ -82,6 +82,12 @@ def test_creates_session_bound_to_the_chat(env):
         subject="mentiq", title="A", material_kind="link", material_location="https://x.az",
         created_by=env["teacher"]["id"],
     )
+    # Sualsız (quiz olmadan konspekt) bank sessiya üçün rədd olunur -
+    # bu testin məqsədi sessiya yaratmaqdır, bank boş olmamalıdır.
+    env["question_sets"].add_question(
+        qs["id"],
+        MCQQuestion(question="Sual?", options=["A", "B", "C", "D", "E"], correct_index=0, explanation="izah"),
+    )
     env["question_sets"].mark_ready(qs["id"])
 
     r = env["client"].post("/live/sessions", json={"question_set_id": qs["id"], "chat_id": env["chat"]["id"]}, headers=_auth(env["teacher"]))
