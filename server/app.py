@@ -115,6 +115,7 @@ from .live_session_runner import watch_session_duration as watch_live_session_du
 from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
+from .adaptive_quiz import build_adaptive_quiz
 from .topic_stats import split_strong_weak, topic_stats_for_student
 from .models import (
     WsTicketResponse,
@@ -4280,6 +4281,24 @@ def get_my_topic_stats(
         strong=[TopicStat(**s) for s in strong],
         weak=[TopicStat(**s) for s in weak],
     )
+
+
+@app.get("/me/adaptive-quiz", response_model=list[LiveQuestionInfo])
+def get_my_adaptive_quiz(
+    user: dict = Depends(get_current_user),
+    live_sessions: LiveSessionStore = Depends(get_live_session_store),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    difficulty_model=Depends(get_difficulty_model),
+) -> list[LiveQuestionInfo]:
+    """Faza 2 PR 3 - «zəif yerlərimi məşq et» (bax `server/adaptive_quiz.py`).
+    Düzgün cavab+izah DAXİLDİR: bu, qiymətləndirilən tapşırıq deyil,
+    sərbəst məşqdir, nəticə saxlanmır."""
+    questions = build_adaptive_quiz(
+        user["id"], live_sessions=live_sessions, homework=homework,
+        question_sets=question_sets, difficulty_model=difficulty_model,
+    )
+    return [LiveQuestionInfo(**q) for q in questions]
 
 
 _BADGE_TYPES = ("ilk_addim", "yuz_faiz", "fenn_ustasi", "suretli_eqli", "silsile_5")

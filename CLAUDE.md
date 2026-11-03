@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2278 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 394 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2308 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 394 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -642,6 +642,23 @@ Veb: `profil.html`-də «Mövzular üzrə nəticə» bloku (yalnız tələbə) �
 `assets/js/topics.js`, boş olanda bölmə TAM gizlənir (bu, "hələ heç nə"
 demək artıq siqnaldır, boş siyahı göstərmək mənasız). Real modellə
 hələ sınanmayıb.
+
+**PR 3 - Adaptiv test («zəif yerlərimi məşq et»).** `server/adaptive_quiz.py::build_adaptive_quiz`
+PR 2-nin zəif mövzularından, tələbənin ARTIQ GÖRDÜYÜ banklardan (canlı
+sessiya + ev tapşırığı — `topic_stats_for_student`-in eyni iki mənbəyi)
+sual seçir — yeni kurs sərhədi yoxlaması lazım deyil, çünki bu banklar
+onsuz da tələbənin əlçatan datasıdır. `difficulty_model` varsa (gün 15),
+proqnozu 0.4-0.75 aralığına ən yaxın suallar üstünlük alır — çox asan
+öyrətmir, çox çətin demoralizə edir. **Bu, QİYMƏTLƏNDİRİLƏN tapşırıq
+DEYİL:** `GET /me/adaptive-quiz` düzgün cavab+izahı DAXİL qaytarır
+(müəllimin redaktə ekranı ilə eyni, `list_live_questions`), heç nə
+saxlanmır — yeni `attempt` cədvəli, yeni "tək cəhd" qaydası lazım
+olmadı. Veb: `adaptiv.html` (sual-sual client-tərəfli, server round-trip
+yoxdur), `profil.html`-in zəif mövzu bloku zəif mövzu varsa «Zəif
+yerlərimi məşq et» düyməsini göstərir. Real modellə hələ sınanmayıb.
+
+Bununla Faza 2 («Sokratik mentor + adaptiv öyrənmə») planın 3 PR-i
+tamamlandı (PR 1 #65 merge, PR 2 #66, PR 3 — bax PR siyahısı).
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 
