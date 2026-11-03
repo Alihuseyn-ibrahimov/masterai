@@ -18,10 +18,13 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pipeline.models import MCQQuestion
 from server.course_store import DEFAULT_COURSE_ID
+
+# Leitner 3-qutu: qutuya keçəndə növbəti baxışa qədər neçə gün.
+_BOX_INTERVAL_DAYS = {1: 1, 2: 3, 3: 7}
 
 SUBJECTS = (
     "mentiq",
@@ -150,6 +153,46 @@ class QuestionSetStore:
                 CREATE INDEX IF NOT EXISTS idx_open_questions_set ON open_questions(question_set_id);
                 """
             )
+            # Flashcard-lar (Faza 1, PR 3, 2026-11-03): açıq suallarla eyni
+            # naxış - ayrı cədvəl, generasiya ƏLAVƏ edir, silmir. Bankın
+            # kartları bir çata DƏRC olunur (xülasə ilə eyni naxış, bax
+            # `summary_store.py`) - tələbə oranı görməzdən əvvəl müəllim
+            # baxır. `flashcard_reviews` hər (kart, tələbə) cütü üçün
+            # Leitner 3-qutu vəziyyətini saxlayır.
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS flashcard_jobs (
+                    question_set_id INTEGER PRIMARY KEY,
+                    status          TEXT NOT NULL,
+                    error           TEXT,
+                    started_at      TEXT NOT NULL,
+                    finished_at     TEXT
+                );
+                CREATE TABLE IF NOT EXISTS flashcards (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question_set_id INTEGER NOT NULL,
+                    front           TEXT NOT NULL,
+                    back            TEXT NOT NULL,
+                    difficulty      TEXT,
+                    created_at      TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_flashcards_set ON flashcards(question_set_id);
+                CREATE TABLE IF NOT EXISTS flashcard_publications (
+                    question_set_id INTEGER PRIMARY KEY,
+                    chat_id         INTEGER NOT NULL,
+                    published_by    INTEGER NOT NULL,
+                    published_at    TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS flashcard_reviews (
+                    flashcard_id     INTEGER NOT NULL,
+                    user_id          INTEGER NOT NULL,
+                    box              INTEGER NOT NULL DEFAULT 1,
+                    due_at           TEXT NOT NULL,
+                    last_reviewed_at TEXT,
+                    PRIMARY KEY (flashcard_id, user_id)
+                );
+                """
+            )
             self._conn.commit()
 
     # ---- Açıq suallar (Faza 1, 2026-11-03) ---------------------------------
@@ -248,6 +291,192 @@ class QuestionSetStore:
         with self._lock:
             self._conn.execute("DELETE FROM open_questions WHERE id = ?", (open_question_id,))
             self._conn.commit()
+
+    # ---- Flashcard-lar (Faza 1, PR 3, 2026-11-03) --------------------------
+
+    def start_flashcard_job(self, question_set_id: int) -> bool:
+        """Generasiyanı başladır; artıq gedirsə `False`."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status FROM flashcard_jobs WHERE question_set_id = ?", (question_set_id,)
+            ).fetchone()
+            if row and row[0] == "processing":
+                return False
+            self._conn.execute(
+                "INSERT OR REPLACE INTO flashcard_jobs (question_set_id, status, error, started_at, finished_at) "
+                "VALUES (?, 'processing', NULL, ?, NULL)",
+                (question_set_id, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return True
+
+    def finish_flashcard_job(self, question_set_id: int, cards: list[dict]) -> None:
+        """`cards`: [{front, back, difficulty}]."""
+        with self._lock:
+            now = _utc_now_iso()
+            for card in cards:
+                self._conn.execute(
+                    "INSERT INTO flashcards (question_set_id, front, back, difficulty, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (question_set_id, card["front"], card["back"], card.get("difficulty"), now),
+                )
+            self._conn.execute(
+                "UPDATE flashcard_jobs SET status = 'ready', finished_at = ? WHERE question_set_id = ?",
+                (now, question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_flashcard_job(self, question_set_id: int, error: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE flashcard_jobs SET status = 'failed', error = ?, finished_at = ? WHERE question_set_id = ?",
+                (error[:500], _utc_now_iso(), question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_interrupted_flashcard_jobs(self, error: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE flashcard_jobs SET status = 'failed', error = ?, finished_at = ? WHERE status = 'processing'",
+                (error, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return cur.rowcount
+
+    def get_flashcard_job(self, question_set_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status, error, started_at, finished_at FROM flashcard_jobs WHERE question_set_id = ?",
+                (question_set_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def list_flashcards(self, question_set_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM flashcards WHERE question_set_id = ? ORDER BY id", (question_set_id,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def get_flashcard(self, flashcard_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM flashcards WHERE id = ?", (flashcard_id,)).fetchone()
+            return dict(row) if row else None
+
+    def update_flashcard(self, flashcard_id: int, *, front: str, back: str, difficulty: str | None) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE flashcards SET front = ?, back = ?, difficulty = ? WHERE id = ?",
+                (front, back, difficulty, flashcard_id),
+            )
+            self._conn.commit()
+            return self.get_flashcard(flashcard_id)
+
+    def delete_flashcard(self, flashcard_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM flashcards WHERE id = ?", (flashcard_id,))
+            self._conn.execute("DELETE FROM flashcard_reviews WHERE flashcard_id = ?", (flashcard_id,))
+            self._conn.commit()
+
+    def publish_flashcards(self, question_set_id: int, chat_id: int, published_by: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO flashcard_publications (question_set_id, chat_id, published_by, published_at) "
+                "VALUES (?, ?, ?, ?)",
+                (question_set_id, chat_id, published_by, _utc_now_iso()),
+            )
+            self._conn.commit()
+
+    def unpublish_flashcards(self, question_set_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM flashcard_publications WHERE question_set_id = ?", (question_set_id,))
+            self._conn.commit()
+
+    def get_flashcard_publication(self, question_set_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM flashcard_publications WHERE question_set_id = ?", (question_set_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def list_published_flashcard_decks_for_chats(self, chat_ids: list[int]) -> list[dict]:
+        """Verilmiş çatlara dərc olunmuş, hazır kartı olan banklar."""
+        if not chat_ids:
+            return []
+        marks = ",".join("?" * len(chat_ids))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT p.question_set_id, p.chat_id, p.published_at FROM flashcard_publications p "
+                f"WHERE p.chat_id IN ({marks}) "
+                "AND EXISTS (SELECT 1 FROM flashcards f WHERE f.question_set_id = p.question_set_id) "
+                "ORDER BY p.published_at DESC",
+                tuple(chat_ids),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    # ---- Flashcard aralıqlı təkrarı (Leitner 3-qutu) -----------------------
+
+    def flashcard_review_state(self, flashcard_id: int, user_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM flashcard_reviews WHERE flashcard_id = ? AND user_id = ?",
+                (flashcard_id, user_id),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def list_due_flashcards(self, question_set_id: int, user_id: int) -> list[dict]:
+        """Kart + tələbənin bu kartdakı vəziyyəti (yoxdursa yeni sayılır,
+        həmişə vaxtı çatıb)."""
+        now = _utc_now_iso()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT f.*, r.box AS review_box, r.due_at AS review_due_at FROM flashcards f "
+                "LEFT JOIN flashcard_reviews r ON r.flashcard_id = f.id AND r.user_id = ? "
+                "WHERE f.question_set_id = ? AND (r.due_at IS NULL OR r.due_at <= ?) "
+                "ORDER BY (r.due_at IS NULL) DESC, r.due_at ASC, f.id ASC",
+                (user_id, question_set_id, now),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def count_due_flashcards(self, question_set_id: int, user_id: int) -> tuple[int, int]:
+        """(vaxtı çatmış say, cəmi say)."""
+        now = _utc_now_iso()
+        with self._lock:
+            total = self._conn.execute(
+                "SELECT COUNT(*) FROM flashcards WHERE question_set_id = ?", (question_set_id,)
+            ).fetchone()[0]
+            due = self._conn.execute(
+                "SELECT COUNT(*) FROM flashcards f LEFT JOIN flashcard_reviews r "
+                "ON r.flashcard_id = f.id AND r.user_id = ? "
+                "WHERE f.question_set_id = ? AND (r.due_at IS NULL OR r.due_at <= ?)",
+                (user_id, question_set_id, now),
+            ).fetchone()[0]
+            return due, total
+
+    def record_flashcard_review(self, flashcard_id: int, user_id: int, know: bool) -> dict:
+        """Leitner 3-qutu: bilirsə qutu bir artır (ən çox 3) və növbəti
+        baxış intervalı uzanır; bilmirsə 1-ci qutuya düşür, tezliklə
+        yenidən görünür (eyni sessiyada dərhal təkrarlanmasın deyə 10
+        dəqiqəlik gecikmə)."""
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            current = self.flashcard_review_state(flashcard_id, user_id)
+            box = current["box"] if current else 1
+            if know:
+                box = min(box + 1, 3)
+                due = now + timedelta(days=_BOX_INTERVAL_DAYS[box])
+            else:
+                box = 1
+                due = now + timedelta(minutes=10)
+            self._conn.execute(
+                "INSERT INTO flashcard_reviews (flashcard_id, user_id, box, due_at, last_reviewed_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(flashcard_id, user_id) DO UPDATE SET "
+                "box = excluded.box, due_at = excluded.due_at, last_reviewed_at = excluded.last_reviewed_at",
+                (flashcard_id, user_id, box, due.isoformat(), now.isoformat()),
+            )
+            self._conn.commit()
+            return {"box": box, "due_at": due.isoformat()}
 
     # ---- AI yoxlama komandası (gün 10) ------------------------------------
 

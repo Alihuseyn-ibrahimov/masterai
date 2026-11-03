@@ -74,6 +74,7 @@ from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
+from pipeline.flashcards import generate_flashcards
 from pipeline.open_questions import generate_open_questions
 from pipeline.open_grading import grade_open_answer
 from pipeline.guardrails import PII_NOTICE
@@ -148,6 +149,15 @@ from .models import (
     OpenCriterionGrade,
     OpenTaskItem,
     SubmitOpenAnswerRequest,
+    FlashcardDeckOut,
+    FlashcardOut,
+    FlashcardPublicationOut,
+    FlashcardReviewRequest,
+    FlashcardsOut,
+    FlashcardStudyCard,
+    GenerateFlashcardsRequest,
+    PublishFlashcardsRequest,
+    UpdateFlashcardRequest,
     SummaryInfo,
     AuditLogRow,
     CourseDeadline,
@@ -307,6 +317,9 @@ app.state.question_set_store.fail_interrupted_open_jobs(
 app.state.homework_store.fail_interrupted_open_grading(
     "Server yenidən başladığı üçün AI cavabı yoxlamadı - müəllim əl ilə yoxlayacaq."
 )
+app.state.question_set_store.fail_interrupted_flashcard_jobs(
+    "Server yenidən başladığı üçün flashcard-lar hazırlanmadı. Yenidən başladın."
+)
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -326,6 +339,8 @@ app.state.active_review_tasks = {}
 app.state.active_open_question_tasks = {}
 # answer_id -> açıq cavabın AI yoxlaması task-ı (Faza 1, PR 2).
 app.state.active_open_grading_tasks = {}
+# question_set_id -> flashcard generasiyası task-ı (Faza 1, PR 3).
+app.state.active_flashcard_tasks = {}
 # (lesson_id, seq) -> dərs səsinin mətnə çevrilməsi task-ı (eyni naxış).
 app.state.active_transcript_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
@@ -508,6 +523,11 @@ def get_open_question_generator():
 def get_open_answer_grader():
     """(sual, nümunə cavab, meyarlar, cavab) → `GradeResult` (Faza 1 PR 2; testdə fake)."""
     return grade_open_answer
+
+
+def get_flashcard_generator():
+    """(material, count, subject) → flashcard-lar (Faza 1 PR 3; testdə fake)."""
+    return generate_flashcards
 
 
 def get_summarizer():
@@ -2505,6 +2525,215 @@ def delete_open_question(
 ) -> None:
     _open_question_in_course(question_sets, open_question_id, user)
     question_sets.delete_open_question(open_question_id)
+
+
+# ---- Flashcard-lar (Faza 1 «Müəllim AI asistenti», PR 3, 2026-11-03) ------
+# Açıq suallarla eyni generasiya naxışı (ayrı cədvəl, əlavə edir, silmir);
+# dərc etmə xülasə ilə eyni naxışdır (bir bank = bir çata DƏRC, AI mətni
+# müəllim baxmadan tələbəyə çatmır). Tələbənin təkrar vəziyyəti Leitner
+# 3-qutudur (bax `question_set_store.record_flashcard_review`).
+
+
+def _flashcard_out(row: dict) -> FlashcardOut:
+    return FlashcardOut(id=row["id"], question_set_id=row["question_set_id"], front=row["front"],
+                        back=row["back"], difficulty=row["difficulty"])
+
+
+def _flashcards_out(question_set_id: int, question_sets: QuestionSetStore, chats: ChatStore) -> FlashcardsOut:
+    job = question_sets.get_flashcard_job(question_set_id)
+    items = [_flashcard_out(row) for row in question_sets.list_flashcards(question_set_id)]
+    pub = question_sets.get_flashcard_publication(question_set_id)
+    pub_fields = {}
+    if pub:
+        chat = chats.get(pub["chat_id"])
+        pub_fields = {"chat_id": pub["chat_id"], "chat_name": chat["name"] if chat else None,
+                     "published_at": pub["published_at"]}
+    if job is None:
+        return FlashcardsOut(status="ready" if items else "none", items=items, **pub_fields)
+    return FlashcardsOut(status=job["status"], error=job["error"], items=items, **pub_fields)
+
+
+def _flashcard_in_course(question_sets: QuestionSetStore, flashcard_id: int, user: dict) -> dict:
+    row = question_sets.get_flashcard(flashcard_id)
+    question_set = question_sets.get(row["question_set_id"]) if row else None
+    if question_set is None or not _same_course(question_set.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Kart tapılmadı")
+    return row
+
+
+async def _process_flashcards(question_set_id: int, source: MaterialSource, *, count: int, subject: str,
+                              generator, question_sets: QuestionSetStore) -> None:
+    try:
+        cards = await asyncio.to_thread(generator, source, count, subject)
+    except Exception as exc:
+        logger.exception("Flashcard generasiyası uğursuz oldu (question_set_id=%s)", question_set_id)
+        question_sets.fail_flashcard_job(question_set_id, f"Flashcard-lar alınmadı: {exc}")
+        return
+    question_sets.finish_flashcard_job(question_set_id, [
+        {"front": c.front, "back": c.back, "difficulty": c.difficulty} for c in cards
+    ])
+
+
+@app.post("/live/question-sets/{question_set_id}/flashcards", response_model=FlashcardsOut, status_code=202)
+async def start_flashcards(
+    question_set_id: int,
+    req: GenerateFlashcardsRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+    generator=Depends(get_flashcard_generator),
+) -> FlashcardsOut:
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    if question_set["status"] != "ready":
+        raise HTTPException(status_code=409, detail="Bank hələ hazır deyil")
+    if not question_sets.start_flashcard_job(question_set_id):
+        raise HTTPException(status_code=409, detail="Flashcard-lar artıq hazırlanır")
+    task = asyncio.create_task(_process_flashcards(
+        question_set_id,
+        MaterialSource(kind=question_set["material_kind"], location=question_set["material_location"]),
+        count=req.count, subject=question_set["subject"], generator=generator, question_sets=question_sets,
+    ))
+    app.state.active_flashcard_tasks[question_set_id] = task
+    task.add_done_callback(lambda _t: app.state.active_flashcard_tasks.pop(question_set_id, None))
+    return _flashcards_out(question_set_id, question_sets, chats)
+
+
+@app.get("/live/question-sets/{question_set_id}/flashcards", response_model=FlashcardsOut)
+def list_flashcards(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> FlashcardsOut:
+    _question_set_in_course(question_sets, question_set_id, user)
+    return _flashcards_out(question_set_id, question_sets, chats)
+
+
+@app.patch("/live/flashcards/{flashcard_id}", response_model=FlashcardOut)
+def update_flashcard(
+    flashcard_id: int,
+    req: UpdateFlashcardRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> FlashcardOut:
+    _flashcard_in_course(question_sets, flashcard_id, user)
+    updated = question_sets.update_flashcard(
+        flashcard_id, front=req.front.strip(), back=req.back.strip(), difficulty=req.difficulty,
+    )
+    return _flashcard_out(updated)
+
+
+@app.delete("/live/flashcards/{flashcard_id}", status_code=204)
+def delete_flashcard(
+    flashcard_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> None:
+    _flashcard_in_course(question_sets, flashcard_id, user)
+    question_sets.delete_flashcard(flashcard_id)
+
+
+@app.post("/live/question-sets/{question_set_id}/flashcards/publish", response_model=FlashcardPublicationOut)
+async def publish_flashcards(
+    question_set_id: int,
+    req: PublishFlashcardsRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> FlashcardPublicationOut:
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    chat = _chat_in_course(chats, req.chat_id, user)
+    if chat["kind"] != "group":
+        raise HTTPException(status_code=400, detail="Kartlar yalnız qrup çatına dərc oluna bilər")
+    if user["id"] not in chats.list_member_ids(req.chat_id):
+        raise HTTPException(status_code=403, detail="Bu çatın üzvü deyilsiniz")
+    if not question_sets.list_flashcards(question_set_id):
+        raise HTTPException(status_code=400, detail="Hələ kart yoxdur")
+    already_here = (question_sets.get_flashcard_publication(question_set_id) or {}).get("chat_id") == req.chat_id
+    question_sets.publish_flashcards(question_set_id, req.chat_id, user["id"])
+    if not already_here:
+        await _announce_in_chat(
+            messages, manager, req.chat_id,
+            f"Yeni flashcard-lar: «{question_set['title']}». Təkrar üçün: Dərslər → Kartlarım.",
+        )
+    return FlashcardPublicationOut(**question_sets.get_flashcard_publication(question_set_id))
+
+
+@app.post("/live/question-sets/{question_set_id}/flashcards/unpublish", status_code=204)
+def unpublish_flashcards(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> None:
+    _question_set_in_course(question_sets, question_set_id, user)
+    question_sets.unpublish_flashcards(question_set_id)
+
+
+@app.get("/me/flashcards", response_model=list[FlashcardDeckOut])
+def list_my_flashcard_decks(
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> list[FlashcardDeckOut]:
+    """İstifadəçinin üzvü olduğu çatlara dərc olunmuş, hazır kartı olan banklar."""
+    chat_ids = [
+        c["id"] for c in chats.list_by_user(user["id"])
+        if _same_course((chats.get(c["id"]) or {}).get("course_id"), user)
+    ]
+    decks = []
+    for row in question_sets.list_published_flashcard_decks_for_chats(chat_ids):
+        bank = question_sets.get(row["question_set_id"])
+        if not bank:
+            continue
+        due, total = question_sets.count_due_flashcards(row["question_set_id"], user["id"])
+        chat = chats.get(row["chat_id"])
+        decks.append(FlashcardDeckOut(
+            question_set_id=row["question_set_id"], title=bank["title"], subject=bank["subject"],
+            chat_id=row["chat_id"], chat_name=chat["name"] if chat else None, due_count=due, total_count=total,
+        ))
+    return decks
+
+
+@app.get("/me/flashcards/{question_set_id}", response_model=list[FlashcardStudyCard])
+def list_my_due_flashcards(
+    question_set_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> list[FlashcardStudyCard]:
+    pub = question_sets.get_flashcard_publication(question_set_id)
+    if (
+        pub is None
+        or user["id"] not in chats.list_member_ids(pub["chat_id"])
+        or not _same_course((question_sets.get(question_set_id) or {}).get("course_id"), user)
+    ):
+        raise HTTPException(status_code=404, detail="Kart dəstəsi tapılmadı")
+    return [
+        FlashcardStudyCard(id=row["id"], front=row["front"], back=row["back"])
+        for row in question_sets.list_due_flashcards(question_set_id, user["id"])
+    ]
+
+
+@app.post("/me/flashcards/{flashcard_id}/review", status_code=204)
+def review_my_flashcard(
+    flashcard_id: int,
+    req: FlashcardReviewRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    chats: ChatStore = Depends(get_chat_store),
+) -> None:
+    row = question_sets.get_flashcard(flashcard_id)
+    pub = question_sets.get_flashcard_publication(row["question_set_id"]) if row else None
+    if (
+        row is None
+        or pub is None
+        or user["id"] not in chats.list_member_ids(pub["chat_id"])
+        or not _same_course((question_sets.get(row["question_set_id"]) or {}).get("course_id"), user)
+    ):
+        raise HTTPException(status_code=404, detail="Kart tapılmadı")
+    question_sets.record_flashcard_review(flashcard_id, user["id"], req.know)
 
 
 @app.post("/live/question-sets/{question_set_id}/summary", response_model=SummaryInfo, status_code=202)

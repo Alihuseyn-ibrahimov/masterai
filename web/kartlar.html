@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcard-lar - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261103a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax theme.js). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261103a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1 id="pageTitle">Flashcard-lar</h1>
+      <a class="btn btn--ghost btn--sm" href="muellim.html">← Sual bankları</a>
+    </div>
+    <p class="text-sm text-muted" id="meta" hidden></p>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+
+    <!-- Generasiya forması. Yeni kartlar köhnələrin üstünə ƏLAVƏ olunur. -->
+    <form class="card stack" id="generateForm" hidden>
+      <p class="text-sm">AI bankın materialından flashcard hazırlayır: üzdə qısa sual/termin, arxada qısa
+        cavab. Tələbə özü «bilirəm»/«bilmirəm» işarələyir, bilmədiyi kart tezliklə yenidən gəlir.</p>
+      <div class="row">
+        <div class="field">
+          <label class="field__label" for="countInput">Kart sayı</label>
+          <input class="field__input" id="countInput" type="number" min="1" max="30" value="10" required>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn--primary btn--sm" type="submit" id="generateButton">Kart hazırla</button>
+      </div>
+    </form>
+
+    <!-- Dərc etmə - xülasə ilə eyni naxış: AI mətni müəllim baxmadan tələbəyə çatmır. -->
+    <div class="card stack" id="publishPanel" hidden></div>
+
+    <div id="status"></div>
+    <p class="text-sm" id="summaryLine" hidden></p>
+    <div class="stack" id="content"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { createEmptyState, createThinking } from './assets/js/mascot.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectLabel } from './assets/js/subjects.js';
+  import { levelBadgeClass, levelLabel } from './assets/js/difficulty.js';
+
+  const POLL_MS = 5000;
+
+  if (requireLogin()) {
+    mountShell();
+
+    const bankId = Number(new URLSearchParams(window.location.search).get('bank'));
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const form = document.getElementById('generateForm');
+    const status = document.getElementById('status');
+    const summaryLine = document.getElementById('summaryLine');
+    const content = document.getElementById('content');
+    const publishPanel = document.getElementById('publishPanel');
+    let pollTimer = null;
+    let bank = null;
+
+    function showError(text) { errorBox.textContent = text; errorBox.hidden = false; }
+    function flash(text) {
+      okBox.textContent = text;
+      okBox.hidden = false;
+      setTimeout(() => { okBox.hidden = true; }, 4000);
+    }
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+    function button(label, variant, onClick) {
+      const node = el('button', `btn ${variant} btn--sm`, label);
+      node.type = 'button';
+      node.addEventListener('click', onClick);
+      return node;
+    }
+
+    async function load() {
+      clearTimeout(pollTimer);
+      try {
+        render(await request(`/live/question-sets/${bankId}/flashcards`));
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function render(data) {
+      status.replaceChildren();
+      const busy = data.status === 'processing';
+      document.getElementById('generateButton').disabled = busy;
+      if (busy) {
+        status.append(createThinking('AI kartları hazırlayır, adətən 1 dəqiqəyə qədər. Səhifə özü yenilənir.'));
+        pollTimer = setTimeout(load, POLL_MS);
+      } else if (data.status === 'failed') {
+        status.append(el('p', 'notice notice--danger', data.error || 'Kartlar alınmadı.'));
+      }
+
+      summaryLine.textContent = data.items.length ? `${data.items.length} kart` : '';
+      summaryLine.hidden = !data.items.length;
+      renderPublishPanel(data);
+      if (!data.items.length) {
+        content.replaceChildren(busy ? '' : createEmptyState({
+          title: 'Hələ kart yoxdur',
+          text: 'Sayı seçib «Kart hazırla» düyməsini basın.',
+        }));
+        return;
+      }
+      content.replaceChildren(...data.items.map((item, index) => renderCard(item, index + 1)));
+    }
+
+    function renderCard(item, number) {
+      const card = el('article', 'card stack');
+      const head = el('div', 'row row--between');
+      const badges = el('div', 'row');
+      if (item.difficulty) badges.append(el('span', levelBadgeClass(item.difficulty), levelLabel(item.difficulty)));
+      head.append(el('strong', '', `${number}.`), badges);
+      card.append(head, el('p', '', item.front));
+      card.append(el('p', 'text-sm text-muted', item.back));
+
+      const actions = el('div', 'row');
+      actions.append(
+        button('Redaktə et', 'btn--secondary', () => card.replaceWith(renderEditor(item, number))),
+        button('Sil', 'btn--ghost', async () => {
+          if (!window.confirm('Bu kart silinsin?')) return;
+          try {
+            await request(`/live/flashcards/${item.id}`, { method: 'DELETE' });
+            flash('Kart silindi.');
+            load();
+          } catch (error) { showError(error.message); }
+        }),
+      );
+      card.append(actions);
+      return card;
+    }
+
+    function field(labelText, control) {
+      const wrap = el('div', 'field');
+      const label = el('label', 'field__label', labelText);
+      label.append(control);
+      wrap.append(label);
+      return wrap;
+    }
+
+    function renderEditor(item, number) {
+      const editor = el('form', 'card stack');
+      const level = el('select', 'field__select');
+      for (const value of ['', 'asan', 'orta', 'çətin']) {
+        const option = el('option', '', value ? levelLabel(value) : 'Səviyyəsiz');
+        option.value = value;
+        option.selected = (item.difficulty || '') === value;
+        level.append(option);
+      }
+      const front = el('textarea', 'field__textarea');
+      front.value = item.front;
+      front.rows = 2;
+      const back = el('textarea', 'field__textarea');
+      back.value = item.back;
+      back.rows = 3;
+
+      editor.append(
+        el('strong', '', `${number}. kartı redaktə`), field('Üz (sual/termin)', front),
+        field('Arxa (cavab)', back), field('Səviyyə', level),
+      );
+      const save = el('button', 'btn btn--primary btn--sm', 'Yadda saxla');
+      save.type = 'submit';
+      const actions = el('div', 'row');
+      actions.append(save, button('Ləğv et', 'btn--ghost', () => load()));
+      editor.append(actions);
+
+      editor.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorBox.hidden = true;
+        save.disabled = true;
+        try {
+          await request(`/live/flashcards/${item.id}`, {
+            method: 'PATCH',
+            body: { front: front.value, back: back.value, difficulty: level.value || null },
+          });
+          flash('Kart yadda saxlanıldı.');
+          load();
+        } catch (error) {
+          showError(error.message);
+          save.disabled = false;
+        }
+      });
+      return editor;
+    }
+
+    let chatsPromise = null;
+
+    function renderPublishPanel(deck) {
+      publishPanel.replaceChildren();
+      publishPanel.hidden = !deck.items.length;
+      if (!deck.items.length) return;
+      if (deck.published_at) {
+        const text = el('p', 'text-sm', `Dərc olunub: «${deck.chat_name || 'çat'}». `
+          + 'Tələbələr «Kartlarım» bölməsində görür.');
+        const unpublish = button('Dərcdən çıxar', 'btn--secondary', async () => {
+          try {
+            await request(`/live/question-sets/${bankId}/flashcards/unpublish`, { method: 'POST' });
+            flash('Kartlar dərcdən çıxarıldı.');
+            load();
+          } catch (error) { showError(error.message); }
+        });
+        publishPanel.append(text, unpublish);
+        return;
+      }
+      const row = el('div', 'row');
+      const select = el('select', 'field__select');
+      select.append(el('option', '', 'Çat seçin...'));
+      const publish = button('Çata dərc et', 'btn--primary', async () => {
+        if (!select.value) return;
+        publish.disabled = true;
+        try {
+          await request(`/live/question-sets/${bankId}/flashcards/publish`, {
+            method: 'POST', body: { chat_id: Number(select.value) },
+          });
+          flash('Kartlar dərc olundu.');
+          load();
+        } catch (error) {
+          showError(error.message);
+          publish.disabled = false;
+        }
+      });
+      publish.disabled = true;
+      row.append(select, publish);
+      publishPanel.append(el('p', 'text-sm', 'Kartları bir qrup çata dərc edin - tələbələr yalnız o zaman görür.'),
+        row);
+
+      chatsPromise = chatsPromise || request('/chats');
+      chatsPromise.then((chats) => {
+        for (const chat of chats.filter((c) => c.kind === 'group')) {
+          const option = el('option', '', chat.name || `Çat ${chat.id}`);
+          option.value = String(chat.id);
+          select.append(option);
+        }
+        publish.disabled = false;
+      }).catch(() => { /* seçici boş qalır, xəta yuxarıda görünür */ });
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errorBox.hidden = true;
+      const count = Number(document.getElementById('countInput').value);
+      if (!Number.isInteger(count) || count < 1 || count > 30) {
+        showError('Kart sayı 1 ilə 30 arasında olmalıdır.');
+        return;
+      }
+      try {
+        render(await request(`/live/question-sets/${bankId}/flashcards`, { method: 'POST', body: { count } }));
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    if (Number.isInteger(bankId) && bankId > 0) {
+      form.hidden = false;
+      request(`/live/question-sets/${bankId}`).then((data) => {
+        bank = data;
+        document.getElementById('pageTitle').textContent = `Flashcard-lar: ${bank.title}`;
+        const meta = document.getElementById('meta');
+        meta.textContent = subjectLabel(bank.subject);
+        meta.hidden = false;
+      }).catch(() => { /* başlıq köməkçidir */ });
+      load();
+    } else {
+      showError('Sual bankı ünvanı düzgün deyil.');
+    }
+  }
+</script>
+</body>
+</html>

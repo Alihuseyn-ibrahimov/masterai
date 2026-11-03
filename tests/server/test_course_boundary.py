@@ -154,6 +154,10 @@ def world(tmp_path):
     w["attempt_a"] = homework.get_or_create_attempt(w["assignment_a"]["id"],
                                                     student_id=w["student_a"]["id"])
     w["open_answer_a"] = homework.submit_open_answer(w["attempt_a"], w["open_question_a"], "cavab mətni burada")
+    question_sets.start_flashcard_job(w["qs_a"]["id"])
+    question_sets.finish_flashcard_job(w["qs_a"]["id"], [{"front": "Nədir?", "back": "x", "difficulty": "orta"}])
+    w["flashcard_a"] = question_sets.list_flashcards(w["qs_a"]["id"])[0]
+    question_sets.publish_flashcards(w["qs_a"]["id"], w["chat_a"]["id"], w["teacher_a"]["id"])
     w["friendship_a"] = friendships.create(w["teacher_a"]["id"], w["student_a"]["id"])
     w["material_a"] = materials.create(w["chat_a"]["id"], w["teacher_a"]["id"], "link", "https://x.az")
     summaries = stores[get_summary_store]
@@ -209,6 +213,15 @@ CASES = {
     ("GET", "/homework/assignments/{assignment_id}/open-answers"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
     ("POST", "/homework/open-answers/{answer_id}/confirm"): ("teacher_b", {"answer_id": "open_answer_a.id"}, None, {"points": 1}, None),
     ("DELETE", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None, None, None),
+    ("POST", "/live/question-sets/{question_set_id}/flashcards"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, {"count": 1}, None),
+    ("GET", "/live/question-sets/{question_set_id}/flashcards"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("PATCH", "/live/flashcards/{flashcard_id}"): ("teacher_b", {"flashcard_id": "flashcard_a.id"}, None,
+                                                   {"front": "oğurlandı", "back": "x", "difficulty": "orta"}, None),
+    ("DELETE", "/live/flashcards/{flashcard_id}"): ("teacher_b", {"flashcard_id": "flashcard_a.id"}, None, None, None),
+    ("POST", "/live/question-sets/{question_set_id}/flashcards/publish"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, {"chat_id": "chat_b.id"}, None),
+    ("POST", "/live/question-sets/{question_set_id}/flashcards/unpublish"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("GET", "/me/flashcards/{question_set_id}"): ("student_b", {"question_set_id": "qs_a.id"}, None, None, None),
+    ("POST", "/me/flashcards/{flashcard_id}/review"): ("student_b", {"flashcard_id": "flashcard_a.id"}, None, {"know": True}, None),
     ("POST", "/live/sessions"): ("teacher_b", {}, None, {"question_set_id": "qs_a.id", "chat_id": "chat_b.id"}, None),
     ("GET", "/chats/{chat_id}/live-session"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("GET", "/live/sessions/{session_id}/report"): ("teacher_b", {"session_id": "finished_a.id"}, None, None, None),
