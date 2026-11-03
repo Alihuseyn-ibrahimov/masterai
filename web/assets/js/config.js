@@ -15,3 +15,7 @@ export const WS_BASE_URL = 'wss://masterai.prdostu.com';
  *  MAX_UPLOAD_BYTES) - client tərəfdə erkən xəbərdarlıq üçün
  *  təkrarlanır, əsl yoxlama backend-dədir. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+/** Video material limiti (server/app.py, MAX_VIDEO_UPLOAD_BYTES) -
+ *  Whisper (Groq) ölçü limiti ilə eynidir, tam dərs yazısı üçün deyil. */
+export const MAX_VIDEO_UPLOAD_BYTES = 24 * 1024 * 1024;

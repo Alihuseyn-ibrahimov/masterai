@@ -86,6 +86,9 @@
               <option value="link">Sayt linki</option>
               <option value="pdf">PDF fayl</option>
               <option value="image">Şəkil</option>
+              <option value="video">Video fayl (səs → mətn)</option>
+              <option value="youtube">YouTube linki (altyazı)</option>
+              <option value="text">Düz mətn</option>
             </select>
           </div>
         </div>
@@ -125,10 +128,25 @@
           </span>
         </div>
 
+        <div class="field" id="youtubeField" hidden>
+          <label class="field__label" for="youtubeLocation">YouTube linki</label>
+          <input class="field__input" id="youtubeLocation" placeholder="https://youtu.be/...">
+          <span class="text-xs text-muted">
+            Videonun altyazısı (əl ilə yazılmış və ya avtomatik) oxunur - video özü endirilmir.
+            Altyazı yoxdursa material qəbul olunmur.
+          </span>
+        </div>
+
         <div class="field" id="fileField" hidden>
           <label class="field__label" for="file">Fayl</label>
           <input class="field__input" id="file" name="file" type="file">
-          <span class="text-xs text-muted">Ən çox 20 MB.</span>
+          <span class="text-xs text-muted" id="fileHint">Ən çox 20 MB.</span>
+        </div>
+
+        <div class="field" id="textField" hidden>
+          <label class="field__label" for="textContent">Mətn</label>
+          <textarea class="field__textarea" id="textContent" rows="8"
+                    placeholder="Dərs mətnini buraya yapıştırın (ən azı bir neçə abzas)."></textarea>
         </div>
 
         <button class="btn btn--primary" type="submit" id="createBtn">Yarat</button>
@@ -160,7 +178,7 @@
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { API_BASE_URL, MAX_UPLOAD_BYTES } from './assets/js/config.js';
+  import { API_BASE_URL, MAX_UPLOAD_BYTES, MAX_VIDEO_UPLOAD_BYTES } from './assets/js/config.js';
   import { ApiError, extractErrorMessage, getToken, request } from './assets/js/api.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { createBankCard } from './assets/js/bank-card.js';
@@ -190,11 +208,18 @@
 
     const kindSelect = document.getElementById('kind');
     const linkField = document.getElementById('linkField');
+    const youtubeField = document.getElementById('youtubeField');
     const fileField = document.getElementById('fileField');
+    const textField = document.getElementById('textField');
+    const fileHint = document.getElementById('fileHint');
     kindSelect.addEventListener('change', () => {
-      const isLink = kindSelect.value === 'link';
-      linkField.hidden = !isLink;
-      fileField.hidden = isLink;
+      const kind = kindSelect.value;
+      linkField.hidden = kind !== 'link';
+      youtubeField.hidden = kind !== 'youtube';
+      textField.hidden = kind !== 'text';
+      fileField.hidden = !['pdf', 'image', 'video'].includes(kind);
+      fileHint.textContent = kind === 'video' ? 'Ən çox 24 MB - qısa video üçün (tam dərs yazısı deyil).'
+        : 'Ən çox 20 MB.';
     });
 
     const content = document.getElementById('content');
@@ -385,18 +410,32 @@
       const kind = kindSelect.value;
       const fileInput = document.getElementById('file');
       const file = fileInput.files && fileInput.files[0];
+      const needsFile = ['pdf', 'image', 'video'].includes(kind);
 
-      if (kind !== 'link' && !file) {
+      if (needsFile && !file) {
         createError.textContent = 'Fayl seçilməyib.';
         createError.hidden = false;
         return;
       }
-      if (file && file.size > MAX_UPLOAD_BYTES) {
-        // Serverə 20 MB-dan böyük fayl göndərib 413 gözləməkdənsə
-        // dərhal aydın mesaj.
-        createError.textContent = 'Fayl 20 MB-dan böyükdür.';
+      if (kind === 'youtube' && !document.getElementById('youtubeLocation').value.trim()) {
+        createError.textContent = 'YouTube linki yazılmayıb.';
         createError.hidden = false;
         return;
+      }
+      if (kind === 'text' && document.getElementById('textContent').value.trim().length < 300) {
+        createError.textContent = 'Mətn ən azı 300 simvol olmalıdır.';
+        createError.hidden = false;
+        return;
+      }
+      if (file) {
+        // Serverə limitdən böyük fayl göndərib 413 gözləməkdənsə dərhal
+        // aydın mesaj. Video üçün limit daha kiçikdir (Whisper ölçüsü).
+        const maxBytes = kind === 'video' ? MAX_VIDEO_UPLOAD_BYTES : MAX_UPLOAD_BYTES;
+        if (file.size > maxBytes) {
+          createError.textContent = `Fayl ${Math.round(maxBytes / 1024 / 1024)} MB-dan böyükdür.`;
+          createError.hidden = false;
+          return;
+        }
       }
 
       const difficultyError = mixError(percentValues());
@@ -417,6 +456,8 @@
       body.append('hard_percent', percentInputs[2].value);
       if (document.getElementById('makeSummary').checked) body.append('make_summary', 'true');
       if (kind === 'link') body.append('location', document.getElementById('location').value);
+      else if (kind === 'youtube') body.append('location', document.getElementById('youtubeLocation').value);
+      else if (kind === 'text') body.append('text_content', document.getElementById('textContent').value);
       else body.append('file', file);
 
       createBtn.disabled = true;
