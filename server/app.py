@@ -75,6 +75,7 @@ from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
 from pipeline.open_questions import generate_open_questions
+from pipeline.open_grading import grade_open_answer
 from pipeline.guardrails import PII_NOTICE
 from pipeline.tutor_graph import run_tutor
 from pipeline.ingestion.errors import IngestionError
@@ -141,6 +142,12 @@ from .models import (
     OpenQuestionOut,
     OpenQuestionsOut,
     UpdateOpenQuestionRequest,
+    ConfirmOpenAnswerRequest,
+    OpenAnswerOut,
+    OpenAnswerReviewRow,
+    OpenCriterionGrade,
+    OpenTaskItem,
+    SubmitOpenAnswerRequest,
     SummaryInfo,
     AuditLogRow,
     CourseDeadline,
@@ -297,6 +304,9 @@ app.state.question_set_store.fail_interrupted_reviews(
 app.state.question_set_store.fail_interrupted_open_jobs(
     "Server yenidən başladığı üçün açıq suallar hazırlanmadı. Yenidən başladın."
 )
+app.state.homework_store.fail_interrupted_open_grading(
+    "Server yenidən başladığı üçün AI cavabı yoxlamadı - müəllim əl ilə yoxlayacaq."
+)
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -314,6 +324,8 @@ app.state.active_summary_tasks = {}
 app.state.active_review_tasks = {}
 # question_set_id -> açıq sual generasiyası task-ı (Faza 1).
 app.state.active_open_question_tasks = {}
+# answer_id -> açıq cavabın AI yoxlaması task-ı (Faza 1, PR 2).
+app.state.active_open_grading_tasks = {}
 # (lesson_id, seq) -> dərs səsinin mətnə çevrilməsi task-ı (eyni naxış).
 app.state.active_transcript_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
@@ -491,6 +503,11 @@ def get_reviewer():
 def get_open_question_generator():
     """(material, count, kind, subject) → açıq suallar (Faza 1; testdə fake)."""
     return generate_open_questions
+
+
+def get_open_answer_grader():
+    """(sual, nümunə cavab, meyarlar, cavab) → `GradeResult` (Faza 1 PR 2; testdə fake)."""
+    return grade_open_answer
 
 
 def get_summarizer():
@@ -4060,6 +4077,138 @@ def answer_homework_question(
         explanation=question["explanation"],
         next_question=next_question,
     )
+
+
+# ---- Açıq cavabın AI yoxlaması (Faza 1, PR 2) ----------------------------
+# Ev tapşırığında bankın açıq sualları «Yazılı hissə»dir. Tələbə hər suala
+# BİR dəfə cavab yazır, AI meyarlarla bal TƏKLİF edir, son balı tapşırığı
+# yaradan müəllim təsdiqləyir. MCQ xalına (`attempt.score`) qatılmır.
+
+
+def _open_answer_out(row: dict) -> OpenAnswerOut:
+    result = row["ai_result"] or {}
+    done = row["status"] in ("graded", "failed", "confirmed")
+    return OpenAnswerOut(
+        id=row["id"], open_question_id=row["open_question_id"], question=row["question"], answer=row["answer"],
+        status=row["status"], max_points=sum(r["points"] for r in row["rubric"]), ai_points=row["ai_points"],
+        criteria=[OpenCriterionGrade(**c) for c in result.get("criteria", [])],
+        feedback=result.get("feedback") or None, final_points=row["final_points"],
+        teacher_comment=row["teacher_comment"], model_answer=row["model_answer"] if done else None,
+    )
+
+
+def _own_attempt(homework: HomeworkStore, attempt_id: int, user: dict) -> dict:
+    attempt = homework.get_attempt(attempt_id)
+    if attempt is None or attempt["student_id"] != user["id"]:
+        raise HTTPException(status_code=404, detail="Cəhd tapılmadı")
+    return attempt
+
+
+async def _process_open_grading(answer_id: int, row: dict, *, grader, homework: HomeworkStore) -> None:
+    try:
+        result = await asyncio.to_thread(grader, row["question"], row["model_answer"], row["rubric"], row["answer"])
+    except Exception as exc:
+        logger.exception("Açıq cavabın AI yoxlaması uğursuz oldu (answer_id=%s)", answer_id)
+        homework.fail_open_grading(answer_id, str(exc))
+        return
+    homework.finish_open_grading(answer_id, {
+        "criteria": [c.model_dump() for c in result.criteria], "feedback": result.feedback,
+        "flagged": result.flagged,
+    }, result.awarded)
+
+
+@app.get("/homework/attempts/{attempt_id}/open-questions", response_model=list[OpenTaskItem])
+def list_attempt_open_questions(
+    attempt_id: int,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[OpenTaskItem]:
+    attempt = _own_attempt(homework, attempt_id, user)
+    assignment = homework.get_assignment(attempt["assignment_id"])
+    answers = {a["open_question_id"]: a for a in homework.list_open_answers_for_attempt(attempt_id)}
+    items = []
+    for q in question_sets.list_open_questions(assignment["question_set_id"]):
+        answer = answers.pop(q["id"], None)
+        items.append(OpenTaskItem(open_question_id=q["id"], kind=q["kind"], question=q["question"],
+                                  max_points=sum(r["points"] for r in q["rubric"]),
+                                  answer=_open_answer_out(answer) if answer else None))
+    # Cavablandıqdan sonra silinmiş sual: tələbənin cavabı və balı itməsin.
+    for answer in answers.values():
+        out = _open_answer_out(answer)
+        items.append(OpenTaskItem(open_question_id=answer["open_question_id"], kind="qisa",
+                                  question=answer["question"], max_points=out.max_points, answer=out))
+    return items
+
+
+@app.post("/homework/attempts/{attempt_id}/open-answers", response_model=OpenAnswerOut, status_code=202)
+async def submit_open_answer(
+    attempt_id: int,
+    req: SubmitOpenAnswerRequest,
+    user: dict = Depends(get_current_user),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+    grader=Depends(get_open_answer_grader),
+) -> OpenAnswerOut:
+    attempt = _own_attempt(homework, attempt_id, user)
+    assignment = homework.get_assignment(attempt["assignment_id"])
+    question = question_sets.get_open_question(req.open_question_id)
+    if question is None or question["question_set_id"] != assignment["question_set_id"]:
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    text = req.answer.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Cavab boşdur")
+    row = homework.submit_open_answer(attempt, question, text)
+    if row is None:
+        raise HTTPException(status_code=409, detail="Bu suala artıq cavab vermisiniz")
+    task = asyncio.create_task(_process_open_grading(row["id"], row, grader=grader, homework=homework))
+    app.state.active_open_grading_tasks[row["id"]] = task
+    task.add_done_callback(lambda _t: app.state.active_open_grading_tasks.pop(row["id"], None))
+    return _open_answer_out(row)
+
+
+def _open_review_row(row: dict, users: UserStore) -> OpenAnswerReviewRow:
+    student = users.get_by_id(row["student_id"])
+    return OpenAnswerReviewRow(
+        **_open_answer_out(row).model_dump(exclude={"model_answer"}), model_answer=row["model_answer"],
+        student_id=row["student_id"], display_name=student["display_name"] if student else "Silinmiş istifadəçi",
+        flagged=(row["ai_result"] or {}).get("flagged"), error=row["error"],
+    )
+
+
+@app.get("/homework/assignments/{assignment_id}/open-answers", response_model=list[OpenAnswerReviewRow])
+def list_assignment_open_answers(
+    assignment_id: int,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> list[OpenAnswerReviewRow]:
+    assignment = _assignment_in_course(homework, chats, assignment_id, user)
+    if assignment["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız tapşırığı yaradan müəllim hesabata baxa bilər")
+    return [_open_review_row(row, users) for row in homework.list_open_answers_for_assignment(assignment_id)]
+
+
+@app.post("/homework/open-answers/{answer_id}/confirm", response_model=OpenAnswerReviewRow)
+def confirm_open_answer(
+    answer_id: int,
+    req: ConfirmOpenAnswerRequest,
+    user: dict = Depends(get_current_user),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    homework: HomeworkStore = Depends(get_homework_store),
+) -> OpenAnswerReviewRow:
+    row = homework.get_open_answer(answer_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Cavab tapılmadı")
+    assignment = _assignment_in_course(homework, chats, row["assignment_id"], user)
+    if assignment["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Yalnız tapşırığı yaradan müəllim bal verə bilər")
+    max_points = sum(r["points"] for r in row["rubric"])
+    if req.points > max_points:
+        raise HTTPException(status_code=400, detail=f"Bal {max_points}-dən çox ola bilməz")
+    return _open_review_row(homework.confirm_open_answer(answer_id, req.points, req.comment.strip()), users)
 
 
 def _schedule_live_duration_watch(

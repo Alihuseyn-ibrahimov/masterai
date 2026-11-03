@@ -153,6 +153,7 @@ def world(tmp_path):
     )
     w["attempt_a"] = homework.get_or_create_attempt(w["assignment_a"]["id"],
                                                     student_id=w["student_a"]["id"])
+    w["open_answer_a"] = homework.submit_open_answer(w["attempt_a"], w["open_question_a"], "cavab mətni burada")
     w["friendship_a"] = friendships.create(w["teacher_a"]["id"], w["student_a"]["id"])
     w["material_a"] = materials.create(w["chat_a"]["id"], w["teacher_a"]["id"], "link", "https://x.az")
     summaries = stores[get_summary_store]
@@ -203,6 +204,10 @@ CASES = {
     ("GET", "/live/question-sets/{question_set_id}/open-questions"): ("teacher_b", {"question_set_id": "qs_a.id"}, None, None, None),
     ("PATCH", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None,
         {"kind": "qisa", "question": "Oğurlandı?", "model_answer": "x", "rubric": [{"criterion": "x", "points": 1}]}, None),
+    ("GET", "/homework/attempts/{attempt_id}/open-questions"): ("student_b", {"attempt_id": "attempt_a.id"}, None, None, None),
+    ("POST", "/homework/attempts/{attempt_id}/open-answers"): ("student_b", {"attempt_id": "attempt_a.id"}, None, {"open_question_id": "open_question_a.id", "answer": "oğurlandı"}, None),
+    ("GET", "/homework/assignments/{assignment_id}/open-answers"): ("teacher_b", {"assignment_id": "assignment_a.id"}, None, None, None),
+    ("POST", "/homework/open-answers/{answer_id}/confirm"): ("teacher_b", {"answer_id": "open_answer_a.id"}, None, {"points": 1}, None),
     ("DELETE", "/live/open-questions/{open_question_id}"): ("teacher_b", {"open_question_id": "open_question_a.id"}, None, None, None),
     ("POST", "/live/sessions"): ("teacher_b", {}, None, {"question_set_id": "qs_a.id", "chat_id": "chat_b.id"}, None),
     ("GET", "/chats/{chat_id}/live-session"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),

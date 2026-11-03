@@ -12,6 +12,7 @@ səbəb üçün bax `user_store.py`-nin modul qeydi.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -74,9 +75,121 @@ class HomeworkStore:
                     answered_at    TEXT NOT NULL,
                     UNIQUE(attempt_id, question_index)
                 );
+
+                -- Açıq cavablar (Faza 1, PR 2). Sualın mətni, nümunə cavabı
+                -- və meyarları cavab anında SURƏT kimi saxlanılır: müəllim
+                -- sonra sualı redaktə və ya silsə, yoxlanmış cavabın balı
+                -- hansı meyarla verildiyini itirməməlidir.
+                CREATE TABLE IF NOT EXISTS homework_open_answers (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    attempt_id       INTEGER NOT NULL,
+                    assignment_id    INTEGER NOT NULL,
+                    student_id       INTEGER NOT NULL,
+                    open_question_id INTEGER NOT NULL,
+                    question         TEXT NOT NULL,
+                    model_answer     TEXT NOT NULL,
+                    rubric           TEXT NOT NULL,
+                    answer           TEXT NOT NULL,
+                    status           TEXT NOT NULL,
+                    ai_result        TEXT,
+                    ai_points        INTEGER,
+                    error            TEXT,
+                    final_points     INTEGER,
+                    teacher_comment  TEXT,
+                    created_at       TEXT NOT NULL,
+                    graded_at        TEXT,
+                    confirmed_at     TEXT,
+                    UNIQUE(attempt_id, open_question_id)
+                );
                 """
             )
             self._conn.commit()
+
+    # ---- açıq cavablar (Faza 1, PR 2) ---------------------------------
+    # status: grading → graded | failed → confirmed (müəllim balı təsdiqlədi)
+
+    @staticmethod
+    def _open_answer_row(row: sqlite3.Row) -> dict:
+        data = dict(row)
+        data["rubric"] = json.loads(data["rubric"])
+        data["ai_result"] = json.loads(data["ai_result"]) if data["ai_result"] else None
+        return data
+
+    def submit_open_answer(self, attempt: dict, question: dict, answer: str) -> dict | None:
+        """Yeni cavab yazır (`grading`). Bu suala artıq cavab varsa `None` (tək cəhd)."""
+        with self._lock:
+            try:
+                cur = self._conn.execute(
+                    "INSERT INTO homework_open_answers (attempt_id, assignment_id, student_id, open_question_id, "
+                    "question, model_answer, rubric, answer, status, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'grading', ?)",
+                    (attempt["id"], attempt["assignment_id"], attempt["student_id"], question["id"],
+                     question["question"], question["model_answer"],
+                     json.dumps(question["rubric"], ensure_ascii=False), answer, _utc_now_iso()),
+                )
+            except sqlite3.IntegrityError:
+                return None
+            self._conn.commit()
+            return self.get_open_answer(cur.lastrowid)
+
+    def get_open_answer(self, answer_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM homework_open_answers WHERE id = ?", (answer_id,)).fetchone()
+            return self._open_answer_row(row) if row else None
+
+    def list_open_answers_for_attempt(self, attempt_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM homework_open_answers WHERE attempt_id = ? ORDER BY id", (attempt_id,)
+            )
+            return [self._open_answer_row(row) for row in cur.fetchall()]
+
+    def list_open_answers_for_assignment(self, assignment_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM homework_open_answers WHERE assignment_id = ? ORDER BY student_id, id",
+                (assignment_id,),
+            )
+            return [self._open_answer_row(row) for row in cur.fetchall()]
+
+    def finish_open_grading(self, answer_id: int, ai_result: dict, ai_points: int) -> None:
+        with self._lock:
+            # Müəllim AI-dan əvvəl özü təsdiqləyibsə onun balına toxunulmur.
+            self._conn.execute(
+                "UPDATE homework_open_answers SET ai_result = ?, ai_points = ?, graded_at = ?, "
+                "status = CASE WHEN status = 'confirmed' THEN status ELSE 'graded' END WHERE id = ?",
+                (json.dumps(ai_result, ensure_ascii=False), ai_points, _utc_now_iso(), answer_id),
+            )
+            self._conn.commit()
+
+    def fail_open_grading(self, answer_id: int, error: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE homework_open_answers SET error = ?, graded_at = ?, "
+                "status = CASE WHEN status = 'confirmed' THEN status ELSE 'failed' END WHERE id = ?",
+                (error[:500], _utc_now_iso(), answer_id),
+            )
+            self._conn.commit()
+
+    def fail_interrupted_open_grading(self, error: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE homework_open_answers SET status = 'failed', error = ?, graded_at = ? "
+                "WHERE status = 'grading'",
+                (error, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return cur.rowcount
+
+    def confirm_open_answer(self, answer_id: int, points: int, comment: str) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE homework_open_answers SET status = 'confirmed', final_points = ?, teacher_comment = ?, "
+                "confirmed_at = ? WHERE id = ?",
+                (points, comment or None, _utc_now_iso(), answer_id),
+            )
+            self._conn.commit()
+            return self.get_open_answer(answer_id)
 
     # ---- tapşırıqlar ------------------------------------------------
 

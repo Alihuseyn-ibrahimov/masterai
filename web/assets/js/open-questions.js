@@ -62,3 +62,50 @@ export function countError(value) {
   if (!Number.isInteger(n) || n < 1 || n > MAX_COUNT) return `Sual sayı 1 ilə ${MAX_COUNT} arasında olmalıdır.`;
   return null;
 }
+
+/* ---- Açıq cavab (Faza 1, PR 2): tələbə və müəllim üçün vəziyyət mətni ---- */
+
+/** Cavabın vəziyyətini bir cümlədə deyir. `audience`: 'student' | 'teacher'. */
+export function answerStatusLine(answer, audience = 'student') {
+  if (!answer) return '';
+  const max = answer.max_points;
+  switch (answer.status) {
+    case 'grading':
+      return 'AI cavabı yoxlayır…';
+    case 'graded':
+      return audience === 'teacher'
+        ? `AI təklifi: ${answer.ai_points}/${max} bal · təsdiq gözləyir`
+        : `AI təklifi: ${answer.ai_points}/${max} bal. Yekun balı müəllim təsdiqləyəcək.`;
+    case 'failed':
+      return audience === 'teacher'
+        ? 'AI yoxlaya bilmədi · balı özünüz verin'
+        : 'AI bu cavabı yoxlaya bilmədi, müəllim özü yoxlayacaq.';
+    case 'confirmed':
+      return `Yekun bal: ${answer.final_points}/${max}`;
+    default:
+      return '';
+  }
+}
+
+/** «Müsabiqəni deyir: 1/2 bal - qismən» */
+export function criterionLine(grade) {
+  const head = `${grade.criterion}: ${grade.awarded}/${grade.points} bal`;
+  return grade.comment ? `${head} - ${grade.comment}` : head;
+}
+
+/** Müəllim təsdiq formasının ilkin balı: AI təklifi, yoxdursa boş. */
+export function suggestedPoints(answer) {
+  if (!answer) return '';
+  if (answer.final_points !== null && answer.final_points !== undefined) return String(answer.final_points);
+  if (answer.ai_points !== null && answer.ai_points !== undefined) return String(answer.ai_points);
+  return '';
+}
+
+/** Bal yoxlaması: 0..max tam ədəd. Xəta mətni və ya null. */
+export function pointsError(value, max) {
+  const n = Number(value);
+  if (String(value).trim() === '' || !Number.isInteger(n) || n < 0 || n > max) {
+    return `Bal 0 ilə ${max} arasında tam ədəd olmalıdır.`;
+  }
+  return null;
+}

@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  countError, kindLabel, linesToRubric, maxPoints, rubricToLines, setSummaryLine,
+  answerStatusLine, countError, criterionLine, kindLabel, linesToRubric, maxPoints, pointsError, rubricToLines,
+  setSummaryLine, suggestedPoints,
 } from '../assets/js/open-questions.js';
 
 const RUBRIC = [{ points: 2, criterion: 'Orqanı göstərir' }, { points: 3, criterion: 'Proseduru izah edir' }];
@@ -40,4 +41,26 @@ test('countError', () => {
   assert.ok(countError('0'));
   assert.ok(countError('16'));
   assert.ok(countError('2.5'));
+});
+
+test('answerStatusLine per status and audience', () => {
+  const base = { max_points: 5, ai_points: 3, final_points: null };
+  assert.equal(answerStatusLine(null), '');
+  assert.equal(answerStatusLine({ ...base, status: 'grading' }), 'AI cavabı yoxlayır…');
+  assert.match(answerStatusLine({ ...base, status: 'graded' }), /3\/5 bal\. Yekun balı müəllim/);
+  assert.equal(answerStatusLine({ ...base, status: 'graded' }, 'teacher'), 'AI təklifi: 3/5 bal · təsdiq gözləyir');
+  assert.match(answerStatusLine({ ...base, status: 'failed' }), /müəllim özü yoxlayacaq/);
+  assert.equal(answerStatusLine({ ...base, status: 'confirmed', final_points: 4 }), 'Yekun bal: 4/5');
+});
+
+test('criterionLine, suggestedPoints, pointsError', () => {
+  assert.equal(criterionLine({ criterion: 'DİM', awarded: 1, points: 2, comment: 'qismən' }), 'DİM: 1/2 bal - qismən');
+  assert.equal(criterionLine({ criterion: 'DİM', awarded: 2, points: 2, comment: '' }), 'DİM: 2/2 bal');
+  assert.equal(suggestedPoints({ ai_points: 3, final_points: null }), '3');
+  assert.equal(suggestedPoints({ ai_points: 3, final_points: 0 }), '0');
+  assert.equal(suggestedPoints({ ai_points: null, final_points: null }), '');
+  assert.equal(pointsError('4', 5), null);
+  assert.ok(pointsError('6', 5));
+  assert.ok(pointsError('', 5));
+  assert.ok(pointsError('1.5', 5));
 });

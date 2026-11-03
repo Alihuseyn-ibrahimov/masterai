@@ -93,6 +93,9 @@
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
   import { bindSheet, sheetKeyFromHash } from './assets/js/sheet.js';
   import { homeworkProgressBadge } from './assets/js/subjects.js';
+  import {
+    answerStatusLine, criterionLine, pointsError, suggestedPoints,
+  } from './assets/js/open-questions.js';
 
   const STATUS_BADGE = {
     'tamamlanıb': 'badge badge--success',
@@ -144,8 +147,85 @@
           request(`/homework/assignments/${assignment.id}/difficulty`)
             .then((stats) => { if (hasLevelStats(stats)) target.append(renderDifficultyStats(stats)); })
             .catch(() => {});
+          request(`/homework/assignments/${assignment.id}/open-answers`)
+            .then((answers) => { if (answers.length) target.append(renderOpenAnswers(answers)); })
+            .catch(() => {});
         },
       );
+    }
+
+    /* Yazılı cavablar (Faza 1, PR 2): AI balı TƏKLİFDİR, müəllim təsdiqləyir. */
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function renderOpenAnswers(answers) {
+      const pending = answers.filter((a) => a.status !== 'confirmed').length;
+      const box = el('details', 'disclosure');
+      box.open = pending > 0;
+      box.append(el('summary', 'disclosure__summary',
+        `Yazılı cavablar · ${answers.length}${pending ? ` · ${pending} təsdiq gözləyir` : ''}`));
+      const body = el('div', 'disclosure__body stack');
+      for (const answer of answers) body.append(renderOpenAnswer(answer));
+      box.append(body);
+      return box;
+    }
+
+    function renderOpenAnswer(answer) {
+      const card = el('div', 'card stack stack--tight');
+      const head = el('div', 'row row--between');
+      head.append(el('strong', '', answer.display_name),
+        el('span', answer.status === 'confirmed' ? 'badge badge--success' : 'badge badge--neutral',
+          answerStatusLine(answer, 'teacher')));
+      card.append(head, el('p', 'text-sm text-muted', answer.question), el('p', '', answer.answer));
+      if (answer.flagged === 'injection') {
+        card.append(el('p', 'notice notice--danger', 'Cavabda AI-a ünvanlanmış təlimat var - AI bal vermədi.'));
+      }
+      if (answer.criteria.length) {
+        const list = el('ul', 'text-sm');
+        for (const grade of answer.criteria) list.append(el('li', '', criterionLine(grade)));
+        card.append(list);
+      }
+      if (answer.feedback) card.append(el('p', 'text-sm', `AI rəyi: ${answer.feedback}`));
+      if (answer.status === 'grading') return card;
+
+      const form = el('form', 'row');
+      const points = el('input', 'field__input field__input--points');
+      points.type = 'number';
+      points.min = '0';
+      points.max = String(answer.max_points);
+      points.value = suggestedPoints(answer);
+      points.setAttribute('aria-label', `Bal (0-${answer.max_points})`);
+      const comment = el('input', 'field__input');
+      comment.placeholder = 'Şərh (istəyə görə)';
+      comment.value = answer.teacher_comment || '';
+      comment.setAttribute('aria-label', 'Şərh');
+      const save = el('button', 'btn btn--primary btn--sm', answer.status === 'confirmed' ? 'Yenilə' : 'Təsdiqlə');
+      save.type = 'submit';
+      const pointsBox = el('label', 'row');
+      pointsBox.append(points, el('span', 'text-sm text-muted', `/ ${answer.max_points} bal`));
+      form.append(pointsBox, comment, save);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const problem = pointsError(points.value, answer.max_points);
+        if (problem) { flash(errorBox, problem); return; }
+        save.disabled = true;
+        try {
+          const updated = await request(`/homework/open-answers/${answer.id}/confirm`, {
+            method: 'POST', body: { points: Number(points.value), comment: comment.value },
+          });
+          card.replaceWith(renderOpenAnswer(updated));
+          flash(okBox, 'Bal təsdiqləndi.');
+        } catch (error) {
+          flash(errorBox, error.message);
+          save.disabled = false;
+        }
+      });
+      card.append(form);
+      return card;
     }
 
     function renderAssignments(container, assignments) {

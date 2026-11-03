@@ -95,6 +95,14 @@
       <p id="finalScore"></p>
       <a class="btn btn--secondary" href="tapsiriqlar.html">Tapşırıqlara qayıt</a>
     </div>
+
+    <!-- Yazılı hissə (Faza 1, PR 2): bankın açıq sualları test bitəndən
+         sonra görünür. AI balı təklif edir, yekun balı müəllim verir. -->
+    <section class="stack" id="writtenSection" hidden>
+      <div class="section-header"><h2>Yazılı hissə</h2></div>
+      <p class="text-sm text-muted">Cavabı öz sözlərinizlə yazın. Hər suala bir dəfə cavab verilir.</p>
+      <div class="stack" id="writtenList"></div>
+    </section>
   </section>
 
 </div>
@@ -107,7 +115,8 @@
   import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
   import { createIcon } from './assets/js/icon.js';
   import { celebrateFinish, reactToAnswer } from './assets/js/celebrate.js';
-  import { mountMascots } from './assets/js/mascot.js';
+  import { createThinking, mountMascots } from './assets/js/mascot.js';
+  import { answerStatusLine, criterionLine, kindLabel } from './assets/js/open-questions.js';
   /* Variant çəkilişi canlı sessiya ilə EYNİ modulda - əvvəl hər iki
      ekran onu ayrı-ayrı yazırdı və ikisi də `btn btn--secondary`
      işlədirdi (ekranda beş boz düymə). */
@@ -254,6 +263,95 @@
       }
       show('done');
       celebrateFinish(document, score, questions);
+      loadWritten();
+    }
+
+    /* ---- Yazılı hissə ---- */
+    const POLL_MS = 4000;
+    let writtenTimer = null;
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    async function loadWritten() {
+      clearTimeout(writtenTimer);
+      let items;
+      try {
+        items = await request(`/homework/attempts/${attemptId}/open-questions`);
+      } catch {
+        return;   // yazılı hissə köməkçidir, testin nəticəsini gizlətməsin
+      }
+      const section = document.getElementById('writtenSection');
+      section.hidden = !items.length;
+      document.getElementById('writtenList').replaceChildren(
+        ...items.map((item, index) => renderWritten(item, index + 1)),
+      );
+      if (items.some((item) => item.answer && item.answer.status === 'grading')) {
+        writtenTimer = setTimeout(loadWritten, POLL_MS);
+      }
+    }
+
+    function renderWritten(item, number) {
+      const card = el('article', 'card stack');
+      const head = el('div', 'row row--between');
+      const badges = el('div', 'row');
+      badges.append(el('span', 'badge badge--neutral', kindLabel(item.kind)),
+        el('span', 'text-xs text-muted', `${item.max_points} bal`));
+      head.append(el('strong', '', `${number}.`), badges);
+      card.append(head, el('p', '', item.question));
+
+      const answer = item.answer;
+      if (!answer) {
+        const form = el('form', 'stack');
+        const area = el('textarea', 'field__textarea');
+        area.rows = item.kind === 'esse' ? 7 : 3;
+        area.maxLength = 5000;
+        area.setAttribute('aria-label', `${number}-ci sualın cavabı`);
+        const send = el('button', 'btn btn--primary btn--sm', 'Cavabı göndər');
+        send.type = 'submit';
+        form.append(area, send);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!area.value.trim()) return;
+          send.disabled = true;
+          try {
+            await request(`/homework/attempts/${attemptId}/open-answers`, {
+              method: 'POST', body: { open_question_id: item.open_question_id, answer: area.value },
+            });
+            loadWritten();
+          } catch (error) {
+            showError(error.message);
+            send.disabled = false;
+          }
+        });
+        card.append(form);
+        return card;
+      }
+
+      card.append(el('p', 'text-sm text-muted', `Cavabınız: ${answer.answer}`));
+      if (answer.status === 'grading') {
+        card.append(createThinking(answerStatusLine(answer)));
+        return card;
+      }
+      card.append(el('p', answer.status === 'confirmed' ? 'finish__line' : 'text-sm', answerStatusLine(answer)));
+      if (answer.teacher_comment) card.append(el('p', 'text-sm', `Müəllim: ${answer.teacher_comment}`));
+      if (answer.feedback) card.append(el('p', 'text-sm', answer.feedback));
+      if (answer.criteria.length) {
+        const list = el('ul', 'text-sm');
+        for (const grade of answer.criteria) list.append(el('li', '', criterionLine(grade)));
+        card.append(list);
+      }
+      if (answer.model_answer) {
+        const sample = el('details', 'disclosure');
+        sample.append(el('summary', 'disclosure__summary', 'Nümunə cavab'),
+          el('p', 'disclosure__body text-sm', answer.model_answer));
+        card.append(sample);
+      }
+      return card;
     }
 
     if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
