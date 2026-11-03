@@ -124,6 +124,129 @@ class QuestionSetStore:
                 );
                 """
             )
+            # Açıq suallar (Faza 1, 2026-11-03): MCQ-dan AYRI cədvəldir -
+            # canlı sessiya və ev tapşırığı `live_questions`-ı 5 variantlı
+            # sual kimi oxuyur, açıq sualı ora qatmaq onları sındırardı.
+            # Yeni generasiya köhnə suallara ƏLAVƏ olunur, onları silmir.
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS open_question_jobs (
+                    question_set_id INTEGER PRIMARY KEY,
+                    status          TEXT NOT NULL,
+                    error           TEXT,
+                    started_at      TEXT NOT NULL,
+                    finished_at     TEXT
+                );
+                CREATE TABLE IF NOT EXISTS open_questions (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question_set_id INTEGER NOT NULL,
+                    kind            TEXT NOT NULL,
+                    question        TEXT NOT NULL,
+                    model_answer    TEXT NOT NULL,
+                    rubric          TEXT NOT NULL,
+                    difficulty      TEXT,
+                    created_at      TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_open_questions_set ON open_questions(question_set_id);
+                """
+            )
+            self._conn.commit()
+
+    # ---- Açıq suallar (Faza 1, 2026-11-03) ---------------------------------
+
+    def start_open_job(self, question_set_id: int) -> bool:
+        """Generasiyanı başladır; artıq gedirsə `False`."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status FROM open_question_jobs WHERE question_set_id = ?", (question_set_id,)
+            ).fetchone()
+            if row and row[0] == "processing":
+                return False
+            self._conn.execute(
+                "INSERT OR REPLACE INTO open_question_jobs (question_set_id, status, error, started_at, finished_at) "
+                "VALUES (?, 'processing', NULL, ?, NULL)",
+                (question_set_id, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return True
+
+    def finish_open_job(self, question_set_id: int, questions: list[dict]) -> None:
+        """`questions`: [{kind, question, model_answer, rubric: [{criterion, points}], difficulty}]."""
+        with self._lock:
+            now = _utc_now_iso()
+            for q in questions:
+                self._conn.execute(
+                    "INSERT INTO open_questions (question_set_id, kind, question, model_answer, rubric, "
+                    "difficulty, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (question_set_id, q["kind"], q["question"], q["model_answer"],
+                     json.dumps(q["rubric"], ensure_ascii=False), q.get("difficulty"), now),
+                )
+            self._conn.execute(
+                "UPDATE open_question_jobs SET status = 'ready', finished_at = ? WHERE question_set_id = ?",
+                (now, question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_open_job(self, question_set_id: int, error: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE open_question_jobs SET status = 'failed', error = ?, finished_at = ? "
+                "WHERE question_set_id = ?",
+                (error[:500], _utc_now_iso(), question_set_id),
+            )
+            self._conn.commit()
+
+    def fail_interrupted_open_jobs(self, error: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE open_question_jobs SET status = 'failed', error = ?, finished_at = ? "
+                "WHERE status = 'processing'",
+                (error, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return cur.rowcount
+
+    def get_open_job(self, question_set_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT status, error, started_at, finished_at FROM open_question_jobs WHERE question_set_id = ?",
+                (question_set_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    @staticmethod
+    def _open_row(row: sqlite3.Row) -> dict:
+        data = dict(row)
+        data["rubric"] = json.loads(data["rubric"])
+        return data
+
+    def list_open_questions(self, question_set_id: int) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM open_questions WHERE question_set_id = ? ORDER BY id", (question_set_id,)
+            )
+            return [self._open_row(row) for row in cur.fetchall()]
+
+    def get_open_question(self, open_question_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM open_questions WHERE id = ?", (open_question_id,)).fetchone()
+            return self._open_row(row) if row else None
+
+    def update_open_question(self, open_question_id: int, *, kind: str, question: str, model_answer: str,
+                             rubric: list[dict], difficulty: str | None) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE open_questions SET kind = ?, question = ?, model_answer = ?, rubric = ?, difficulty = ? "
+                "WHERE id = ?",
+                (kind, question, model_answer, json.dumps(rubric, ensure_ascii=False), difficulty,
+                 open_question_id),
+            )
+            self._conn.commit()
+            return self.get_open_question(open_question_id)
+
+    def delete_open_question(self, open_question_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM open_questions WHERE id = ?", (open_question_id,))
             self._conn.commit()
 
     # ---- AI yoxlama komandası (gün 10) ------------------------------------

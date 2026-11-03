@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Açıq suallar - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261102k" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax theme.js). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/base.css?v=20261102k">
+<link rel="stylesheet" href="assets/css/components.css?v=20261102k">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1 id="pageTitle">Açıq suallar</h1>
+      <a class="btn btn--ghost btn--sm" href="muellim.html">← Sual bankları</a>
+    </div>
+    <p class="text-sm text-muted" id="meta" hidden></p>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+
+    <!-- Generasiya forması. Yeni suallar köhnələrin üstünə ƏLAVƏ olunur. -->
+    <form class="card stack" id="generateForm" hidden>
+      <p class="text-sm">AI bankın materialından açıq suallar hazırlayır: tələbə cavabı öz sözləri ilə yazır.
+        Hər sualın yanında nümunə cavab və qiymətləndirmə meyarları olur, ikisini də redaktə edə bilərsiniz.</p>
+      <div class="row">
+        <div class="field">
+          <label class="field__label" for="countInput">Sual sayı</label>
+          <input class="field__input" id="countInput" type="number" min="1" max="15" value="5" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="kindSelect">Növ</label>
+          <select class="field__select" id="kindSelect">
+            <option value="qarisiq">Qarışıq</option>
+            <option value="qisa">Yalnız qısa cavab</option>
+            <option value="esse">Yalnız esse</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn--primary btn--sm" type="submit" id="generateButton">Açıq suallar hazırla</button>
+      </div>
+    </form>
+
+    <div id="status"></div>
+    <p class="text-sm" id="summaryLine" hidden></p>
+    <div class="stack" id="content"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { createEmptyState, createThinking } from './assets/js/mascot.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectLabel } from './assets/js/subjects.js';
+  import { LEVELS, levelBadgeClass, levelLabel } from './assets/js/difficulty.js';
+  import {
+    countError, kindLabel, linesToRubric, rubricToLines, setSummaryLine,
+  } from './assets/js/open-questions.js';
+
+  const POLL_MS = 5000;
+
+  if (requireLogin()) {
+    mountShell();
+
+    const bankId = Number(new URLSearchParams(window.location.search).get('bank'));
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const form = document.getElementById('generateForm');
+    const status = document.getElementById('status');
+    const summaryLine = document.getElementById('summaryLine');
+    const content = document.getElementById('content');
+    let pollTimer = null;
+
+    function showError(text) { errorBox.textContent = text; errorBox.hidden = false; }
+    function flash(text) {
+      okBox.textContent = text;
+      okBox.hidden = false;
+      setTimeout(() => { okBox.hidden = true; }, 4000);
+    }
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+    function button(label, variant, onClick) {
+      const node = el('button', `btn ${variant} btn--sm`, label);
+      node.type = 'button';
+      node.addEventListener('click', onClick);
+      return node;
+    }
+
+    async function load() {
+      clearTimeout(pollTimer);
+      try {
+        render(await request(`/live/question-sets/${bankId}/open-questions`));
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function render(data) {
+      status.replaceChildren();
+      const busy = data.status === 'processing';
+      document.getElementById('generateButton').disabled = busy;
+      if (busy) {
+        status.append(createThinking('AI açıq sualları hazırlayır, adətən 1 dəqiqəyə qədər. Səhifə özü yenilənir.'));
+        pollTimer = setTimeout(load, POLL_MS);
+      } else if (data.status === 'failed') {
+        status.append(el('p', 'notice notice--danger', data.error || 'Açıq suallar alınmadı.'));
+      }
+
+      summaryLine.textContent = setSummaryLine(data.items);
+      summaryLine.hidden = !data.items.length;
+      if (!data.items.length) {
+        content.replaceChildren(busy ? '' : createEmptyState({
+          title: 'Hələ açıq sual yoxdur',
+          text: 'Sayı və növü seçib «Açıq suallar hazırla» düyməsini basın.',
+        }));
+        return;
+      }
+      content.replaceChildren(...data.items.map((item, index) => renderCard(item, index + 1)));
+    }
+
+    function renderCard(item, number) {
+      const card = el('article', 'card stack');
+      const head = el('div', 'row row--between');
+      const badges = el('div', 'row');
+      badges.append(el('span', 'badge badge--neutral', kindLabel(item.kind)));
+      if (item.difficulty) badges.append(el('span', levelBadgeClass(item.difficulty), levelLabel(item.difficulty)));
+      badges.append(el('span', 'text-xs text-muted', `${item.max_points} bal`));
+      head.append(el('strong', '', `${number}.`), badges);
+      card.append(head, el('p', '', item.question));
+
+      const answer = el('details', '');
+      answer.append(el('summary', '', 'Nümunə cavab və meyarlar'), el('p', 'text-sm', item.model_answer));
+      const list = el('ul', 'text-sm');
+      for (const rule of item.rubric) list.append(el('li', '', `${rule.criterion} (${rule.points} bal)`));
+      answer.append(list);
+      card.append(answer);
+
+      const actions = el('div', 'row');
+      actions.append(
+        button('Redaktə et', 'btn--secondary', () => card.replaceWith(renderEditor(item, number))),
+        button('Sil', 'btn--ghost', async () => {
+          if (!window.confirm('Bu sual silinsin?')) return;
+          try {
+            await request(`/live/open-questions/${item.id}`, { method: 'DELETE' });
+            flash('Sual silindi.');
+            load();
+          } catch (error) { showError(error.message); }
+        }),
+      );
+      card.append(actions);
+      return card;
+    }
+
+    function field(labelText, control) {
+      const wrap = el('div', 'field');
+      const label = el('label', 'field__label', labelText);
+      label.append(control);
+      wrap.append(label);
+      return wrap;
+    }
+
+    function renderEditor(item, number) {
+      const editor = el('form', 'card stack');
+      const kind = el('select', 'field__select');
+      for (const [value, text] of [['qisa', 'Qısa cavab'], ['esse', 'Esse']]) {
+        const option = el('option', '', text);
+        option.value = value;
+        option.selected = item.kind === value;
+        kind.append(option);
+      }
+      const level = el('select', 'field__select');
+      for (const value of ['', ...LEVELS]) {
+        const option = el('option', '', value ? levelLabel(value) : 'Səviyyəsiz');
+        option.value = value;
+        option.selected = (item.difficulty || '') === value;
+        level.append(option);
+      }
+      const question = el('textarea', 'field__textarea');
+      question.value = item.question;
+      question.rows = 3;
+      const answer = el('textarea', 'field__textarea');
+      answer.value = item.model_answer;
+      answer.rows = 4;
+      const rubric = el('textarea', 'field__textarea');
+      rubric.value = rubricToLines(item.rubric);
+      rubric.rows = Math.max(3, item.rubric.length + 1);
+
+      const row = el('div', 'row');
+      row.append(field('Növ', kind), field('Səviyyə', level));
+      editor.append(
+        el('strong', '', `${number}. sualı redaktə`), row, field('Sual', question), field('Nümunə cavab', answer),
+        field('Meyarlar (hər sətir «bal | meyar», bal 1-5)', rubric),
+      );
+      const save = el('button', 'btn btn--primary btn--sm', 'Yadda saxla');
+      save.type = 'submit';
+      const actions = el('div', 'row');
+      actions.append(save, button('Ləğv et', 'btn--ghost', () => load()));
+      editor.append(actions);
+
+      editor.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorBox.hidden = true;
+        const parsed = linesToRubric(rubric.value);
+        if (parsed.error) { showError(parsed.error); return; }
+        save.disabled = true;
+        try {
+          await request(`/live/open-questions/${item.id}`, {
+            method: 'PATCH',
+            body: {
+              kind: kind.value, question: question.value, model_answer: answer.value,
+              rubric: parsed.rubric, difficulty: level.value || null,
+            },
+          });
+          flash('Sual yadda saxlanıldı.');
+          load();
+        } catch (error) {
+          showError(error.message);
+          save.disabled = false;
+        }
+      });
+      return editor;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errorBox.hidden = true;
+      const count = document.getElementById('countInput').value;
+      const problem = countError(count);
+      if (problem) { showError(problem); return; }
+      try {
+        render(await request(`/live/question-sets/${bankId}/open-questions`, {
+          method: 'POST', body: { count: Number(count), kind: document.getElementById('kindSelect').value },
+        }));
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    if (Number.isInteger(bankId) && bankId > 0) {
+      form.hidden = false;
+      request(`/live/question-sets/${bankId}`).then((bank) => {
+        document.getElementById('pageTitle').textContent = `Açıq suallar: ${bank.title}`;
+        const meta = document.getElementById('meta');
+        meta.textContent = subjectLabel(bank.subject);
+        meta.hidden = false;
+      }).catch(() => { /* başlıq köməkçidir */ });
+      load();
+    } else {
+      showError('Sual bankı ünvanı düzgün deyil.');
+    }
+  }
+</script>
+</body>
+</html>

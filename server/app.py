@@ -74,6 +74,7 @@ from pipeline.transcribe import transcribe_audio
 from pipeline.board_ocr import read_board
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
+from pipeline.open_questions import generate_open_questions
 from pipeline.guardrails import PII_NOTICE
 from pipeline.tutor_graph import run_tutor
 from pipeline.ingestion.errors import IngestionError
@@ -136,6 +137,10 @@ from .models import (
     LessonTranscriptSegment,
     LessonVideoAccess,
     PublishSummaryRequest,
+    GenerateOpenQuestionsRequest,
+    OpenQuestionOut,
+    OpenQuestionsOut,
+    UpdateOpenQuestionRequest,
     SummaryInfo,
     AuditLogRow,
     CourseDeadline,
@@ -289,6 +294,9 @@ app.state.lesson_store.fail_interrupted_segments()
 app.state.question_set_store.fail_interrupted_reviews(
     "Server yenidən başladığı üçün yoxlama yarımçıq qaldı. Yenidən başladın."
 )
+app.state.question_set_store.fail_interrupted_open_jobs(
+    "Server yenidən başladığı üçün açıq suallar hazırlanmadı. Yenidən başladın."
+)
 if _interrupted_banks or _interrupted_materials:
     logger.warning(
         "Yarımçıq emallar uğursuz kimi işarələndi: bank=%s material=%s",
@@ -304,6 +312,8 @@ app.state.active_question_set_tasks = {}
 # summary_id -> xülasə emalı task-ı (eyni naxış).
 app.state.active_summary_tasks = {}
 app.state.active_review_tasks = {}
+# question_set_id -> açıq sual generasiyası task-ı (Faza 1).
+app.state.active_open_question_tasks = {}
 # (lesson_id, seq) -> dərs səsinin mətnə çevrilməsi task-ı (eyni naxış).
 app.state.active_transcript_tasks = {}
 # live_session_id -> planlaşdırılmış timeout task-ı (eyni naxış).
@@ -476,6 +486,11 @@ def get_board_reader():
 def get_reviewer():
     """(material, suallar) → hər sualın rəyi (gün 10, agent komandası; testdə fake)."""
     return review_bank
+
+
+def get_open_question_generator():
+    """(material, count, kind, subject) → açıq suallar (Faza 1; testdə fake)."""
+    return generate_open_questions
 
 
 def get_summarizer():
@@ -2368,6 +2383,111 @@ def get_question_set_review(
 ) -> QuestionSetReview:
     _question_set_in_course(question_sets, question_set_id, user)
     return _review_out(question_set_id, question_sets)
+
+
+# ---- Açıq suallar (Faza 1 «Müəllim AI asistenti», 2026-11-03) -----------
+# Bankın materialından AI açıq sual + nümunə cavab + meyarlar (rubrika)
+# hazırlayır. MCQ-dan ayrı saxlanılır (bax `question_set_store`), yeni
+# generasiya köhnə sualların üstünə ƏLAVƏ olunur.
+
+
+def _open_question_out(row: dict) -> OpenQuestionOut:
+    return OpenQuestionOut(
+        id=row["id"], question_set_id=row["question_set_id"], kind=row["kind"], question=row["question"],
+        model_answer=row["model_answer"], rubric=row["rubric"],
+        max_points=sum(item["points"] for item in row["rubric"]), difficulty=row["difficulty"],
+    )
+
+
+def _open_questions_out(question_set_id: int, question_sets: QuestionSetStore) -> OpenQuestionsOut:
+    job = question_sets.get_open_job(question_set_id)
+    items = [_open_question_out(row) for row in question_sets.list_open_questions(question_set_id)]
+    if job is None:
+        return OpenQuestionsOut(status="ready" if items else "none", items=items)
+    return OpenQuestionsOut(status=job["status"], error=job["error"], items=items)
+
+
+def _open_question_in_course(question_sets: QuestionSetStore, open_question_id: int, user: dict) -> dict:
+    row = question_sets.get_open_question(open_question_id)
+    question_set = question_sets.get(row["question_set_id"]) if row else None
+    if question_set is None or not _same_course(question_set.get("course_id"), user):
+        raise HTTPException(status_code=404, detail="Sual tapılmadı")
+    return row
+
+
+async def _process_open_questions(question_set_id: int, source: MaterialSource, *, count: int, kind: str,
+                                  subject: str, generator, question_sets: QuestionSetStore) -> None:
+    try:
+        questions = await asyncio.to_thread(generator, source, count, kind, subject)
+    except Exception as exc:
+        logger.exception("Açıq sual generasiyası uğursuz oldu (question_set_id=%s)", question_set_id)
+        question_sets.fail_open_job(question_set_id, f"Açıq suallar alınmadı: {exc}")
+        return
+    question_sets.finish_open_job(question_set_id, [
+        {"kind": q.kind, "question": q.question, "model_answer": q.model_answer,
+         "rubric": [item.model_dump() for item in q.rubric], "difficulty": q.difficulty}
+        for q in questions
+    ])
+
+
+@app.post("/live/question-sets/{question_set_id}/open-questions", response_model=OpenQuestionsOut,
+          status_code=202)
+async def start_open_questions(
+    question_set_id: int,
+    req: GenerateOpenQuestionsRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+    generator=Depends(get_open_question_generator),
+) -> OpenQuestionsOut:
+    question_set = _question_set_in_course(question_sets, question_set_id, user)
+    if question_set["status"] != "ready":
+        raise HTTPException(status_code=409, detail="Bank hələ hazır deyil")
+    if not question_sets.start_open_job(question_set_id):
+        raise HTTPException(status_code=409, detail="Açıq suallar artıq hazırlanır")
+    task = asyncio.create_task(_process_open_questions(
+        question_set_id,
+        MaterialSource(kind=question_set["material_kind"], location=question_set["material_location"]),
+        count=req.count, kind=req.kind, subject=question_set["subject"], generator=generator,
+        question_sets=question_sets,
+    ))
+    app.state.active_open_question_tasks[question_set_id] = task
+    task.add_done_callback(lambda _t: app.state.active_open_question_tasks.pop(question_set_id, None))
+    return _open_questions_out(question_set_id, question_sets)
+
+
+@app.get("/live/question-sets/{question_set_id}/open-questions", response_model=OpenQuestionsOut)
+def list_open_questions(
+    question_set_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> OpenQuestionsOut:
+    _question_set_in_course(question_sets, question_set_id, user)
+    return _open_questions_out(question_set_id, question_sets)
+
+
+@app.patch("/live/open-questions/{open_question_id}", response_model=OpenQuestionOut)
+def update_open_question(
+    open_question_id: int,
+    req: UpdateOpenQuestionRequest,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> OpenQuestionOut:
+    _open_question_in_course(question_sets, open_question_id, user)
+    updated = question_sets.update_open_question(
+        open_question_id, kind=req.kind, question=req.question.strip(), model_answer=req.model_answer.strip(),
+        rubric=[item.model_dump() for item in req.rubric], difficulty=req.difficulty,
+    )
+    return _open_question_out(updated)
+
+
+@app.delete("/live/open-questions/{open_question_id}", status_code=204)
+def delete_open_question(
+    open_question_id: int,
+    user: dict = Depends(get_current_teacher),
+    question_sets: QuestionSetStore = Depends(get_question_set_store),
+) -> None:
+    _open_question_in_course(question_sets, open_question_id, user)
+    question_sets.delete_open_question(open_question_id)
 
 
 @app.post("/live/question-sets/{question_set_id}/summary", response_model=SummaryInfo, status_code=202)

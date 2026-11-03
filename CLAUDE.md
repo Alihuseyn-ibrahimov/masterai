@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2086 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 384 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2132 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 389 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-02-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -512,6 +512,25 @@ açılış 89 → gzip ilə 95, a11y/best-practices 100. Səbəb: Ubuntu nginx.c
 yenidən yazılmır, ona görə ayrı fayl); nginx.conf-da gzip_* artıq açıqdırsa
 və ya `nginx -t` keçməsə fayl qoyulmur/silinir. giriş/PIN-də SEO 54 qəsdəndir
 (`noindex`).
+
+## Faza 1 «Müəllim AI asistenti» (2026-11-03-dən)
+
+İstifadəçinin xidmət siyahısı mövcud kodla tutuşduruldu, 6 fazalı plan:
+https://claude.ai/artifact/1rqSVUS6zha6bR6PjkGAt7 (istifadəçi Faza 1-i seçdi).
+Sıra: açıq suallar → açıq cavabın AI yoxlaması → flashcard-lar → video/mətn materialı.
+
+**PR 1 - açıq suallar.** `pipeline/open_questions.py`: bankın materialından
+`qisa`/`esse` sualı + nümunə cavab + meyarlar (rubrika, hər meyar 1-5 bal, ≤6
+meyar). Uzun mətn ≤5 hissəyə bölünür (hissə başına bir sorğu), fənn qeydi
+(`subjects.py`) verilir, nümunə cavab və meyarda materialda olmayan rəqəm varsa
+sual ATILIR, təkrar sual atılır. Saxlanma `question_sets.db`-də AYRI cədvəldədir
+(`open_questions`, `open_question_jobs`): canlı sessiya və ev tapşırığı
+`live_questions`-ı 5 variantlı oxuyur. Yeni generasiya köhnə suallara ƏLAVƏ
+olunur, uğursuz generasiya onları silmir. Marşrutlar:
+`POST/GET /live/question-sets/{id}/open-questions` (fon işi, 409 təkrar),
+`PATCH/DELETE /live/open-questions/{id}`. Veb: `aciq-suallar.html?bank=N`
+(«Quiz yarat»dakı bank kartında «Açıq suallar»), meyarlar redaktədə «bal | meyar»
+sətirləridir (`open-questions.js`). Real modellə hələ sınanmayıb.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

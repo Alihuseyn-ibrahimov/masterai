@@ -25,6 +25,7 @@ Disallow: /dars.html
 Disallow: /dersim.html
 Disallow: /tutor.html
 Disallow: /xulase.html
+Disallow: /aciq-suallar.html
 Disallow: /qosul.html
 Allow: /
 
