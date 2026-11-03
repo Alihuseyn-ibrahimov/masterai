@@ -74,7 +74,10 @@
        cavablar mövzu etiketi daşıyan suallardan topladıqda görünür
        (bax `server/topic_stats.py`). -->
   <section id="topicStatsSection" hidden>
-    <div class="section-header"><h2>Mövzular üzrə nəticə</h2></div>
+    <div class="section-header">
+      <h2>Mövzular üzrə nəticə</h2>
+      <a class="btn btn--secondary btn--sm" id="adaptiveLink" href="adaptiv.html" hidden>Zəif yerlərimi məşq et</a>
+    </div>
     <div class="card" id="topicStatsCard"></div>
   </section>
 
@@ -141,6 +144,7 @@
       loadInto(document.getElementById('topicStatsCard'), () => request('/me/topics'), (container, data) => {
         if (!hasTopicStats(data)) return;
         document.getElementById('topicStatsSection').hidden = false;
+        document.getElementById('adaptiveLink').hidden = !(data.weak && data.weak.length);
         container.innerHTML = '';
         container.append(renderTopicStats(data));
       });

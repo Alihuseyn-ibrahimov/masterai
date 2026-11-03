@@ -196,3 +196,27 @@ class TestMyTopicsEndpoint:
         body = r.json()
         assert body["weak"] == [{"topic": "zəif mövzu", "correct": 0, "total": 2, "percent": 0}]
         assert body["strong"] == [{"topic": "güclü mövzu", "correct": 2, "total": 2, "percent": 100}]
+
+
+class TestMyAdaptiveQuizEndpoint:
+    """Faza 2 PR 3 - `GET /me/adaptive-quiz` (bax `server/adaptive_quiz.py`)."""
+
+    def test_requires_auth(self, env):
+        assert env["client"].get("/me/adaptive-quiz").status_code == 401
+
+    def test_empty_when_no_weak_topics(self, env):
+        r = env["client"].get("/me/adaptive-quiz", headers=_auth(env["student"]))
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_returns_weak_topic_questions_with_answers(self, env):
+        qs = _question_set(env, ["zəif mövzu", "zəif mövzu", "güclü mövzu", "güclü mövzu"])
+        _live_session_with_answers(env, qs, user_id=env["student"]["id"],
+                                   correctness=[False, False, True, True])
+        r = env["client"].get("/me/adaptive-quiz", headers=_auth(env["student"]))
+        assert r.status_code == 200
+        questions = r.json()
+        assert questions
+        assert all(q["topic"] == "zəif mövzu" for q in questions)
+        # Düzgün cavab+izah DAXİLDİR - bu sərbəst məşqdir, qiymətləndirmə yox.
+        assert "correct_index" in questions[0] and "explanation" in questions[0]

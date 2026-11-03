@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zəif yerlərimi məşq et - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<!-- Brauzer nişanı. Olmasa brauzer /favicon.ico istəyir və hər
+     səhifə yüklənişində 404 yaranır (render testində görüldü). -->
+<link rel="icon" href="assets/icon.svg?v=20261103a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL tətbiq olunur.
+     NİYƏ İNLİNE: modul kimi yüklənsə brauzer əvvəlcə işıqlı ekranı
+     çəkər, sonra tündə keçər - hər keçiddə ağ sıçrayış olar.
+     Məntiq `assets/js/theme.js`-də, testlərlə örtülüdür; burada
+     yalnız onun ən qısa forması təkrarlanır. -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261103a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack quiz-shell">
+    <div class="section-header">
+      <h1>Zəif yerlərimi məşq et</h1>
+      <a class="btn btn--ghost btn--sm" href="profil.html">← Profil</a>
+    </div>
+
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div id="loading"><div class="state"><div class="spinner"></div>
+      <div class="state__text">Yüklənir…</div></div></div>
+
+    <div id="emptySlot" hidden></div>
+
+    <div class="card stack" id="questionCard" hidden>
+      <div class="quiz-head">
+        <span class="quiz-counter" id="counter">Sual</span>
+      </div>
+      <div id="quizSteps" class="quiz-steps" aria-hidden="true"></div>
+      <!-- Bu, sərbəst MƏŞQ kartıdır - heç yerə göndərilmir, ona görə
+           mövzu etiketi birbaşa görünür (qiymətləndirilən tapşırıqda
+           bu çaşdırıcı olardı). -->
+      <span class="badge badge--neutral" id="topicBadge"></span>
+      <h2 class="quiz-question" id="questionText"></h2>
+      <div id="options" class="option-list"></div>
+      <p class="text-sm text-muted" id="explanationText" hidden></p>
+      <button class="btn btn--primary btn--block" type="button" id="nextBtn" hidden>Növbəti sual</button>
+    </div>
+
+    <div class="card stack stack--center" id="doneCard" hidden>
+      <span class="mascot finish__mascot" id="finishMascot" data-mascot="idle"></span>
+      <h3>Məşq bitdi</h3>
+      <p id="finalScore"></p>
+      <div class="row">
+        <button class="btn btn--primary" type="button" id="restartBtn">Yenidən məşq et</button>
+        <a class="btn btn--secondary" href="profil.html">Profilə qayıt</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { answerFeedback, scoreLine } from './assets/js/answer-feedback.js';
+  import { celebrateFinish, reactToAnswer } from './assets/js/celebrate.js';
+  import { createEmptyState, mountMascots } from './assets/js/mascot.js';
+  import { markChosen, renderOptions, renderSteps, revealAnswer } from './assets/js/quiz-options.js';
+
+  if (requireLogin()) {
+    mountShell();
+    mountMascots();
+
+    const errorBox = document.getElementById('errorBox');
+    const loading = document.getElementById('loading');
+    const emptySlot = document.getElementById('emptySlot');
+    const cards = {
+      question: document.getElementById('questionCard'),
+      done: document.getElementById('doneCard'),
+    };
+
+    const show = (name) => {
+      loading.hidden = true;
+      emptySlot.hidden = true;
+      for (const [key, card] of Object.entries(cards)) card.hidden = key !== name;
+    };
+    const showError = (text) => {
+      loading.hidden = true;
+      errorBox.textContent = text;
+      errorBox.hidden = false;
+    };
+
+    let questions = [];
+    let index = 0;
+    let score = 0;
+    let optionButtons = [];
+
+    function renderQuestion() {
+      const q = questions[index];
+      document.getElementById('counter').textContent = `Sual ${index + 1}/${questions.length}`;
+      renderSteps(document.getElementById('quizSteps'), { total: questions.length, currentIndex: index });
+      document.getElementById('topicBadge').textContent = q.topic || '';
+      document.getElementById('questionText').textContent = q.question;
+      document.getElementById('explanationText').hidden = true;
+      document.getElementById('nextBtn').hidden = true;
+      optionButtons = renderOptions(document.getElementById('options'), q.options, (chosen) => {
+        markChosen(optionButtons, chosen);
+        const isCorrect = chosen === q.correct_index;
+        if (isCorrect) score += 1;
+        revealAnswer(optionButtons, { correctIndex: q.correct_index, chosenIndex: chosen });
+        reactToAnswer(document, isCorrect);
+        const feedback = answerFeedback({
+          options: q.options, correctIndex: q.correct_index, chosenIndex: chosen, isCorrect,
+        });
+        const text = document.getElementById('explanationText');
+        text.hidden = false;
+        text.textContent = [feedback.correctLine, q.explanation].filter(Boolean).join('. ');
+        document.getElementById('nextBtn').hidden = false;
+      });
+      show('question');
+    }
+
+    function finish() {
+      document.getElementById('finalScore').textContent = scoreLine(score, questions.length);
+      show('done');
+      celebrateFinish(document, score, questions.length);
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      index += 1;
+      if (index < questions.length) renderQuestion();
+      else finish();
+    });
+
+    async function load() {
+      show(undefined);
+      loading.hidden = false;
+      index = 0;
+      score = 0;
+      try {
+        questions = await request('/me/adaptive-quiz');
+      } catch (error) {
+        showError(error.message);
+        return;
+      }
+      if (!questions.length) {
+        loading.hidden = true;
+        emptySlot.hidden = false;
+        emptySlot.replaceChildren(createEmptyState({
+          title: 'Hələ zəif mövzu tapılmadı',
+          text: 'Bir neçə quiz/tapşırıq tamamlayandan sonra bura qayıdın.',
+          state: 'sleep',
+        }));
+        return;
+      }
+      renderQuestion();
+    }
+
+    document.getElementById('restartBtn').addEventListener('click', load);
+    load();
+  }
+</script>
+</body>
+</html>
