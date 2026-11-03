@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2348 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2379 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 399 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -718,6 +718,29 @@ daxil) yaza/oxuya bilər - `_require_assignment_chat_member`.
 `hesabatlar.html`-də (müəllim) hər tapşırıq kartında açılan panel -
 mesajlar YALNIZ panel açılanda yüklənir (`<details>` `toggle` + `once`),
 hər tapşırıq üçün əvvəlcədən sorğu getməsin.
+
+**PR 3 - Ödəniş izləməsi (Faza 3-ün son addımı).** `server/payment_store.py`:
+yeni baza (`PAYMENTS_DB_PATH`), iki cədvəl - `payment_fees` (hər çat+tələbə
+üçün aylıq məbləğ) və `payment_records` (hər ay üçün "ödədi" qeydi) AYRI,
+çünki məbləğ sonra dəyişsə keçmiş ayların qeydi təhrif olunmamalıdır.
+**Onlayn kartla ödəniş bu fazada QƏSDƏN YOX** (bax plan sənədi, "Qərar
+tələb edən suallar" §2 - yerli ödəniş provayderi ilə müqavilə/VÖEN tələb
+edir). `POST .../payments/fee`, `GET .../payments?month=YYYY-AA` (ay
+YOXDURSA server UTC-də cari ay), `POST .../payments/mark` (məbləğ
+YAZILMASA fee-dən götürülür, fee də yoxdursa 400), `DELETE .../payments`
+(ləğv), `POST .../{student_id}/remind`. Hamısı `Depends(get_current_teacher)`
++ "bu çatın üzvüsən" yoxlaması - `/live/` prefiksindəki HƏR endpoint
+müəllim qapısından keçməlidir (`test_live_authorization.py`), əvvəlcə
+`get_current_user` + əl ilə `is_teacher` yoxlaması yazılmışdı, test
+dərhal tutdu. **Xatırlatma DM DEYİL** - sinif çatına yazılır
+(`_announce_in_chat`-ın eyni funksiyası): birbaşa mesaj dostluq şərtinə
+bağlıdır, müəllim-tələbə arasında bu şərt həmişə yoxdur. Veb:
+`hesabatlar.html`-də mövcud çat seçicisinə bağlı yeni bölmə, ay seçicisi
+(`<input type="month">`, defolt cari ay), hər tələbə üçün məbləğ sahəsi +
+"Ödədi"/"Xatırlat" (məbləğ yoxdursa söndürülüb) və ödənmişsə "Ləğv et".
+
+Bununla Faza 3 («İdarəetmə paneli») planın 3 PR-i tamamlandı — bax PR
+siyahısı. Heç biri real istifadədə (real tələbə/müəllim) hələ sınanmayıb.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
