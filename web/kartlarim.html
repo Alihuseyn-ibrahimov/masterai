@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kartlarım - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261103a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax theme.js). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261103a">
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack" id="deckListSection">
+    <div class="section-header">
+      <h1>Kartlarım</h1>
+      <a class="btn btn--ghost btn--sm" href="tapsiriqlar.html">← Tapşırıqlar</a>
+    </div>
+    <p class="text-sm text-muted">Müəllimin dərc etdiyi flashcard dəstələri. Bilmədiyiniz kart tezliklə
+      yenidən gəlir, bildiyiniz uzun müddətə gözdən itir.</p>
+    <div class="notice notice--danger" id="listError" role="alert" hidden></div>
+    <div class="stack" id="deckList"></div>
+  </section>
+
+  <section class="stack" id="studySection" hidden>
+    <div class="section-header">
+      <h1 id="studyTitle">Kartlar</h1>
+      <a class="btn btn--ghost btn--sm" href="kartlarim.html">← Dəstələr</a>
+    </div>
+    <div class="notice notice--danger" id="studyError" role="alert" hidden></div>
+    <p class="text-sm text-muted" id="progressLine" hidden></p>
+    <div id="studyContent"></div>
+  </section>
+</div>
+
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request } from './assets/js/api.js';
+  import { createEmptyState, mountMascots, setMascotState } from './assets/js/mascot.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { subjectLabel } from './assets/js/subjects.js';
+
+  if (requireLogin()) {
+    mountShell();
+    mountMascots();
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    const bankId = Number(new URLSearchParams(window.location.search).get('bank'));
+    const deckListSection = document.getElementById('deckListSection');
+    const studySection = document.getElementById('studySection');
+
+    if (Number.isInteger(bankId) && bankId > 0) {
+      deckListSection.hidden = true;
+      studySection.hidden = false;
+      loadStudy();
+    } else {
+      loadDecks();
+    }
+
+    async function loadDecks() {
+      const listError = document.getElementById('listError');
+      const deckList = document.getElementById('deckList');
+      try {
+        const decks = await request('/me/flashcards');
+        if (!decks.length) {
+          deckList.replaceChildren(createEmptyState({
+            title: 'Hələ kart dəstəniz yoxdur',
+            text: 'Müəllim bir sinfə flashcard dərc edəndə burada görünəcək.',
+          }));
+          return;
+        }
+        deckList.replaceChildren(...decks.map((deck) => {
+          const card = el('a', 'card card--interactive stack stack--tight');
+          card.href = `kartlarim.html?bank=${encodeURIComponent(deck.question_set_id)}`;
+          const head = el('div', 'row row--between');
+          head.append(el('strong', '', deck.title), el('span', 'text-xs text-muted', subjectLabel(deck.subject)));
+          card.append(head);
+          const line = deck.due_count
+            ? `${deck.due_count} / ${deck.total_count} kart təkrar üçün hazırdır`
+            : `Hamısı təzədir - növbəti təkrar sonra gəlir (${deck.total_count} kart)`;
+          card.append(el('p', 'text-sm text-muted', line));
+          if (deck.due_count) card.append(el('span', 'badge badge--neutral', `${deck.due_count} gözləyir`));
+          return card;
+        }));
+      } catch (error) {
+        listError.textContent = error.message;
+        listError.hidden = false;
+      }
+    }
+
+    async function loadStudy() {
+      const studyError = document.getElementById('studyError');
+      const studyContent = document.getElementById('studyContent');
+      let cards;
+      try {
+        cards = await request(`/me/flashcards/${bankId}`);
+      } catch (error) {
+        studyError.textContent = error.message;
+        studyError.hidden = false;
+        return;
+      }
+      let index = 0;
+      const total = cards.length;
+      let known = 0;
+
+      function renderProgress() {
+        const line = document.getElementById('progressLine');
+        line.hidden = !total;
+        line.textContent = `${index} / ${total}`;
+      }
+
+      function renderDone() {
+        document.getElementById('progressLine').hidden = true;
+        const box = el('div', 'card stack');
+        box.style.textAlign = 'center';
+        box.style.alignItems = 'center';
+        const mascot = el('span', 'mascot', '');
+        mascot.dataset.mascot = known === total && total > 0 ? 'happy' : 'idle';
+        box.append(mascot);
+        box.append(el('p', 'finish__line', total
+          ? `Bu gün hazır olan ${total} kartı bitirdiniz.`
+          : 'Hazırda təkrar üçün kart yoxdur - hamısının vaxtı sonradır.'));
+        const back = el('a', 'btn btn--primary', 'Dəstələrə qayıt');
+        back.href = 'kartlarim.html';
+        box.append(back);
+        studyContent.replaceChildren(box);
+        mountMascots();
+      }
+
+      function renderCard() {
+        renderProgress();
+        if (index >= total) { renderDone(); return; }
+        const card = cards[index];
+        const box = el('article', 'card stack');
+        box.append(el('p', 'text-xs text-muted', 'Üz'));
+        box.append(el('p', 'qcard__question', card.front));
+        const reveal = el('button', 'btn btn--secondary btn--block', 'Cavabı göstər');
+        reveal.type = 'button';
+        box.append(reveal);
+        const back = el('div', 'stack', '');
+        back.hidden = true;
+        back.append(el('p', 'text-xs text-muted', 'Arxa'), el('p', '', card.back));
+        const actions = el('div', 'row');
+        const dontKnow = el('button', 'btn btn--secondary', 'Bilmirəm');
+        const know = el('button', 'btn btn--primary', 'Bilirəm');
+        dontKnow.type = 'button';
+        know.type = 'button';
+        actions.append(dontKnow, know);
+        back.append(actions);
+        box.append(back);
+
+        reveal.addEventListener('click', () => {
+          reveal.hidden = true;
+          back.hidden = false;
+        });
+
+        async function answer(knowIt) {
+          dontKnow.disabled = true;
+          know.disabled = true;
+          try {
+            await request(`/me/flashcards/${card.id}/review`, { method: 'POST', body: { know: knowIt } });
+          } catch (error) {
+            studyError.textContent = error.message;
+            studyError.hidden = false;
+          }
+          if (knowIt) known += 1;
+          index += 1;
+          renderCard();
+        }
+        dontKnow.addEventListener('click', () => answer(false));
+        know.addEventListener('click', () => answer(true));
+
+        studyContent.replaceChildren(box);
+      }
+
+      renderCard();
+    }
+  }
+</script>
+</body>
+</html>

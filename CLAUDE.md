@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2147 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2215 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 391 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -546,6 +546,23 @@ nümunə cavabın və meyarların SURƏTİNİ saxlayır (`homework_open_answers`
 sualı sonra redaktə və ya silsə bal pozulmur. Nümunə cavab tələbəyə yalnız
 yoxlamadan sonra verilir. MCQ xalına, tarixçəyə və liderlik lövhəsinə hələ
 QATILMIR. Real modellə hələ sınanmayıb.
+
+**PR 3 - flashcard-lar (Leitner təkrarı).** `pipeline/flashcards.py` bankın
+materialından qısa üz/arxa kartları çıxarır (rubrika yoxdur, açıq suallardan
+fərqli olaraq), uzun mətn ≤5 hissəyə bölünür, rəqəm daşıyan arxa materialda
+olmalıdır (`_grounded`). Saxlanma `question_sets.db`-də AYRI cədvəllərdədir
+(`flashcards`, `flashcard_jobs`, `flashcard_publications`, `flashcard_reviews`).
+Marşrutlar: `POST/GET /live/question-sets/{id}/flashcards` (fon işi, 409 təkrar),
+`PATCH/DELETE /live/flashcards/{id}`, `POST .../flashcards/publish|unpublish`,
+tələbə tərəfi `GET /me/flashcards`, `GET /me/flashcards/{id}`,
+`POST /me/flashcards/{id}/review`. **Dərc açıq suallar/xülasə ilə EYNİ naxışdır:**
+bir bank bir qrup çata dərc olunur, tələbə yalnız dərcdən sonra görür
+(`kartlar.html` müəllimdə, `kartlarim.html` tələbədə). **Leitner 3 qutu:**
+düzgün («bilirəm») qutunu 1→2→3 artırır (növbəti təkrar 1/3/7 gün sonra),
+səhv («bilmirəm») qutunu 1-ə salır, amma eyni sessiyada dərhal təkrar
+göstərməmək üçün 10 dəqiqəlik gecikmə qoyur. Hər kart+istifadəçi cütü üçün
+AYRI vəziyyət (`flashcard_reviews`), yəni eyni dəstəni iki tələbə fərqli
+templə keçir. Real modellə hələ sınanmayıb.
 
 ## Server silindi, sıfırdan qurulma (2026-10-30)
 

@@ -928,3 +928,71 @@ class OpenAnswerReviewRow(OpenAnswerOut):
 class ConfirmOpenAnswerRequest(BaseModel):
     points: int = Field(ge=0, le=30)
     comment: str = Field(default="", max_length=1000)
+
+
+# ---- Flashcard-lar (Faza 1, PR 3) ------------------------------------------
+
+
+class FlashcardOut(BaseModel):
+    id: int
+    question_set_id: int
+    front: str
+    back: str
+    difficulty: Difficulty | None = None
+
+
+class FlashcardsOut(BaseModel):
+    """Bankın kartları + son generasiyanın vəziyyəti (bax `OpenQuestionsOut`,
+    eyni naxış: `status` none|processing|ready|failed, kartlar yığılır).
+    Dərc vəziyyəti SummaryInfo ilə eyni naxışdır - ayrı sorğu lazım deyil."""
+
+    status: str
+    error: str | None = None
+    items: list[FlashcardOut] = []
+    chat_id: int | None = None
+    chat_name: str | None = None
+    published_at: str | None = None
+
+
+class GenerateFlashcardsRequest(BaseModel):
+    count: int = Field(default=10, ge=1, le=30)
+
+
+class UpdateFlashcardRequest(BaseModel):
+    front: str = Field(min_length=1, max_length=500)
+    back: str = Field(min_length=1, max_length=1000)
+    difficulty: Difficulty | None = None
+
+
+class PublishFlashcardsRequest(BaseModel):
+    chat_id: int
+
+
+class FlashcardPublicationOut(BaseModel):
+    question_set_id: int
+    chat_id: int
+    published_at: str
+
+
+class FlashcardDeckOut(BaseModel):
+    """Tələbənin «Kartlarım» siyahısındakı bir bank."""
+
+    question_set_id: int
+    title: str
+    subject: str
+    chat_id: int
+    chat_name: str | None = None
+    due_count: int
+    total_count: int
+
+
+class FlashcardStudyCard(BaseModel):
+    """Təkrar ekranında tələbəyə göstərilən kart (müəllim sahələri yoxdur)."""
+
+    id: int
+    front: str
+    back: str
+
+
+class FlashcardReviewRequest(BaseModel):
+    know: bool
