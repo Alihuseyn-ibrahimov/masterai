@@ -108,7 +108,7 @@ else
                 QUESTION_SETS:question_sets LIVE_SESSIONS:live_sessions \
                 HOMEWORK:homework BADGES:badges \
                 CHAT_JOIN_REQUESTS:chat_join_requests SUMMARIES:summaries \
-                LESSONS:lessons; do
+                LESSONS:lessons PAYMENTS:payments; do
       echo "${pair%%:*}_DB_PATH=$SRV/data/${pair##*:}.db"
     done
     echo "MATERIAL_UPLOAD_DIR=$SRV/data/uploads"
@@ -118,7 +118,7 @@ else
 fi
 # Sonradan əlavə olunan bazalar: köhnə .env-də yolu yoxdursa servis faylı
 # iş qovluğunda yaradardı və backup onu GÖRMƏZDİ (yalnız data/ arxivlənir).
-for pair in LESSONS:lessons; do
+for pair in LESSONS:lessons PAYMENTS:payments; do
   grep -q "^${pair%%:*}_DB_PATH=" "$SRV/.env" \
     || echo "${pair%%:*}_DB_PATH=$SRV/data/${pair##*:}.db" >> "$SRV/.env"
 done

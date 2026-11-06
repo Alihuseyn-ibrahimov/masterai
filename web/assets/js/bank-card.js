@@ -14,17 +14,21 @@
 import { statusBadge, subjectColorVar, subjectLabel } from './subjects.js';
 import { createThinking } from './mascot.js';
 
-/** Canlı sessiyada işlədilə bilən bank: hazırdır VƏ reading deyil.
- *  Reading sualları mətnə əsaslanır, canlı sessiyada isə mətn tələbənin
- *  qarşısında olmur (spec 2026-09-29 §5). Server də 400 qaytarır - bu
- *  süzgəc müəllimin əvvəlcə seçib sonra xəta görməməsi üçündür. */
+/** Canlı sessiyada işlədilə bilən bank: hazırdır, reading deyil VƏ
+ *  sualı var. Reading sualları mətnə əsaslanır, canlı sessiyada isə
+ *  mətn tələbənin qarşısında olmur (spec 2026-09-29 §5). Sualsız bank
+ *  "quiz olmadan konspekt" (2026-11-03) iləndir - sessiya mənasız
+ *  olardı. Server də 400 qaytarır - bu süzgəc müəllimin əvvəlcə seçib
+ *  sonra xəta görməməsi üçündür. */
 export function isLiveEligible(set) {
-  return set.status === 'ready' && set.bank_kind !== 'reading';
+  return set.status === 'ready' && set.bank_kind !== 'reading' && set.question_count > 0;
 }
 
 /** Bank növü haqqında qısa qeyd (adi bank üçün boş). */
 export function bankKindNote(set) {
-  return set.bank_kind === 'reading' ? 'Reading - yalnız ev tapşırığı üçün' : '';
+  if (set.bank_kind === 'reading') return 'Reading - yalnız ev tapşırığı üçün';
+  if (set.status === 'ready' && set.question_count === 0) return 'Yalnız xülasə - sualı yoxdur';
+  return '';
 }
 
 /** Bir hərəkət: `{ label, href }` keçid, `{ label, onClick }` düymə.
