@@ -66,7 +66,18 @@
   <button class="btn btn--primary" type="button" id="audioButton" hidden>Səsi aç (brauzer icazə istəyir)</button>
   <div class="video-grid" id="grid" aria-live="polite"></div>
 
+  <!-- İnteraktiv lövhə (Faza 4, 2026-11-06): yalnız açılanda görünür,
+       tələbədə də (müəllimin çəkdiyini oxumaq üçün), amma yalnız
+       müəllim çəkə bilir. -->
+  <div class="card whiteboard" id="boardCard" hidden>
+    <canvas class="whiteboard__canvas" id="boardCanvas" width="1600" height="900"></canvas>
+    <div class="page-actions">
+      <button class="btn btn--ghost" type="button" id="boardClearButton" hidden>Lövhəni təmizlə</button>
+    </div>
+  </div>
+
   <div class="video-controls" id="controls" hidden>
+    <button class="btn btn--secondary" type="button" id="boardButton" aria-pressed="false" hidden>Lövhə</button>
     <button class="btn btn--secondary" type="button" id="micButton" aria-pressed="false">Mikrofon</button>
     <button class="btn btn--secondary" type="button" id="camButton" aria-pressed="false">Kamera</button>
     <button class="btn btn--secondary" type="button" id="screenButton" aria-pressed="false">Ekranı paylaş</button>
@@ -88,6 +99,10 @@
   } from './assets/js/lesson-room.js';
   import { createIcon } from './assets/js/icon.js';
   import { createLessonRecorder } from './assets/js/lesson-recorder.js';
+  import {
+    applyMessage, createBoardState, decodeMessage, drawSegment,
+    encodeMessage, makeClear, makeSegment, normalize, replay,
+  } from './assets/js/whiteboard.js';
 
   if (requireLogin()) {
     mountShell();
@@ -269,6 +284,16 @@
           .on(LK.RoomEvent.AudioPlaybackStatusChanged, () => {
             $('audioButton').hidden = room.canPlaybackAudio;
           })
+          .on(LK.RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+            if (topic !== 'board') return;
+            const msg = decodeMessage(payload);
+            if (!msg) return;
+            applyMessage(boardState, msg);
+            if (!$('boardCard').hidden) {
+              if (msg.t === 'clear') replay(boardCtx, boardState);
+              else drawSegment(boardCtx, msg);
+            }
+          })
           .on(LK.RoomEvent.Disconnected, async () => {
             setStatus('disconnected');
             $('controls').hidden = true;
@@ -293,6 +318,9 @@
         $('controls').hidden = false;
         $('endButton').hidden = !access.is_host;
         $('recordButton').hidden = !access.is_host || typeof MediaRecorder === 'undefined';
+        isHost = access.is_host;
+        $('boardButton').hidden = false;
+        $('boardClearButton').hidden = !isHost;
         if (access.is_host) {
           // Səhifə yenilənəndə nömrələmə 0-dan başlasa, əvvəlki hissələrin
           // mətni üstünə yazılardı.
@@ -384,6 +412,67 @@
       else await startRecording();
     });
 
+    /* ---- İnteraktiv lövhə (Faza 4, 2026-11-06) ---- */
+
+    const boardState = createBoardState();
+    const boardCanvas = $('boardCanvas');
+    const boardCtx = boardCanvas.getContext('2d');
+    let isHost = false;
+    let drawing = false;
+    let lastPoint = null;
+
+    function broadcastBoard(msg) {
+      if (!room) return;
+      room.localParticipant.publishData(encodeMessage(msg), { reliable: true, topic: 'board' });
+    }
+
+    function pointFromEvent(event) {
+      const rect = boardCanvas.getBoundingClientRect();
+      return normalize(event.clientX, event.clientY, rect);
+    }
+
+    boardCanvas.addEventListener('pointerdown', (event) => {
+      if (!isHost) return;
+      drawing = true;
+      lastPoint = pointFromEvent(event);
+      boardCanvas.setPointerCapture(event.pointerId);
+    });
+    boardCanvas.addEventListener('pointermove', (event) => {
+      if (!isHost || !drawing) return;
+      const point = pointFromEvent(event);
+      const seg = makeSegment(lastPoint.x, lastPoint.y, point.x, point.y);
+      lastPoint = point;
+      applyMessage(boardState, seg);
+      drawSegment(boardCtx, seg);
+      broadcastBoard(seg);
+    });
+    boardCanvas.addEventListener('pointerup', () => { drawing = false; });
+    boardCanvas.addEventListener('pointercancel', () => { drawing = false; });
+
+    $('boardButton').addEventListener('click', () => {
+      $('boardCard').hidden = !$('boardCard').hidden;
+      if (!$('boardCard').hidden) replay(boardCtx, boardState);
+    });
+    $('boardClearButton').addEventListener('click', () => {
+      applyMessage(boardState, makeClear());
+      replay(boardCtx, boardState);
+      broadcastBoard(makeClear());
+    });
+
+    /** Lövhə boşdursa heç nə göndərmir - OCR-ə boş şəkil göndərmək mənasızdır. */
+    async function uploadBoardIfDrawn() {
+      if (!boardState.segments.length) return;
+      const blob = await new Promise((resolve) => boardCanvas.toBlob(resolve, 'image/png'));
+      if (!blob) return;
+      const form = new FormData();
+      form.append('image', blob, 'lovhe.png');
+      try {
+        await request(`/live/lessons/${lessonId}/board`, { method: 'POST', body: form });
+      } catch {
+        // Dərsi bitirməyi bloklamır - müəllim lövhəni sonra şəkil kimi də yükləyə bilər.
+      }
+    }
+
     $('joinButton').addEventListener('click', join);
     $('micButton').addEventListener('click', () => toggle('mic'));
     $('camButton').addEventListener('click', () => toggle('cam'));
@@ -397,8 +486,9 @@
     $('endButton').addEventListener('click', async () => {
       if (!confirm('Dərs hamı üçün bitsin?')) return;
       try {
-        // Son hissə dərs bitməzdən ƏVVƏL yola düşsün.
+        // Son hissə və lövhə dərs bitməzdən ƏVVƏL yola düşsün.
         await stopRecording();
+        await uploadBoardIfDrawn();
         await request(`/live/lessons/${lessonId}/end`, { method: 'POST' });
         if (room) await room.disconnect();
         // Növbəti addım: dərs mətnindən quiz və konspekt.

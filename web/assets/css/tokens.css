@@ -122,6 +122,9 @@
   --color-cta-edge:           #17933E;
   --color-on-cta:             #0C121A;
 
+  /* ---- KAĞIZ: lövhə/çap səthi, tema DƏYİŞMİR (həqiqi ağ kağız kimi) ---- */
+  --color-paper:              #FFFFFF;
+
   /* ---- QARA SƏTH ---- */
   --color-ink-surface:        #0B0F18;
   --color-ink-soft:           #1E2430;
@@ -296,6 +299,8 @@
  * saxlanılır (istifadəçi seçimi sistem seçimini üstələyir). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --color-paper:         #FFFFFF;
+
     --color-primary:       #6FDB7E;
     --color-primary-soft:  #0F3718;
     --color-on-primary:    #04120A;
@@ -361,6 +366,8 @@
 }
 
 [data-theme="dark"] {
+  --color-paper:         #FFFFFF;
+
   --color-primary:       #6FDB7E;
   --color-primary-soft:  #0F3718;
   --color-on-primary:    #04120A;
