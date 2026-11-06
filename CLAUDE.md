@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2384 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 401 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2387 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-03-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-06-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -757,6 +757,34 @@ bağlıdır, müəllim-tələbə arasında bu şərt həmişə yoxdur. Veb:
 
 Bununla Faza 3 («İdarəetmə paneli») planın 3 PR-i tamamlandı — bax PR
 siyahısı. Heç biri real istifadədə (real tələbə/müəllim) hələ sınanmayıb.
+
+## Faza 4 «Lövhə, dərs yazısı və YouTube təkrarı» (2026-11-06-dan)
+
+**PR 1 - interaktiv lövhə.** Dərs otağında (`dars.html`) müəllim kətanda
+çəkir, xətt parçaları LiveKit **data kanalı** ilə (`publishData`,
+`topic: 'board'`) tələbələrə canlı gedir - yeni backend endpoint YOXDUR,
+LiveKit token-i artıq `canPublishData: true` idi (gün 2). Koordinatlar
+[0,1]-ə normallaşdırılır (`web/assets/js/whiteboard.js`) ki, müəllimin
+monitoru ilə tələbənin telefonu arasında kətan ölçüsü fərqi xətləri
+korlamasın; hər tərəfdəki kətan sabit `1600x900` daxili ölçüdə saxlanır,
+CSS-də ekrana uyğunlaşır. Panel bağlı olanda da gələn seqmentlər
+`boardState`-ə yığılır (itmir), açılanda `replay` ilə yenidən çəkilir -
+yəni gec açan tələbə əvvəlki xətləri də görür.
+
+**Dərs bitəndə lövhə MÖVCUD OCR axınına gedir:** kətan `canvas.toBlob()`
+ilə PNG-ə çevrilib eyni `POST /live/lessons/{id}/board` endpoint-inə
+(gün 7, foto lövhə üçün yazılmış) göndərilir - ikinci bir yol yazılmadı,
+tesseract mətni dərs mətninə "Lövhədən:" başlığı ilə əlavə olunur. Boş
+lövhə (heç nə çəkilməyib) göndərilmir. Yükləmə uğursuz olsa dərsi
+bitirməyi bloklamır (müəllim foto kimi də yükləyə bilər).
+
+Yeni `--color-paper` tokeni (#FFFFFF, HƏR İKİ temada sabit) əlavə
+olundu - lövhə həqiqi ağ kağız kimi qalmalıdır, tünd rejimdə də.
+
+**Qalan iki bənd (video yazısı + YouTube-a avtomatik yükləmə) qərar
+gözləyir:** LiveKit Egress pulludur, YouTube yükləməsi kanal sahibinin
+Google OAuth-u tələb edir - plandakı "Qərar tələb edən suallar" §3-ə
+bax. Real modellə/real dərs otağında hələ sınanmayıb.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
