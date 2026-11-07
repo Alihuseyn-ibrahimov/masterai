@@ -27,6 +27,7 @@ PUBLIC_ROUTES = {
     ("POST", "/auth/login"): "giriş - token hələ yoxdur",
     ("GET", "/health"): "monitorinq - məlumat daşımır",
     ("GET", "/live/pin/{pin}"): "qonaq PIN-i - tokeni yoxdur, sürət limiti ilə qorunur",
+    ("POST", "/live/egress/webhook"): "LiveKit-in Egress bildirişi - istifadəçi tokeni yoxdur, imza ilə qorunur (verify_webhook)",
 }
 
 # Gövdədə və ya imzada tanınan qapı işarələri.
