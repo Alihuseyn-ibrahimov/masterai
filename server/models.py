@@ -785,6 +785,9 @@ class LessonInfo(BaseModel):
     attended: bool = False
     # Gün 4: dərs mətnindən yaradılan sual bankı (yalnız müəllimə lazımdır).
     question_set_id: int | None = None
+    # Faza 4 PR 2: video yazısı (LiveKit Egress). `None` = heç vaxt başlanmayıb.
+    recording_status: str | None = None
+    recording_url: str | None = None
 
 
 class ReviewIssueOut(BaseModel):

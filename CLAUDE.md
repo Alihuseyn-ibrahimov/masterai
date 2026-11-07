@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2387 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2402 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-06-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-07-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -781,10 +781,31 @@ bitirməyi bloklamır (müəllim foto kimi də yükləyə bilər).
 Yeni `--color-paper` tokeni (#FFFFFF, HƏR İKİ temada sabit) əlavə
 olundu - lövhə həqiqi ağ kağız kimi qalmalıdır, tünd rejimdə də.
 
-**Qalan iki bənd (video yazısı + YouTube-a avtomatik yükləmə) qərar
-gözləyir:** LiveKit Egress pulludur, YouTube yükləməsi kanal sahibinin
-Google OAuth-u tələb edir - plandakı "Qərar tələb edən suallar" §3-ə
-bax. Real modellə/real dərs otağında hələ sınanmayıb.
+**PR 2 - video yazısı (LiveKit Egress).** `server/egress.py`: Egress
+LiveKit Cloud-un özündə işləyir, faylı birbaşa S3-uyğun bucket-ə yazır
+(bizim 2 GB-lıq VPS-dən keçmir) - `S3Upload`-un `endpoint`+
+`force_path_style` sahələri DigitalOcean Spaces (və Minio/R2) üçündür,
+VPS artıq DigitalOcean-dadır. Açarlar (`EGRESS_S3_BUCKET/_REGION/
+_ACCESS_KEY/_SECRET`, `.env.example`) yoxdursa video yazısı söndürülmüş
+sayılır (`POST /live/lessons/{id}/recording/start` → 503) - gün 2-nin
+`LIVEKIT_*` açarları ilə EYNİ fəlsəfə, yəni bu PR-ı yazmaq istifadəçiyə
+heç nəyə başa gəlmir, yalnız açarları qoyanda işə düşür. `recording/stop`
+dərhal "hazır" demir (`recording_status="processing"`) - fayl S3-ə hələ
+yüklənir, `POST /live/egress/webhook` (LiveKit-in özü çağırır, imza ilə
+yoxlanır - `verify_webhook`, istifadəçi tokeni YOXDUR, ona görə
+`PUBLIC_ROUTES`-dadır) nəticəni (`ready`+url və ya `failed`) yazır.
+`lesson_store.py`-a üç sahə (`recording_status/_egress_id/_url`), eyni
+additiv `ALTER TABLE` naxışı. Veb: `dars.html`-də müəllimə «Video
+yazısı» düyməsi (canlı onlayn dərsdə), dərsi bitirəndə yazı gedirsə
+əvvəlcə dayandırılır. **Tapılan real bug:** `livekit-api`-nin
+`WebhookReceiver`-i konstruktora birbaşa `(api_key, api_secret)` yox,
+`TokenVerifier` instansı gözləyir - kodu yazarkən paketin həqiqi API-si
+yoxlanmadan (sənəddən/yaddaşdan) yazılsaydı bu, YALNIZ real bir webhook
+sorğusu gələndə üzə çıxardı; sandbox-da `livekit-api` quraşdırılıb
+introspeksiya ilə tapıldı, test (`test_lesson_recording.py`) real
+imzalı JWT ilə webhook-u sınayır (saxta deyil). YouTube-a avtomatik
+yükləmə (plandakı 3-cü bənd) hələ başlanmayıb - Google OAuth qurulumu
+ayrı qərardır. Real modellə/real dərs otağında hələ sınanmayıb.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

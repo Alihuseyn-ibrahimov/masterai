@@ -83,9 +83,11 @@
     <button class="btn btn--secondary" type="button" id="screenButton" aria-pressed="false">Ekranı paylaş</button>
     <button class="btn btn--ghost" type="button" id="leaveButton">Çıx</button>
     <button class="btn btn--secondary" type="button" id="recordButton" aria-pressed="false" hidden>Səsi yaz (konspekt üçün)</button>
+    <button class="btn btn--secondary" type="button" id="videoRecordButton" aria-pressed="false" hidden>Video yazısı</button>
     <button class="btn btn--danger" type="button" id="endButton" hidden>Dərsi bitir</button>
   </div>
   <p class="text-sm text-muted" id="recordStatus" hidden></p>
+  <p class="text-sm text-muted" id="videoRecordStatus" hidden></p>
 </div>
 
 <nav id="bottomNav"></nav>
@@ -321,6 +323,8 @@
         isHost = access.is_host;
         $('boardButton').hidden = false;
         $('boardClearButton').hidden = !isHost;
+        $('videoRecordButton').hidden = !isHost;
+        showVideoRecordState(lesson.recording_status);
         if (access.is_host) {
           // Səhifə yenilənəndə nömrələmə 0-dan başlasa, əvvəlki hissələrin
           // mətni üstünə yazılardı.
@@ -412,6 +416,32 @@
       else await startRecording();
     });
 
+    /* ---- Video yazısı (LiveKit Egress, Faza 4 PR 2, 2026-11-07) ---- */
+
+    function showVideoRecordState(status) {
+      const label = {
+        recording: 'Video yazılır.', processing: 'Yazı emal olunur...',
+        ready: 'Yazı hazırdır (dərs səhifəsində).', failed: 'Yazı alınmadı.',
+      }[status];
+      $('videoRecordStatus').textContent = label || '';
+      $('videoRecordStatus').hidden = !label;
+      $('videoRecordButton').setAttribute('aria-pressed', String(status === 'recording'));
+      $('videoRecordButton').textContent = status === 'recording' ? 'Video yazısını dayandır' : 'Video yazısı';
+      $('videoRecordButton').disabled = status === 'processing';
+    }
+
+    $('videoRecordButton').addEventListener('click', async () => {
+      showError('');
+      const recording = lesson.recording_status === 'recording';
+      const url = recording ? `/live/lessons/${lessonId}/recording/stop` : `/live/lessons/${lessonId}/recording/start`;
+      try {
+        lesson = await request(url, { method: 'POST' });
+        showVideoRecordState(lesson.recording_status);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
     /* ---- İnteraktiv lövhə (Faza 4, 2026-11-06) ---- */
 
     const boardState = createBoardState();
@@ -486,9 +516,16 @@
     $('endButton').addEventListener('click', async () => {
       if (!confirm('Dərs hamı üçün bitsin?')) return;
       try {
-        // Son hissə və lövhə dərs bitməzdən ƏVVƏL yola düşsün.
+        // Son hissə, lövhə və video yazısı dərs bitməzdən ƏVVƏL yola düşsün.
         await stopRecording();
         await uploadBoardIfDrawn();
+        if (lesson.recording_status === 'recording') {
+          try {
+            await request(`/live/lessons/${lessonId}/recording/stop`, { method: 'POST' });
+          } catch {
+            // Dərsi bitirməyi bloklamır.
+          }
+        }
         await request(`/live/lessons/${lessonId}/end`, { method: 'POST' });
         if (room) await room.disconnect();
         // Növbəti addım: dərs mətnindən quiz və konspekt.

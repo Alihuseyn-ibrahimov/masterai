@@ -282,6 +282,8 @@ CASES = {
     ("GET", "/live/lessons/{lesson_id}/transcript"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("POST", "/live/lessons/{lesson_id}/question-set"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None,
         {"subject": "mentiq"}, None),
+    ("POST", "/live/lessons/{lesson_id}/recording/start"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
+    ("POST", "/live/lessons/{lesson_id}/recording/stop"): ("teacher_b", {"lesson_id": "lesson_a.id"}, None, None, None),
     ("WS", "/ws/chat/{chat_id}"): ("student_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/host"): ("teacher_b", {"session_id": "session_a.id"}, None, None, None),
     ("WS", "/ws/live/sessions/{session_id}/play"): ("student_b", {"session_id": "session_a.id"}, None, None, None),
