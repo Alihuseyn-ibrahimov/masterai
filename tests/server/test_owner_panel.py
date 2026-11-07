@@ -234,6 +234,31 @@ class TestActions:
                                 json={"seat_limit": -1})
         assert r.status_code == 422
 
+    def test_set_and_clear_logo(self, env):
+        cid = env["course"]["id"]
+        r = env["client"].patch(f"/owner/courses/{cid}", headers=_auth(env["owner"]),
+                                json={"logo_url": "https://cdn.example.az/logo.png"})
+        assert r.status_code == 200 and r.json()["logo_url"] == "https://cdn.example.az/logo.png"
+        assert env["users"].courses.get(cid)["logo_url"] == "https://cdn.example.az/logo.png"
+
+        r = env["client"].patch(f"/owner/courses/{cid}", headers=_auth(env["owner"]),
+                                json={"clear_logo": True})
+        assert r.status_code == 200 and r.json()["logo_url"] is None
+        assert env["users"].courses.get(cid)["logo_url"] is None
+
+    def test_logo_url_must_be_http(self, env):
+        r = env["client"].patch(f"/owner/courses/{env['course']['id']}", headers=_auth(env["owner"]),
+                                json={"logo_url": "javascript:alert(1)"})
+        assert r.status_code == 422
+
+    def test_logo_appears_in_student_course_info(self, env):
+        cid = env["course"]["id"]
+        env["client"].patch(f"/owner/courses/{cid}", headers=_auth(env["owner"]),
+                            json={"logo_url": "https://cdn.example.az/logo.png"})
+        student = env["users"].create("tələbə@x.az", "h", "Tələbə", course_id=cid)
+        r = env["client"].get("/me/course", headers=_auth(env["users"].get_by_id(student["id"])))
+        assert r.json()["logo_url"] == "https://cdn.example.az/logo.png"
+
     def test_regenerate_join_code_kills_old_code(self, env):
         cid = env["course"]["id"]
         old = env["course"]["join_code"]

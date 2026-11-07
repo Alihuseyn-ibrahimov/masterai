@@ -271,6 +271,7 @@ a.avatar:hover { text-decoration: none; }
 }
 .brand:hover { text-decoration: none; }
 .brand__accent { color: var(--color-primary); }
+.brand__logo { height: var(--space-8); max-width: var(--space-16); object-fit: contain; }
 
 /* ---- Naviqasiya çərçivəsi ----
  * İki ölçü, bir struktur: geniş ekranda üst zolaqda üfüqi linklər,

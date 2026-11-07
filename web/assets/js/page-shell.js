@@ -4,7 +4,7 @@
 import { ApiError, clearSession, getUser, isLoggedIn, request } from './api.js';
 import { createIcon } from './icon.js';
 import { expiryBannerText, shouldShowExpiryBanner } from './license.js';
-import { renderNavigation } from './nav.js';
+import { applyCourseBranding, renderNavigation } from './nav.js';
 import { rememberNext } from './next-path.js';
 
 /** Tokensiz istifadəçini giriş səhifəsinə göndərir. `replace` işlədilir
@@ -42,7 +42,24 @@ export function mountShell() {
     onLogout: logout,
   });
   mountSkipLink();
-  mountExpiryBanner();
+  mountCourseBranding(bar);
+}
+
+/** Kursu BÜTÜN daxil olmuş istifadəçilər üçün (tələbə daxil) gətirir -
+ *  loqo hər kəsə görünməlidir. Xəbərdarlıq banner isə yalnız müəllimə
+ *  göstərilir (`shouldShowExpiryBanner`). Xəta səssiz udulur - bu
+ *  köməkçi məlumatdır, səhifəni sındırmamalıdır. */
+async function mountCourseBranding(bar) {
+  const user = getUser();
+  if (!user) return;
+  let course;
+  try {
+    course = await request('/me/course');
+  } catch {
+    return;
+  }
+  applyCourseBranding(bar, course);
+  if (user.is_teacher) mountExpiryBanner(course);
 }
 
 /** «Məzmuna keç»: klaviatura ilə gələn hər səhifədə əvvəlcə naviqasiya
@@ -61,18 +78,10 @@ function mountSkipLink() {
 }
 
 /** Abunənin bitməsinə az qalıbsa müəllimə xəbərdarlıq (spec: 5 gün).
- *  Tələbə üçün sorğu HEÇ GÖNDƏRİLMİR. Xəta səssiz udulur - banner
- *  köməkçi məlumatdır, səhifəni sındırmamalıdır (402 isə `request`
- *  içində onsuz da bağlı səhifəyə aparır). */
-async function mountExpiryBanner() {
+ *  Kurs artıq `mountCourseBranding`-də (loqo üçün, HƏR istifadəçiyə)
+ *  gətirilib - burada təkrar sorğu YOXDUR. */
+function mountExpiryBanner(course) {
   const user = getUser();
-  if (!user || !user.is_teacher) return;
-  let course;
-  try {
-    course = await request('/me/course');
-  } catch {
-    return;
-  }
   if (!shouldShowExpiryBanner(user, course)) return;
   // Qorunan səhifələrdə `<main>` YOXDUR - ortaq konteyner `.app-shell`-dir
   // (test_web_pages.py bunu hər səhifədə yoxlayır).

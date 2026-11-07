@@ -178,7 +178,7 @@
 
     function limitsForm(course) {
       const details = el('details', 'disclosure');
-      details.append(el('summary', 'disclosure__summary', 'Limitlər'));
+      details.append(el('summary', 'disclosure__summary', 'Limitlər və loqo'));
       const body = el('div', 'disclosure__body stack');
       const grid = el('div', 'grid');
       grid.style.setProperty('--grid-min', '160px');
@@ -202,13 +202,39 @@
         field.append(labelNode, input);
         grid.append(field);
       }
-      body.append(grid, button('Saxla', 'primary', async () => {
+      body.append(grid);
+
+      // Faza 5 (white-label): loqo linki. Rəng bu fazaya daxil deyil
+      // (əlçatanlıq kontrastı üçün ayrıca qərar lazımdır).
+      const logoField = el('div', 'field');
+      const logoId = `logo_url-${course.id}`;
+      const logoLabel = el('label', 'field__label', 'Loqo linki (https://...)');
+      logoLabel.htmlFor = logoId;
+      const logoInput = el('input', 'field__input');
+      logoInput.type = 'url';
+      logoInput.id = logoId;
+      logoInput.placeholder = 'https://.../logo.png';
+      logoInput.value = course.logo_url || '';
+      logoField.append(logoLabel, logoInput);
+      body.append(logoField);
+      if (course.logo_url) {
+        const preview = el('img');
+        preview.src = course.logo_url;
+        preview.alt = `${course.name} loqosu`;
+        preview.style.height = '32px';
+        body.append(preview);
+      }
+
+      body.append(button('Saxla', 'primary', async () => {
         const payload = {};
         for (const [name, input] of Object.entries(inputs)) {
           if (input.value !== '') payload[name] = Number(input.value);
         }
+        const logoValue = logoInput.value.trim();
+        if (logoValue) payload.logo_url = logoValue;
+        else if (course.logo_url) payload.clear_logo = true;
         await request(`/owner/courses/${course.id}`, { method: 'PATCH', body: payload });
-        flash(okBox, `«${course.name}»: limitlər saxlanıldı.`);
+        flash(okBox, `«${course.name}»: saxlanıldı.`);
         await reload();
       }));
       details.append(body);

@@ -39,7 +39,7 @@ TEACHER_INVITE_TTL = timedelta(days=7)
 
 _COLUMNS = (
     "id, name, profile, status, trial_ends_at, paid_until, seat_limit, "
-    "join_code, upload_limit_student, upload_limit_teacher, created_at"
+    "join_code, upload_limit_student, upload_limit_teacher, created_at, logo_url"
 )
 
 
@@ -105,6 +105,12 @@ def ensure_course_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    # Faza 5 (white-label): hər kursun öz loqosu ola bilər. Additiv
+    # miqrasiya - mövcud kurslarda `logo_url` NULL qalır (loqo yoxdur).
+    try:
+        conn.execute("ALTER TABLE courses ADD COLUMN logo_url TEXT")
+    except sqlite3.OperationalError:
+        pass
     # `INSERT OR IGNORE` + sabit id: iki dəfə açılsa da tək kurs #1 olur.
     conn.execute(
         "INSERT OR IGNORE INTO courses (id, name, profile, status, seat_limit, created_at) "
@@ -283,15 +289,22 @@ class CourseStore:
         seat_limit: int | None = None,
         upload_limit_student: int | None = None,
         upload_limit_teacher: int | None = None,
+        logo_url: str | None = None,
+        clear_logo: bool = False,
     ) -> None:
-        """Yalnız verilən sahələr dəyişir (None = toxunma)."""
+        """Yalnız verilən sahələr dəyişir (None = toxunma).
+        `clear_logo=True` loqonu silir (`logo_url=None` özü "toxunma"
+        demək olduğu üçün silmək üçün ayrıca bayraq lazımdır)."""
         changes = {
             "name": name,
             "seat_limit": seat_limit,
             "upload_limit_student": upload_limit_student,
             "upload_limit_teacher": upload_limit_teacher,
+            "logo_url": logo_url,
         }
         changes = {k: v for k, v in changes.items() if v is not None}
+        if clear_logo:
+            changes["logo_url"] = None
         if not changes:
             return
         assignments = ", ".join(f"{column} = ?" for column in changes)
