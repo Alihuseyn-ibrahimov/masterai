@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2402 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2406 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-07-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -806,6 +806,36 @@ introspeksiya ilə tapıldı, test (`test_lesson_recording.py`) real
 imzalı JWT ilə webhook-u sınayır (saxta deyil). YouTube-a avtomatik
 yükləmə (plandakı 3-cü bənd) hələ başlanmayıb - Google OAuth qurulumu
 ayrı qərardır. Real modellə/real dərs otağında hələ sınanmayıb.
+
+## Faza 5 «White-label» (2026-11-07-dən)
+
+Plan (https://claude.ai/artifact/1rqSVUS6zha6bR6PjkGAt7) hər kursun adı,
+loqosu VƏ əsas rəngini sahib panelindən vermini nəzərdə tutur. **PR 1
+yalnız adı (mövcud idi) + loqoyu edir, rəngi QƏSDƏN XARİC EDİR:**
+dizayn sisteminin WCAG AA kontrast təminatı (`tokens.css` + axe-core
+tarixçəsi, bax yuxarı «Saytın yenidən dizaynı» bölməsinin PR 8-i)
+SABİT palitraya qarşı sınanıb - sahibin özbaşına rəng yazması bu
+təminatı sükutla poza bilər, kontrast yoxlaması mexanizmi olmadan bu
+risklidir. Rəng ayrıca dizayn qərarı tələb edir, bu PR-da yoxdur.
+
+`courses.logo_url` (additiv `ALTER TABLE`, nullable) `GET /me/course`
+ilə HƏR kurs üzvünə (tələbə daxil - loqo hamıya görünməlidir, mövcud
+`join_code` sahəsi kimi yalnız müəllimə məxsus deyil) və sahib panelinə
+(`PATCH /owner/courses/{id}`, `GET /owner/courses`) açılır. Link
+`http(s)://` ilə başlamalıdır (Pydantic validator, `javascript:`
+kimi sxemləri rədd edir). `sahib.html`-də mövcud «Limitlər» bölməsi
+«Limitlər və loqo» oldu - loqo sahəsi + önizləmə.
+
+Tətbiqin üst zolağında (`nav.js::applyCourseBranding`) kursun loqosu
+varsa mətn loqosu («MasterAI») onunla ƏVƏZ OLUNUR, yoxdursa toxunulmur
+- defolt kurs (#1) üçün heç nə dəyişmir. `page-shell.js` kursu artıq
+HƏR istifadəçi üçün gətirir (əvvəl yalnız müəllimin abunə bitmə
+bannerı üçün, `is_teacher`-ə bağlı idi) - banner göstərilməsi hələ də
+yalnız müəllimdədir, sadəcə sorğu TƏKRARLANMIR.
+
+Planın «ilk B2B pilot müştərisi hansı olacaq» sualı hələ CAVABSIZDIR -
+bu PR mexanizmi ümumi edir, konkret müştəriyə tətbiqi gözləyir. Real
+loqo ilə hələ sınanmayıb.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

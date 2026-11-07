@@ -94,6 +94,26 @@ function link(destination, active, className, withIcon) {
 }
 
 /**
+ * Kursun loqosu varsa üst zolaqdakı "MasterAI" mətn loqosunu onunla
+ * əvəz edir (Faza 5, white-label). Loqo yoxdursa toxunmur - standart
+ * mətn loqosu qalır (bax `renderNavigation`-dakı `.brand`).
+ *
+ * @param {HTMLElement} bar - `renderNavigation`-un qurduğu üst zolaq
+ * @param {{ name?: string, logo_url?: string|null }|null} course
+ */
+export function applyCourseBranding(bar, course) {
+  if (!course || !course.logo_url) return;
+  const brand = bar.querySelector('.brand');
+  if (!brand) return;
+  brand.innerHTML = '';
+  const img = document.createElement('img');
+  img.className = 'brand__logo';
+  img.src = course.logo_url;
+  img.alt = course.name || 'Kurs';
+  brand.append(img);
+}
+
+/**
  * Üst zolağı və mobil alt paneli qurur.
  *
  * @param {object} options

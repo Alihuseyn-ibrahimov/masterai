@@ -901,6 +901,7 @@ def get_my_course(
         is_open=course_is_open(course, now),
         profile=course["profile"],
         join_code=course["join_code"] if user["is_teacher"] else None,
+        logo_url=course["logo_url"],
     )
 
 
@@ -927,6 +928,8 @@ _SETTING_WORDS = {
     "seat_limit": "tələbə limiti",
     "upload_limit_student": "tələbə yükləməsi/gün",
     "upload_limit_teacher": "müəllim yükləməsi/gün",
+    "logo_url": "loqo",
+    "clear_logo": "loqo silindi",
 }
 _DAYS_PER_PAID_MONTH = 30
 
@@ -986,6 +989,7 @@ def _owner_course_info(
         join_code=course["join_code"],
         activity_7d=activity,
         last_activity=last_activity,
+        logo_url=course["logo_url"],
     )
 
 
@@ -1129,8 +1133,12 @@ def owner_update_course(
     deps: _OwnerDeps = Depends(),
 ) -> OwnerCourseInfo:
     _owner_course_or_404(deps.users, course_id)
-    changes = req.model_dump(exclude_none=True)
-    deps.users.courses.update_settings(course_id, **changes)
+    # `clear_logo` (defolt `False`) `exclude_none`-la həmişə düşərdi, hər
+    # sorğuda mənasız "loqo silindi" jurnalına səbəb olardı - ayrıca çıxarılır.
+    changes = {k: v for k, v in req.model_dump(exclude={"clear_logo"}).items() if v is not None}
+    deps.users.courses.update_settings(course_id, clear_logo=req.clear_logo, **changes)
+    if req.clear_logo:
+        changes["clear_logo"] = True
     if changes:
         details = ", ".join(f"{_SETTING_WORDS[key]} {value}" for key, value in changes.items())
         deps.users.courses.log_owner_action(

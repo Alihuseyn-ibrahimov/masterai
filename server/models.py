@@ -58,6 +58,8 @@ class MeCourseInfo(BaseModel):
     days_left: int | None
     is_open: bool
     profile: str
+    # Faza 5 (white-label): sahib panelindən verilir, yoxdursa loqo yoxdur.
+    logo_url: str | None = None
     # Tələbənin qeydiyyatda yazdığı kod. YALNIZ müəllimə qaytarılır (tələbədə
     # `None`): kodu bilən istənilən adam kursa tələbə kimi qeydiyyatdan keçir.
     join_code: str | None = None
@@ -685,6 +687,7 @@ class OwnerCourseInfo(BaseModel):
     join_code: str | None
     activity_7d: CourseActivity
     last_activity: str | None
+    logo_url: str | None = None
 
 
 class CreateCourseRequest(BaseModel):
@@ -704,6 +707,16 @@ class UpdateCourseRequest(BaseModel):
     seat_limit: int | None = Field(default=None, ge=1, le=10000)
     upload_limit_student: int | None = Field(default=None, ge=0, le=1000)
     upload_limit_teacher: int | None = Field(default=None, ge=0, le=1000)
+    # Faza 5 (white-label): kursun loqosu. `clear_logo=True` onu silir -
+    # `logo_url=None` özü "dəyişmə" demək olduğu üçün silmək ayrı sahədir.
+    logo_url: str | None = Field(default=None, min_length=1, max_length=500)
+    clear_logo: bool = False
+
+    @model_validator(mode="after")
+    def _logo_url_is_http(self) -> "UpdateCourseRequest":
+        if self.logo_url and not self.logo_url.startswith(("http://", "https://")):
+            raise ValueError("logo_url http(s) linki olmalıdır")
+        return self
 
 
 class JoinCodeInfo(BaseModel):
