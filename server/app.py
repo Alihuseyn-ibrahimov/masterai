@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
+from livekit.api import LiveKitAPI
 
 from server.log_redaction import install_redaction
 
@@ -90,6 +91,7 @@ from .ws_ticket import TICKET_TTL_SECONDS, WsTicketStore
 from .attendance_qr import join_url as qr_join_url
 from .attendance_qr import make_code, qr_svg, site_url, verify_code
 from .attendance_qr import seconds_left as qr_seconds_left
+from .egress import EgressConfig, egress_config, recording_filepath, start_recording, stop_recording, verify_webhook
 from .lesson_store import BOARD_SEQ_START, LessonStore
 from .video import LiveKitConfig, lesson_room, livekit_config, make_join_token
 from .chat_join_request_store import ChatJoinRequestStore
@@ -544,6 +546,19 @@ def get_payment_store() -> PaymentStore:
 def get_livekit_config() -> LiveKitConfig | None:
     """LiveKit açarları (testdə override olunur). `None` = video sönülüdür."""
     return livekit_config()
+
+
+def get_egress_config() -> EgressConfig | None:
+    """S3-uyğun bucket açarları (testdə override olunur). `None` = video yazısı sönülüdür."""
+    return egress_config()
+
+
+def get_egress_client_factory():
+    """LiveKit `EgressService`-ə çıxışı olan klient quran funksiya - testdə
+    saxta klient qaytaran funksiya ilə əvəz olunur (real şəbəkəyə getmir)."""
+    def _make(livekit: LiveKitConfig):
+        return LiveKitAPI(livekit.url, livekit.api_key, livekit.api_secret)
+    return _make
 
 
 def get_transcriber():
@@ -3038,6 +3053,7 @@ def _lesson_info(lesson: dict, chats: ChatStore, *, attended: bool = False) -> L
         duration_min=lesson["duration_min"], mode=lesson["mode"], status=lesson["status"],
         notes=lesson["notes"], started_at=lesson["started_at"], ended_at=lesson["ended_at"],
         attended=attended, question_set_id=lesson.get("question_set_id"),
+        recording_status=lesson.get("recording_status"), recording_url=lesson.get("recording_url"),
     )
 
 
@@ -3351,6 +3367,92 @@ def end_lesson(
     if lesson["status"] != "live":
         raise HTTPException(status_code=409, detail="Dərs canlı deyil")
     return _lesson_info(lessons.set_status(lesson_id, "ended"), chats)
+
+
+@app.post("/live/lessons/{lesson_id}/recording/start", response_model=LessonInfo)
+async def start_lesson_recording(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    livekit: LiveKitConfig | None = Depends(get_livekit_config),
+    egress: EgressConfig | None = Depends(get_egress_config),
+    client_factory=Depends(get_egress_client_factory),
+) -> LessonInfo:
+    """Canlı onlayn dərsin videosunu LiveKit Egress ilə yazmağa başlayır.
+    Fayl birbaşa S3-uyğun bucket-ə gedir (bax `egress.py`) - bitəndə
+    `/live/egress/webhook` nəticəni yazır."""
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson["mode"] != "online":
+        raise HTTPException(status_code=409, detail="Bu dərs sinifdə keçirilir, video yazısı yoxdur")
+    if lesson["status"] != "live":
+        raise HTTPException(status_code=409, detail="Dərs canlı deyil")
+    if livekit is None or egress is None:
+        raise HTTPException(status_code=503, detail="Video yazısı hələ qurulmayıb (LiveKit/bucket açarları yoxdur)")
+    if lesson.get("recording_status") == "recording":
+        raise HTTPException(status_code=409, detail="Yazı artıq gedir")
+    client = client_factory(livekit)
+    try:
+        egress_id = await start_recording(
+            client, room=lesson_room(lesson_id),
+            filepath=recording_filepath(lesson_id, int(time.time())), egress=egress,
+        )
+    finally:
+        await client.aclose()
+    updated = lessons.set_recording(lesson_id, status="recording", egress_id=egress_id)
+    return _lesson_info(updated, chats)
+
+
+@app.post("/live/lessons/{lesson_id}/recording/stop", response_model=LessonInfo)
+async def stop_lesson_recording(
+    lesson_id: int,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    lessons: LessonStore = Depends(get_lesson_store),
+    livekit: LiveKitConfig | None = Depends(get_livekit_config),
+    client_factory=Depends(get_egress_client_factory),
+) -> LessonInfo:
+    lesson = _lesson_for_member(lessons, chats, lesson_id, user)
+    if lesson.get("recording_status") != "recording":
+        raise HTTPException(status_code=409, detail="Yazı getmir")
+    if livekit is None:
+        raise HTTPException(status_code=503, detail="Video yazısı hələ qurulmayıb")
+    client = client_factory(livekit)
+    try:
+        await stop_recording(client, lesson["recording_egress_id"])
+    finally:
+        await client.aclose()
+    # Fayl S3-ə hələ yüklənir - `ready`/`failed`-i `/live/egress/webhook` yazacaq.
+    updated = lessons.set_recording(lesson_id, status="processing")
+    return _lesson_info(updated, chats)
+
+
+@app.post("/live/egress/webhook", include_in_schema=False)
+async def egress_webhook(
+    request: Request,
+    lessons: LessonStore = Depends(get_lesson_store),
+    livekit: LiveKitConfig | None = Depends(get_livekit_config),
+) -> dict:
+    """LiveKit-in Egress bitmə bildirişi - imza yoxlanır (bax `egress.py`),
+    saxta bildiriş qəbul olunmur. Dərsə bağlı deyilsə (başqa otaq) susur."""
+    if livekit is None:
+        raise HTTPException(status_code=503, detail="Video yazısı qurulmayıb")
+    body = (await request.body()).decode("utf-8")
+    try:
+        event = verify_webhook(livekit, body, request.headers.get("Authorization", ""))
+    except Exception:
+        raise HTTPException(status_code=401, detail="İmza doğrulanmadı")
+    if event.event != "egress_ended":
+        return {"ok": True}
+    info = event.egress_info
+    lesson = lessons.get_by_egress_id(info.egress_id)
+    if lesson is None:
+        return {"ok": True}
+    if info.file_results:
+        lessons.set_recording(lesson["id"], status="ready", url=info.file_results[0].location)
+    else:
+        lessons.set_recording(lesson["id"], status="failed")
+    return {"ok": True}
 
 
 @app.get("/live/lessons/{lesson_id}/attendance", response_model=list[LessonAttendanceRow])

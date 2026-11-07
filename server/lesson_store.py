@@ -21,8 +21,13 @@ LESSON_STATUSES = ("scheduled", "live", "ended")
 
 _COLUMNS = (
     "id, chat_id, course_id, created_by, title, description, starts_at, "
-    "duration_min, mode, status, notes, started_at, ended_at, created_at, updated_at, question_set_id"
+    "duration_min, mode, status, notes, started_at, ended_at, created_at, updated_at, question_set_id, "
+    "recording_status, recording_egress_id, recording_url"
 )
+
+# Video yazısının gedişi (Faza 4 PR 2, 2026-11-07). `recording_status`
+# NULL = heç vaxt başlanmayıb (köhnə dərslər də belədir).
+RECORDING_STATUSES = ("recording", "processing", "ready", "failed")
 
 
 # Səs hissələri 0-999 (gün 3), lövhə şəkilləri 1000-dən (gün 7). Eyni
@@ -92,6 +97,12 @@ class LessonStore:
                 self._conn.execute("ALTER TABLE lessons ADD COLUMN question_set_id INTEGER")
             except sqlite3.OperationalError:
                 pass
+            # Faza 4 PR 2: video yazısı (LiveKit Egress). Eyni ALTER TABLE naxışı.
+            for column in ("recording_status TEXT", "recording_egress_id TEXT", "recording_url TEXT"):
+                try:
+                    self._conn.execute(f"ALTER TABLE lessons ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass
             self._conn.commit()
 
     def _get(self, lesson_id: int) -> dict | None:
@@ -184,6 +195,35 @@ class LessonStore:
             )
             self._conn.commit()
             return self._get(lesson_id)
+
+    # ---- Video yazısı (Faza 4 PR 2) ----
+
+    def set_recording(self, lesson_id: int, *, status: str, egress_id: str | None = None,
+                       url: str | None = None) -> dict | None:
+        if status not in RECORDING_STATUSES:
+            raise ValueError(status)
+        with self._lock:
+            if egress_id is not None:
+                self._conn.execute(
+                    "UPDATE lessons SET recording_status = ?, recording_egress_id = ?, "
+                    "recording_url = ?, updated_at = ? WHERE id = ?",
+                    (status, egress_id, url, _utc_now_iso(), lesson_id),
+                )
+            else:
+                # Egress bitəndə (webhook) ID dəyişmir, yalnız status/url yenilənir.
+                self._conn.execute(
+                    "UPDATE lessons SET recording_status = ?, recording_url = ?, updated_at = ? WHERE id = ?",
+                    (status, url, _utc_now_iso(), lesson_id),
+                )
+            self._conn.commit()
+            return self._get(lesson_id)
+
+    def get_by_egress_id(self, egress_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {_COLUMNS} FROM lessons WHERE recording_egress_id = ?", (egress_id,)
+            ).fetchone()
+        return dict(row) if row else None
 
     def delete(self, lesson_id: int) -> None:
         with self._lock:

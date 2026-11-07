@@ -192,7 +192,9 @@ class TestNoLiveEndpointForgetsTheGate:
 
         # PIN yoxlaması qonaq üçündür (tokeni yoxdur) — qəsdən açıqdır,
         # sürət limiti ilə qorunur (test_live_pin_join.py).
-        public = {"/live/pin/{pin}"}
+        # Egress webhook-u LiveKit-in özü çağırır (istifadəçi tokeni yoxdur),
+        # imza ilə qorunur (`verify_webhook`, bax test_endpoint_guards.py).
+        public = {"/live/pin/{pin}", "/live/egress/webhook"}
         ungated = [
             path for path, signature in routes
             if "get_current_teacher" not in signature and path not in public
