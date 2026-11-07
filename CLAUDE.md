@@ -834,8 +834,13 @@ bannerı üçün, `is_teacher`-ə bağlı idi) - banner göstərilməsi hələ d
 yalnız müəllimdədir, sadəcə sorğu TƏKRARLANMIR.
 
 Planın «ilk B2B pilot müştərisi hansı olacaq» sualı hələ CAVABSIZDIR -
-bu PR mexanizmi ümumi edir, konkret müştəriyə tətbiqi gözləyir. Real
-loqo ilə hələ sınanmayıb.
+bu PR mexanizmi ümumi edir, konkret müştəriyə tətbiqi gözləyir.
+
+**Brauzerdə sınanıb (2026-11-07, lokal, saxta loqo linki ilə):** sahib
+loqonu yazır → API-də saxlanılır → həm müəllim, həm tələbə zolağında
+mətn loqosu `<img>` ilə əvəz olunur → sahib loqonu silir → mətn loqosu
+qayıdır. JS xətası yoxdur. Real loqo şəkli və produksiyada hələ
+sınanmayıb.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
