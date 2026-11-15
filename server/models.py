@@ -483,6 +483,33 @@ class ExpenseOut(BaseModel):
     created_at: str
 
 
+class ReceiptReadRequest(BaseModel):
+    text: str = Field(min_length=5, max_length=4000)
+
+
+class ReceiptCandidate(BaseModel):
+    chat_id: int
+    chat_name: str
+    student_id: int
+    display_name: str
+    monthly_amount: int | None
+    paid: bool                  # qəbzin ayı üçün artıq «ödədi» qeydi var
+
+
+class ReceiptReadOut(BaseModel):
+    """Oxunmuş qəbz TƏKLİFDİR: «Ödədi» yalnız rəhbər təsdiqləyəndə yazılır."""
+    found: bool
+    source: str                 # llm | rules | none
+    dropped: list[str]          # mətndə tapılmadığı üçün atılan sahələr
+    amount: float | None = None
+    date: str | None = None
+    payer: str | None = None
+    card_last4: str | None = None
+    student: str | None = None
+    month: str | None = None    # «YYYY-AA»
+    candidates: list[ReceiptCandidate] = []
+
+
 class KassaStudentRequest(BaseModel):
     chat_id: int
     student_id: int

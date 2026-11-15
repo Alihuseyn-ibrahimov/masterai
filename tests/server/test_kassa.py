@@ -239,3 +239,60 @@ def test_remind_writes_to_class_chat(env):
     assert r.status_code == 204, r.text
     text = env["messages"].list_by_chat(env["chat"]["id"])[-1]["content"]
     assert "Murad" in text and "120 AZN" in text and "2026-11" in text
+
+
+# ---------- qəbz oxuyucusu (addım 5) ----------
+
+def test_match_receipt_needs_first_name_and_prefers_same_family():
+    people = [
+        Enrollment(1, "A", 1, "Aysel Məmmədova", "2026-09-01T00:00:00+00:00", 120),
+        Enrollment(2, "B", 2, "Aysel Quliyeva", "2026-09-01T00:00:00+00:00", 100),
+        Enrollment(1, "A", 3, "Murad Quliyev", "2026-09-01T00:00:00+00:00", 120),
+    ]
+    assert kassa.match_receipt(None, "X", people) == []
+    assert [e.student_id for e in kassa.match_receipt("aysel", None, people)] == [1, 2]
+    # Ödəyən «QULIYEV» (bank SMS-i latın böyük hərflə): qızın soyadı «Quliyeva».
+    assert [e.student_id for e in kassa.match_receipt("Aysel", "RAUF QULIYEV", people)] == [2, 1]
+    assert kassa.match_receipt("Leyla", None, people) == []
+
+
+def test_receipt_month_handles_year_boundary():
+    assert kassa.receipt_month(1, "2026-12-28", "2026-12-30") == "2027-01"
+    assert kassa.receipt_month(12, "2027-01-03", "2027-01-05") == "2026-12"
+    assert kassa.receipt_month(11, None, "2026-11-15") == "2026-11"
+    assert kassa.receipt_month(None, "2026-10-02", "2026-11-15") == "2026-10"
+
+
+def test_receipt_endpoint_returns_candidates_and_writes_nothing(env):
+    from pipeline.receipt_reader import read_receipt
+    from server.app import get_receipt_reader
+
+    app.dependency_overrides[get_receipt_reader] = lambda: (lambda text: read_receipt(text, None))
+    text = "Salam müəllim, Ayselin noyabr pulunu köçürdüm, 120 AZN. *4417 kartından."
+    r = env["client"].post("/live/kassa/receipt", json={"text": text}, headers=_auth(env["boss"]))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["found"] and body["source"] == "rules"
+    assert body["amount"] == 120 and body["student"] == "Aysel" and body["card_last4"] == "4417"
+    assert body["month"].endswith("-11")
+    assert [c["student_id"] for c in body["candidates"]] == [env["s1"]["id"]]
+    assert body["candidates"][0]["monthly_amount"] == 120 and body["candidates"][0]["paid"] is False
+    assert env["payments"].list_records_for_chats([env["chat"]["id"]], "2000-01", "2100-12") == []
+
+    env["payments"].mark_paid(env["chat"]["id"], env["s1"]["id"], body["month"], 120,
+                              marked_by=env["boss"]["id"])
+    again = env["client"].post("/live/kassa/receipt", json={"text": text}, headers=_auth(env["boss"]))
+    assert again.json()["candidates"][0]["paid"] is True
+
+    empty = env["client"].post("/live/kassa/receipt", json={"text": "salam, sabah gələcəyik"},
+                               headers=_auth(env["boss"]))
+    assert empty.json() == {**empty.json(), "found": False, "source": "none", "candidates": []}
+
+
+def test_receipt_endpoint_is_admin_only(env):
+    body = {"text": "120 AZN Aysel"}
+    assert env["client"].post("/live/kassa/receipt", json=body).status_code == 401
+    assert env["client"].post("/live/kassa/receipt", json=body,
+                              headers=_auth(env["teacher"])).status_code == 403
+    assert env["client"].post("/live/kassa/receipt", json={"text": "x" * 4001},
+                              headers=_auth(env["boss"])).status_code == 422

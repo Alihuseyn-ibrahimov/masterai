@@ -130,3 +130,18 @@ python -m ml.churn.deep --students 800 --seed 7 --out /tmp/kassa-deep
 - `ml/churn/deep.py`: qayda, LogReg (əsas / + trend), MLP, GRU eyni bölgüdə.
   torch testləri (`tests/test_churn_deep.py`) CI-da keçilir.
 - Nəticə: heç biri «neçə gündür susub» sıralamasını keçmədi; təhlil spec-dədir.
+
+## Addım 5: qəbz oxuyucusu (QLoRA + vLLM)
+
+```bash
+python -m ml.receipts.sft --per-family 400 --seed 7 --out /tmp/receipts   # + qaydalı bazanın nəticəsi
+python -m ml.receipts.score --gold /tmp/receipts/test_unseen.jsonl --rules --pred qlora.jsonl
+```
+
+- `ml/receipts/synth.py`: 6 mətn növü, `HELD_OUT = ("ewallet", "messenger")` öyrətməyə düşmür.
+- `ml/receipts/sft.py`: chat formatı (produksiya promptu ilə eyni), train/val/test_seen/test_unseen.
+- `ml/receipts/score.py`: sahə üzrə dəqiqlik, «hamısı düz», JSON oxunma faizi; adlar `normalize` ilə.
+- `pipeline/receipt_reader.py`: produksiya oxuyucusu (LLM → `grounded` → yoxsa qaydalar).
+- `ml/qlora_receipts.ipynb`: Colab-da öyrətmə, müqayisə, vLLM multi-LoRA, `guided_json`, sürət.
+- Nəticə və şərh: spec, «Addım 5».
+
