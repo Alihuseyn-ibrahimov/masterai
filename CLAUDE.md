@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2517 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2534 pytest (+2 torch, 4 CrewAI, 3 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-15-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -894,6 +894,17 @@ görülməyənlərdə 50%. `ml/qlora_receipts.ipynb` (Qwen2.5-1.5B, multi-LoRA v
 `guided_json`) burada İŞLƏDİLMƏYİB: QLoRA rəqəmi Colab-da alınmalıdır.
 Python-da `"iyul".capitalize()` «Iyul» verir (İ yox): `synth.az_capitalize`,
 müqayisə həmişə `normalize` ilə.
+
+**Addım 6 - Kassa agentləri (CrewAI + AutoGen + guardrails).** `kassa_agents/`, rəhbərin
+kompüterində (serverə QOYULMUR, `report` CrewAI venv-i, `ask` AutoGen venv-i ilə). Data
+`GET /live/kassa`-dan rəhbərin tokeni ilə, agentlər heç nə yazmır. `report_crew.py`:
+Maliyyə analitiki → Risk analitiki → Hesabat redaktoru (`MasterAILLM`). `sql_team.py`:
+SQL analitiki (`run_sql` aləti) + Yoxlayıcı («YEKUN»). Qoruyucu qat `facts.py`-dədir (stdlib,
+CI): ad LLM-ə GETMİR (`anonymize`, sualda da `alias_names`), mənbədə olmayan rəqəmli cümlə
+atılır (`ground_report`; «2. Şagird 2: ...» kimi siyahı nömrəsi cümlə sayılmır), SQL yaddaşdakı
+anonim SURƏTƏ gedir və sqlite authorizer yalnız oxumağa icazə verir, injection
+`guardrails.check_input`-la. AutoGen testində `ReplayChatCompletionClient`-ə
+`model_info={"function_calling": True, ...}` verilməlidir, yoxsa alətli agent qurulmur.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

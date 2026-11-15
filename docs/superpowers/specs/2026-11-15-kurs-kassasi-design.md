@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli) və addım 4 (trend əlamətləri + PyTorch) hazırdır. Növbəti addımlar: feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli), addım 4 (trend əlamətləri + PyTorch), addım 5 (qəbz oxuyucusu) və addım 6 (agentlər + qoruyucu qat) hazırdır. Növbəti: eval (addım 7), pilot və təqdimat (addım 8).
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -250,6 +250,39 @@ gələcəkdə `masterai-mcq` ilə eyni GPU), **`guided_json`** (dekodlaşdırma
 `Receipt` sxeminə bağlanır: JSON oxunma 100% olmalıdır, sual məzmundur) və
 `ml/bench_llm.py` ilə gecikmə. Notebook burada İŞLƏDİLMƏYİB (GPU yoxdur):
 QLoRA nəticəsi Colab-da alınmalıdır.
+
+## Addım 6: Kassa agentləri - CrewAI + AutoGen + guardrails (5-ci ay #36, #39, #40)
+
+`kassa_agents/`, rəhbərin kompüterində işləyir (CrewAI və AutoGen serverə QOYULMUR,
+ikisi də ayrı venv-dədir: protobuf toqquşması). Data mövcud `GET /live/kassa` ilə
+rəhbərin öz tokeni ilə gəlir (`teacher_mcp.MasterAIClient`), agentlər heç nə YAZMIR.
+
+```
+python -m kassa_agents.cli report --month 2026-11 --out kassa.md   # CrewAI
+python -m kassa_agents.cli ask "Hansı qrupda borc ən çoxdur?"      # AutoGen
+```
+
+**Aylıq hesabat (CrewAI, `report_crew.py`):** Maliyyə analitiki → Risk analitiki →
+Hesabat redaktoru, ardıcıl proses, LLM bizim fallback zəncirimizdir (`MasterAILLM`).
+Nəticə üç bölmədir: Pul, Risk, Bu həftə (3 konkret addım).
+
+**Kassaya sual (AutoGen, `sql_team.py`):** SQL analitiki `run_sql` aləti ilə
+Kassanın yaddaşdakı ANONİM surətinə sorğu yazır, Yoxlayıcı cavabı alətin nəticəsi
+ilə tutuşdurub «YEKUN» ilə bitirir. LLM rəqəmi «təxmin» etmir, cədvəldən oxuyur.
+
+**Qoruyucu qat (`facts.py`, stdlib, CI-da sınanır):**
+
+| Risk | Qayda |
+|---|---|
+| Şagird adı kənar LLM-ə gedir | `anonymize`: borclular «Şagird N», `student_id` və xərc qeydi atılır; sualdakı real ad da ləqəbə çevrilir (`alias_names`), ad yalnız rəhbərin kompüterində qaytarılır (`deanonymize`) |
+| Agent rəqəm uydurur | `ground_report`: xülasədə (hesabat) və ya alət nəticəsində (sual) olmayan rəqəm daşıyan cümlə atılır, rəhbər atılan cümlələrin sayını görür. «1 200» = «1200», faiz və saylar (borclu sayı, yığım faizi) icazəlidir |
+| SQL ilə yazma, fayl, sonsuz sorğu | `safe_query`: yalnız bir SELECT/WITH, sqlite authorizer yalnız oxumağa icazə verir (ATTACH, PRAGMA, load_extension, DML rədd), addım limiti sonsuz rekursiyanı kəsir, 200 sətir. Baza onsuz da yaddaşda surətdir |
+| Prompt injection | `pipeline.guardrails.check_input` (tutor ilə eyni): injection LLM-dən ƏVVƏL bloklanır, telefon/kart maskalanır |
+
+**Sınaq:** qoruyucu qat 17 testlə (CI), CrewAI komandası saxta LLM ilə (real CrewAI,
+LLM real adı görmür, uydurulmuş proqnoz atılır), AutoGen komandası
+`ReplayChatCompletionClient` ilə (real AutoGen: alət çağırışı, `DELETE` rədd, injection
+blok, modelə gedən heç bir mesajda real ad yoxdur). Real modellə hələ işlədilməyib.
 
 ## Açıq suallar
 
