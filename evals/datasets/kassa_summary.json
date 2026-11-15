@@ -1,0 +1,39 @@
+{
+  "month": "2026-11",
+  "expected": 4200,
+  "collected": 3150,
+  "outstanding": 1050,
+  "collection_rate": 0.75,
+  "expenses_total": 1900,
+  "net": 1250,
+  "students_without_fee": 2,
+  "debtors": [
+    {"chat_id": 1, "chat_name": "Abituriyent A", "student_id": 11, "display_name": "Kamran Əliyev", "amount": 300, "days_overdue": 46, "unpaid_months": 2, "last_paid_month": "2026-09", "likely_left": true},
+    {"chat_id": 1, "chat_name": "Abituriyent A", "student_id": 12, "display_name": "Nigar Həsənova", "amount": 150, "days_overdue": 15, "unpaid_months": 1, "last_paid_month": "2026-10", "likely_left": false},
+    {"chat_id": 2, "chat_name": "Magistr B", "student_id": 21, "display_name": "Elvin Quliyev", "amount": 360, "days_overdue": 75, "unpaid_months": 3, "last_paid_month": "2026-08", "likely_left": true},
+    {"chat_id": 2, "chat_name": "Magistr B", "student_id": 22, "display_name": "Aysel", "amount": 120, "days_overdue": 8, "unpaid_months": 1, "last_paid_month": "2026-10", "likely_left": false},
+    {"chat_id": 3, "chat_name": "Dövlət qulluğu C", "student_id": 31, "display_name": "Tural Rzayev", "amount": 60, "days_overdue": 5, "unpaid_months": 1, "last_paid_month": "2026-10", "likely_left": false},
+    {"chat_id": 3, "chat_name": "Dövlət qulluğu C", "student_id": 32, "display_name": "Səbinə", "amount": 60, "days_overdue": 5, "unpaid_months": 1, "last_paid_month": null, "likely_left": false}
+  ],
+  "by_chat": [
+    {"chat_id": 1, "chat_name": "Abituriyent A", "students": 14, "expected": 2100, "collected": 1650},
+    {"chat_id": 2, "chat_name": "Magistr B", "students": 10, "expected": 1200, "collected": 720},
+    {"chat_id": 3, "chat_name": "Dövlət qulluğu C", "students": 15, "expected": 900, "collected": 780}
+  ],
+  "expenses_by_category": [
+    {"category": "icarə", "amount": 1000},
+    {"category": "müəllim", "amount": 700},
+    {"category": "reklam", "amount": 200}
+  ],
+  "expenses": [
+    {"id": 1, "month": "2026-11", "category": "icarə", "amount": 1000, "note": "Nərimanov filialı", "created_at": "2026-11-01T09:00:00Z"},
+    {"id": 2, "month": "2026-11", "category": "müəllim", "amount": 700, "note": "Rəşad müəllim, əlavə dərs", "created_at": "2026-11-03T09:00:00Z"},
+    {"id": 3, "month": "2026-11", "category": "reklam", "amount": 200, "note": "Instagram", "created_at": "2026-11-05T09:00:00Z"}
+  ],
+  "trend": [
+    {"month": "2026-08", "expected": 3800, "collected": 3610, "expenses": 1800, "net": 1810},
+    {"month": "2026-09", "expected": 4000, "collected": 3600, "expenses": 1850, "net": 1750},
+    {"month": "2026-10", "expected": 4200, "collected": 3570, "expenses": 1900, "net": 1670},
+    {"month": "2026-11", "expected": 4200, "collected": 3150, "expenses": 1900, "net": 1250}
+  ]
+}

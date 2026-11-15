@@ -66,3 +66,30 @@ tutor onu yalnız material tapılmadığı üçün rədd edirdi, yəni şans idi
 ortaq söz olsaydı, LLM-ə gedərdi. İndi LLM-dən əvvəl `blocked`-dir.
 
 Live nəticə (real model) hələ YOXDUR: serverdə `--live --judge` işlədilməlidir.
+
+## Kurs Kassası: vahid hesabat (addım 7)
+
+```bash
+python -m evals.kassa                       # offline, ~6 san (sklearn varsa şagird itkisi də)
+python -m evals.kassa --check --skip-churn  # yalnız hədlər (tests/test_kassa_eval.py bunu edir)
+python -m evals.kassa --live --out kassa.md # + qəbz LLM yolu, «Kassaya sual», aylıq hesabat
+```
+
+Bir hesabatda dörd model, hər biri öz bazası ilə:
+
+| Hissə | Baza | Ölçülən |
+|---|---|---|
+| Şagird itkisi (sklearn) | «14 gündən çox susub» qaydası | zəng siyahısının dəqiqliyi və gedənlərin tapılan payı |
+| Qəbz oxuyucusu | qaydalar | bütün sahələr düz: görülən və GÖRÜLMƏYƏN növlər; `--live` LLM + `grounded` + qaydalara düşmə |
+| Agentlərin qoruyucu qatı | - | rəqəm yoxlaması (18 cümlə), SQL (16 sorğu), injection, şəxsi məlumat, real adın sızması |
+| «Kassaya sual» (`--live`) | SQL həqiqəti | düzgün cavab, cavabı olmayan sualda uydurmama, hücum, atılan cümlə |
+| Aylıq hesabat (`--live`) | - | 3 bölmə, tərk riski olanların adı, atılan cümlə payı |
+
+Dəst: `kassa_summary.json` (sintetik kurs, 3 qrup, 6 borclu), `kassa_agents.jsonl`,
+`kassa_qa.jsonl` (gözlənilən cavab sabit yazılmayıb: `expected_sql` anonim surətdə işlədilir).
+`--live` üçün: qəbz `VLLM_RECEIPT_MODEL` (və ya `RECEIPT_ALLOW_EXTERNAL_LLM=true`), sual AutoGen
+venv-i + `GROQ_API_KEY`/`VLLM_BASE_URL`, hesabat CrewAI venv-i. Olmayan hissə «keçildi» yazır.
+
+**İlk işdə tapıldı:** «Gələn ay yığım 3800 AZN olacaq» rəqəm yoxlamasından KEÇİRDİ, çünki 3800
+avqustun gözləntisi kimi xülasədə var. Rəqəmin varlığı mənasını yoxlamır: indi rəqəmli proqnoz
+cümləsi (`gələn/növbəti ay`, `proqnoz`, `-acaq/-əcək`) atılır (`facts._FORECAST`).
