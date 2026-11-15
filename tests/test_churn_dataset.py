@@ -163,8 +163,9 @@ def test_features_ignore_future_events(tables, rows):
     )
     for r in rows[::40]:
         t = datetime.fromisoformat(r["snapshot"]).replace(tzinfo=UTC)
+        # Addım 4-ün trend əlamətləri də (FEATURES_V2) gələcəyi görməməlidir.
         assert dataset.features(future_junk, t, r["chat_id"], r["student_id"]) == {
-            k: r[k] for k in dataset.FEATURES
+            k: r[k] for k in dataset.FEATURES_V2
         }
 
 
@@ -179,7 +180,7 @@ def test_features_never_read_truth(tables, rows):
 
 def test_every_row_has_all_features(rows):
     for r in rows:
-        assert set(dataset.FEATURES) <= r.keys()
+        assert set(dataset.FEATURES_V2) <= r.keys()
         assert r["churned"] in (0, 1)
 
 
@@ -214,3 +215,40 @@ def test_cli_writes_dataset(tmp_path, capsys):
 
 def test_window_boundary_is_thirty_days():
     assert dataset.LABEL_WINDOW == timedelta(days=30)
+
+
+# ---------- addım 4: trend əlamətləri və aylıq ardıcıllıq ----------
+
+def test_engineered_features_on_tiny_case():
+    # Oktyabr dərsinə gəlib, noyabr dərsini buraxıb: dekabrın 1-də 1 ardıcıl buraxılış.
+    t = _tiny(lesson_attendance=[Attendance(1, 7, _d(2025, 10, 14, 10, 2))])
+    f = dataset.features(t, datetime(2025, 12, 1, tzinfo=UTC), 1, 7)
+    assert f["missed_lessons_streak"] == 1
+    assert f["days_since_lesson"] == 47.6
+    assert f["attend_trend"] == f["attend_rate_30d"] - f["attend_rate_prev_30d"]
+    # Heç bir ay ödənməyib: son 3 ayın hamısı «gec».
+    assert f["late_months_3m"] == 3
+
+
+def test_sequence_shape_and_enrollment():
+    from ml.churn import sequence
+    t = _tiny(lesson_attendance=[Attendance(1, 7, _d(2025, 10, 14, 10, 2))])
+    seq = sequence.sequence(t, datetime(2025, 12, 1, tzinfo=UTC), 1, 7)
+    assert len(seq) == sequence.MONTHS
+    assert all(len(step) == len(sequence.STEP_FEATURES) for step in seq)
+    # İyun-avqust: şagird hələ yox idi (sentyabrda qoşulub).
+    assert [step[0] for step in seq] == [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+    assert seq[4][1] == 1.0 and seq[5][1] == 0.0  # oktyabrda gəlib, noyabrda yox
+
+
+def test_sequences_ignore_future_events(tables, rows):
+    from ml.churn import sequence
+    sample = rows[::60]
+    junk = replace(
+        tables,
+        lesson_attendance=tables.lesson_attendance
+        + [Attendance(1, r["student_id"], _d(2026, 6, 20)) for r in sample],
+        payment_records=tables.payment_records
+        + [PaymentRecord(r["chat_id"], r["student_id"], "2025-10", 1, _d(2026, 6, 20)) for r in sample],
+    )
+    assert sequence.build_sequences(junk, sample) == sequence.build_sequences(tables, sample)

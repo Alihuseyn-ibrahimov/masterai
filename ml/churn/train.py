@@ -51,8 +51,8 @@ CV_FOLDS = 3
 DSA = dataset.FEATURES.index("days_since_activity")
 
 
-def matrix(rows: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    x = np.array([[float(r[k]) for k in dataset.FEATURES] for r in rows])
+def matrix(rows: list[dict], features: list[str] = dataset.FEATURES) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    x = np.array([[float(r[k]) for k in features] for r in rows])
     y = np.array([int(r["churned"]) for r in rows])
     snaps = np.array([r["snapshot"] for r in rows])
     return x, y, snaps
@@ -75,10 +75,11 @@ def other_models() -> dict:
     }
 
 
-def select_c(train_rows: list[dict], grid=C_GRID, folds: int = CV_FOLDS) -> tuple[float, dict]:
+def select_c(train_rows: list[dict], grid=C_GRID, folds: int = CV_FOLDS,
+             features: list[str] = dataset.FEATURES) -> tuple[float, dict]:
     """Genişlənən pəncərə: train-in son `folds` ayının hər biri üçün ondan ƏVVƏLKİ
     aylarda öyrən, həmin ayda PR-AUC ölç. Test aylarına toxunulmur."""
-    x, y, snaps = matrix(train_rows)
+    x, y, snaps = matrix(train_rows, features)
     months = sorted(set(snaps))
     scores: dict[float, list[float]] = {c: [] for c in grid}
     for month in months[-folds:]:
