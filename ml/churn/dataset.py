@@ -38,6 +38,24 @@ FEATURES = [
     "prev_month_delay_days",
 ]
 
+# Addım 4 (6-cı ay #44, feature engineering): «son 30 gün» kəsikləri trendi görmür.
+# Bu əlamətlər eyni `cut` edilmiş cədvəldən hesablanır, yəni eyni leakage qorumasındadır.
+ENGINEERED = [
+    "attend_trend",            # son 30 gün - əvvəlki 30 gün davamiyyət
+    "attend_rate_14d",         # daha qısa pəncərə: sönmə tez görünür
+    "missed_lessons_streak",   # sonuncu dərsdən geriyə ardıcıl buraxılan dərslər
+    "days_since_lesson",       # son DƏRSƏ gəlişdən keçən gün (ödəniş fəaliyyət sayılmır)
+    "days_since_homework",     # son tapşırıqdan keçən gün
+    "hw_done_trend",           # tapşırıq etmə payı: son 30 - əvvəlki 30
+    "hw_score_trend",          # bal: son 30 - əvvəlki 30 (etdiyi tapşırıqlar üzrə)
+    "activity_14d",            # son 14 gündə hadisə sayı (dərs + tapşırıq)
+    "activity_ratio",          # son 14 gün / əvvəlki 14 gün hadisə (sönmə sürəti)
+    "late_months_3m",          # son 3 ayda gec (>7 gün) və ya heç ödənməmiş aylar
+    "delay_trend",             # keçən ayın gecikməsi - ondan əvvəlki ayın gecikməsi
+]
+FEATURES_V2 = FEATURES + ENGINEERED
+LATE_DAYS = 7
+
 
 def month_key(dt: datetime) -> str:
     return dt.strftime("%Y-%m")
@@ -134,7 +152,7 @@ def _features(past: _Index, t: datetime, chat_id: int, student_id: int) -> dict:
     else:
         delay = max(0.0, (t - anchor).total_seconds() / 86400)  # hələ ödənməyib: indiyə qədər
 
-    return {
+    base = {
         "tenure_days": round((t - joined).total_seconds() / 86400, 1),
         "monthly_fee": past.fees.get((chat_id, student_id), 0),
         "attend_rate_30d": attend_rate(lo30, t),
@@ -144,6 +162,78 @@ def _features(past: _Index, t: datetime, chat_id: int, student_id: int) -> dict:
         "days_since_activity": round((t - last).total_seconds() / 86400, 1),
         "prev_month_unpaid": 0 if prev_paid else 1,
         "prev_month_delay_days": round(delay, 1),
+    }
+    base.update(_engineered(past, t, chat_id, student_id, joined, base))
+    return base
+
+
+def _days(a: datetime, b: datetime) -> float:
+    return round((a - b).total_seconds() / 86400, 1)
+
+
+def _month_delay(past: _Index, student_id: int, month_start: datetime, joined: datetime,
+                 t: datetime) -> float | None:
+    """Ayın ödənişi ayın əvvəlindən (və ya qoşulmadan) neçə gün sonra gəlib; `t`-yə qədər
+    gəlməyibsə indiyə qədərki gün. Şagird həmin ayda hələ yox idisə `None`."""
+    nxt = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    if joined >= nxt:
+        return None
+    anchor = max(month_start, joined)
+    paid = [ts for month, ts in past.payments[student_id] if month == month_key(month_start)]
+    end = min(paid) if paid else t
+    return max(0.0, (end - anchor).total_seconds() / 86400)
+
+
+def _engineered(past: _Index, t: datetime, chat_id: int, student_id: int, joined: datetime,
+                base: dict) -> dict:
+    lo14, lo28, lo30, lo60 = (t - timedelta(days=d) for d in (14, 28, 30, 60))
+    attended = past.attended[student_id]
+
+    lessons = sorted(ts_id for ts_id in ((ts, lid) for lid, ts in past.lessons[chat_id]) if ts_id[0] < t)
+    ids14 = {lid for ts, lid in lessons if ts >= lo14}
+    streak = 0
+    for ts, lid in reversed(lessons):
+        if ts < joined:
+            break
+        if lid in attended:
+            break
+        streak += 1
+
+    def hw_window(lo: datetime, hi: datetime) -> tuple[float, float | None]:
+        hw = {hid: qc for hid, due, qc in past.homework[chat_id] if lo <= due < hi and due >= joined}
+        done = {hid: past.attempts[student_id][hid][0] for hid in hw if hid in past.attempts[student_id]}
+        score = sum(sc / hw[hid] for hid, sc in done.items()) / len(done) if done else None
+        return _rate(len(done), len(hw)), score
+
+    done30, score30 = hw_window(lo30, t)
+    done_prev, score_prev = hw_window(lo60, lo30)
+
+    events = list(attended.values()) + [ts for _, ts in past.attempts[student_id].values()]
+    recent = sum(1 for ts in events if ts >= lo14)
+    before = sum(1 for ts in events if lo28 <= ts < lo14)
+    lesson_times = list(attended.values())
+    hw_times = [ts for _, ts in past.attempts[student_id].values()]
+
+    prev_start = (t - timedelta(days=1)).replace(day=1)
+    months = [prev_start]
+    for _ in range(2):
+        months.append((months[-1] - timedelta(days=1)).replace(day=1))
+    delays = [_month_delay(past, student_id, m, joined, t) for m in months]
+    late = sum(1 for d in delays if d is not None and d > LATE_DAYS)
+    trend = (delays[0] - delays[1]) if delays[0] is not None and delays[1] is not None else 0.0
+
+    return {
+        "attend_trend": round(base["attend_rate_30d"] - base["attend_rate_prev_30d"], 4),
+        "attend_rate_14d": _rate(len(ids14 & attended.keys()), len(ids14)),
+        "missed_lessons_streak": streak,
+        "days_since_lesson": _days(t, max(lesson_times) if lesson_times else joined),
+        "days_since_homework": _days(t, max(hw_times) if hw_times else joined),
+        "hw_done_trend": round(done30 - done_prev, 4),
+        "hw_score_trend": round(score30 - score_prev, 4) if score30 is not None and score_prev is not None else 0.0,
+        "activity_14d": recent,
+        "activity_ratio": round(recent / before, 4) if before else (1.0 if recent else 0.0),
+        "late_months_3m": late,
+        "delay_trend": round(trend, 1),
     }
 
 

@@ -875,6 +875,12 @@ quraşdırılır. Nəticə: sintetik datada model «neçə gündür susub» sır
 ÜSTƏLƏMİR (zəng siyahısında 84% vs 86%). Kassaya qoşulmayıb; addım 4 (feature
 engineering) bunu keçməyə çalışır.
 
+**Addım 4 - trend əlamətləri + PyTorch.** `dataset.ENGINEERED` (11 əlamət,
+`FEATURES_V2`), `ml/churn/sequence.py` (6 aylıq sıra), `ml/churn/deep.py` (MLP, GRU).
+`FEATURES`-in sırası DƏYİŞMƏMƏLİDİR (JSON model ona bağlıdır), yeni əlamət yalnız
+`ENGINEERED`-ə əlavə olunur. Nəticə: heç biri qaydanı keçmədi; qaçırılan gedənlərin
+çoxu kəsikdən əvvəlki 14 gündə artıq getmişdi, yəni həftəlik yoxlama hipotezi var.
+
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
 Real istifadədə tapıldı: AI düzgün variantı izahlı və uzun yazırdı,

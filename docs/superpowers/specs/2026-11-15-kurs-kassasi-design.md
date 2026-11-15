@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli) və addım 3 (sklearn modeli) hazırdır. Növbəti addımlar: feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli) və addım 4 (trend əlamətləri + PyTorch) hazırdır. Növbəti addımlar: feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -167,6 +167,43 @@ Model `churn_model.json`-a çıxarılır (orta, miqyas, əmsal), server onu skle
 hesablayır (`ml/churn/model.py`). Kassa panelinə hələ qoşulmayıb: əvvəl modelin
 qaydadan üstün olduğu göstərilməlidir, sonra real cədvəllərdən əlamət yığan
 yükləyici lazımdır.
+
+## Addım 4: feature engineering (#44) + PyTorch (5-ci ay #34)
+
+`python -m ml.churn.deep --students 800 --seed 7`. Addım 3-ün bölgüsü və zəng
+büdcəsi eynidir (qayda + ayda ~28 əlavə zəng).
+
+**Yeni əlamətlər** (`dataset.ENGINEERED`, hamısı `cut`-dan sonra, test var):
+davamiyyət trendi, 14 günlük davamiyyət, ardıcıl buraxılan dərslər, son dərsdən
+və son tapşırıqdan keçən gün (ödəniş fəaliyyət sayılmır), tapşırıq və bal
+trendi, 14 günlük hadisə sayı və onun əvvəlki 14 günə nisbəti, son 3 ayda gec
+ödənən aylar, ödəniş gecikməsinin trendi. **GRU** üçün son 6 tam ayın aylıq
+sırası (`ml/churn/sequence.py`: kursda idimi, davamiyyət, tapşırıq, bal, ödədimi,
+gecikmə). PyTorch modellərində erkən dayanma train-in son ayındadır.
+
+| Model (seed 7) | ROC-AUC | PR-AUC | Hələ aktivlər arasında AUC | Zəng siyahısı tapdı |
+|---|---|---|---|---|
+| Qayda: neçə gündür susub | 0.954 | 0.876 | 0.849 | **195 / 228 (86%)** |
+| LogReg, 9 əsas əlamət | 0.960 | 0.875 | 0.871 | 192 (84%) |
+| LogReg, + 11 trend əlaməti | 0.956 | 0.869 | 0.859 | 190 (83%) |
+| MLP (PyTorch), 20 əlamət | 0.955 | 0.866 | 0.855 | 189 (83%) |
+| GRU (PyTorch), 6 aylıq sıra | **0.961** | **0.880** | **0.873** | 193 (85%) |
+
+Seed 11 və 3-də də eyni: zəng siyahısında qayda 90% və 88%, ən yaxşı model
+88% və 86%. **Trend əlamətləri kömək etmədi**, LogReg-də bir az pisləşdirdi
+(20 əlamət, ~220 gedən: artıq əlamət səs-küy öyrədir).
+
+**Niyə: qaçırılan gedənlərə baxdıq** (yalnız analiz üçün sintetik `truth`-dan,
+model ona baxmır). Seed 7-də siyahının qaçırdığı 33 gedəndən 19-u kəsikdən
+ƏVVƏLKİ 14 gündə artıq getmişdi (az susduğu üçün qaydaya düşmədi), 14-ü
+pəncərənin ilk 14 günündə getdi, 8-i «qəfil» idi (generatorda qəsdən siqnalsız).
+Seed 11 və 3-də nisbət eynidir. Yəni qalan səhvlərin çoxu proqnoz problemi
+deyil, **gec yoxlama** problemidir.
+
+**Məhsul nəticəsi:** sintetik datada model yox, qayda qalır: «7+ gündür susan»
+siyahısını ayda bir yox, **həftədə bir** vermək, yəqin ki, daha çox gedəni
+tutar. Bu, hipotezdir: real Master NR 1 datasında yoxlanmalıdır. Model kodu
+hazırdır, real datada qaydanı keçərsə Kassaya qoşularıq.
 
 ## Açıq suallar
 

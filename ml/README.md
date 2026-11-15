@@ -117,3 +117,16 @@ python -m ml.churn.train --students 800 --seed 7 --out /tmp/kassa-model
 - `ml/churn/model.py::risk` JSON modeli sklearn-siz hesablayır (sklearn ilə fərq < 1e-9, test var).
   Sintetik datada öyrədilmiş model `synthetic: true` daşıyır və real şagirdə göstərilmir.
 - Nəticə və şərh: spec, «Addım 3».
+
+## Addım 4: trend əlamətləri + PyTorch
+
+```bash
+pip install -r requirements-ml.txt   # torch + scikit-learn
+python -m ml.churn.deep --students 800 --seed 7 --out /tmp/kassa-deep
+```
+
+- `dataset.ENGINEERED`: 11 trend əlaməti, `FEATURES_V2 = FEATURES + ENGINEERED`.
+- `ml/churn/sequence.py`: son 6 tam ayın aylıq sırası (GRU üçün), gələcəyi görmür (test var).
+- `ml/churn/deep.py`: qayda, LogReg (əsas / + trend), MLP, GRU eyni bölgüdə.
+  torch testləri (`tests/test_churn_deep.py`) CI-da keçilir.
+- Nəticə: heç biri «neçə gündür susub» sıralamasını keçmədi; təhlil spec-dədir.
