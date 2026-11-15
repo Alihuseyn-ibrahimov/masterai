@@ -463,6 +463,83 @@ class PaymentsOut(BaseModel):
     rows: list[PaymentRow]
 
 
+# Kurs Kassası (2026-11-15) - kurs rəhbərinin bütün qrupları üzrə pul mənzərəsi.
+ExpenseCategory = Literal["Müəllim maaşı", "İcarə", "Reklam", "Kommunal", "Digər"]
+
+
+class ExpenseCreate(BaseModel):
+    month: str = Field(pattern=_MONTH_PATTERN)
+    category: ExpenseCategory
+    amount: int = Field(gt=0, le=1000000)
+    note: str = Field(default="", max_length=200)
+
+
+class ExpenseOut(BaseModel):
+    id: int
+    month: str
+    category: str
+    amount: int
+    note: str
+    created_at: str
+
+
+class KassaStudentRequest(BaseModel):
+    chat_id: int
+    student_id: int
+    month: str = Field(pattern=_MONTH_PATTERN)
+
+
+class KassaDebtor(BaseModel):
+    chat_id: int
+    chat_name: str
+    student_id: int
+    display_name: str
+    amount: int
+    days_overdue: int
+    unpaid_months: int
+    last_paid_month: str | None
+    # 2+ ay ödəmir: çox vaxt artıq gedib, zəng lazımdır.
+    likely_left: bool
+
+
+class KassaChat(BaseModel):
+    chat_id: int
+    chat_name: str
+    students: int
+    expected: int
+    collected: int
+
+
+class KassaCategory(BaseModel):
+    category: str
+    amount: int
+
+
+class KassaMonth(BaseModel):
+    month: str
+    expected: int
+    collected: int
+    expenses: int
+    net: int
+
+
+class KassaOut(BaseModel):
+    month: str
+    expected: int
+    collected: int
+    outstanding: int
+    collection_rate: float | None
+    expenses_total: int
+    net: int
+    debtors: list[KassaDebtor]
+    by_chat: list[KassaChat]
+    expenses_by_category: list[KassaCategory]
+    expenses: list[ExpenseOut]
+    trend: list[KassaMonth]
+    # Məbləği təyin olunmamış tələbələr: kassaya düşmür, rəhbər bilməlidir.
+    students_without_fee: int
+
+
 # Tapşırıq müzakirəsi (Faza 3 PR 2) — sinif çatından AYRI mövzu.
 class HomeworkDiscussionCreate(BaseModel):
     content: str = Field(min_length=1, max_length=2000)

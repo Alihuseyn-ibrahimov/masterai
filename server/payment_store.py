@@ -55,6 +55,20 @@ class PaymentStore:
                     paid_at    TEXT NOT NULL,
                     UNIQUE(chat_id, student_id, month)
                 );
+
+                -- Kurs Kassası (2026-11-15): kursun aylıq xərcləri. Çata yox,
+                -- KURSA bağlıdır: icarə və müəllim maaşı bir qrupa aid deyil.
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    course_id  INTEGER NOT NULL,
+                    month      TEXT NOT NULL,
+                    category   TEXT NOT NULL,
+                    amount     INTEGER NOT NULL,
+                    note       TEXT NOT NULL DEFAULT '',
+                    created_by INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_expenses_course_month ON expenses (course_id, month);
                 """
             )
             self._conn.commit()
@@ -123,3 +137,65 @@ class PaymentStore:
                 (chat_id, month),
             )
             return {row["student_id"]: dict(row) for row in cur.fetchall()}
+
+    # ---- Kurs Kassası: bir neçə çat üzrə toplu oxuma + xərclər ----
+
+    def list_fees_for_chats(self, chat_ids: list[int]) -> list[dict]:
+        if not chat_ids:
+            return []
+        marks = ",".join("?" * len(chat_ids))
+        with self._lock:
+            cur = self._conn.execute(
+                f"SELECT chat_id, student_id, monthly_amount FROM payment_fees WHERE chat_id IN ({marks})",
+                tuple(chat_ids),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def list_records_for_chats(self, chat_ids: list[int], first_month: str, last_month: str) -> list[dict]:
+        """`first_month`..`last_month` (daxil, YYYY-AA mətn müqayisəsi düzgündür)."""
+        if not chat_ids:
+            return []
+        marks = ",".join("?" * len(chat_ids))
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT chat_id, student_id, month, amount, paid_at FROM payment_records "
+                f"WHERE chat_id IN ({marks}) AND month >= ? AND month <= ?",
+                (*chat_ids, first_month, last_month),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def add_expense(self, course_id: int, month: str, category: str, amount: int,
+                    note: str, created_by: int) -> dict:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO expenses (course_id, month, category, amount, note, created_by, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (course_id, month, category, amount, note, created_by, _utc_now_iso()),
+            )
+            self._conn.commit()
+            return self._get_expense_locked(cur.lastrowid)
+
+    def _get_expense_locked(self, expense_id: int) -> dict | None:
+        row = self._conn.execute(
+            "SELECT id, course_id, month, category, amount, note, created_at FROM expenses WHERE id = ?",
+            (expense_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_expense(self, expense_id: int) -> dict | None:
+        with self._lock:
+            return self._get_expense_locked(expense_id)
+
+    def list_expenses(self, course_id: int, first_month: str, last_month: str) -> list[dict]:
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id, course_id, month, category, amount, note, created_at FROM expenses "
+                "WHERE course_id = ? AND month >= ? AND month <= ? ORDER BY month, id",
+                (course_id, first_month, last_month),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def delete_expense(self, expense_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+            self._conn.commit()

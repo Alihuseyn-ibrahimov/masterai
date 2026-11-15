@@ -118,6 +118,7 @@ from .live_session_store import LiveSessionStore
 from .material_store import MaterialStore
 from .message_store import MessageStore
 from .payment_store import PaymentStore, current_month
+from . import kassa as kassa_calc
 from .adaptive_quiz import build_adaptive_quiz
 from .progress_stats import attendance_stats, attendance_stats_for_users, subject_percent, weekly_percent
 from .topic_stats import split_strong_weak, topic_stats_for_student
@@ -227,6 +228,10 @@ from .models import (
     PaymentFeeSet,
     PaymentRow,
     PaymentsOut,
+    ExpenseCreate,
+    ExpenseOut,
+    KassaOut,
+    KassaStudentRequest,
     QualityFinding,
     QuestionSetInfo,
     QuestionSetQuality,
@@ -5021,6 +5026,134 @@ async def remind_payment(
         raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
     await _announce_in_chat(
         messages, manager, chat_id,
+        f"💳 Xatırlatma: {student['display_name']}, {req.month} ayı üçün {fee} AZN aidat gözlənilir.",
+    )
+
+
+# ---- Kurs Kassası (2026-11-15) -------------------------------------------
+# Kurs rəhbərinin (is_admin) BÜTÜN qrupları üzrə: gözlənilən/yığılan gəlir,
+# borclular, xərclər, xalis qalıq. Hesablama `server/kassa.py`-dədir (saf
+# funksiya), burada yalnız store-lardan yığılır. Ardıcıllıq: əvvəl obyekt
+# kurs sərhədindən keçir (başqa kurs = 404), SONRA rəhbər yoxlaması (403).
+
+
+def _require_kassa_admin(user: dict) -> None:
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="Kassa yalnız kurs rəhbəri üçündür")
+
+
+def _kassa_enrollments(course_id: int, chats: ChatStore, users: UserStore,
+                       payments: PaymentStore) -> list[kassa_calc.Enrollment]:
+    chat_ids = chats.list_ids_by_course(course_id)
+    fees = {(f["chat_id"], f["student_id"]): f["monthly_amount"]
+            for f in payments.list_fees_for_chats(chat_ids)}
+    people: dict[int, dict | None] = {}
+    out = []
+    for chat_id in chat_ids:
+        chat = chats.get(chat_id)
+        if chat is None or chat["kind"] != "group":
+            continue
+        for member_id, joined_at in chats.list_members_joined(chat_id).items():
+            if member_id not in people:
+                people[member_id] = users.get_by_id(member_id)
+            member = people[member_id]
+            if member is None or member["is_teacher"]:
+                continue
+            out.append(kassa_calc.Enrollment(
+                chat_id=chat_id, chat_name=chat["name"] or f"Qrup {chat_id}",
+                student_id=member_id, display_name=member["display_name"],
+                joined_at=joined_at, monthly_amount=fees.get((chat_id, member_id)),
+            ))
+    return out
+
+
+@app.get("/live/kassa", response_model=KassaOut)
+def get_kassa(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> KassaOut:
+    _require_kassa_admin(user)
+    if user["course_id"] is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    target = month or current_month()
+    first = kassa_calc.months_back(target, kassa_calc.TREND_MONTHS)[0]
+    enrollments = _kassa_enrollments(user["course_id"], chats, users, payments)
+    chat_ids = sorted({e.chat_id for e in enrollments})
+    # Borc ardıcıllığı 12 aya qədər geri baxır, ona görə qeydlər 12 ay.
+    records = payments.list_records_for_chats(
+        chat_ids, kassa_calc.months_back(target, 12)[0], target)
+    expenses = payments.list_expenses(user["course_id"], first, target)
+    summary = kassa_calc.summarize(target, datetime.now(timezone.utc), enrollments, records, expenses)
+    return KassaOut(**summary)
+
+
+@app.post("/live/kassa/expenses", response_model=ExpenseOut)
+def add_kassa_expense(
+    req: ExpenseCreate,
+    user: dict = Depends(get_current_teacher),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> ExpenseOut:
+    _require_kassa_admin(user)
+    if user["course_id"] is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    row = payments.add_expense(user["course_id"], req.month, req.category, req.amount,
+                               req.note.strip(), created_by=user["id"])
+    return ExpenseOut(**row)
+
+
+@app.delete("/live/kassa/expenses/{expense_id}", status_code=204)
+def delete_kassa_expense(
+    expense_id: int,
+    user: dict = Depends(get_current_teacher),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> None:
+    expense = payments.get_expense(expense_id)
+    if expense is None or not _same_course(expense["course_id"], user):
+        raise HTTPException(status_code=404, detail="Xərc tapılmadı")
+    _require_kassa_admin(user)
+    payments.delete_expense(expense_id)
+
+
+@app.post("/live/kassa/mark", status_code=204)
+def kassa_mark_paid(
+    req: KassaStudentRequest,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> None:
+    """Rəhbər qrupun üzvü olmaya bilər (müəllim deyil, kassir kimi işləyir),
+    ona görə `_require_teacher_chat_member` yox, yalnız kurs sərhədi."""
+    _chat_in_course(chats, req.chat_id, user)
+    _require_chat_student(chats, users, req.chat_id, req.student_id)
+    _require_kassa_admin(user)
+    fee = payments.list_fees_for_chat(req.chat_id).get(req.student_id)
+    if fee is None:
+        raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
+    payments.mark_paid(req.chat_id, req.student_id, req.month, fee, marked_by=user["id"])
+
+
+@app.post("/live/kassa/remind", status_code=204)
+async def kassa_remind(
+    req: KassaStudentRequest,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+    messages: MessageStore = Depends(get_message_store),
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> None:
+    _chat_in_course(chats, req.chat_id, user)
+    student = _require_chat_student(chats, users, req.chat_id, req.student_id)
+    _require_kassa_admin(user)
+    fee = payments.list_fees_for_chat(req.chat_id).get(req.student_id)
+    if fee is None:
+        raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
+    await _announce_in_chat(
+        messages, manager, req.chat_id,
         f"💳 Xatırlatma: {student['display_name']}, {req.month} ayı üçün {fee} AZN aidat gözlənilir.",
     )
 

@@ -34,6 +34,11 @@
     <div class="section-header">
       <h1>Ev tapşırıqları</h1>
       <span class="page-actions">
+        <!-- Kurs Kassası (2026-11-15): yalnız kurs rəhbərinə görünür. -->
+        <a class="btn btn--secondary btn--sm" href="kassa.html" id="kassaLink" hidden>
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-chart-bar"></use></svg>
+          Kassa
+        </a>
         <button class="btn btn--primary btn--sm" type="button" id="newAssignButton">
           <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>
           Yeni tapşırıq
@@ -107,7 +112,7 @@
 <nav id="bottomNav"></nav>
 
 <script type="module">
-  import { request } from './assets/js/api.js';
+  import { getUser, request } from './assets/js/api.js';
   import { createEmptyState } from './assets/js/mascot.js';
   import { hasLevelStats, renderDifficultyStats } from './assets/js/difficulty.js';
   import { loadInto, mountShell, requireLogin } from './assets/js/page-shell.js';
@@ -126,6 +131,7 @@
 
   if (requireLogin()) {
     mountShell();
+    document.getElementById('kassaLink').hidden = !getUser()?.is_admin;
 
     const errorBox = document.getElementById('errorBox');
     const okBox = document.getElementById('okBox');
