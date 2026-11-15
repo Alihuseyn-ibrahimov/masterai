@@ -86,3 +86,20 @@ kəsilsə də (yarımçıq JSON) növbəti provayder götürür.
 python -m ml.bench_llm --concurrency 1,4,8 --requests 16   # VLLM_* .env-dən
 python -m ml.bench_llm --groq --concurrency 1,4            # Groq ilə müqayisə
 ```
+
+---
+
+# Kurs Kassası: şagird itkisi (churn) datası (addım 1)
+
+Spec: `docs/superpowers/specs/2026-11-15-kurs-kassasi-design.md`.
+
+```bash
+python -m ml.churn --students 400 --seed 7 --out /tmp/kassa
+```
+
+- `ml/churn/schema.py`: masterai cədvəllərinin sütunları (`payment_records`, `lesson_attendance`, ...).
+- `ml/churn/synth.py`: sintetik kurs (3 proqram, gizli maraq, ödəniş vərdişi, sezon, qəfil getmə).
+- `ml/churn/dataset.py`: hər ayın 1-i kəsik, `churned` = 30 gündə nə ödəniş, nə fəaliyyət.
+  Əlamətlər yalnız kəsikdən əvvəlki hadisələrdən (`cut`), ödəniş `paid_at`-a görə kəsilir.
+
+Torch və sklearn lazım deyil: yalnız stdlib. Model növbəti addımdadır.

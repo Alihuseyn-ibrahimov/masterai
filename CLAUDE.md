@@ -842,6 +842,22 @@ mətn loqosu `<img>` ilə əvəz olunur → sahib loqonu silir → mətn loqosu
 qayıdır. JS xətası yoxdur. Real loqo şəkli və produksiyada hələ
 sınanmayıb.
 
+## Kurs Kassası (2026-11-15-dən, 5-ci + 6-cı ay)
+
+Bazar araşdırmasından sonra istifadəçi C istiqamətini seçdi: kurs sahibi üçün
+maliyyə paneli (ödəniş, borc, gəlir, şagird itkisi proqnozu, qəbz oxuyucu).
+Plan və bazar: https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81. Spec:
+`docs/superpowers/specs/2026-11-15-kurs-kassasi-design.md`.
+
+**Addım 1 - data və hədəf.** `ml/churn/` (yalnız stdlib): `schema.py` masterai
+cədvəllərinin sütunlarını təkrarlayır, `synth.py` sintetik kurs yaradır,
+`dataset.py` hər ayın 1-i üçün şagird sətirləri qurur. `churned = 1`: 30 gündə bu
+ayın ödənişi də, fəaliyyət də yoxdur; dərsə gəlib ödəməyən BORCLUDUR, itki deyil.
+Leakage: əlamətlər `cut(tables, t)`-dən sonra hesablanır, ödəniş `month`-a görə
+YOX, `paid_at`-a görə kəsilir (test var). Proqramın bitməsi (abituriyent iyun,
+magistr may) itki sayılmır. `truth` cədvəli yalnız generatorun yoxlanmasıdır.
+Real data hələ yoxdur: Master NR 1-in anonim ödəniş cədvəli soruşulub.
+
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
 Real istifadədə tapıldı: AI düzgün variantı izahlı və uzun yazırdı,
