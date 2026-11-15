@@ -102,4 +102,18 @@ python -m ml.churn --students 400 --seed 7 --out /tmp/kassa
 - `ml/churn/dataset.py`: hər ayın 1-i kəsik, `churned` = 30 gündə nə ödəniş, nə fəaliyyət.
   Əlamətlər yalnız kəsikdən əvvəlki hadisələrdən (`cut`), ödəniş `paid_at`-a görə kəsilir.
 
-Torch və sklearn lazım deyil: yalnız stdlib. Model növbəti addımdadır.
+Torch və sklearn lazım deyil: yalnız stdlib.
+
+## Addım 3: sklearn modeli və qayda ilə müqayisə
+
+```bash
+pip install -r requirements-ml.txt   # və ya yalnız scikit-learn
+python -m ml.churn.train --students 800 --seed 7 --out /tmp/kassa-model
+# churn_report.json (metrikalar) + churn_model.json (serverdə saf Python ilə hesablanır)
+```
+
+- Bölgü vaxta görədir: train 2025-10..2026-02, test 2026-03..2026-06.
+- `C` yalnız train ayları üzərində genişlənən pəncərə ilə seçilir.
+- `ml/churn/model.py::risk` JSON modeli sklearn-siz hesablayır (sklearn ilə fərq < 1e-9, test var).
+  Sintetik datada öyrədilmiş model `synthetic: true` daşıyır və real şagirdə göstərilmir.
+- Nəticə və şərh: spec, «Addım 3».

@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) və addım 2 (Kassa paneli) hazırdır. Növbəti addımlar: sklearn modeli, feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli) və addım 3 (sklearn modeli) hazırdır. Növbəti addımlar: feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -127,6 +127,46 @@ modelinin (addım 3) GEC versiyasıdır. Model eyni siyahını bir ay ƏVVƏL ve
 
 API: `GET /live/kassa?month=`, `POST /live/kassa/expenses`,
 `DELETE /live/kassa/expenses/{id}`, `POST /live/kassa/mark`, `POST /live/kassa/remind`.
+
+## Addım 3: sklearn modeli və sadə qayda (6-cı ay #43)
+
+`python -m ml.churn.train --students 800 --seed 7`. Train: 2025-10..2026-02
+(2899 sətir, itki 7.5%), test: 2026-03..2026-06 (2205 sətir, itki 10.3%).
+`C` train daxilində son 3 ayın hər biri üçün «ondan əvvəlki aylarda öyrən, bu
+ayda ölç» ilə seçildi (C = 0.1). Test aylarına seçimdə baxılmır.
+
+| Model | ROC-AUC | PR-AUC | Ayın top-10%-i: dəqiqlik | top-10%: gedənlərin | Hələ aktivlər arasında AUC |
+|---|---|---|---|---|---|
+| Qayda: son fəaliyyətdən keçən gün | 0.954 | 0.876 | 0.79 | 78% | 0.849 |
+| LogisticRegression | **0.960** | 0.875 | 0.79 | 78% | **0.871** |
+| RandomForest | 0.956 | **0.879** | 0.79 | 78% | 0.858 |
+| HistGradientBoosting | 0.954 | 0.868 | 0.77 | 76% | 0.852 |
+
+**Zəng siyahısı** (test ayları, sahib hər ayın 1-də zəng edir):
+
+| Siyahı | Ayda zəng | Dəqiqlik | Tapılan gedənlər |
+|---|---|---|---|
+| Yalnız qayda (14+ gün susub) | 44.5 | 0.91 | 162 / 228 (71%) |
+| Qayda + aktivlərin ən çox susan 5%-i | 72.2 | 0.67 | **195 / 228 (86%)** |
+| Qayda + modelin aktivlər üzrə ən riskli 5%-i | 72.2 | 0.66 | 192 / 228 (84%) |
+
+**Nəticə (dürüst):** bu sintetik datada sklearn modeli sadə «neçə gündür susub»
+sıralamasını ÜSTƏLƏMİR. LogReg əmsallarında da `days_since_activity` digərlərindən
+4-5 dəfə güclüdür (+2.23; sonra keçən ayın davamiyyəti -0.49, ödəniş gecikməsi
++0.46). Üç seed-də (3, 7, 11) eyni mənzərə: model qaydadan 2-3 gedən az tapır.
+
+Bunun iki səbəbi var: (1) generatorda gedənlərin çoxu kəsikdən əvvəl susur, yəni
+siqnal demək olar tək əlamətdədir; (2) indiki 9 əlamət «son 30 gün» kəsikləridir,
+trendi (davamiyyət NECƏ düşür) birbaşa görmür. Növbəti addım (#44 feature
+engineering + PyTorch) məhz buna baxır: trend, ardıcıl buraxılan dərslər, balın
+düşməsi, ödəniş gecikməsinin artması. Hədəf «qayda + günlər» siyahısının 86%-ni
+eyni zəng sayı ilə keçməkdir. Keçə bilməsək, pilotda qayda + günlər qalır: bu da
+nəticədir. Real Master NR 1 datasında mənzərə fərqli ola bilər.
+
+Model `churn_model.json`-a çıxarılır (orta, miqyas, əmsal), server onu sklearn-siz
+hesablayır (`ml/churn/model.py`). Kassa panelinə hələ qoşulmayıb: əvvəl modelin
+qaydadan üstün olduğu göstərilməlidir, sonra real cədvəllərdən əlamət yığan
+yükləyici lazımdır.
 
 ## Açıq suallar
 
