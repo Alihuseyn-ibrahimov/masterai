@@ -167,6 +167,14 @@ class ChatStore:
             )
             return [row["user_id"] for row in cur.fetchall()]
 
+    def list_members_joined(self, chat_id: int) -> dict[int, str]:
+        """`{user_id: joined_at}` - Kassa borcu tələbənin qoşulduğu aydan sayır."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT user_id, joined_at FROM chat_members WHERE chat_id = ?", (chat_id,)
+            )
+            return {row["user_id"]: row["joined_at"] for row in cur.fetchall()}
+
     def list_by_user(self, user_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(

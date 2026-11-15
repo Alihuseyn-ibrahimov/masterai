@@ -173,6 +173,7 @@ def world(tmp_path):
                                    title="Dərs", description="", starts_at="2099-01-01T10:00:00+00:00",
                                    duration_min=60, mode="online")
     w["lessons"] = lessons
+    w["expense_a"] = stores[get_payment_store].add_expense(a["id"], "2026-11", "İcarə", 500, "", w["teacher_a"]["id"])
     w["client"] = TestClient(app)
     yield w
     app.dependency_overrides.clear()
@@ -220,6 +221,9 @@ CASES = {
     ("POST", "/live/chats/{chat_id}/payments/fee"): ("teacher_b", {"chat_id": "chat_a.id"}, None, {"student_id": "student_a.id", "monthly_amount": 20}, None),
     ("GET", "/live/chats/{chat_id}/payments"): ("teacher_b", {"chat_id": "chat_a.id"}, None, None, None),
     ("POST", "/live/chats/{chat_id}/payments/mark"): ("teacher_b", {"chat_id": "chat_a.id"}, None, {"student_id": "student_a.id", "month": "2026-11"}, None),
+    ("DELETE", "/live/kassa/expenses/{expense_id}"): ("teacher_b", {"expense_id": "expense_a.id"}, None, None, None),
+    ("POST", "/live/kassa/mark"): ("teacher_b", {}, None, {"chat_id": "chat_a.id", "student_id": "student_a.id", "month": "2026-11"}, None),
+    ("POST", "/live/kassa/remind"): ("teacher_b", {}, None, {"chat_id": "chat_a.id", "student_id": "student_a.id", "month": "2026-11"}, None),
     ("DELETE", "/live/chats/{chat_id}/payments"): ("teacher_b", {"chat_id": "chat_a.id"}, {"student_id": "student_a.id", "month": "2026-11"}, None, None),
     ("POST", "/live/chats/{chat_id}/payments/{student_id}/remind"): ("teacher_b",
         {"chat_id": "chat_a.id", "student_id": "student_a.id"}, None, {"month": "2026-11"}, None),

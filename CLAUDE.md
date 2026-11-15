@@ -858,6 +858,16 @@ YOX, `paid_at`-a görə kəsilir (test var). Proqramın bitməsi (abituriyent iy
 magistr may) itki sayılmır. `truth` cədvəli yalnız generatorun yoxlanmasıdır.
 Real data hələ yoxdur: Master NR 1-in anonim ödəniş cədvəli soruşulub.
 
+**Addım 2 - Kassa paneli.** `web/kassa.html` (Hesabatlar səhifəsindən, yalnız
+`is_admin`-ə görünən «Kassa» düyməsi). Hesablama `server/kassa.py`-dədir (saf
+funksiya, `tests/server/test_kassa.py`), `/live/kassa*` yalnız store-lardan yığır.
+Qaydalar: aylıq məbləği olmayan tələbə borca düşmür (ayrıca sayılır); ay bitəndən
+sonra qoşulan o ay üçün ödəmir; 2+ ay ödəməyən `likely_left` işarələnir.
+Endpoint-lərdə ardıcıllıq: əvvəl kurs sərhədi (404), sonra rəhbər yoxlaması (403).
+Rəhbər qrup üzvü olmadan «Ödədi»/«Xatırlat» edə bilər. Xərclər `payments.db`-də
+`expenses` cədvəlindədir (kursa bağlı). Məlum sadələşdirmə: keçmiş ayların
+«gözlənilən» dəyəri cari məbləğlə hesablanır, `payment_fees` tarixçə saxlamır.
+
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
 Real istifadədə tapıldı: AI düzgün variantı izahlı və uzun yazırdı,

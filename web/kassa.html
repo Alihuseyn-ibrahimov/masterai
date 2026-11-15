@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kassa - MasterAI</title>
+<meta name="theme-color" content="#0B0F18">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg?v=20261103a" type="image/svg+xml">
+<!-- Görünüş seçimi ilk boyamadan ƏVVƏL (bax hesabatlar.html). -->
+<script>
+  try {
+    var t = localStorage.getItem('masterai-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* yaddaş bloklanıb - cihaz seçimi qalır */ }
+</script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/base.css?v=20261103a">
+<link rel="stylesheet" href="assets/css/components.css?v=20261103a">
+<!-- Yalnız bu səhifənin düzümü; rənglər tokens.css-dən gəlir. -->
+<style>
+  .kassa-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
+  .kassa-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .kassa-row__who { min-width: 0; flex: 1 1 200px; }
+  .kassa-row__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .kassa-trend { display: grid; gap: var(--space-2); }
+  .kassa-trend__row { display: grid; grid-template-columns: 4.5rem 1fr auto; align-items: center; gap: var(--space-3); }
+  .kassa-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); align-items: end; }
+  .kassa-metrics .metric__value { font-size: var(--text-2xl); white-space: nowrap; }
+  .tabular { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header id="appBar"></header>
+<div class="container app-shell stack stack--loose">
+
+  <section class="stack">
+    <div class="section-header">
+      <h1>Kassa</h1>
+      <div class="field">
+        <label class="field__label sr-only" for="monthInput">Ay</label>
+        <input class="field__input" id="monthInput" type="month">
+      </div>
+    </div>
+    <p class="text-sm text-muted">Bütün qruplar üzrə bu ayın pulu: nə gözlənilir, nə yığılıb, kim borcludur, nə xərclənib.</p>
+    <div class="notice notice--danger" id="errorBox" role="alert" hidden></div>
+    <div class="notice notice--success" id="okBox" role="status" hidden></div>
+    <div class="notice notice--info" id="noFeeBox" hidden></div>
+    <div class="kassa-metrics" id="metrics"></div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Borclular</h2><span class="section-header__hint text-sm text-muted" id="debtorHint"></span></div>
+    <div class="card stack" id="debtors"></div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Qruplar üzrə</h2></div>
+    <div class="card stack" id="groups"></div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Xərclər</h2></div>
+    <div class="card stack">
+      <form class="kassa-form" id="expenseForm">
+        <div class="field">
+          <label class="field__label" for="expCategory">Kateqoriya</label>
+          <select class="field__select" id="expCategory" required>
+            <option>Müəllim maaşı</option>
+            <option>İcarə</option>
+            <option>Reklam</option>
+            <option>Kommunal</option>
+            <option>Digər</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="expAmount">Məbləğ (AZN)</label>
+          <input class="field__input" id="expAmount" type="number" min="1" max="1000000" step="1" required>
+        </div>
+        <div class="field">
+          <label class="field__label" for="expNote">Qeyd</label>
+          <input class="field__input" id="expNote" maxlength="200" placeholder="məs. noyabr icarəsi">
+        </div>
+        <button class="btn btn--primary" type="submit" id="expSubmit">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#i-plus"></use></svg>
+          Əlavə et
+        </button>
+      </form>
+      <div class="stack stack--tight" id="expenses"></div>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="section-header"><h2>Son 6 ay</h2><span class="section-header__hint text-sm text-muted">yığılan / gözlənilən</span></div>
+    <div class="card kassa-trend" id="trend"></div>
+  </section>
+
+</div>
+<nav id="bottomNav"></nav>
+
+<script type="module">
+  import { request, getUser } from './assets/js/api.js';
+  import { mountShell, requireLogin } from './assets/js/page-shell.js';
+  import { azn, debtLabel, monthLabel, percent, trendShare } from './assets/js/kassa.js';
+
+  if (requireLogin()) {
+    mountShell();
+
+    const errorBox = document.getElementById('errorBox');
+    const okBox = document.getElementById('okBox');
+    const monthInput = document.getElementById('monthInput');
+    const user = getUser();
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function flash(box, text) {
+      box.textContent = text;
+      box.hidden = false;
+      setTimeout(() => { box.hidden = true; }, 4000);
+    }
+
+    function metric(value, label) {
+      const box = el('div', 'metric');
+      box.append(el('div', 'metric__value tabular', value), el('div', 'metric__label', label));
+      return box;
+    }
+
+    function renderMetrics(data) {
+      document.getElementById('metrics').replaceChildren(
+        metric(azn(data.expected), 'Gözlənilən'),
+        metric(percent(data.collection_rate), `Yığılan: ${azn(data.collected)}`),
+        metric(azn(data.outstanding), `Borc: ${data.debtors.length} nəfər`),
+        metric(azn(data.net), `Xalis (xərc ${azn(data.expenses_total)})`),
+      );
+      const noFee = document.getElementById('noFeeBox');
+      noFee.hidden = !data.students_without_fee;
+      noFee.textContent = `${data.students_without_fee} tələbənin aylıq məbləği təyin olunmayıb: kassaya düşmür. Hesabatlar səhifəsində təyin edin.`;
+    }
+
+    function action(label, onClick) {
+      const button = el('button', 'btn btn--secondary btn--sm', label);
+      button.type = 'button';
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          await onClick();
+        } catch (error) {
+          flash(errorBox, error.message);
+          button.disabled = false;
+        }
+      });
+      return button;
+    }
+
+    function renderDebtors(data) {
+      const box = document.getElementById('debtors');
+      const left = data.debtors.filter((d) => d.likely_left).length;
+      document.getElementById('debtorHint').textContent = left ? `${left} nəfər 2+ aydır ödəmir` : '';
+      if (!data.debtors.length) {
+        box.replaceChildren(el('p', 'text-sm text-muted', 'Bu ay borc yoxdur.'));
+        return;
+      }
+      box.replaceChildren(...data.debtors.map((d) => {
+        const row = el('div', 'kassa-row');
+        const who = el('div', 'kassa-row__who stack stack--tight');
+        who.append(el('strong', '', d.display_name), el('span', 'text-sm text-muted', `${d.chat_name} · ${debtLabel(d)}`));
+        const badge = el('span', d.likely_left ? 'badge badge--danger' : 'badge badge--warning', azn(d.amount));
+        const actions = el('div', 'kassa-row__actions');
+        const body = { chat_id: d.chat_id, student_id: d.student_id, month: data.month };
+        actions.append(
+          badge,
+          action('Ödədi', async () => {
+            await request('/live/kassa/mark', { method: 'POST', body });
+            flash(okBox, `${d.display_name}: ödəniş qeyd olundu.`);
+            load();
+          }),
+          action('Xatırlat', async () => {
+            await request('/live/kassa/remind', { method: 'POST', body });
+            flash(okBox, `Xatırlatma ${d.chat_name} çatına yazıldı.`);
+          }),
+        );
+        row.append(who, actions);
+        return row;
+      }));
+    }
+
+    function renderGroups(data) {
+      const box = document.getElementById('groups');
+      if (!data.by_chat.length) {
+        box.replaceChildren(el('p', 'text-sm text-muted', 'Məbləği təyin olunmuş qrup yoxdur.'));
+        return;
+      }
+      box.replaceChildren(...data.by_chat.map((c) => {
+        const wrap = el('div', 'stack stack--tight');
+        const head = el('div', 'kassa-row');
+        head.append(el('strong', '', c.chat_name),
+          el('span', 'text-sm tabular', `${azn(c.collected)} / ${azn(c.expected)} · ${c.students} tələbə`));
+        const bar = el('div', 'progress');
+        const fill = el('div', 'progress__fill');
+        fill.style.setProperty('--progress', `${Math.round(trendShare(c.collected, c.expected) * 100)}%`);
+        bar.append(fill);
+        wrap.append(head, bar);
+        return wrap;
+      }));
+    }
+
+    function renderExpenses(data) {
+      const box = document.getElementById('expenses');
+      if (!data.expenses.length) {
+        box.replaceChildren(el('p', 'text-sm text-muted', 'Bu ay xərc yazılmayıb.'));
+        return;
+      }
+      box.replaceChildren(...data.expenses.map((x) => {
+        const row = el('div', 'kassa-row');
+        const who = el('div', 'kassa-row__who');
+        who.append(el('span', 'text-sm', x.note ? `${x.category} · ${x.note}` : x.category));
+        const actions = el('div', 'kassa-row__actions');
+        const remove = action('Sil', async () => {
+          await request(`/live/kassa/expenses/${x.id}`, { method: 'DELETE' });
+          load();
+        });
+        remove.setAttribute('aria-label', `${x.category} xərcini sil`);
+        actions.append(el('span', 'text-sm tabular', azn(x.amount)), remove);
+        row.append(who, actions);
+        return row;
+      }));
+    }
+
+    function renderTrend(data) {
+      document.getElementById('trend').replaceChildren(...data.trend.map((t) => {
+        const row = el('div', 'kassa-trend__row');
+        const bar = el('div', 'progress');
+        const fill = el('div', 'progress__fill');
+        fill.style.setProperty('--progress', `${Math.round(trendShare(t.collected, t.expected) * 100)}%`);
+        bar.append(fill);
+        bar.setAttribute('role', 'img');
+        bar.setAttribute('aria-label', `${monthLabel(t.month)}: ${azn(t.collected)} / ${azn(t.expected)}`);
+        row.append(el('span', 'text-sm', monthLabel(t.month)), bar,
+          el('span', 'text-sm tabular', `${azn(t.collected)} · xalis ${azn(t.net)}`));
+        return row;
+      }));
+    }
+
+    async function load() {
+      errorBox.hidden = true;
+      try {
+        const data = await request(`/live/kassa?month=${encodeURIComponent(monthInput.value)}`);
+        renderMetrics(data);
+        renderDebtors(data);
+        renderGroups(data);
+        renderExpenses(data);
+        renderTrend(data);
+      } catch (error) {
+        flash(errorBox, error.message);
+      }
+    }
+
+    if (!user || !user.is_admin) {
+      errorBox.textContent = 'Kassa yalnız kurs rəhbəri üçündür.';
+      errorBox.hidden = false;
+    } else {
+      monthInput.value = new Date().toISOString().slice(0, 7);
+      monthInput.addEventListener('change', () => { if (monthInput.value) load(); });
+      document.getElementById('expenseForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const button = document.getElementById('expSubmit');
+        button.disabled = true;
+        try {
+          await request('/live/kassa/expenses', {
+            method: 'POST',
+            body: {
+              month: monthInput.value,
+              category: document.getElementById('expCategory').value,
+              amount: Number(document.getElementById('expAmount').value),
+              note: document.getElementById('expNote').value,
+            },
+          });
+          event.target.reset();
+          flash(okBox, 'Xərc yazıldı.');
+          load();
+        } catch (error) {
+          flash(errorBox, error.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+      load();
+    }
+  }
+</script>
+</body>
+</html>

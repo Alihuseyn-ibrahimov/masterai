@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəfin tərifi, sintetik generator). Növbəti addımlar: kassa paneli, sklearn modeli, feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) və addım 2 (Kassa paneli) hazırdır. Növbəti addımlar: sklearn modeli, feature engineering + PyTorch, qəbz oxuyucu (QLoRA), agentlər.
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -109,6 +109,24 @@ Bilinməli iki xüsusiyyət:
 python -m ml.churn --students 400 --seed 7 --out /tmp/kassa
 # /tmp/kassa/*.csv (cədvəllər) + churn_dataset.csv (kəsik × şagird sətirləri)
 ```
+
+## Addım 2: Kassa paneli
+
+`web/kassa.html`, kurs rəhbəri (`is_admin`) üçün, bütün qruplar üzrə bir ay:
+
+| Göstərici | Tərif |
+|---|---|
+| Gözlənilən | ay bitməzdən əvvəl qoşulmuş və aylıq məbləği olan hər (qrup, tələbə) cütünün məbləği |
+| Yığılan | bu ay (`month`) üçün qeyd olunmuş ödənişlər; faiz = yığılan / gözlənilən |
+| Borc | ödənməmiş cütlər: neçə gün gecikir (ayın 1-dən və ya qoşulma günündən), ardıcıl neçə ay, son ödəniş |
+| Xalis | yığılan - xərclər (müəllim maaşı, icarə, reklam, kommunal, digər) |
+| Trend | son 6 ay: gözlənilən, yığılan, xərc, xalis |
+
+2+ ay ödəməyən tələbə «çox güman ki gedib» kimi qırmızı işarələnir: bu, churn
+modelinin (addım 3) GEC versiyasıdır. Model eyni siyahını bir ay ƏVVƏL verməlidir.
+
+API: `GET /live/kassa?month=`, `POST /live/kassa/expenses`,
+`DELETE /live/kassa/expenses/{id}`, `POST /live/kassa/mark`, `POST /live/kassa/remind`.
 
 ## Açıq suallar
 
