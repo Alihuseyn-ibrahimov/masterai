@@ -2,3 +2,5 @@
 # çətinlik modeli serverdə saf Python ilə hesablanır (pipeline/difficulty_model.py).
 -r requirements.txt
 torch>=2.4
+# Kurs Kassası churn modeli (ml/churn/train.py); server modeli JSON-dan saf Python ilə hesablayır.
+scikit-learn>=1.5

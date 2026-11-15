@@ -868,6 +868,13 @@ Rəhbər qrup üzvü olmadan «Ödədi»/«Xatırlat» edə bilər. Xərclər `p
 `expenses` cədvəlindədir (kursa bağlı). Məlum sadələşdirmə: keçmiş ayların
 «gözlənilən» dəyəri cari məbləğlə hesablanır, `payment_fees` tarixçə saxlamır.
 
+**Addım 3 - sklearn modeli.** `ml/churn/train.py` (vaxta görə bölgü, `C` yalnız
+train aylarında seçilir), `ml/churn/model.py` JSON modeli saf Python ilə hesablayır.
+sklearn serverə QOYULMUR: `requirements-ml.txt`-dədir, CI-da ayrıca addımla
+quraşdırılır. Nəticə: sintetik datada model «neçə gündür susub» sıralamasını
+ÜSTƏLƏMİR (zəng siyahısında 84% vs 86%). Kassaya qoşulmayıb; addım 4 (feature
+engineering) bunu keçməyə çalışır.
+
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
 Real istifadədə tapıldı: AI düzgün variantı izahlı və uzun yazırdı,
