@@ -106,7 +106,16 @@ def allowed_numbers(summary: dict) -> set[str]:
     return found
 
 
+# Proqnoz: «gələn ay 3800 AZN olacaq». Rəqəm xülasədə ola bilər (avqustun gözləntisi), amma
+# mənası uydurmadır - Kassa gələcəyi bilmir. Rəqəmli proqnoz cümləsi atılır (addım 7-nin evalı tapdı).
+_FORECAST = re.compile(
+    r"\b(?:gələn|növbəti|gələcək)\s+(?:ay|həftə|il|rüb)\w*|\bproqnoz\w*|\b\w+(?:acaq|əcək)(?:dır|dir|lar|lər)?\b",
+    re.IGNORECASE)
+
+
 def grounded(text: str, allowed: set[str]) -> bool:
+    if numbers_in(_ALIAS.sub("", text)) and _FORECAST.search(text):
+        return False
     return numbers_in(_ALIAS.sub("", _LIST_MARKER.sub("", text))) <= allowed   # «Şagird 3» rəqəm deyil
 
 

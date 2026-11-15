@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2534 pytest (+2 torch, 4 CrewAI, 3 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2543 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-15-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -905,6 +905,14 @@ atılır (`ground_report`; «2. Şagird 2: ...» kimi siyahı nömrəsi cümlə 
 anonim SURƏTƏ gedir və sqlite authorizer yalnız oxumağa icazə verir, injection
 `guardrails.check_input`-la. AutoGen testində `ReplayChatCompletionClient`-ə
 `model_info={"function_calling": True, ...}` verilməlidir, yoxsa alətli agent qurulmur.
+
+**Addım 7 - vahid eval.** `python -m evals.kassa` (`--live`, `--check`, `--out`): zəng siyahısı
+(qayda vs model, sklearn varsa), qəbz (qaydalar görülən 92% / görülməyən 50%; `--live` LLM yolu),
+qoruyucu qat (`kassa_agents.jsonl`, hədlər `KASSA_GATES`), `--live` «Kassaya sual» cavabı SQL
+həqiqəti ilə (`kassa_qa.jsonl`: `expected_sql` anonim surətdə işləyir, cavab sabit yazılmır) və
+aylıq hesabat. Olmayan venv/açar hissəni «keçildi» edir, hesabat yenə yazılır. İlk iş tapdı:
+rəqəmin xülasədə OLMASI mənasını yoxlamır («gələn ay 3800 AZN olacaq» keçirdi) - rəqəmli proqnoz
+cümləsi indi atılır (`facts._FORECAST`).
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

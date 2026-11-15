@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli), addım 4 (trend əlamətləri + PyTorch), addım 5 (qəbz oxuyucusu) və addım 6 (agentlər + qoruyucu qat) hazırdır. Növbəti: eval (addım 7), pilot və təqdimat (addım 8).
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli), addım 4 (trend əlamətləri + PyTorch), addım 5 (qəbz oxuyucusu), addım 6 (agentlər + qoruyucu qat) və addım 7 (vahid eval) hazırdır. Növbəti: pilot və təqdimat (addım 8).
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -283,6 +283,25 @@ ilə tutuşdurub «YEKUN» ilə bitirir. LLM rəqəmi «təxmin» etmir, cədvə
 LLM real adı görmür, uydurulmuş proqnoz atılır), AutoGen komandası
 `ReplayChatCompletionClient` ilə (real AutoGen: alət çağırışı, `DELETE` rədd, injection
 blok, modelə gedən heç bir mesajda real ad yoxdur). Real modellə hələ işlədilməyib.
+
+## Addım 7: vahid eval hesabatı (5-ci ay #33)
+
+`python -m evals.kassa [--live] [--out kassa.md]`: şagird itkisi, qəbz oxuyucusu,
+agentlərin qoruyucu qatı və (`--live`) agentlərin özü bir hesabatda, hər biri öz
+bazası ilə. Offline hədlər `KASSA_GATES`-dədir, `tests/test_kassa_eval.py` CI-da qoruyur.
+Ətraflı: `evals/README.md`.
+
+Offline nəticə (seed 7/11, sintetik):
+
+| Hissə | Nəticə |
+|---|---|
+| Zəng siyahısı | yalnız qayda: ayda 21 zəng, 96% dəqiq, gedənlərin 75%-i; qayda + model: 35 zəng, 69%, 87% (model «ən çox susan»dan yaxşı DEYİL) |
+| Qəbz (qaydalar) | görülən növlər 92%, görülməyən 50% |
+| Qoruyucu qat | 18/18 rəqəm qərarı, 11/11 hücum SQL, 5/5 injection, 0 səhv blok, 0 ad sızması |
+
+**Eval bir səhv tapdı:** «Gələn ay yığım 3800 AZN olacaq» keçirdi (3800 xülasədə avqustun
+gözləntisidir). Rəqəmli proqnoz cümləsi artıq atılır. Live nəticə (real LLM, QLoRA) hələ YOXDUR:
+serverdə/Colab-da `--live` ilə alınmalıdır.
 
 ## Açıq suallar
 
