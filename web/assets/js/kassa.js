@@ -36,3 +36,24 @@ export function trendShare(collected, expected) {
   if (!expected) return 0;
   return Math.max(0, Math.min(1, collected / expected));
 }
+
+const SOURCES = { llm: 'AI oxudu', rules: 'qaydalarla oxundu' };
+
+/** Oxunmuş qəbzin bir sətirlik xülasəsi: «120 AZN · 03.11.2026 · Aysel · kart *4417». */
+export function receiptLine(receipt) {
+  const amount = Number(receipt.amount);
+  const parts = [Number.isInteger(amount) ? azn(amount) : `${amount.toFixed(2)} AZN`];
+  if (receipt.date) parts.push(receipt.date.split('-').reverse().join('.'));
+  if (receipt.student) parts.push(receipt.student);
+  if (receipt.payer) parts.push(`ödəyən: ${receipt.payer}`);
+  if (receipt.card_last4) parts.push(`kart *${receipt.card_last4}`);
+  if (SOURCES[receipt.source]) parts.push(SOURCES[receipt.source]);
+  return parts.join(' · ');
+}
+
+/** Qəbzdəki məbləğ şagirdin aylıq məbləği ilə üst-üstə düşmürsə xəbərdarlıq, yoxsa ''. */
+export function amountWarning(receipt, candidate) {
+  if (!candidate || candidate.monthly_amount == null) return '';
+  if (Math.abs(receipt.amount - candidate.monthly_amount) < 0.005) return '';
+  return `Qəbzdə ${receipt.amount} AZN, aylıq məbləğ ${candidate.monthly_amount} AZN. «Ödədi» aylıq məbləği yazır.`;
+}

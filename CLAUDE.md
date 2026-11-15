@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2406 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 411 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2517 pytest (+2 torch, 3 CrewAI, 1 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-07-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-15-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -880,6 +880,20 @@ engineering) bunu keçməyə çalışır.
 `FEATURES`-in sırası DƏYİŞMƏMƏLİDİR (JSON model ona bağlıdır), yeni əlamət yalnız
 `ENGINEERED`-ə əlavə olunur. Nəticə: heç biri qaydanı keçmədi; qaçırılan gedənlərin
 çoxu kəsikdən əvvəlki 14 gündə artıq getmişdi, yəni həftəlik yoxlama hipotezi var.
+
+**Addım 5 - qəbz oxuyucusu (QLoRA + vLLM).** Kassada «Qəbzi oxu»:
+`POST /live/kassa/receipt` (yalnız rəhbər, HEÇ NƏ yazmır) → məbləğ, tarix, ödəyən,
+kart, ay, şagird + qeydiyyatdan namizədlər (`kassa.match_receipt`: ad + ödəyənin
+soyadı, `receipt_month`: ilin sonu/başı keçidi) + `paid` (həmin ay artıq ödənib).
+Təsdiq mövcud `/live/kassa/mark` ilədir. `pipeline/receipt_reader.py`: LLM cavabı
+`grounded`-dan keçir (mətndə olmayan məbləğ → bütün cavab atılır, qaydalara düşülür).
+**Qəbz mətni defolt olaraq kənar LLM-ə GETMİR:** yalnız `VLLM_RECEIPT_MODEL`
+(öz GPU), Groq/Claude `RECEIPT_ALLOW_EXTERNAL_LLM=true` ilə. Data sintetikdir
+(`ml/receipts/`), 2 mətn növü öyrətməyə düşmür; qaydalı baza görülən növlərdə 91%,
+görülməyənlərdə 50%. `ml/qlora_receipts.ipynb` (Qwen2.5-1.5B, multi-LoRA vLLM,
+`guided_json`) burada İŞLƏDİLMƏYİB: QLoRA rəqəmi Colab-da alınmalıdır.
+Python-da `"iyul".capitalize()` «Iyul» verir (İ yox): `synth.az_capitalize`,
+müqayisə həmişə `normalize` ilə.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

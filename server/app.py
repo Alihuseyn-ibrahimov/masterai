@@ -74,6 +74,7 @@ from pipeline.summary import LessonSummary, summarize_material
 from pipeline.transcribe import TranscriptionError, transcribe_audio
 from pipeline.youtube_transcript import YoutubeTranscriptError, fetch_transcript
 from pipeline.board_ocr import read_board
+from pipeline.receipt_reader import production_complete as receipt_complete, read_receipt
 from pipeline.rag import Document as TutorDocument
 from pipeline.review_team import AGENT_LABELS, review_bank
 from pipeline.flashcards import generate_flashcards
@@ -232,6 +233,9 @@ from .models import (
     ExpenseOut,
     KassaOut,
     KassaStudentRequest,
+    ReceiptCandidate,
+    ReceiptReadOut,
+    ReceiptReadRequest,
     QualityFinding,
     QuestionSetInfo,
     QuestionSetQuality,
@@ -438,6 +442,11 @@ def get_socratic_hinter():
     """(material, sual, variantlar, səhv/düzgün indeks) → Sokratik hint
     (Faza 2 PR 1; testdə fake funksiya ilə override olunur)."""
     return generate_hint
+
+
+def get_receipt_reader():
+    """Mətn → (qəbz, mənbə, atılan sahələr). Testdə LLM-siz və ya saxta LLM ilə."""
+    return lambda text: read_receipt(text, receipt_complete())
 
 
 def get_pin_rate_limiter() -> RateLimiter:
@@ -5134,6 +5143,42 @@ def kassa_mark_paid(
     if fee is None:
         raise HTTPException(status_code=400, detail="Əvvəlcə aylıq məbləği təyin edin")
     payments.mark_paid(req.chat_id, req.student_id, req.month, fee, marked_by=user["id"])
+
+
+@app.post("/live/kassa/receipt", response_model=ReceiptReadOut)
+async def kassa_read_receipt(
+    req: ReceiptReadRequest,
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+    reader=Depends(get_receipt_reader),
+) -> ReceiptReadOut:
+    """Bank SMS-i, qəbz və ya valideyn mesajı → məbləğ, tarix, şagird + qeydiyyatdan
+    namizədlər. Heç nə YAZMIR: rəhbər namizədi seçib mövcud `/live/kassa/mark` ilə
+    təsdiqləyir. LLM bloklayıcıdır, ona görə ayrı thread-də."""
+    _require_kassa_admin(user)
+    if user["course_id"] is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    receipt, source, dropped = await asyncio.to_thread(reader, req.text)
+    if receipt is None:
+        return ReceiptReadOut(found=False, source=source, dropped=dropped)
+    enrollments = _kassa_enrollments(user["course_id"], chats, users, payments)
+    candidates = kassa_calc.match_receipt(receipt.student, receipt.payer, enrollments)
+    month = kassa_calc.receipt_month(receipt.month, receipt.date,
+                                     datetime.now(timezone.utc).date().isoformat())
+    # Eyni pul iki dəfə yazılmasın: həmin ay artıq ödənibsə rəhbər bunu görür.
+    paid = {(r["chat_id"], r["student_id"]) for r in payments.list_records_for_chats(
+        sorted({e.chat_id for e in candidates}), month, month)}
+    return ReceiptReadOut(
+        found=True, source=source, dropped=dropped,
+        amount=receipt.amount, date=receipt.date, payer=receipt.payer,
+        card_last4=receipt.card_last4, student=receipt.student, month=month,
+        candidates=[ReceiptCandidate(chat_id=e.chat_id, chat_name=e.chat_name,
+                                     student_id=e.student_id, display_name=e.display_name,
+                                     monthly_amount=e.monthly_amount,
+                                     paid=(e.chat_id, e.student_id) in paid) for e in candidates],
+    )
 
 
 @app.post("/live/kassa/remind", status_code=204)

@@ -149,3 +149,56 @@ def summarize(
         "trend": [month_totals(m) for m in trend_months],
         "students_without_fee": sum(1 for e in enrollments if e.monthly_amount is None),
     }
+
+
+# ---- Qəbz oxuyucusu (addım 5): oxunmuş qəbzi qeydiyyatdakı şagirdə bağla ----
+
+_ASCII = str.maketrans("əƏıİöÖüÜşŞçÇğĞ", "eEiIoOuUsScCgG")
+
+
+def _norm(text: str) -> str:
+    return " ".join(str(text).translate(_ASCII).lower().split())
+
+
+def _family(name: str) -> str:
+    """Soyadın kişi/qadın formasını eyniləşdirir: «Əliyeva» → «eliyev»."""
+    token = _norm(name).split()[-1] if _norm(name) else ""
+    return token[:-1] if token.endswith(("ova", "eva", "yeva")) else token
+
+
+def match_receipt(student: str | None, payer: str | None,
+                  enrollments: list[Enrollment], limit: int = 5) -> list[Enrollment]:
+    """Qəbzdəki şagird adına uyğun qeydiyyatlar, ən ehtimallısı əvvəl.
+
+    Ad (ilk söz) üst-üstə düşməlidir; ödəyənin soyadı da şagirdinki ilə eynidirsə
+    (valideyn) yuxarı qalxır. Ad yoxdursa namizəd YOXDUR: rəhbər özü seçir, sistem
+    pulu təxmini birinə yazmır.
+    """
+    if not student:
+        return []
+    first = _norm(student).split()[0]
+    family = _family(payer) if payer else ""
+    scored = []
+    for e in enrollments:
+        tokens = _norm(e.display_name).split()
+        if not tokens or tokens[0] != first:
+            continue
+        bonus = 1 if family and len(tokens) > 1 and _family(e.display_name) == family else 0
+        scored.append((-bonus, e.display_name, e.chat_id, e))
+    scored.sort(key=lambda item: item[:3])
+    return [item[3] for item in scored[:limit]]
+
+
+def receipt_month(month: int | None, paid_on: str | None, today: str) -> str:
+    """Qəbzin aid olduğu ay «YYYY-AA». İl ödəniş tarixindən (yoxdursa bu gündən)
+    götürülür, ilin sonu/başı keçidi düzəldilir: 28 dekabrda «yanvar» gələn il,
+    3 yanvarda «dekabr» keçən ildir."""
+    anchor = paid_on or today
+    year, anchor_month = int(anchor[:4]), int(anchor[5:7])
+    if month is None:
+        return f"{year:04d}-{anchor_month:02d}"
+    if month - anchor_month > 6:
+        year -= 1
+    elif anchor_month - month > 6:
+        year += 1
+    return f"{year:04d}-{month:02d}"

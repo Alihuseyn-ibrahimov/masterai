@@ -34,3 +34,19 @@ test('trendShare is clamped and safe for zero', () => {
   assert.equal(trendShare(50, 100), 0.5);
   assert.equal(trendShare(150, 100), 1);
 });
+
+test('receiptLine qəbzi bir sətirdə yazır, qəpikli məbləği itirmir', async () => {
+  const { receiptLine } = await import('../assets/js/kassa.js');
+  assert.equal(
+    receiptLine({ amount: 120, date: '2026-11-03', student: 'Aysel', payer: null, card_last4: '4417', source: 'llm' }),
+    '120 AZN · 03.11.2026 · Aysel · kart *4417 · AI oxudu',
+  );
+  assert.equal(receiptLine({ amount: 90.5, source: 'rules' }), '90.50 AZN · qaydalarla oxundu');
+});
+
+test('amountWarning yalnız məbləğ fərqlənəndə', async () => {
+  const { amountWarning } = await import('../assets/js/kassa.js');
+  assert.equal(amountWarning({ amount: 120 }, { monthly_amount: 120 }), '');
+  assert.equal(amountWarning({ amount: 120 }, null), '');
+  assert.match(amountWarning({ amount: 60 }, { monthly_amount: 120 }), /60 AZN.*120 AZN/);
+});

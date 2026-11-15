@@ -55,6 +55,35 @@
   </section>
 
   <section class="stack">
+    <div class="section-header"><h2>Qəbzi oxu</h2></div>
+    <div class="card stack">
+      <form class="stack" id="receiptForm">
+        <div class="field">
+          <label class="field__label" for="receiptText">Bank SMS-i, qəbz mətni və ya valideynin mesajı</label>
+          <textarea class="field__textarea" id="receiptText" rows="4" maxlength="4000" required
+            placeholder="məs. Salam müəllim, Ayselin noyabr pulunu köçürdüm, 120 AZN."></textarea>
+        </div>
+        <div><button class="btn btn--secondary" type="submit" id="receiptSubmit">Oxu</button></div>
+      </form>
+      <div class="stack stack--tight" id="receiptResult" hidden>
+        <p class="text-sm" id="receiptLine"></p>
+        <div class="kassa-form">
+          <div class="field">
+            <label class="field__label" for="receiptWho">Şagird</label>
+            <select class="field__select" id="receiptWho"></select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="receiptMonth">Ay</label>
+            <input class="field__input" id="receiptMonth" type="month" required>
+          </div>
+          <button class="btn btn--primary" type="button" id="receiptMark">Ödədi kimi qeyd et</button>
+        </div>
+        <p class="text-sm text-muted" id="receiptNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack">
     <div class="section-header"><h2>Qruplar üzrə</h2></div>
     <div class="card stack" id="groups"></div>
   </section>
@@ -101,7 +130,7 @@
 <script type="module">
   import { request, getUser } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { azn, debtLabel, monthLabel, percent, trendShare } from './assets/js/kassa.js';
+  import { amountWarning, azn, debtLabel, monthLabel, percent, receiptLine, trendShare } from './assets/js/kassa.js';
 
   if (requireLogin()) {
     mountShell();
@@ -260,12 +289,91 @@
       }
     }
 
+    // Qəbz oxuyucusu: AI yalnız TƏKLİF edir, «Ödədi»ni rəhbər özü basır.
+    let receipt = null;
+    const receiptWho = document.getElementById('receiptWho');
+    const receiptMark = document.getElementById('receiptMark');
+    const receiptNote = document.getElementById('receiptNote');
+
+    function chosenCandidate() {
+      return receipt && receipt.candidates[Number(receiptWho.value)];
+    }
+
+    function updateReceiptNote() {
+      const candidate = chosenCandidate();
+      receiptMark.disabled = !candidate;
+      const notes = [];
+      if (!receipt.candidates.length) {
+        notes.push(receipt.student
+          ? `«${receipt.student}» adlı şagird tapılmadı: Borclular siyahısından əl ilə qeyd edin.`
+          : 'Şagirdin adı oxunmadı: Borclular siyahısından əl ilə qeyd edin.');
+      }
+      if (receipt.dropped.length) notes.push(`Mətndə tapılmadığı üçün atıldı: ${receipt.dropped.join(', ')}.`);
+      if (candidate && candidate.paid) notes.push(`${candidate.display_name} bu ay üçün artıq ödəyib kimi qeyd olunub.`);
+      const warning = amountWarning(receipt, candidate);
+      if (warning) notes.push(warning);
+      receiptNote.textContent = notes.join(' ');
+    }
+
+    async function readReceipt(event) {
+      event.preventDefault();
+      const button = document.getElementById('receiptSubmit');
+      button.disabled = true;
+      try {
+        receipt = await request('/live/kassa/receipt', {
+          method: 'POST', body: { text: document.getElementById('receiptText').value },
+        });
+        const box = document.getElementById('receiptResult');
+        if (!receipt.found) {
+          box.hidden = true;
+          flash(errorBox, 'Mətndə ödəniş məbləği tapılmadı.');
+          return;
+        }
+        document.getElementById('receiptLine').textContent = receiptLine(receipt);
+        receiptWho.replaceChildren(...receipt.candidates.map((c, i) => {
+          const option = el('option', '', `${c.display_name} · ${c.chat_name}${c.paid ? ' · ödəyib' : ''}`);
+          option.value = String(i);
+          return option;
+        }));
+        document.getElementById('receiptMonth').value = receipt.month;
+        box.hidden = false;
+        updateReceiptNote();
+      } catch (error) {
+        flash(errorBox, error.message);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function markReceipt() {
+      const candidate = chosenCandidate();
+      const month = document.getElementById('receiptMonth').value;
+      if (!candidate || !month) return;
+      receiptMark.disabled = true;
+      try {
+        await request('/live/kassa/mark', {
+          method: 'POST', body: { chat_id: candidate.chat_id, student_id: candidate.student_id, month },
+        });
+        flash(okBox, `${candidate.display_name}: ${monthLabel(month)} ödənişi qeyd olundu.`);
+        document.getElementById('receiptForm').reset();
+        document.getElementById('receiptResult').hidden = true;
+        receipt = null;
+        load();
+      } catch (error) {
+        flash(errorBox, error.message);
+        receiptMark.disabled = false;
+      }
+    }
+
     if (!user || !user.is_admin) {
       errorBox.textContent = 'Kassa yalnız kurs rəhbəri üçündür.';
       errorBox.hidden = false;
     } else {
       monthInput.value = new Date().toISOString().slice(0, 7);
       monthInput.addEventListener('change', () => { if (monthInput.value) load(); });
+      document.getElementById('receiptForm').addEventListener('submit', readReceipt);
+      receiptWho.addEventListener('change', updateReceiptNote);
+      receiptMark.addEventListener('click', markReceipt);
       document.getElementById('expenseForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = document.getElementById('expSubmit');

@@ -205,9 +205,57 @@ siyahısını ayda bir yox, **həftədə bir** vermək, yəqin ki, daha çox ged
 tutar. Bu, hipotezdir: real Master NR 1 datasında yoxlanmalıdır. Model kodu
 hazırdır, real datada qaydanı keçərsə Kassaya qoşularıq.
 
+## Addım 5: qəbz oxuyucusu - QLoRA + vLLM (5-ci ay #35, #38)
+
+Valideyn pulu atanda rəhbərə bank SMS-i, kağız qəbz və ya «Ayselin noyabr pulunu
+köçürdüm» mesajı gəlir. Rəhbər onu Kassada «Qəbzi oxu»ya yapışdırır: məbləğ,
+tarix, ödəyən, kartın son 4 rəqəmi, ay və şagird çıxır, şagird qeydiyyatdan
+tapılır (ad + ödəyənin soyadı), rəhbər «Ödədi kimi qeyd et» basır. **AI heç nə
+yazmır**: nəticə təklifdir, qeydi mövcud `/live/kassa/mark` edir. Həmin ay artıq
+ödənibsə və ya qəbzdəki məbləğ aylıq məbləğdən fərqlidirsə rəhbər bunu görür.
+
+**Data sintetikdir** (`ml/receipts/synth.py`, real qəbz şəxsi məlumatdır): 6 mətn
+növü. `bank_sms` (balans çaşdırıcıdır), `card2card`, `cash_receipt` (OCR səhvləri),
+`parent_message` (yiyəlik hal: «Lalənin» → «Lalə»), `ewallet` (komissiya
+çaşdırıcıdır, ad maskalıdır), `messenger` («Uşaq:», «Ana:», «... ilə bitir»).
+Son ikisi öyrətməyə DÜŞMÜR (`HELD_OUT`): model görmədiyi formatda ümumiləşirmi?
+
+**Qaydalı baza** (`pipeline/receipt_reader.py::rule_based`, LLM-siz ehtiyat yol):
+
+| Test dəsti | Hamısı düz | amount | date | payer | card | month | student |
+|---|---|---|---|---|---|---|---|
+| Görülən 4 növ (160) | 91% | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.91 |
+| Görülməyən 2 növ (800) | 50% | 1.00 | 1.00 | 0.76 | 0.74 | 1.00 | 0.50 |
+
+Qaydalar şablona yazılıb: `ewallet`-də 100%, `messenger`-də 0% (şagirdi tapmır).
+Görülən növlərdə qalan səhv yiyəlik haldır: «Kamranın» həm «Kamran+ın», həm
+«Kamra+nın» ola bilər, qayda adları bilmədən ayıra bilmir. QLoRA modelinin
+üstünlüyü məhz bu iki yerdə ölçülür.
+
+**Uydurmaya qarşı (`grounded`):** LLM-in məbləği mətndə yoxdursa bütün cavab atılır
+(pul məsələsində təxmin yoxdur) və qaydalara düşülür; tarix, kart, ad, ay mətndə
+tapılmırsa yalnız o sahə `null` olur və rəhbərə «atıldı» deyilir. Sintetik datanın
+bütün düzgün etiketləri bu yoxlamadan keçir (test var).
+
+**Məxfilik:** qəbzdə ad və kart rəqəmi var. Defolt olaraq YALNIZ öz vLLM serverimiz
+çağırılır (`VLLM_BASE_URL` + `VLLM_RECEIPT_MODEL`); Groq/Claude yalnız
+`RECEIPT_ALLOW_EXTERNAL_LLM=true` ilə. Heç biri yoxdursa qaydalar işləyir.
+
+**QLoRA + vLLM** (`ml/qlora_receipts.ipynb`, Colab T4): Qwen2.5-1.5B-Instruct NF4 +
+LoRA r=16, dataset Colab-da `python -m ml.receipts.sft` ilə yaranır (sistem və
+istifadəçi mesajı produksiya ilə bayt-bayt eynidir). Müqayisə: qaydalar, baza,
+QLoRA, görülən və görülməyən növlərdə. Sonra vLLM **multi-LoRA**
+(`--enable-lora --lora-modules receipts=...`: bir baza model, bir neçə adapter;
+gələcəkdə `masterai-mcq` ilə eyni GPU), **`guided_json`** (dekodlaşdırma
+`Receipt` sxeminə bağlanır: JSON oxunma 100% olmalıdır, sual məzmundur) və
+`ml/bench_llm.py` ilə gecikmə. Notebook burada İŞLƏDİLMƏYİB (GPU yoxdur):
+QLoRA nəticəsi Colab-da alınmalıdır.
+
 ## Açıq suallar
 
 - Master NR 1-in anonim ödəniş cədvəli mümkündürmü? Olarsa, generatorun
   parametrlərini real paylanmaya uyğunlaşdıracağıq.
+- Qəbz oxuyucusu: real bank SMS-lərinin formatı (anonimləşdirilmiş 20-30 nümunə)
+  sintetik ailələri yoxlamaq üçün kifayətdir.
 - Real masterai-də şagirdin kursdan rəsmi «çıxış» qeydi yoxdur. Gələcəkdə
   sahib panelində «çıxdı» düyməsi əlavə etsək, hədəf daha dəqiq olar.
