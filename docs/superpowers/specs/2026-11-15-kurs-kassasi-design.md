@@ -1,7 +1,7 @@
 # Kurs Kassası: data sxemi və şagird itkisi (churn) hədəfi
 
 **Tarix:** 2026-11-15
-**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli), addım 4 (trend əlamətləri + PyTorch), addım 5 (qəbz oxuyucusu), addım 6 (agentlər + qoruyucu qat) və addım 7 (vahid eval) hazırdır. Növbəti: pilot və təqdimat (addım 8).
+**Status:** Addım 1 (data sxemi, hədəf, sintetik generator) addım 2 (Kassa paneli), addım 3 (sklearn modeli), addım 4 (trend əlamətləri + PyTorch), addım 5 (qəbz oxuyucusu), addım 6 (agentlər + qoruyucu qat) addım 7 (vahid eval) və addım 8 (demo + pilot planı + təqdimat) hazırdır. Növbəti: Master NR 1-də real pilot (`deploy/KASSA_PILOT.md`).
 **Bazar araşdırması və plan:** https://claude.ai/artifact/QYJUZWQv4nF8Pg4gUoCg81
 
 ## Problem
@@ -302,6 +302,16 @@ Offline nəticə (seed 7/11, sintetik):
 **Eval bir səhv tapdı:** «Gələn ay yığım 3800 AZN olacaq» keçirdi (3800 xülasədə avqustun
 gözləntisidir). Rəqəmli proqnoz cümləsi artıq atılır. Live nəticə (real LLM, QLoRA) hələ YOXDUR:
 serverdə/Colab-da `--live` ilə alınmalıdır.
+
+
+## Addım 8: demo, pilot planı, təqdimat (6-cı ay, layihə dərsi)
+
+Real Master NR 1 datası hələ yoxdur, ona görə demo sintetikdir və bunu açıq deyir.
+`deploy/kassa_demo.py` BOŞ qovluqda 3 qrup, 40 uydurma şagird, 6 aylıq ödəniş və xərc
+yaradır (`.db` olan qovluğa yazmır), `demo.env` serverin hər bazasını ora yönəldir.
+Ödənişlər `paid_at` ilə keçmişə yazılır, gələcək tarixli ödəniş yoxdur. 3 şagird 2-3 ay
+əvvəl ödəməyi kəsir: Kassa onları «yəqin gedib» göstərməlidir (`tests/test_kassa_demo.py`).
+Pilot planı, ölçülər və qiymət fərziyyəsi: `deploy/KASSA_PILOT.md`.
 
 ## Açıq suallar
 
