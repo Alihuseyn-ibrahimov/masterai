@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2543 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2549 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-15-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-16-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -913,6 +913,12 @@ həqiqəti ilə (`kassa_qa.jsonl`: `expected_sql` anonim surətdə işləyir, ca
 aylıq hesabat. Olmayan venv/açar hissəni «keçildi» edir, hesabat yenə yazılır. İlk iş tapdı:
 rəqəmin xülasədə OLMASI mənasını yoxlamır («gələn ay 3800 AZN olacaq» keçirdi) - rəqəmli proqnoz
 cümləsi indi atılır (`facts._FORECAST`).
+
+**Addım 8 - demo + pilot + təqdimat.** `deploy/kassa_demo.py --data-dir BOŞ_QOVLUQ`: 3 qrup,
+40 uydurma şagird, 6 ay ödəniş və xərc, 3 nəfər ödəməyi kəsib; `.db` olan qovluğa YAZMIR,
+`demo.env` serverin HƏR bazasını ora yönəldir (yoxsa qalanı iş qovluğunda yaranır). Pilot
+planı, ölçülər, qiymət: `deploy/KASSA_PILOT.md`. Ödənişin `paid_at`-i SQL ilə keçmişə yazılır
+(store `now` qoyur). Rəqəmlər sintetikdir - görüşdə də belə deyilir.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
