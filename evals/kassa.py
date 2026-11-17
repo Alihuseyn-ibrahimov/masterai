@@ -165,7 +165,19 @@ def pilot_agents(qa_cases: list[dict], seed: int = PILOT_SEEDS[0]) -> dict:
 
 # ---------- 2. qəbz oxuyucusu ----------
 
-def receipts_eval(per_family: int = 60, seed: int = 11, complete=None) -> dict:
+def _first_per_family(rows: list[dict], limit: int) -> list[dict]:
+    taken: dict[str, int] = {}
+    out = []
+    for r in rows:
+        if taken.get(r["family"], 0) < limit:
+            taken[r["family"]] = taken.get(r["family"], 0) + 1
+            out.append(r)
+    return out
+
+
+def receipts_eval(per_family: int = 60, seed: int = 11, complete=None, llm_per_family: int | None = None) -> dict:
+    """`llm_per_family`: LLM yolu hər növdən yalnız ilk N qəbzdə ölçülür (qaydalar həmişə
+    bütün dəstdə). Serverdə 360 Groq sorğusu pulsuz limitə dəyir və ~15 dəqiqə çəkir."""
     from ml.receipts import synth
     from ml.receipts.score import score
     from pipeline.receipt_reader import read_receipt, rule_based
@@ -178,13 +190,15 @@ def receipts_eval(per_family: int = 60, seed: int = 11, complete=None) -> dict:
         out[f"rules_{name}"] = score([r["label"] for r in rows], [rule_based(r["text"]) for r in rows])
     if complete is not None:
         for name, rows in parts.items():
+            if llm_per_family is not None:
+                rows = _first_per_family(rows, llm_per_family)
             preds, sources, started = [], {"llm": 0, "rules": 0, "none": 0}, time.monotonic()
             for r in rows:
                 result, source, _ = read_receipt(r["text"], complete)
                 preds.append(result)
                 sources[source] += 1
             out[f"pipeline_{name}"] = score([r["label"] for r in rows], preds) | {
-                "sources": sources, "seconds_per_receipt": round((time.monotonic() - started) / len(rows), 2)}
+                "n": len(rows), "sources": sources, "seconds_per_receipt": round((time.monotonic() - started) / len(rows), 2)}
     return out
 
 
@@ -369,7 +383,7 @@ def _skip_reason(module: str) -> str | None:
 # ---------- hesabat ----------
 
 def run_all(*, live: bool = False, churn: bool = True, receipt_complete=None, analyst_client=None,
-            report_llm=None) -> dict:
+            report_llm=None, receipts_llm_per_family: int | None = None) -> dict:
     summary = load_summary()
     cases = load_jsonl(DATASETS / "kassa_agents.jsonl")
     qa_cases = load_jsonl(DATASETS / "kassa_qa.jsonl")
@@ -377,7 +391,7 @@ def run_all(*, live: bool = False, churn: bool = True, receipt_complete=None, an
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "mode": "live" if live else "offline",
         "churn": churn_eval() if churn else {"skipped": "--skip-churn"},
-        "receipts": receipts_eval(complete=receipt_complete),
+        "receipts": receipts_eval(complete=receipt_complete, llm_per_family=receipts_llm_per_family),
         "agents": agents_offline(cases, qa_cases, summary),
         "pilot": {"churn": churn_pilot_eval() if churn else {"skipped": "--skip-churn"},
                   "agents": pilot_agents(qa_cases)},
@@ -492,6 +506,8 @@ def format_report(report: dict) -> str:
     if "pipeline_seen" in rec:
         p_seen, p_unseen = rec["pipeline_seen"], rec["pipeline_unseen"]
         lines.append(f"| LLM + yoxlama + qaydalar | {_pct(p_seen['all_fields'])} | {_pct(p_unseen['all_fields'])} |")
+        if p_seen.get("n", rec["n"]["seen"]) != rec["n"]["seen"]:
+            lines.append(f"\nLLM yolu seçmədə ölçülüb (`--receipts`): görülən {p_seen['n']}, görülməyən {p_unseen['n']} qəbz.")
         lines.append(f"\nMənbə (görülməyən): {p_unseen['sources']}, {p_unseen['seconds_per_receipt']} san/qəbz.")
     elif rec.get("pipeline_note"):
         lines.append(f"\nLLM yolu ölçülmədi: {rec['pipeline_note']}.")
@@ -549,6 +565,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--live", action="store_true", help="real LLM ilə qəbz və agentlər")
     parser.add_argument("--skip-churn", action="store_true")
     parser.add_argument("--check", action="store_true", help="offline hədd pozulsa çıxış kodu 1")
+    parser.add_argument("--receipts", type=int, metavar="N",
+                        help="--live: qəbz LLM yolunu hər növdən yalnız N qəbzdə ölç (defolt hamısı, 60)")
     parser.add_argument("--out", help="markdown hesabatı (və yanında .json) bu fayla")
     args = parser.parse_args(argv)
 
@@ -556,7 +574,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.live:
         from pipeline.receipt_reader import production_complete
         receipt_complete = production_complete()
-    report = run_all(live=args.live, churn=not args.skip_churn, receipt_complete=receipt_complete)
+    report = run_all(live=args.live, churn=not args.skip_churn, receipt_complete=receipt_complete,
+                     receipts_llm_per_family=args.receipts)
     text = format_report(report)
     print(text)
     if args.out:

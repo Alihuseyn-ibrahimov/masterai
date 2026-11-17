@@ -123,7 +123,11 @@ def _env_key(name: str) -> str:
 
 def _env_text(paths: dict[str, Path]) -> str:
     # Lokal demo server üçün öz JWT açarı: yoxsa giriş 500 verir (server açarsız başlamır).
-    return "".join(f"{key}={path}\n" for key, path in paths.items()) + f"JWT_SECRET={secrets.token_urlsafe(48)}\n"
+    # Yükləmələr də demo qovluğuna: defolt `server/uploads/` kod qovluğudur, serverdə
+    # demo kodun checkout-una fayl yazardı (deploy/DEPLOY_KASSA.md).
+    uploads = next(iter(paths.values())).parent / "uploads"
+    return ("".join(f"{key}={path}\n" for key, path in paths.items())
+            + f"MATERIAL_UPLOAD_DIR={uploads}\n" + f"JWT_SECRET={secrets.token_urlsafe(48)}\n")
 
 
 def db_paths(data_dir: Path) -> dict[str, Path]:

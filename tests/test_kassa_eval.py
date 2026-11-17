@@ -79,6 +79,19 @@ def test_receipts_live_path_uses_llm_and_falls_back():
         + out["pipeline_unseen"]["sources"]["none"] == 8     # ewallet qaydalara düşdü
 
 
+def test_receipts_llm_sample_is_limited_per_family_rules_stay_full():
+    calls = []
+
+    def fake(system, user):
+        calls.append(user)
+        return "pozuq"
+
+    out = receipts_eval(per_family=4, seed=3, complete=fake, llm_per_family=1)
+    assert len(calls) == 6                                     # 6 növ x 1 qəbz
+    assert out["n"] == {"seen": 16, "unseen": 8}               # qaydalar bütün dəstdə
+    assert sum(out["pipeline_unseen"]["sources"].values()) == 2
+
+
 def test_main_writes_markdown_and_json(tmp_path, capsys):
     out = tmp_path / "kassa.md"
     assert kassa.main(["--skip-churn", "--check", "--out", str(out)]) == 0
