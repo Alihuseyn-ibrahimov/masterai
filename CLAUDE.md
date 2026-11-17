@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2549 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 418 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2559 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 419 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-16-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-17-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -919,6 +919,18 @@ cümləsi indi atılır (`facts._FORECAST`).
 `demo.env` serverin HƏR bazasını ora yönəldir (yoxsa qalanı iş qovluğunda yaranır). Pilot
 planı, ölçülər, qiymət: `deploy/KASSA_PILOT.md`. Ödənişin `paid_at`-i SQL ilə keçmişə yazılır
 (store `now` qoyur). Rəqəmlər sintetikdir - görüşdə də belə deyilir.
+
+**Pilot datası (2026-11-17, istifadəçi sintetik datanı seçdi).** `ml/churn/realistic.py`: iki
+tədris ili, 10 qrup, ~190 şagird, mövsümi qəbul/itki, bayramlar, yay arası, 5 ödəniş vərdişi,
+nağd/kart, qismən ödəniş, dost təsiri, səs-küy (unudulmuş üzv, məbləğsiz şagird), xərclər. Eyni
+`Tables` formasıdır (`Program.ends_at`, `ChatMember.removed_at`, `students`, `expenses` əlavə
+olundu; köhnə CSV-lər oxunur). `deploy/kassa_demo.py` defolt olaraq bunu yükləyir (`--simple` köhnə
+40 şagird), `demo.env`-ə JWT açarı da yazır. Kassa dəyişikliyi: qismən ödəniş qalığı borcdur
+(`paid_amount`), qrupdan çıxarılmış şagirdin ödənişi o ayın gözləniləninə də yazılır, `/live/kassa`
+BÜTÜN qrupların qeydlərini oxuyur (boşaldılmış qrupun gəliri trenddən itməsin), 12 ay = «12+».
+`evals.kassa` «1b» hissəsi: 5 seed × 2 ölçü, model YENƏ qaydanı keçmir (qayda+susan 82%, qayda+model
+80% tapır), pilot xülasəsində ad sızması 0. Seed başına itki 40-75 şagird arası dəyişir: tək seed
+nəticəsinə etibar etmə.
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

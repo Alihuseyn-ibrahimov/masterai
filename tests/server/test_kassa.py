@@ -108,6 +108,26 @@ def test_same_student_in_two_groups_is_billed_twice():
     assert len(out["by_chat"]) == 2
 
 
+def test_partial_payment_leaves_the_rest_as_debt():
+    s = kassa.summarize("2026-11", NOW, [_e(1, amount=120), _e(2)], [_r(1, "2026-11", 50), _r(2, "2026-11")], [])
+    assert s["collected"] == 150 and s["outstanding"] == 70
+    [d] = s["debtors"]
+    assert (d["student_id"], d["amount"], d["paid_amount"], d["unpaid_months"]) == (1, 70, 50, 0)
+    assert not d["likely_left"]
+
+
+def test_partial_month_does_not_extend_unpaid_streak():
+    s = kassa.summarize("2026-11", NOW, [_e(1)], [_r(1, "2026-10", 40)], [])
+    assert s["debtors"][0]["unpaid_months"] == 1 and s["debtors"][0]["paid_amount"] == 0
+
+
+def test_removed_student_payment_counts_as_expected_too():
+    """Qrupdan çıxarılmış şagirdin keçmiş ödənişi yığımı 100%-dən yuxarı qaldırmır."""
+    s = kassa.summarize("2026-11", NOW, [_e(1)], [_r(1, "2026-10"), _r(9, "2026-10", 80)], [])
+    october = next(t for t in s["trend"] if t["month"] == "2026-10")
+    assert october["collected"] == 180 and october["expected"] == 180
+
+
 def test_trend_covers_six_months_oldest_first():
     out = kassa.summarize("2026-11", NOW, [_e(1)], [_r(1, "2026-10")],
                           [{"id": 1, "month": "2026-10", "category": "Reklam", "amount": 30,

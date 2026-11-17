@@ -5090,7 +5090,8 @@ def get_kassa(
     target = month or current_month()
     first = kassa_calc.months_back(target, kassa_calc.TREND_MONTHS)[0]
     enrollments = _kassa_enrollments(user["course_id"], chats, users, payments)
-    chat_ids = sorted({e.chat_id for e in enrollments})
+    # Bütün qruplar: boşaldılmış (məzun) qrupun keçmiş ödənişləri trenddən itməsin.
+    chat_ids = chats.list_ids_by_course(user["course_id"])
     # Borc ardıcıllığı 12 aya qədər geri baxır, ona görə qeydlər 12 ay.
     records = payments.list_records_for_chats(
         chat_ids, kassa_calc.months_back(target, 12)[0], target)

@@ -29,6 +29,13 @@ test('debtLabel mentions streak and last payment', () => {
     '19 gün gecikir · 3 aydır ödəmir · heç ödəməyib');
 });
 
+test('debtLabel: qismən ödəniş və 12+ ay', () => {
+  assert.equal(debtLabel({ days_overdue: 9, unpaid_months: 0, paid_amount: 70, last_paid_month: '2026-11' }),
+    'qismən: 70 AZN ödəyib · 9 gün gecikir · son ödəniş: Noy 2026');
+  assert.equal(debtLabel({ days_overdue: 16, unpaid_months: 12, last_paid_month: null }),
+    '16 gün gecikir · 12+ aydır ödəmir');
+});
+
 test('trendShare is clamped and safe for zero', () => {
   assert.equal(trendShare(50, 0), 0);
   assert.equal(trendShare(50, 100), 0.5);

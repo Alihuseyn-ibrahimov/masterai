@@ -25,6 +25,12 @@ export function monthLabel(month) {
 /** Borclunun qısa təsviri: neçə gün gecikib, neçə aydır ödəmir. */
 export function debtLabel(debtor) {
   const parts = [`${debtor.days_overdue} gün gecikir`];
+  if (debtor.paid_amount > 0) parts.unshift(`qismən: ${azn(debtor.paid_amount)} ödəyib`);
+  // Server ardıcıllığı 12 ayda kəsir: 12 = «ən azı 12», «heç ödəməyib» demək olmaz.
+  if (debtor.unpaid_months >= 12) {
+    parts.push('12+ aydır ödəmir');
+    return parts.join(' · ');
+  }
   if (debtor.unpaid_months > 1) parts.push(`${debtor.unpaid_months} aydır ödəmir`);
   if (debtor.last_paid_month) parts.push(`son ödəniş: ${monthLabel(debtor.last_paid_month)}`);
   else parts.push('heç ödəməyib');
