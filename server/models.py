@@ -521,7 +521,9 @@ class KassaDebtor(BaseModel):
     chat_name: str
     student_id: int
     display_name: str
-    amount: int
+    amount: int  # bu ay üçün QALAN borc
+    # Qismən ödəniş: bu ay artıq ödənən hissə (0 = heç ödəməyib).
+    paid_amount: int = 0
     days_overdue: int
     unpaid_months: int
     last_paid_month: str | None

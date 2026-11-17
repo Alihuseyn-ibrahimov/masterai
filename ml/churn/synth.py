@@ -83,6 +83,9 @@ def _next_month(dt: datetime) -> datetime:
 
 def program_end(program: Program) -> datetime:
     """Proqramın son anı (müstəsna). Il boyu proqram simulyasiyanın sonuna qədər gedir."""
+    if program.ends_at:
+        dt = datetime.fromisoformat(program.ends_at)
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
     if program.end_month is None:
         return END
     year = 2026 if program.end_month < 9 else 2025

@@ -31,6 +31,9 @@ class ChatMember:  # chat_members
     chat_id: int
     user_id: int
     joined_at: str
+    # Rəhbər getmiş şagirdi qrupdan çıxarıbsa (bazada sətir YOXDUR). Dataset buna
+    # baxmır: tarixdə üzv idi. Yalnız bazaya yükləyici (`deploy/kassa_demo.py`) istifadə edir.
+    removed_at: str | None = None
 
 
 @dataclass
@@ -87,6 +90,10 @@ class Program:
     kind: str  # abituriyent | magistr | ingilis
     monthly_fee: int
     end_month: int | None  # proqram bu ayın sonunda bitir (6 = iyun), None = il boyu
+    name: str = ""
+    # Dəqiq son an (müstəsna). Bir neçə tədris ilini əhatə edən datada `end_month`
+    # ili bilmir, ona görə realist generator bunu yazır (`synth.program_end`).
+    ends_at: str | None = None
 
 
 @dataclass
@@ -100,6 +107,20 @@ class Truth:
 
 
 @dataclass
+class Student:  # users (yalnız lazım olan sütun)
+    user_id: int
+    display_name: str
+
+
+@dataclass
+class Expense:  # expenses (kursa bağlı)
+    month: str
+    category: str
+    amount: int
+    note: str = ""
+
+
+@dataclass
 class Tables:
     programs: list[Program] = field(default_factory=list)
     chat_members: list[ChatMember] = field(default_factory=list)
@@ -110,6 +131,8 @@ class Tables:
     homework_assignments: list[Assignment] = field(default_factory=list)
     homework_attempts: list[Attempt] = field(default_factory=list)
     truth: list[Truth] = field(default_factory=list)
+    students: list[Student] = field(default_factory=list)
+    expenses: list[Expense] = field(default_factory=list)
 
 
 TABLE_TYPES = {
@@ -122,6 +145,8 @@ TABLE_TYPES = {
     "homework_assignments": Assignment,
     "homework_attempts": Attempt,
     "truth": Truth,
+    "students": Student,
+    "expenses": Expense,
 }
 
 

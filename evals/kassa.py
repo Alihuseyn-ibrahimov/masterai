@@ -17,6 +17,11 @@ Dörd hissə, hər biri «baza ilə müqayisədə nə qazandıq?» sualına cava
    (`kassa_qa.jsonl`), aylıq hesabatın bölmələri, atılan cümlə payı.
 
 Dəst `evals/datasets/kassa_*`-dadır. Xülasə sintetikdir: real kursun adı yoxdur.
+
+**Pilot datası** (2026-11-17, `ml/churn/realistic.py`): Master NR 1-in datası olmadığı üçün
+pilot real kursa bənzəyən sintetik kursla aparılır. Hesabatın «Pilot» hissəsi (a) churn
+qaydası ilə modeli bu datada bir neçə seed üzrə müqayisə edir, (b) Kassanın həmin kurs
+üçün qurduğu xülasəni agentlərin qoruyucu qatından keçirir (ad sızması, SQL həqiqəti).
 """
 
 from __future__ import annotations
@@ -34,7 +39,9 @@ from kassa_agents.facts import (
     QueryRejected, alias_names, allowed_numbers, anonymize, deanonymize, facts_text, ground_report, numbers_in,
     safe_query, snapshot_db,
 )
+from ml.churn import realistic
 from pipeline import guardrails
+from server import kassa as kassa_calc
 
 DATASETS = Path(__file__).parent / "datasets"
 
@@ -50,7 +57,12 @@ KASSA_GATES = {
     "agents.pii_mask_rate": 1.0,
     "agents.name_leaks_max": 0,
     "agents.qa_ground_truth_valid": 1.0,
+    "pilot.name_leaks_max": 0,
+    "pilot.qa_ground_truth_valid": 1.0,
 }
+PILOT_SEEDS = (26, 1, 2, 3, 4)
+PILOT_SCALE = 2.0   # churn üçün: bir kurs (~190 şagird) testdə ayda ~3 gedən verir, səs-küy böyükdür
+PILOT_FIRST, PILOT_LAST, PILOT_TEST_FROM = "2025-10-01", "2026-10-01", "2026-05-01"
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -78,6 +90,77 @@ def churn_eval(students: int = 400, seed: int = 7) -> dict:
         "top10_precision": {k: v["top10_precision"] for k, v in report["models"].items()},
         "active_roc_auc": {k: v["active_roc_auc"] for k, v in report["models"].items()},
     }
+
+
+def pilot_summary(tables, as_of=realistic.DEFAULT_AS_OF) -> dict:
+    """Kassanın `GET /live/kassa` cavabı (server ilə eyni hesablama), bazasız: qrupdan
+    çıxarılmış şagird üzv deyil, amma ödənişi trenddə qalır."""
+    names = {s.user_id: s.display_name for s in tables.students}
+    groups = {p.chat_id: p.name for p in tables.programs}
+    fees = {(f.chat_id, f.student_id): f.monthly_amount for f in tables.payment_fees}
+    enrollments = [kassa_calc.Enrollment(m.chat_id, groups[m.chat_id], m.user_id, names[m.user_id],
+                                         m.joined_at, fees.get((m.chat_id, m.user_id)))
+                   for m in tables.chat_members if m.removed_at is None]
+    month = as_of.strftime("%Y-%m")
+    first12 = kassa_calc.months_back(month, 12)[0]
+    first6 = kassa_calc.months_back(month, kassa_calc.TREND_MONTHS)[0]
+    records = [{"chat_id": p.chat_id, "student_id": p.student_id, "month": p.month, "amount": p.amount,
+                "paid_at": p.paid_at} for p in tables.payment_records
+               if first12 <= p.month <= month and p.paid_at < as_of.isoformat()]
+    expenses = [{"month": x.month, "category": x.category, "amount": x.amount, "note": x.note}
+                for x in tables.expenses if first6 <= x.month <= month]
+    return kassa_calc.summarize(month, as_of, enrollments, records, expenses)
+
+
+def churn_pilot_eval(seeds=PILOT_SEEDS, scale: float = PILOT_SCALE) -> dict:
+    """Pilot datasında qayda vs model, bir neçə seed: zəng siyahıları CƏMLƏNİR (tək seed səs-küydür)."""
+    try:
+        from ml.churn import dataset, train
+    except ImportError as exc:
+        return {"skipped": f"{exc.name} quraşdırılmayıb (requirements-ml.txt)"}
+    first, last = (datetime.fromisoformat(d).replace(tzinfo=timezone.utc) for d in (PILOT_FIRST, PILOT_LAST))
+    total: dict[str, dict] = {}
+    per_seed, rates, auc = [], [], {}
+    for seed in seeds:
+        rows = dataset.build(realistic.generate(seed, scale=scale), first, last)
+        report, _ = train.run(rows, PILOT_TEST_FROM)
+        per_seed.append({"seed": seed, **{k: v["recall"] for k, v in report["call_list"].items()}})
+        rates.append(report["churn_rate"]["test"])
+        for name, m in report["models"].items():
+            auc.setdefault(name, []).append(m["active_roc_auc"])
+        for key, c in report["call_list"].items():
+            agg = total.setdefault(key, {"calls": 0.0, "found": 0, "churners": 0, "flagged": 0})
+            months = len(report["test_months"])
+            agg["calls"] += c["calls_per_month"]
+            agg["found"] += c["churners_found"]
+            agg["churners"] += c["churners_total"]
+            agg["flagged"] += round(c["calls_per_month"] * months)
+    call_list = {k: {"calls_per_month": round(v["calls"] / len(seeds), 1),
+                     "precision": ratio(v["found"], v["flagged"]), "recall": ratio(v["found"], v["churners"]),
+                     "churners_found": v["found"], "churners_total": v["churners"]} for k, v in total.items()}
+    return {"seeds": list(seeds), "scale": scale, "test_from": PILOT_TEST_FROM,
+            "test_churn_rate": round(mean(rates), 4), "call_list": call_list, "per_seed": per_seed,
+            "active_roc_auc": {k: round(mean([x for x in v if x is not None]), 4) for k, v in auc.items()}}
+
+
+def pilot_agents(qa_cases: list[dict], seed: int = PILOT_SEEDS[0]) -> dict:
+    """Pilot kursunun Kassa xülasəsi (34 borclu, Ə/ş/ğ-li adlar) qoruyucu qatdan keçirmi."""
+    summary = pilot_summary(realistic.generate(seed))
+    conn = snapshot_db(anonymize(summary).summary)
+    # Konkret qrup adını soruşan hallar əl ilə yazılmış xülasəyə aiddir («Magistr B»), burada yoxdur.
+    answerable = [c for c in qa_cases if c["kind"] == "answer" and "grup = '" not in c["expected_sql"]]
+    valid, failures = 0, []
+    for c in answerable:
+        try:
+            valid += bool(safe_query(conn, c["expected_sql"])[1])
+        except QueryRejected as exc:
+            failures.append(f"{c['id']}: gözlənilən SQL işləmir ({exc})")
+    leaks = _name_leaks(summary)
+    return {"debtors": len(summary["debtors"]), "likely_left": sum(d["likely_left"] for d in summary["debtors"]),
+            "partial": sum(1 for d in summary["debtors"] if d.get("paid_amount")),
+            "collection_rate": summary["collection_rate"], "name_leaks": len(leaks),
+            "qa_ground_truth_valid": ratio(valid, len(answerable)),
+            "failures": failures + [f"ad sızdı: {x}" for x in leaks]}
 
 
 # ---------- 2. qəbz oxuyucusu ----------
@@ -296,6 +379,8 @@ def run_all(*, live: bool = False, churn: bool = True, receipt_complete=None, an
         "churn": churn_eval() if churn else {"skipped": "--skip-churn"},
         "receipts": receipts_eval(complete=receipt_complete),
         "agents": agents_offline(cases, qa_cases, summary),
+        "pilot": {"churn": churn_pilot_eval() if churn else {"skipped": "--skip-churn"},
+                  "agents": pilot_agents(qa_cases)},
     }
     if live:
         if receipt_complete is None:
@@ -335,6 +420,8 @@ def gate_values(report: dict) -> dict:
         "agents.pii_mask_rate": agents["pii_mask_rate"],
         "agents.name_leaks_max": agents["name_leaks"],
         "agents.qa_ground_truth_valid": agents["qa_ground_truth_valid"],
+        "pilot.name_leaks_max": report["pilot"]["agents"]["name_leaks"],
+        "pilot.qa_ground_truth_valid": report["pilot"]["agents"]["qa_ground_truth_valid"],
     }
 
 
@@ -359,19 +446,42 @@ def format_report(report: dict) -> str:
     lines = [f"# Kurs Kassası: eval hesabatı ({report['mode']}, {report['generated_at']})", ""]
 
     churn = report["churn"]
+    names = {"rule_only": "Yalnız qayda (>14 gün susub)", "rule_plus_days": "Qayda + ən çox susan 5%",
+             "rule_plus_model": "Qayda + model (5%)"}
     lines.append("## 1. Şagird itkisi: zəng siyahısı (sintetik kurs)")
     if "skipped" in churn:
         lines.append(f"Keçildi: {churn['skipped']}.")
     else:
         lines += ["", "| Siyahı | Ayda zəng | Dəqiqlik | Gedənlərin tapılan payı |", "|---|---|---|---|"]
-        names = {"rule_only": "Yalnız qayda (>14 gün susub)", "rule_plus_days": "Qayda + ən çox susan 5%",
-                 "rule_plus_model": "Qayda + model (5%)"}
         for key, label in names.items():
             c = churn["call_list"][key]
             lines.append(f"| {label} | {c['calls_per_month']} | {_pct(c['precision'])} | "
                          f"{_pct(c['recall'])} ({c['churners_found']}/{c['churners_total']}) |")
         lines += ["", "Top-10% dəqiqliyi: " + ", ".join(f"{k} {_pct(v)}"
                                                        for k, v in churn["top10_precision"].items())]
+    lines.append("")
+
+    pilot = report["pilot"]
+    lines.append("## 1b. Pilot datası (real kursa bənzəyən sintetik kurs, `ml/churn/realistic.py`)")
+    pc = pilot["churn"]
+    if "skipped" in pc:
+        lines.append(f"Churn keçildi: {pc['skipped']}.")
+    else:
+        lines += ["", f"Seed {', '.join(map(str, pc['seeds']))} (ölçü x{pc['scale']}), test {pc['test_from']}-dən, "
+                      f"aylıq itki {_pct(pc['test_churn_rate'])}. Zəng siyahıları seed-lər üzrə cəmlənib:", "",
+                  "| Siyahı | Ayda zəng | Dəqiqlik | Gedənlərin tapılan payı |", "|---|---|---|---|"]
+        for key, label in names.items():
+            c = pc["call_list"][key]
+            lines.append(f"| {label} | {c['calls_per_month']} | {_pct(c['precision'])} | "
+                         f"{_pct(c['recall'])} ({c['churners_found']}/{c['churners_total']}) |")
+        lines += ["", "Aktivlər arasında ROC-AUC (orta): " + ", ".join(
+            f"{k} {v:.3f}" for k, v in pc["active_roc_auc"].items())]
+    pa = pilot["agents"]
+    lines += ["", f"Kassa xülasəsi: {pa['debtors']} borclu ({pa['likely_left']} nəfər 2+ ay, {pa['partial']} qismən), "
+                  f"yığım {_pct(pa['collection_rate'])}; real ad LLM-ə gedən mətndə: {pa['name_leaks']}, "
+                  f"«Kassaya sual» SQL həqiqəti işləyir: {_pct(pa['qa_ground_truth_valid'])}."]
+    if pa["failures"]:
+        lines += ["", "Uğursuz hallar:"] + [f"- {f}" for f in pa["failures"]]
     lines.append("")
 
     rec = report["receipts"]

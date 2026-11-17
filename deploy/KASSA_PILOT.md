@@ -5,10 +5,33 @@ Bu sənəd iki şeyi verir: görüşdə Kassanı göstərmək üçün demo, və 
 4 həftəlik pilotun planı. Real ödəniş datası hələ YOXDUR, ona görə aşağıdakı
 bütün rəqəmlər sintetikdir və görüşdə belə də deyilməlidir.
 
-## 1. Demo (15 dəqiqə hazırlıq)
+## 0. Pilot datası (2026-11-17: Master NR 1-in datası yoxdur, pilot sintetik datayladır)
 
 ```bash
-.venv/bin/python deploy/kassa_demo.py --data-dir /tmp/kassa-demo
+.venv/bin/python deploy/kassa_demo.py --data-dir /tmp/kassa-pilot   # defolt: pilot rejimi
+set -a; . /tmp/kassa-pilot/demo.env; set +a
+.venv/bin/uvicorn server.app:app --port 8125
+```
+
+`ml/churn/realistic.py` iki tədris ilini simulyasiya edir: 10 qrup (2025/26 abituriyent
+və magistratura axınları bitib, qrupları boşaldılıb; sentyabr 2026 axını yeni qiymətlə;
+il boyu ingilis, IELTS, dövlət qulluğu), ~190 uydurma şagird. İçində: sentyabr və yanvar
+qəbul dalğaları, bayram günləri, yay arası (bir hissə qayıtmır), vaxtında / gec / iki
+hissəyə bölən / borclu / 3 ay qabaqcadan ödəyən şagirdlər, nağd (dərs günü) və kart
+(0-2 gün sonra qeyd) ödənişi, qismən ödəniş, dostu gedəndə gedən şagird, rəhbərin
+qrupdan çıxarmağı unutduğu getmiş şagird, məbləği yazılmamış 2 yeni şagird, qışda baha
+kommunal, qəbul aylarında çox reklam. Eyni `--seed` (defolt 26) və `--as-of` = eyni kurs.
+`tables/` qovluğunda eyni datanın CSV-ləri var (`ml.churn` oxuyur).
+
+Noyabr 17-də yoxlanıb (`--as-of 2026-11-17`, seed 26): 95 şagird qrupda, gözlənilən
+11 260 AZN, yığılan 7 445 AZN (66%, ay yarımdır), 34 borclu (7 nəfər 2+ aydır ödəmir,
+4 qismən ödəyib), xalis 3 395 AZN. Son 6 ayda iyul-avqust xalisi mənfidir (yay + qəbul
+reklamı), sentyabrda gəlir yenidən qalxır. Kiçik hekayə lazımdırsa: `--simple` (aşağı).
+
+## 1. Demo (15 dəqiqə hazırlıq, `--simple`)
+
+```bash
+.venv/bin/python deploy/kassa_demo.py --simple --data-dir /tmp/kassa-demo
 set -a; . /tmp/kassa-demo/demo.env; set +a
 .venv/bin/uvicorn server.app:app --port 8125
 ```

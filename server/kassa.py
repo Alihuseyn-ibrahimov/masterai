@@ -13,11 +13,14 @@ hər qayda kiçik testlə yoxlanır:
 - **Borc** = ödənməmiş cütlər. Hər biri üçün neçə gün gecikib və ardıcıl neçə
   aydır ödəmir. 2+ ay ödəməyən tələbə çox vaxt artıq gedib: bunu panel ayrıca
   işarələyir (churn modeli sonra bunu ƏVVƏLCƏDƏN deyəcək).
+- **Qismən ödəniş** (məbləğ aylıqdan az): qalıq bu ayın borcudur, `paid_amount`
+  ödənən hissədir; şagird «ödəməyən» sayılmır (ardıcıllıq artmır).
 - **Xalis** = yığılan - xərclər.
 
 Məlum sadələşdirmə: məbləğ dəyişibsə, keçmiş ayların «gözlənilən» dəyəri
-cari məbləğlə hesablanır (`payment_fees` tarixçə saxlamır). Ödəniş qeydləri
-özləri dəyişmir.
+cari məbləğlə hesablanır (`payment_fees` tarixçə saxlamır). Qrupdan çıxarılmış
+şagirdin həmin ay ödədiyi məbləğ həm gözlənilənə, həm yığılana yazılır; çıxarılmış
+və o ay ÖDƏMƏMİŞ şagirdi isə görmək mümkün deyil. Ödəniş qeydləri özləri dəyişmir.
 """
 
 from __future__ import annotations
@@ -86,10 +89,16 @@ def summarize(
     }
     trend_months = months_back(month, TREND_MONTHS)
 
+    enrolled = {(e.chat_id, e.student_id) for e in enrollments}
+
     def month_totals(m: str) -> dict:
         billable = [e for e in enrollments if _billable(e, m)]
-        expected = sum(e.monthly_amount for e in billable)
-        collected = sum(r["amount"] for r in records if r["month"] == m)
+        month_records = [r for r in records if r["month"] == m]
+        # Qrupdan çıxarılmış (getmiş, məzun olmuş) şagird o ay ödəyibsə, o ay ondan
+        # pul gözlənilirdi: yoxsa keçmiş aylarda yığım 100%-i keçərdi.
+        gone = sum(r["amount"] for r in month_records if (r["chat_id"], r["student_id"]) not in enrolled)
+        expected = sum(e.monthly_amount for e in billable) + gone
+        collected = sum(r["amount"] for r in month_records)
         spent = sum(x["amount"] for x in expenses if x["month"] == m)
         return {"month": m, "expected": expected, "collected": collected, "expenses": spent,
                 "net": collected - spent}
@@ -106,10 +115,20 @@ def summarize(
         chat["students"] += 1
         chat["expected"] += e.monthly_amount
         record = paid.get((e.chat_id, e.student_id, month))
+        due_from = max(month_start(month), _parse(e.joined_at))
         if record:
             chat["collected"] += record["amount"]
+            if record["amount"] >= e.monthly_amount:
+                continue
+            # Qismən ödəniş: qalığı bu ayın borcudur, şagird getməyib.
+            debtors.append({
+                "chat_id": e.chat_id, "chat_name": e.chat_name, "student_id": e.student_id,
+                "display_name": e.display_name, "amount": e.monthly_amount - record["amount"],
+                "paid_amount": record["amount"],
+                "days_overdue": max(0, (as_of - due_from).days),
+                "unpaid_months": 0, "last_paid_month": month, "likely_left": False,
+            })
             continue
-        due_from = max(month_start(month), _parse(e.joined_at))
         streak, m = 0, month
         while _billable(e, m) and (e.chat_id, e.student_id, m) not in paid:
             streak += 1
@@ -120,7 +139,7 @@ def summarize(
                          if r["chat_id"] == e.chat_id and r["student_id"] == e.student_id), default=None)
         debtors.append({
             "chat_id": e.chat_id, "chat_name": e.chat_name, "student_id": e.student_id,
-            "display_name": e.display_name, "amount": e.monthly_amount,
+            "display_name": e.display_name, "amount": e.monthly_amount, "paid_amount": 0,
             "days_overdue": max(0, (as_of - due_from).days),
             "unpaid_months": streak,
             "last_paid_month": last_paid,

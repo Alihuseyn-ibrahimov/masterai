@@ -1,21 +1,25 @@
-"""Kurs Kassası demosu: TƏZƏ qovluqda sintetik kurs qurur (pilot görüşü üçün).
+"""Kurs Kassası demosu / pilotu: TƏZƏ qovluqda sintetik kurs qurur.
 
-Addım 8 (spec: docs/superpowers/specs/2026-11-15-kurs-kassasi-design.md). Kurs
-sahibinə Kassanı boş ekranla göstərmək olmur, real ödəniş cədvəli isə hələ
-yoxdur. Bu skript BOŞ bir qovluqda 3 qrup, ~40 şagird, 6 aylıq ödəniş tarixçəsi
-və xərclər yaradır, sonra lokal serveri o bazalarla işə salmaq üçün `demo.env`
-yazır. Real bazaya toxunmur: qovluqda artıq `.db` varsa heç nə yazmadan çıxır.
+İki rejim:
 
-    .venv/bin/python deploy/kassa_demo.py --data-dir /tmp/kassa-demo
-    set -a; . /tmp/kassa-demo/demo.env; set +a
+- **pilot** (defolt, 2026-11-17): `ml/churn/realistic.py` - real kursa bənzəyən iki
+  tədris ili: 10 qrup (3-ü bitib və boşaldılıb), ~190 şagird, mövsümi qəbul və itki,
+  gecikən, iki hissəyə bölən, qabaqcadan ödəyən, borclu şagirdlər, bayramlar, xərclər.
+  Master NR 1-in real datası yoxdur, pilot bu datayla aparılır. Bazalardan əlavə
+  `tables/` qovluğuna eyni datanın CSV-ləri yazılır (`ml.churn` onları oxuyur).
+- **--simple** (addım 8): 3 qrup, 40 şagird, 6 ay. Görüşdə hekayəni bir baxışda izah
+  etmək üçün: 3 nəfər ödəməyi kəsib, Kassa onları «yəqin gedib» işarələyir.
+
+Hər iki rejim BOŞ qovluğa yazır (qovluqda `.db` varsa heç nə yazmadan çıxır) və
+lokal serveri o bazalarla işə salmaq üçün `demo.env` yazır.
+
+    .venv/bin/python deploy/kassa_demo.py --data-dir /tmp/kassa-pilot
+    set -a; . /tmp/kassa-pilot/demo.env; set +a
     .venv/bin/uvicorn server.app:app --port 8125
     # ayrı terminalda: web/ statik server, config.js lokal backend-ə
     # brauzerdə giriş (skript e-poçt və şifrəni çap edir) → Hesabatlar → Kassa
 
-Hekayə QƏSDƏN aydındır ki, görüşdə izah etmək asan olsun: çoxu vaxtında ödəyir,
-bir hissə gecikir, bir neçəsi ödəməyi kəsib (Kassa onları «yəqin gedib» işarələyir),
-cari ayda yalnız bu günə qədər ödəyənlər görünür. Bütün adlar uydurmadır. Eyni
-`--seed` = eyni kurs.
+Bütün adlar uydurmadır. Eyni `--seed` (+ pilotda eyni gün) = eyni kurs.
 """
 
 from __future__ import annotations
@@ -30,6 +34,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ml.churn import realistic  # noqa: E402
+from ml.churn.schema import Tables, write_tables  # noqa: E402
 from server.auth import hash_password  # noqa: E402
 from server.chat_store import ChatStore  # noqa: E402
 from server.course_store import DEFAULT_COURSE_ID  # noqa: E402
@@ -115,6 +121,11 @@ def _env_key(name: str) -> str:
     return "HOMEWORK_DB_PATH" if name == "homework" else f"{name.upper()}_DB_PATH"
 
 
+def _env_text(paths: dict[str, Path]) -> str:
+    # Lokal demo server üçün öz JWT açarı: yoxsa giriş 500 verir (server açarsız başlamır).
+    return "".join(f"{key}={path}\n" for key, path in paths.items()) + f"JWT_SECRET={secrets.token_urlsafe(48)}\n"
+
+
 def db_paths(data_dir: Path) -> dict[str, Path]:
     return {_env_key(name): data_dir / f"{name}.db" for name in SERVER_DBS}
 
@@ -195,9 +206,76 @@ def build(data_dir: Path, month: str, *, now: datetime, seed: int = 15,
         payments.add_expense(DEFAULT_COURSE_ID, m, "Reklam", rng.choice([120, 150, 200, 250]),
                              "Instagram", owner["id"])
 
-    env = "".join(f"{key}={path}\n" for key, path in paths.items())
+    env = _env_text(paths)
     (data_dir / "demo.env").write_text(env, encoding="utf-8")
     return DemoResult(data_dir, month, email, password, total, stopped)
+
+
+@dataclass
+class PilotResult:
+    data_dir: Path
+    month: str
+    email: str
+    password: str
+    tables: Tables
+    summary: dict
+
+
+def build_pilot(data_dir: Path, *, now: datetime, seed: int = 26, scale: float = 1.0,
+                password: str | None = None, hasher=hash_password) -> PilotResult:
+    """Realist generatorun kursunu server bazalarına yazır (`now` = generatorun «bu gün»ü)."""
+    data_dir.mkdir(parents=True, exist_ok=True)
+    if any(data_dir.glob("*.db")):
+        raise FileExistsError(f"{data_dir} artıq baza saxlayır - demo yalnız BOŞ qovluğa yazılır")
+    tables = realistic.generate(seed, as_of=now, scale=scale)
+    paths = db_paths(data_dir)
+    users = UserStore(str(paths["USERS_DB_PATH"]))
+    chats = ChatStore(str(paths["CHATS_DB_PATH"]))
+    payments = PaymentStore(str(paths["PAYMENTS_DB_PATH"]))
+
+    password = password or secrets.token_urlsafe(9)
+    email = "rehber@kassa-demo.example.com"
+    owner = users.create(email, hasher(password), "Kurs rəhbəri (demo)", course_id=DEFAULT_COURSE_ID)
+    users.set_teacher(owner["id"], True)
+    users.set_admin(owner["id"], True)
+
+    chat_ids: dict[int, int] = {}  # generatorun chat_id-si -> bazadakı
+    for program in tables.programs:
+        chat = chats.create("group", owner["id"], program.name, course_id=DEFAULT_COURSE_ID)
+        chat_ids[program.chat_id] = chat["id"]
+        chats.add_member(chat["id"], owner["id"])
+        spec = realistic.GROUPS[program.chat_id - 1]
+        _backdate_member(chats, chat["id"], owner["id"], spec.starts - timedelta(days=14))
+
+    # Şagirdlər daxil olmur: bir bcrypt hamısı üçün (190 dəfə hash 40 saniyə çəkərdi).
+    student_hash = hasher(secrets.token_urlsafe(16))
+    user_ids: dict[int, int] = {}
+    for student in tables.students:
+        created = users.create(f"sagird{student.user_id}@kassa-demo.example.com", student_hash,
+                               student.display_name, course_id=DEFAULT_COURSE_ID)
+        user_ids[student.user_id] = created["id"]
+    for m in tables.chat_members:
+        if m.removed_at is not None:  # rəhbər qrupdan çıxarıb: bazada üzvlük yoxdur
+            continue
+        chats.add_member(chat_ids[m.chat_id], user_ids[m.user_id])
+        _backdate_member(chats, chat_ids[m.chat_id], user_ids[m.user_id], datetime.fromisoformat(m.joined_at))
+    for f in tables.payment_fees:
+        payments.set_fee(chat_ids[f.chat_id], user_ids[f.student_id], f.monthly_amount)
+    with payments._lock:  # 1000+ qeyd: bir tranzaksiya (store-un mark_paid-i hər dəfə commit edir)
+        payments._conn.executemany(
+            "INSERT INTO payment_records (chat_id, student_id, month, amount, marked_by, paid_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [(chat_ids[p.chat_id], user_ids[p.student_id], p.month, p.amount, owner["id"], p.paid_at)
+             for p in tables.payment_records])
+        payments._conn.commit()
+    for x in tables.expenses:
+        payments.add_expense(DEFAULT_COURSE_ID, x.month, x.category, x.amount, x.note, owner["id"])
+
+    write_tables(tables, str(data_dir / "tables"))
+    env = _env_text(paths)
+    (data_dir / "demo.env").write_text(env, encoding="utf-8")
+    return PilotResult(data_dir, now.strftime("%Y-%m"), email, password, tables,
+                       realistic.summary_line(tables, now))
 
 
 def _backdate_member(chats: ChatStore, chat_id: int, user_id: int, when: datetime) -> None:
@@ -217,19 +295,43 @@ def _backdate_payment(payments: PaymentStore, chat_id: int, student_id: int, mon
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Kurs Kassası üçün sintetik demo kursu")
+    parser = argparse.ArgumentParser(description="Kurs Kassası üçün sintetik demo/pilot kursu")
     parser.add_argument("--data-dir", required=True, help="BOŞ qovluq (yoxdursa yaradılır)")
-    parser.add_argument("--month", help="göstəriləcək ay YYYY-AA (defolt: cari ay)")
-    parser.add_argument("--seed", type=int, default=15)
+    parser.add_argument("--simple", action="store_true", help="kiçik hekayə: 3 qrup, 40 şagird")
+    parser.add_argument("--month", help="yalnız --simple: göstəriləcək ay YYYY-AA (defolt: cari ay)")
+    parser.add_argument("--as-of", help="yalnız pilot: «bu gün» YYYY-AA-GG (defolt: bu gün)")
+    parser.add_argument("--seed", type=int, help="defolt: pilot 26, --simple 15")
+    parser.add_argument("--scale", type=float, default=1.0, help="yalnız pilot: qrup ölçüsü vurğusu")
     args = parser.parse_args(argv)
     now = datetime.now(UTC)
+    data_dir = Path(args.data_dir).resolve()
+    if not args.simple:
+        as_of = (datetime.fromisoformat(args.as_of).replace(hour=12, tzinfo=UTC) if args.as_of
+                 else now.replace(microsecond=0))
+        try:
+            result = build_pilot(data_dir, now=as_of, seed=26 if args.seed is None else args.seed,
+                                 scale=args.scale)
+        except (FileExistsError, ValueError) as exc:
+            print(exc)
+            return 1
+        s = result.summary
+        print(f"Pilot kursu hazırdır: {result.data_dir} (bu gün: {as_of:%Y-%m-%d})")
+        print(f"  {s['groups']} qrup, {s['students']} şagird (indi qrupda {s['active_now']}), "
+              f"getmiş {s['left']} {s['left_by_reason']}")
+        print(f"  {s['payments']} ödəniş ({s['partial_payments']} qismən), {s['attendance']} davamiyyət, "
+              f"{s['expenses']} xərc qeydi; CSV: {result.data_dir / 'tables'}")
+        print(f"  giriş: {result.email} / {result.password}")
+        print(f"  server: set -a; . {result.data_dir / 'demo.env'}; set +a; "
+              ".venv/bin/uvicorn server.app:app --port 8125")
+        return 0
+
     month = args.month or now.strftime("%Y-%m")
     if month_start(month) > now:
         print(f"{month} hələ başlamayıb")
         return 1
     try:
-        result = build(Path(args.data_dir).resolve(), month, now=min(now, month_start(next_month(month))),
-                       seed=args.seed)
+        result = build(data_dir, month, now=min(now, month_start(next_month(month))),
+                       seed=15 if args.seed is None else args.seed)
     except FileExistsError as exc:
         print(exc)
         return 1

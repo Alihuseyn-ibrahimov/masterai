@@ -155,6 +155,10 @@ def facts_text(anon: dict) -> str:
         f"Borclular ({len(anon.get('debtors', []))}):",
     ]
     for d in anon.get("debtors", []):
+        if d.get("paid_amount"):   # qismən ödəyib: qalıq borcdur
+            lines.append(f"- {d['student']} ({d['chat_name']}): qismən ödəyib {d['paid_amount']} AZN, "
+                         f"qalıq {d['amount']} AZN, {d['days_overdue']} gün gecikir")
+            continue
         lines.append(f"- {d['student']} ({d['chat_name']}): {d['amount']} AZN, {d['days_overdue']} gün gecikir, "
                      f"{d['unpaid_months']} aydır ödəmir, son ödəniş {d['last_paid_month'] or 'yoxdur'}"
                      + (", ehtimal ki, kursu tərk edib" if d.get("likely_left") else ""))
@@ -188,7 +192,7 @@ def snapshot_db(anon: dict) -> sqlite3.Connection:
                              expenses_total INT, net INT, students_without_fee INT);
         CREATE TABLE groups(grup TEXT, students INT, expected INT, collected INT);
         CREATE TABLE debtors(student TEXT, grup TEXT, amount INT, days_overdue INT, unpaid_months INT,
-                             last_paid_month TEXT, likely_left INT);
+                             last_paid_month TEXT, likely_left INT, paid_amount INT);
         CREATE TABLE months(month TEXT, expected INT, collected INT, expenses INT, net INT);
         CREATE TABLE expenses(month TEXT, category TEXT, amount INT);
     """)
@@ -197,9 +201,9 @@ def snapshot_db(anon: dict) -> sqlite3.Connection:
         anon["expenses_total"], anon["net"], anon.get("students_without_fee", 0)))
     conn.executemany("INSERT INTO groups VALUES (?,?,?,?)", [
         (c["chat_name"], c["students"], c["expected"], c["collected"]) for c in anon.get("by_chat", [])])
-    conn.executemany("INSERT INTO debtors VALUES (?,?,?,?,?,?,?)", [
+    conn.executemany("INSERT INTO debtors VALUES (?,?,?,?,?,?,?,?)", [
         (d["student"], d["chat_name"], d["amount"], d["days_overdue"], d["unpaid_months"], d["last_paid_month"],
-         int(bool(d.get("likely_left")))) for d in anon.get("debtors", [])])
+         int(bool(d.get("likely_left"))), d.get("paid_amount", 0)) for d in anon.get("debtors", [])])
     conn.executemany("INSERT INTO months VALUES (?,?,?,?,?)", [
         (t["month"], t["expected"], t["collected"], t["expenses"], t["net"]) for t in anon.get("trend", [])])
     conn.executemany("INSERT INTO expenses VALUES (?,?,?)", [
