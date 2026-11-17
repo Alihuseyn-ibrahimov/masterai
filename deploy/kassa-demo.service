@@ -1,0 +1,28 @@
+# Kurs Kassası pilot DEMOSU - produksiyadan (masterai.service) AYRI ikinci backend.
+#
+# Kod öz checkout-undadır (/opt/kassa-demo/app), data öz qovluğundadır
+# (/opt/kassa-demo/data, `deploy/kassa_demo.py` yaradır). Produksiyanın
+# bazalarına, .env-inə və 8110 portuna TOXUNMUR. Quraşdırma: deploy/DEPLOY_KASSA.md.
+#
+# 2 GB-lıq server: produksiya ilə eyni maşındadır, ona görə yaddaşı məhdudlaşdırılıb.
+# Demo ~170 MB işlədir; limit keçilsə yalnız BU servis öldürülür, masterai qalır.
+[Unit]
+Description=Kurs Kassasi demo backend (sintetik pilot datasi)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/kassa-demo/app
+EnvironmentFile=/opt/kassa-demo/data/demo.env
+ExecStart=/opt/kassa-demo/app/.venv/bin/gunicorn \
+    server.app:app \
+    -k uvicorn.workers.UvicornWorker \
+    -w 1 \
+    -b 127.0.0.1:8111
+MemoryMax=400M
+Nice=5
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

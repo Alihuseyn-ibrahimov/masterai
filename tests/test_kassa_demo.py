@@ -97,6 +97,7 @@ def test_env_points_every_server_database_into_demo_dir(demo):
     assert needed <= set(env)
     assert all(Path(v).parent == result.data_dir for k, v in env.items() if k.endswith("_DB_PATH"))
     assert len(env["JWT_SECRET"]) >= 32  # demo server açarsız başlamır
+    assert Path(env["MATERIAL_UPLOAD_DIR"]).parent == result.data_dir  # kod qovluğuna yazmasın
 
 
 # ---------- pilot rejimi (realist generator, 2026-11-17) ----------
