@@ -180,7 +180,7 @@ def test_receipt_training_notebook():
     for needle in ('bnb_4bit_quant_type="nf4"', "LoraConfig(", "ml.receipts.sft", "compare.eval_parts()",
                    "compare.compare(", "fp16=False, bf16=False", "p.data = p.data.float()",
                    "/content/drive/MyDrive/masterai-receipts", "get_last_checkpoint", "VERSIONS",
-                   '"completion"', "disable_adapter()"):
+                   '"completion"', "disable_adapter()", "torch.cuda.is_available()"):
         assert needle in joined, needle
     assert "fp16=True," not in joined
 
