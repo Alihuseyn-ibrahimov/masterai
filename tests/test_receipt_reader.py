@@ -157,9 +157,10 @@ def test_normalize():
     assert normalize("  İYUL  Əliyeva ") == "iyul eliyeva"
 
 
-def test_receipt_notebook_is_valid_and_pinned():
-    nb = json.loads((ROOT / "ml" / "qlora_receipts.ipynb").read_text(encoding="utf-8"))
+def _notebook_code(name: str) -> str:
+    nb = json.loads((ROOT / "ml" / name).read_text(encoding="utf-8"))
     assert nb["nbformat"] == 4 and nb["metadata"]["accelerator"] == "GPU"
+    assert all(not c.get("outputs") for c in nb["cells"] if c["cell_type"] == "code")
     code = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
     for source in code:
         kept, shell = [], False
@@ -169,10 +170,23 @@ def test_receipt_notebook_is_valid_and_pinned():
                 continue
             kept.append(line)
         ast.parse("\n".join(kept))
-    joined = "\n".join(code)
-    for pin in ('"trl==', '"peft==', '"transformers==', '"bitsandbytes==', '"vllm=='):
-        assert pin in joined
-    for needle in ('bnb_4bit_quant_type="nf4"', "LoraConfig(", "ml.receipts.sft", "ml.receipts.score",
-                   "--enable-lora", "--lora-modules", "guided_json", "ml.bench_llm"):
+    return "\n".join(code)
+
+
+def test_receipt_training_notebook():
+    """Öyrətmə Colab-da işləyən Səhv Detektivi yolu ilədir: ən son paketlər (versiyalar
+    hesabata yazılır), fp16=False + fp32 LoRA (fp16=True BFloat16 GradScaler xətası verirdi)."""
+    joined = _notebook_code("qlora_receipts.ipynb")
+    for needle in ('bnb_4bit_quant_type="nf4"', "LoraConfig(", "ml.receipts.sft", "compare.eval_parts()",
+                   "compare.compare(", "fp16=False, bf16=False", "p.data = p.data.float()",
+                   "/content/drive/MyDrive/masterai-receipts", "get_last_checkpoint", "VERSIONS",
+                   '"completion"', "disable_adapter()"):
         assert needle in joined, needle
-    assert all(not c.get("outputs") for c in nb["cells"] if c["cell_type"] == "code")
+    assert "fp16=True," not in joined
+
+
+def test_receipt_serve_notebook_is_pinned():
+    joined = _notebook_code("vllm_receipts.ipynb")
+    assert '"vllm==' in joined
+    for needle in ("--enable-lora", "--lora-modules", "guided_json", "ml.bench_llm", "compare.compare("):
+        assert needle in joined, needle

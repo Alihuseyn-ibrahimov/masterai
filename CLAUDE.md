@@ -890,8 +890,9 @@ Təsdiq mövcud `/live/kassa/mark` ilədir. `pipeline/receipt_reader.py`: LLM ca
 **Qəbz mətni defolt olaraq kənar LLM-ə GETMİR:** yalnız `VLLM_RECEIPT_MODEL`
 (öz GPU), Groq/Claude `RECEIPT_ALLOW_EXTERNAL_LLM=true` ilə. Data sintetikdir
 (`ml/receipts/`), 2 mətn növü öyrətməyə düşmür; qaydalı baza görülən növlərdə 91%,
-görülməyənlərdə 50%. `ml/qlora_receipts.ipynb` (Qwen2.5-1.5B, multi-LoRA vLLM,
-`guided_json`) burada İŞLƏDİLMƏYİB: QLoRA rəqəmi Colab-da alınmalıdır.
+görülməyənlərdə 50%. `ml/qlora_receipts.ipynb` (Qwen2.5-1.5B, Colab T4, bir fayl, Drive-a yazır) adapteri
+`ml/receipts/compare.py` ilə `evals.kassa`-nın EYNİ qəbzlərində qaydalar (92/50) və Groq (88/100, 60 qəbz)
+ilə müqayisə edir; serve ayrıdır (`ml/vllm_receipts.ipynb`). QLoRA rəqəmi hələ YOXDUR - Colab-da alınmalıdır.
 Python-da `"iyul".capitalize()` «Iyul» verir (İ yox): `synth.az_capitalize`,
 müqayisə həmişə `normalize` ilə.
 
