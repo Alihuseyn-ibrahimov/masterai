@@ -22,7 +22,7 @@ from pipeline.sehv_detektivi.prompts import SYSTEM_PROMPT, SYSTEM_PROMPT_SHORT, 
 from pipeline.sehv_detektivi.schema import parse_model_output
 from pipeline.sehv_detektivi.sympy_check import check_math_steps
 
-GOLDEN = Path(__file__).parent / "fixtures" / "sehv_golden_v2.jsonl"
+GOLDEN = Path(__file__).resolve().parent.parent / "evals" / "datasets" / "sehv_golden.jsonl"
 MATH_BAD = ["1/2 + 1/3", "= 2/5", "Cavab: 2/5"]
 MATH_OK = ["1/2 + 1/3", "= 3/6 + 2/6", "= 5/6"]
 LOGIC = ["Bütün A B-dir", "Bəzi B C-dir", "Deməli bəzi A C-dir"]

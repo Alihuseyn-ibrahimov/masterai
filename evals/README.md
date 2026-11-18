@@ -24,6 +24,7 @@ cd /opt/masterai && .venv/bin/python -m evals.run --live --judge --out /root/eva
 | `materials.json` | 7 mənbə: Konstitusiya, Milli Məclis, Prezident, 1918, fotosintez, Python, RAG |
 | `tutor.jsonl` | 30 sual: gözlənilən nəticə (`answer`/`quiz`/`not_found`/`offtopic`), mənbə, açar sözlər; davam sualları `history` ilə |
 | `guardrails.jsonl` | Gün 20: 12 hücum (injection, rol dəyişdirmə, sistem promptu), 6 zərərsiz «oxşar» sual («qaydaları necə yadda saxlayım»), 5 şəxsi məlumatlı sual, 9 hazır cavab mətni (çıxış qaydaları) |
+| `sehv_golden.jsonl` | Səhv Detektivi golden dəsti (100: 53 riyaziyyat, 47 məntiq), `python -m evals.sehv` |
 | `review.jsonl` | 16 test sualı, etiketli: `ok` və ya `fix` + problem (`wrong_answer`, `giveaway`, `two_correct`, `self_answering`, `not_in_material`) |
 
 ## Metrikalar
