@@ -98,7 +98,7 @@ def compare(outputs: dict[str, dict[str, str]], parts: dict[str, list[dict]] | N
         block: dict = {"rules": {k: evaluate(rows, [rule_based(r["text"]) for r in rows])
                                  for k, rows in p.items()}}
         for name, by_text in outputs.items():
-            raw, pipe, sources = {}, {}, {}
+            raw, pipe = {}, {}
             for split, rows in p.items():
                 replies = [by_text[r["text"]] for r in rows]
                 raw[split] = evaluate(rows, parse_outputs(replies))
