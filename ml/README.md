@@ -142,6 +142,13 @@ python -m ml.receipts.score --gold /tmp/receipts/test_unseen.jsonl --rules --pre
 - `ml/receipts/sft.py`: chat formatı (produksiya promptu ilə eyni), train/val/test_seen/test_unseen.
 - `ml/receipts/score.py`: sahə üzrə dəqiqlik, «hamısı düz», JSON oxunma faizi; adlar `normalize` ilə.
 - `pipeline/receipt_reader.py`: produksiya oxuyucusu (LLM → `grounded` → yoxsa qaydalar).
-- `ml/qlora_receipts.ipynb`: Colab-da öyrətmə, müqayisə, vLLM multi-LoRA, `guided_json`, sürət.
+- `ml/qlora_receipts.ipynb`: Colab T4-də bir faylda öyrətmə + müqayisə, nəticə Drive-a
+  (`MyDrive/masterai-receipts/`: adapter, checkpoint, cavablar, `report.md`). Run all qırılsa qaldığı
+  yerdən davam edir. Paketlər ən son versiyadır (Səhv Detektivi-də Colab-da işləyən yol), versiyalar
+  hesabata yazılır; `fp16=False, bf16=False` + LoRA fp32 (fp16=True BFloat16 GradScaler xətası verirdi).
+- `ml/receipts/compare.py`: adapter `evals.kassa`-nın EYNİ 360 qəbzində (seed 11; görülən 240,
+  görülməyən 120) qaydalar ilə, Groq ilə isə onun ölçüldüyü 60 qəbzdə (`--receipts 10`). İki sütun:
+  xam JSON və produksiya yolu (`read_receipt`: LLM → `grounded` → qaydalar). Eyni dəst testlə qorunur.
+- `ml/vllm_receipts.ipynb`: (ixtiyari, ayrı sessiya) vLLM multi-LoRA, `guided_json`, sürət, tunel.
 - Nəticə və şərh: spec, «Addım 5».
 
