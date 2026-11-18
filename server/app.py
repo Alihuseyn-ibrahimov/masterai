@@ -83,6 +83,7 @@ from pipeline.open_grading import grade_open_answer
 from pipeline.guardrails import PII_NOTICE
 from pipeline.tutor_graph import run_tutor
 from pipeline.socratic import SocraticError, generate_hint
+from pipeline import sehv_detektivi
 from pipeline.ingestion.errors import IngestionError
 
 from .auth import InvalidToken, create_token, hash_password, token_secret, verify_password, verify_token
@@ -140,6 +141,10 @@ from .models import (
     ReviewIssueOut,
     ReviewSuggestionOut,
     TutorAsk,
+    DiagnoseInfo,
+    DiagnoseErrorType,
+    DiagnoseReply,
+    DiagnoseRequest,
     TutorQuizOut,
     TutorReply,
     TutorSource,
@@ -321,6 +326,9 @@ app.state.tutor_rate_limiter = RateLimiter(TUTOR_MAX_QUESTIONS, 10 * 60)
 # eyni qayda, bir qədər səxavətli (bir sualda bir neçə hint normaldır).
 HINT_MAX_REQUESTS = 30
 app.state.hint_rate_limiter = RateLimiter(HINT_MAX_REQUESTS, 10 * 60)
+# Səhv Detektivi: hər yoxlama GPU-dakı modelə bir sorğudur (Colab tuneli zəifdir).
+DIAGNOSE_MAX_REQUESTS = 30
+app.state.diagnose_rate_limiter = RateLimiter(DIAGNOSE_MAX_REQUESTS, 10 * 60)
 app.state.message_store = MessageStore(os.environ.get("MESSAGES_DB_PATH", "messages.db"))
 app.state.connection_manager = ConnectionManager()
 app.state.ws_tickets = WsTicketStore()
@@ -442,6 +450,25 @@ def get_socratic_hinter():
     """(material, sual, variantlar, səhv/düzgün indeks) → Sokratik hint
     (Faza 2 PR 1; testdə fake funksiya ilə override olunur)."""
     return generate_hint
+
+
+def get_diagnose_rate_limiter() -> RateLimiter:
+    return app.state.diagnose_rate_limiter
+
+
+_SEHV_DETECTOR: dict = {}
+
+
+def get_sehv_detector() -> dict:
+    """Səhv Detektivi konfiqurasiyası `.env`-dən BİR dəfə oxunur (lokal model yüklənirsə
+    bir dəfə yüklənsin). Testdə saxta backend ilə override olunur.
+    {"backend": Backend | None, "label": str, "calibration": Calibration}"""
+    if not _SEHV_DETECTOR:
+        backend, label = sehv_detektivi.backend_from_env()
+        _SEHV_DETECTOR.update(backend=backend, label=label,
+                              calibration=sehv_detektivi.Calibration.from_env(os.environ))
+        logger.info("sehv_detektivi backend=%s", label)
+    return _SEHV_DETECTOR
 
 
 def get_receipt_reader():
@@ -3583,6 +3610,43 @@ async def ask_tutor(
         sources=[TutorSource(title=d.title, lesson_id=d.meta.get("lesson_id"),
                              summary_id=d.meta.get("summary_id")) for d in result.get("sources", [])],
     )
+
+
+# ---- Səhv Detektivi: həlldə ilk səhv addım ----------------------------------
+# Tələbə (və ya müəllim) həlli addım-addım yazır, QLoRA adapteri (Colab/vLLM) + sympy ilk
+# səhv addımı və növünü tapır. Model qoşulmayıbsa yalnız sympy işləyir. Heç nə SAXLANMIR:
+# həll mətni bazaya yazılmır, jurnala yalnız nəticənin növü düşür.
+
+
+@app.get("/me/diagnose", response_model=DiagnoseInfo)
+def diagnose_info(
+    user: dict = Depends(get_current_user),
+    detector: dict = Depends(get_sehv_detector),
+) -> DiagnoseInfo:
+    return DiagnoseInfo(
+        model_available=detector["backend"] is not None, backend=detector["label"],
+        error_types=[DiagnoseErrorType(code=e.code, name=e.name, domain=e.domain, definition=e.definition,
+                                       example=e.example) for e in sehv_detektivi.ERROR_TYPES],
+    )
+
+
+@app.post("/me/diagnose", response_model=DiagnoseReply)
+async def diagnose_solution(
+    body: DiagnoseRequest,
+    user: dict = Depends(get_current_user),
+    limiter: RateLimiter = Depends(get_diagnose_rate_limiter),
+    detector: dict = Depends(get_sehv_detector),
+) -> DiagnoseReply:
+    if not limiter.allow(f"diagnose:{user['id']}"):
+        raise HTTPException(status_code=429, detail="Çox yoxlama göndərdiniz. Bir neçə dəqiqədən sonra yenidən cəhd edin.")
+    result = await asyncio.to_thread(
+        sehv_detektivi.diagnose, body.domain, body.problem.strip(), body.steps,
+        detector["backend"], detector["calibration"])
+    if result["status"] == "unknown" and result["model_error"] == "model cavab vermədi":
+        raise HTTPException(status_code=503, detail="Səhv Detektivi hazırda cavab verə bilmir, bir azdan yenidən yoxlayın.")
+    logger.info("sehv_detektivi user_id=%s domain=%s status=%s source=%s", user["id"], body.domain,
+                result["status"], result["source"])
+    return DiagnoseReply(**{k: v for k, v in result.items() if k != "p_null"})
 
 
 # ---- Gün 6: sinifdə QR davamiyyət + əl ilə düzəliş ----------------------

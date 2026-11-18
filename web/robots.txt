@@ -9,6 +9,7 @@ Disallow: /profil.html
 Disallow: /tapsiriqlar.html
 Disallow: /tapsiriq.html
 Disallow: /adaptiv.html
+Disallow: /sehv.html
 Disallow: /tarixce.html
 Disallow: /nailiyyetler.html
 Disallow: /muellim.html

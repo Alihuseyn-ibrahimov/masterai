@@ -1232,3 +1232,70 @@ class FlashcardStudyCard(BaseModel):
 
 class FlashcardReviewRequest(BaseModel):
     know: bool
+
+
+# ---- Səhv Detektivi: həlldə ilk səhv addım (QLoRA + sympy) ------------------
+
+
+class DiagnoseRequest(BaseModel):
+    """Şagirdin həlli: `steps` (hər addım ayrıca) və ya `solution` (hər sətir bir addım).
+    «1)», «2.» nömrələri hər ikisində atılır."""
+
+    domain: Literal["riyaziyyat", "mentiq"]
+    problem: str = Field(min_length=1, max_length=2000)
+    steps: list[str] | None = Field(default=None, max_length=15)
+    solution: str | None = Field(default=None, max_length=5000)
+
+    @model_validator(mode="after")
+    def _steps_from_solution(self):
+        import re
+
+        if not self.steps and self.solution:
+            self.steps = self.solution.splitlines()
+        # «1) », «2. » nömrələri həm `solution`-da, həm `steps`-də atılır: model addımları özü
+        # nömrələyir, sympy isə «2) = 2/5»-i ifadə kimi oxuya bilmir (brauzerdə tutuldu).
+        # Nöqtədən sonra boşluq MƏCBURİDİR: «2.5 + 1» onluq kəsrdir, nömrə deyil.
+        self.steps = [re.sub(r"^\d+(?:\)|\.(?=\s))\s*", "", s.strip())[:500] for s in (self.steps or []) if s and s.strip()]
+        self.steps = [s for s in self.steps if s]
+        if not self.steps:
+            raise ValueError("steps və ya solution verilməlidir")
+        if len(self.steps) > 15:
+            raise ValueError("ən çox 15 addım")
+        return self
+
+
+class DiagnoseStep(BaseModel):
+    n: int
+    text: str
+    status: Literal["ok", "wrong", "after_error"]
+
+
+class DiagnoseReply(BaseModel):
+    # "error_found" | "correct" | "unknown" (heç nə yoxlaya bilmədik - «düzgündür» DEYİL)
+    status: Literal["error_found", "correct", "unknown"]
+    wrong_step: int | None
+    error_type: str | None
+    error_name: str | None
+    explanation: str
+    steps: list[DiagnoseStep]
+    # Qərarı kim verdi: "model" (yalnız model - təklif), "model+sympy", "sympy", "none"
+    source: Literal["model", "model+sympy", "sympy", "none"]
+    sympy_checked: bool
+    agreement: bool | None
+    model_error: str | None = None
+
+
+class DiagnoseErrorType(BaseModel):
+    code: str
+    name: str
+    domain: str
+    definition: str
+    example: str
+
+
+class DiagnoseInfo(BaseModel):
+    """Səhv növləri (UI üçün) və modelin qoşulub-qoşulmadığı."""
+
+    model_available: bool
+    backend: str
+    error_types: list[DiagnoseErrorType]
