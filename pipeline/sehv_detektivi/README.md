@@ -50,7 +50,8 @@ vllm serve Qwen/Qwen2.5-1.5B-Instruct --dtype half --api-key "$KEY" \
   --lora-modules sehv=/content/drive/MyDrive/sehv-detektivi/sehv-lora-v3 receipts=/content/drive/...
 ```
 
-Tunel ünvanı üçün `ml/vllm_serve.ipynb`-in son xanalarına bax. `.env`:
+Hazır notebook: **`ml/vllm_sehv.ipynb`** (Colab T4, Run all) - Drive-dan v3-ü (və qəbz adapteri
+varsa onu da) qaldırır, golden dəsti masterai yolu ilə ölçür, tunel açır və bu sətirləri çap edir:
 
 ```
 VLLM_BASE_URL=https://<tunel>.trycloudflare.com
@@ -71,6 +72,13 @@ SEHV_ADAPTER_PATH=/content/drive/MyDrive/sehv-detektivi/sehv-lora-v3   # və ya 
 Model ilk sorğuda yüklənir. Qovluq yoxdursa və ya torch/peft quraşdırılmayıbsa backend qurulmur,
 servis sympy ilə işləməyə davam edir (`GET /me/diagnose` səbəbini `backend` sahəsində yazır).
 
+## Ölçmə (`python -m evals.sehv`)
+
+Golden dəst (`evals/datasets/sehv_golden.jsonl`, 100 nümunə) `diagnose` ilə üç rejimdə: yalnız sympy,
+yalnız model, model+sympy. Səhv Detektivi reposunun `evaluate.py`-sindən fərqli olaraq tələbənin gördüyü
+nəticəni ölçür: «yoxlanmadı» cavabı səhv sayılır, yalançı həyəcan və buraxılan səhv ayrıdır.
+Modelsiz (CI): riyaziyyatda addım 87%, yalançı həyəcan 0%, məntiq 100% «yoxlanmadı».
+
 ## Kalibrasiya (hələ gözlənilir)
 
 `notebooks/05_kalibrasiya.ipynb` (Səhv Detektivi reposu) val dəstində eşik seçir. Nəticə gələndə:
@@ -88,3 +96,4 @@ EYNİ üsulla hesablayır. vLLM chat API-si namizəd ehtimallarını vermir, ora
 
 Bu repoda GPU yoxdur: real adapter nə vLLM, nə lokal backend ilə burada işlədilməyib. vLLM sorğusunun
 forması saxta serverlə (`httpx.MockTransport`), lokal backend yalnız konfiqurasiya səviyyəsində sınanıb.
+`ml/vllm_sehv.ipynb` də burada işlədilməyib (test yalnız JSON-u və xanaların sintaksisini yoxlayır).

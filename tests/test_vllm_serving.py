@@ -125,3 +125,14 @@ def test_vllm_notebook_valid():
     joined = "\n".join(code)
     assert '"vllm==' in joined and '"--dtype", "half"' in joined and '"--api-key", API_KEY' in joined
     assert "ml.bench_llm" in joined and "trycloudflare" in joined and "LLM_ORDER=vllm,groq,claude" in joined
+
+
+def test_sehv_notebook_valid():
+    nb = json.loads((ROOT / "ml" / "vllm_sehv.ipynb").read_text(encoding="utf-8"))
+    code = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
+    for source in code:
+        ast.parse(_python_of(source))
+    joined = "\n".join(code)
+    assert '"vllm==' in joined and '"--dtype", "half"' in joined and '"--api-key", API_KEY' in joined
+    assert "sehv-lora-v3" in joined and "evals.sehv" in joined and "trycloudflare" in joined
+    assert "SEHV_VLLM_MODEL=sehv" in joined and "Qwen/Qwen2.5-1.5B-Instruct" in joined
