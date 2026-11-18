@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2559 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 419 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2589 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 423 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-17-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-18-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -932,6 +932,26 @@ BÜTÜN qrupların qeydlərini oxuyur (boşaldılmış qrupun gəliri trenddən 
 `evals.kassa` «1b» hissəsi: 5 seed × 2 ölçü, model YENƏ qaydanı keçmir (qayda+susan 82%, qayda+model
 80% tapır), pilot xülasəsində ad sızması 0. Seed başına itki 40-75 şagird arası dəyişir: tək seed
 nəticəsinə etibar etmə.
+
+## Səhv Detektivi (2026-11-18)
+
+Ayrı repoda öyrədilmiş QLoRA modeli (Qwen2.5-1.5B, v3) masterai-yə qoşuldu: şagirdin addım-addım
+həllində ilk səhv addım + səhv növü (riyaziyyat 8, məntiq 6). `pipeline/sehv_detektivi/`, marşrut
+`GET/POST /me/diagnose`, səhifə `web/sehv.html` («Həllimi yoxla», tutordan link). Ətraflı:
+`pipeline/sehv_detektivi/README.md`.
+
+- **Adapter repoda DEYİL** (Drive). Backend `.env`-dən: `SEHV_VLLM_MODEL` (+ `VLLM_BASE_URL`, qəbz
+  oxuyucusu ilə eyni vLLM, `--lora-modules sehv=...`) və ya `SEHV_ADAPTER_PATH` (lokal/HF, torch lazımdır,
+  SERVERƏ QOYULMUR). Heç biri yoxdursa yalnız sympy işləyir.
+- **«Yoxlanmadı» ≠ «düzgündür»:** model yox + sympy oxumur → `status="unknown"`; model olmayan addım
+  qaytarsa da `unknown`. Model düşəndə məntiq həllinə 503, riyazi zəncirə sympy cavabı.
+- Yalnız modelin tapdığı səhv (`source="model"`) TƏKLİFDİR (v3 yalançı həyəcan 0.41), UI bunu yazır.
+- Kalibrasiya eşiyi `SEHV_NULL_THRESHOLD` (defolt söndürülü, `05_kalibrasiya.ipynb` gözlənilir); yalnız
+  lokal backend `p_null` hesablayır, vLLM-də eşik tətbiq olunmur.
+- Prompt təlimlə bayt-bayt eynidir (test hash ilə). sympy golden-də 46/100-ü oxuyur, 0 ziddiyyət.
+- Brauzerdə tutuldu: səhifə sətirləri «2) = 2/5» kimi göndərirdi, sympy oxumurdu və nəticə «yoxlanmadı»
+  çıxırdı. Nömrə indi serverdə atılır; «2.5 + 1» onluq kəsr kimi qalır (nöqtədən sonra boşluq şərtdir).
+- Real adapter burada İŞLƏDİLMƏYİB (GPU yoxdur).
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 

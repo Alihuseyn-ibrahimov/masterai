@@ -9,6 +9,7 @@ groq>=0.11
 anthropic>=0.39
 ollama>=0.4
 pypdf>=4.3
+sympy>=1.13  # Səhv Detektivi: riyazi addımları modeldən asılı olmayaraq yoxlayır (saf Python)
 requests>=2.32
 beautifulsoup4>=4.12
 selenium>=4.20
