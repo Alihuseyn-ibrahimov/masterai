@@ -96,4 +96,5 @@ EYNİ üsulla hesablayır. vLLM chat API-si namizəd ehtimallarını vermir, ora
 
 Bu repoda GPU yoxdur: real adapter nə vLLM, nə lokal backend ilə burada işlədilməyib. vLLM sorğusunun
 forması saxta serverlə (`httpx.MockTransport`), lokal backend yalnız konfiqurasiya səviyyəsində sınanıb.
-`ml/vllm_sehv.ipynb` də burada işlədilməyib (test yalnız JSON-u və xanaların sintaksisini yoxlayır).
+vLLM Colab-da qalxmasa notebook `ml/sehv_serve.py`-yə keçir: eyni `/v1/chat/completions`, transformers + peft,
+yalnız `sehv` adapteri (`VllmBackend` ilə real HTTP testi var). `ml/vllm_sehv.ipynb` də burada işlədilməyib (test yalnız JSON-u və xanaların sintaksisini yoxlayır).

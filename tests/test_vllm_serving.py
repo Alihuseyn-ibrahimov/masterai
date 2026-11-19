@@ -133,6 +133,7 @@ def test_sehv_notebook_valid():
     for source in code:
         ast.parse(_python_of(source))
     joined = "\n".join(code)
-    assert '"vllm==' in joined and '"--dtype", "half"' in joined and '"--api-key", API_KEY' in joined
+    assert '"--dtype", "half"' in joined and '"--api-key", API_KEY' in joined
+    assert "ml.sehv_serve" in joined and '"vllm=="' not in joined  # Colab Python-u dəyişəndə pin sınır
     assert "sehv-lora-v3" in joined and "evals.sehv" in joined and "trycloudflare" in joined
     assert "SEHV_VLLM_MODEL=sehv" in joined and "Qwen/Qwen2.5-1.5B-Instruct" in joined

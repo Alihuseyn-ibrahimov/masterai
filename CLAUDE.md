@@ -8,7 +8,7 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2595 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 423 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2597 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 423 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
 Rəqəm 2026-11-18-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
@@ -953,6 +953,8 @@ həllində ilk səhv addım + səhv növü (riyaziyyat 8, məntiq 6). `pipeline/
   çıxırdı. Nömrə indi serverdə atılır; «2.5 + 1» onluq kəsr kimi qalır (nöqtədən sonra boşluq şərtdir).
 - Ölçmə: `python -m evals.sehv` (golden `evals/datasets/sehv_golden.jsonl`; sympy / model / model+sympy, «yoxlanmadı»
   səhv sayılır). Real model: `ml/vllm_sehv.ipynb` (Colab, Drive-dan v3 + qəbz adapteri, eval, tunel, `.env` sətirləri).
+- 2026-11-19: Colab Python 3.13-ə keçdi, `vllm==0.6.6.post1` quraşdırılmadı (torchvision 0.20.1 yoxdur). vLLM
+  artıq pinlənmir; qalxmasa notebook eyni API-ni verən `ml/sehv_serve.py`-yə (transformers, stdlib server) keçir.
 - Real adapter burada İŞLƏDİLMƏYİB (GPU yoxdur).
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
