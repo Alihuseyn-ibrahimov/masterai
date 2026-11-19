@@ -79,6 +79,15 @@ yalnız model, model+sympy. Səhv Detektivi reposunun `evaluate.py`-sindən fər
 nəticəni ölçür: «yoxlanmadı» cavabı səhv sayılır, yalançı həyəcan və buraxılan səhv ayrıdır.
 Modelsiz (CI): riyaziyyatda addım 87%, yalançı həyəcan 0%, məntiq 100% «yoxlanmadı».
 
+Real adapter (v3, Colab T4, vLLM, 2026-11-19):
+
+| Rejim | Qrup | Addım | Var/yox | Yalançı həyəcan | Buraxılan | Yoxlanmadı | Növ F1 |
+|---|---|---|---|---|---|---|---|
+| model | hamısı | 63% | 71% | 31% | 28% | 0% | 0.52 |
+| model+sympy | hamısı | 78% | 84% | 19% | 15% | 0% | 0.54 |
+| model+sympy | riyaziyyat | 98% | 98% | 0% | 3% | 0% | 0.50 |
+| model+sympy | mentiq | 55% | 68% | 33% | 31% | 0% | 0.62 |
+
 ## Kalibrasiya (hələ gözlənilir)
 
 `notebooks/05_kalibrasiya.ipynb` (Səhv Detektivi reposu) val dəstində eşik seçir. Nəticə gələndə:

@@ -955,7 +955,9 @@ həllində ilk səhv addım + səhv növü (riyaziyyat 8, məntiq 6). `pipeline/
   səhv sayılır). Real model: `ml/vllm_sehv.ipynb` (Colab, Drive-dan v3 + qəbz adapteri, eval, tunel, `.env` sətirləri).
 - 2026-11-19: Colab Python 3.13-ə keçdi, `vllm==0.6.6.post1` quraşdırılmadı (torchvision 0.20.1 yoxdur). vLLM
   artıq pinlənmir; qalxmasa notebook eyni API-ni verən `ml/sehv_serve.py`-yə (transformers, stdlib server) keçir.
-- Real adapter burada İŞLƏDİLMƏYİB (GPU yoxdur).
+- **Real nəticə (2026-11-19, Colab T4, vLLM son versiya, golden 100):** model+sympy addım 78%, var/yox 84%,
+  yalançı həyəcan 19% (hədəf <20%), buraxılan 15%; riyaziyyat 98%/0% yalançı, məntiq 55%/33% yalançı.
+  Yalnız model: yalançı həyəcan 31% (HF generate ilə 0.41 idi). Qalan iş məntiqdədir (sympy oxumur).
 
 ## Düzgün cavab uzunluğu ilə özünü verməməlidir (2026-10-30)
 
