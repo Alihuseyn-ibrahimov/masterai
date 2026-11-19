@@ -103,9 +103,11 @@ class PaymentStore:
 
     # ---- ödəniş qeydi ----
 
-    def mark_paid(self, chat_id: int, student_id: int, month: str, amount: int, marked_by: int) -> dict:
+    def mark_paid(self, chat_id: int, student_id: int, month: str, amount: int, marked_by: int,
+                  paid_at: str | None = None) -> dict:
+        """`paid_at` yalnız importda verilir (keçmiş ayın real ödəniş günü), yoxsa indi."""
         with self._lock:
-            now = _utc_now_iso()
+            now = paid_at or _utc_now_iso()
             self._conn.execute(
                 "INSERT INTO payment_records (chat_id, student_id, month, amount, marked_by, paid_at) "
                 "VALUES (?, ?, ?, ?, ?, ?) "

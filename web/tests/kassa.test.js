@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { azn, debtLabel, monthLabel, percent, trendShare } from '../assets/js/kassa.js';
+import { azn, debtLabel, importIssueLine, importSummaryLines, monthLabel, percent, trendShare } from '../assets/js/kassa.js';
 
 test('azn groups thousands and keeps the sign', () => {
   assert.equal(azn(0), '0 AZN');
@@ -56,4 +56,27 @@ test('amountWarning yalnız məbləğ fərqlənəndə', async () => {
   assert.equal(amountWarning({ amount: 120 }, { monthly_amount: 120 }), '');
   assert.equal(amountWarning({ amount: 120 }, null), '');
   assert.match(amountWarning({ amount: 60 }, { monthly_amount: 120 }), /60 AZN.*120 AZN/);
+});
+
+test('importIssueLine names the row and column, row 0 means the whole file', () => {
+  assert.equal(importIssueLine({ row: 4, column: 'ay', message: 'boşdur' }), 'Sətir 4, «ay»: boşdur');
+  assert.equal(importIssueLine({ row: 0, column: null, message: 'limit' }), 'Fayl: limit');
+});
+
+test('importSummaryLines says what will be written, then what was written', () => {
+  const result = {
+    applied: false, rows: 6, groups_new: ['Magistratura B'], groups_existing: [],
+    students_new: 3, students_matched: 0, fees: 3, payments: 5, paid_total: 1200,
+    unpaid_months: 1, debt_total: 180, errors: [], warnings: [],
+  };
+  const lines = importSummaryLines(result);
+  assert.deepEqual(lines, [
+    '6 sətir oxundu.',
+    'Yeni qrup: Magistratura B.',
+    'Şagird: 0 tapıldı, 3 yeni.',
+    'Aylıq məbləğ yazılacaq: 3 şagird.',
+    'Ödəniş yazılacaq: 5 qeyd, 1 200 AZN.',
+    'Borc (aylıq məbləğ - ödənilən): 180 AZN, ödənməmiş ay: 1.',
+  ]);
+  assert.ok(importSummaryLines({ ...result, applied: true })[3].includes('yazıldı'));
 });
