@@ -51,10 +51,16 @@ export function stepMark(step) {
   return null;
 }
 
-/** Textarea mətni → addımlar (boş sətirlər atılır; «1)», «2.» nömrələrini server atır). */
+/** Textarea mətni → addımlar (boş sətirlər atılır; «1)», «2.» nömrələrini server atır).
+ *  Tək sətirdə « / » varsa addımlar onunla ayrılıb sayılır (bir sətrə yazılmış həll). «1/2» bölünmür:
+ *  ayırıcı ətrafında boşluq tələb olunur. */
 export function splitSteps(text) {
-  return String(text || '')
+  const lines = String(text || '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+  if (lines.length === 1 && lines[0].includes(' / ')) {
+    return lines[0].split(' / ').map((s) => s.trim()).filter(Boolean);
+  }
+  return lines;
 }

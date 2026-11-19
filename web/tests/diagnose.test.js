@@ -27,4 +27,8 @@ test('step marks and splitting', () => {
   assert.equal(stepMark({ status: 'ok' }), null);
   assert.equal(stepMark({ status: 'wrong' }).badge, 'badge--danger');
   assert.deepEqual(splitSteps(' 1) 2 + 2 \n\n = 4 \n'), ['1) 2 + 2', '= 4']);
+  // bir sətirdə « / » ilə yazılmış həll bölünür, «1/2» isə yox
+  assert.deepEqual(splitSteps('A həyvandır / B həyvandır / Deməli, B A-dır'),
+    ['A həyvandır', 'B həyvandır', 'Deməli, B A-dır']);
+  assert.deepEqual(splitSteps('1/2 + 1/3'), ['1/2 + 1/3']);
 });
