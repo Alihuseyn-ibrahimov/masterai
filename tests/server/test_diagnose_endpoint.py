@@ -90,6 +90,7 @@ def test_model_answer(env):
     body = _post(env, domain="mentiq", problem="?", steps=["Yağış yağırsa yol yaşdır", "Yol yaşdır, deməli yağıb"]).json()
     assert body["status"] == "error_found" and body["error_type"] == "ters_netice" and body["source"] == "model"
     assert "p_null" not in body
+    assert body["explanation_source"] == "template" and body["explanation"].startswith("Şərt tərsinə çevrilib.")
 
 
 def test_backend_down(env):

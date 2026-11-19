@@ -240,3 +240,90 @@ def test_vllm_backend_sends_training_prompt():
     assert body["messages"][0]["content"] == SYSTEM_PROMPT_SHORT
     assert body["messages"][1]["content"] == format_user("riyaziyyat", "1/2 + 1/3 = ?", MATH_BAD)
     assert r["status"] == "error_found" and r["agreement"] is True
+
+
+# ---- izah: növə görə şablon, model mətni yalnız yoxlanmış ehtiyat -----------------------
+
+from pipeline.sehv_detektivi.explain import (  # noqa: E402
+    CORRECT_TEXT,
+    GENERIC_ERROR,
+    TEMPLATES,
+    clean_model_text,
+)
+from pipeline.sehv_detektivi.taxonomy import CODES  # noqa: E402
+
+MESSY = "addım 3 P Q tərs if yağış then yaş deməli deməli deməli wrong_step"
+TERS = ["Əgər yağış yağırsa, yol yaş olur", "Yol yaşdır", "Deməli yağış yağıb"]
+
+
+def test_every_error_type_has_clear_template():
+    assert set(TEMPLATES) == set(CODES)
+    for code, text in TEMPLATES.items():
+        assert 60 <= len(text) <= 300, code
+        assert text.endswith("."), code
+        assert "_" not in text and "{" not in text, code
+
+
+def test_logic_error_uses_template_not_messy_model_text():
+    """Canlı saytda tutulan hal: addım və `ters_netice` düzdür, model izahı qarışıqdır."""
+    r = diagnose("mentiq", "Nəticə doğrudurmu?", TERS, backend=FakeBackend(_answer(3, "ters_netice", MESSY)))
+    assert r["status"] == "error_found" and r["wrong_step"] == 3 and r["error_type"] == "ters_netice"
+    assert r["explanation"] == TEMPLATES["ters_netice"]
+    assert r["explanation_source"] == "template"
+    assert "deməli deməli" not in r["explanation"]
+    assert r["source"] == "model"  # yalançı həyəcan xəbərdarlığı UI-də qalır (sourceNote)
+
+
+def test_math_error_confirmed_by_sympy_uses_template():
+    r = diagnose("riyaziyyat", "1/2 + 1/3 = ?", MATH_BAD,
+                 backend=FakeBackend(_answer(2, "mexrecleri_toplama", "zibil")))
+    assert r["source"] == "model+sympy" and r["explanation"] == TEMPLATES["mexrecleri_toplama"]
+
+
+def test_untyped_model_error_falls_back_to_clean_model_text():
+    good = "Üçüncü cümlədə nəticə şərtin tərsindən çıxarılıb, bu doğru deyil."
+    r = diagnose("mentiq", "?", TERS, backend=FakeBackend(_answer(3, None, good)))
+    assert r["explanation"] == good and r["explanation_source"] == "model"
+
+
+def test_untyped_model_error_with_messy_text_gets_generic():
+    r = diagnose("mentiq", "?", TERS, backend=FakeBackend(_answer(3, None, MESSY)))
+    assert r["explanation"] == GENERIC_ERROR and r["explanation_source"] == "rule"
+
+
+def test_model_text_never_leaks_when_sympy_agrees_without_type():
+    r = diagnose("riyaziyyat", "1/2 + 1/3 = ?", MATH_BAD, backend=FakeBackend(_answer(2, None, "{bad json")))
+    assert r["source"] == "model+sympy" and r["explanation"] == GENERIC_ERROR
+
+
+def test_correct_from_model_uses_fixed_text():
+    r = diagnose("mentiq", "?", LOGIC, backend=FakeBackend(_answer(None, None, "hello all good")))
+    assert r["status"] == "correct" and r["explanation"] == CORRECT_TEXT
+
+
+def test_sympy_texts_are_kept():
+    r = diagnose("riyaziyyat", "1/2 + 1/3 = ?", MATH_BAD)
+    assert r["source"] == "sympy" and r["explanation"].startswith("Sympy yoxlaması: 2-ci addım")
+    r = diagnose("riyaziyyat", "1/2 + 1/3 = ?", MATH_OK, backend=FakeBackend(_answer(2, None, "x")))
+    assert r["status"] == "correct" and r["agreement"] is False
+    assert r["explanation"] == "Sympy yoxlaması bütün addımları düzgün tapdı."
+
+
+@pytest.mark.parametrize("text", [
+    "",
+    "qısa",
+    "Səhv var.",                                           # çox qısa
+    '{"wrong_step": 3}',                                  # JSON qalığı
+    "Burada ters_netice səhvi var, şərt tərsinə çevrilib.",  # kod adı
+    "The student reversed the conditional statement here.",  # ingiliscə
+    "2-ci addımda şərt tərsinə çevrilib, bu düzgün deyil.",  # başqa addım
+    "səhv səhv səhv səhv şərt tərsinə çevrilib burada.",   # dövrə
+    "ə " + "1 2 3 4 5 6 7 8 9 0 = + - " * 4,              # simvol qarışığı
+    "Şərt tərsinə çevrilib. " * 20,                       # çox uzun
+])
+def test_clean_model_text_rejects(text):
+    assert clean_model_text(text, 3) is None
+
+
+def test_clean_model_text_accepts_and_tidies():
+    assert clean_model_text("  3-cü addımda şərt   tərsinə çevrilib ", 3) == "3-cü addımda şərt tərsinə çevrilib."

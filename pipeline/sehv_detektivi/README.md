@@ -18,7 +18,14 @@ test hash ilə yoxlayır), `schema.py`, `sympy_check.py`.
 
 Cavab: `status` (`error_found` | `correct` | `unknown`), `wrong_step`, `error_type`,
 `error_name`, `explanation`, `steps[]` (`ok` / `wrong` / `after_error`), `source`, `sympy_checked`,
-`agreement`, `model_error`.
+`agreement`, `model_error`, `explanation_source`.
+
+**İzah modeldən GƏLMİR (2026-11-19):** canlı saytda məntiq testində model addımı və növü (`ters_netice`)
+düz tapdı, amma izah mətni qarışıq idi. İndi növ məlumdursa izah `explain.py::TEMPLATES`-dən gəlir
+(`explanation_source="template"`: nə səhvdir + düzgün yol, nümunə ilə). Növ yoxdursa modelin mətni
+`clean_model_text`-dən keçməlidir (uzunluq, JSON/kod qalığı, başqa addım nömrəsi, ingiliscə, söz dövrəsi)
+- keçməsə ümumi mətn. sympy mətnləri olduğu kimi qalır. Yeni səhv növü əlavə edəndə şablonu da yaz
+(test yoxlayır). Yalançı həyəcan xəbərdarlığı (`source="model"`) dəyişmədi.
 
 Veb: `web/sehv.html` («Həllimi yoxla», AI tutor səhifəsindən link).
 

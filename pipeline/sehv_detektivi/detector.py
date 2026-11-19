@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from .explain import CORRECT_TEXT, GENERIC_ERROR, clean_model_text, template_for
 from .schema import parse_model_output
 from .sympy_check import check_math_steps
 from .taxonomy import BY_CODE, DOMAINS
@@ -76,12 +77,34 @@ def _merge(model_out: dict, sym: dict | None) -> dict:
     return out
 
 
+def _explain(status: str, wrong: int | None, code: str | None, out: dict, source: str) -> tuple[str, str]:
+    """İzah və onun mənbəyi: "template" (növə görə hazır mətn), "model" (yoxlanmış model mətni),
+    "rule" (sympy / ümumi mətn). Modelin xam izahı heç vaxt yoxlanmadan qaytarılmır: canlı saytda
+    (2026-11-19) addım və növ düz olanda belə izah qarışıq idi."""
+    # sympy-nin öz mətni: yalnız-sympy nəticəsi və ya sympy modeli düzəldibsə. Qalan halda `out`
+    # modelin xam mətnidir və birbaşa göstərilmir.
+    sympy_text = out.get("explanation") if source == "sympy" or out.get("agreement") is False else None
+    if status == "error_found":
+        text = template_for(code)
+        if text:
+            return text, "template"
+        if sympy_text is None and source.startswith("model"):
+            text = clean_model_text(out.get("explanation"), wrong)
+            if text:
+                return text, "model"
+        return sympy_text or GENERIC_ERROR, "rule"
+    if status == "correct":
+        return sympy_text or CORRECT_TEXT, "rule"
+    return out.get("explanation") or "", "rule"
+
+
 def diagnose(domain: str, problem: str, steps: list[str], backend=None,
              calibration: Calibration | None = None) -> dict:
     """Bir həllin diaqnozu. Qaytarır:
 
     status: "error_found" | "correct" | "unknown"
     wrong_step (1-dən), error_type (kod), error_name, explanation
+    explanation_source: "template" | "model" | "rule" - izah haradan gəldi (bax `explain.py`)
     source: "model" | "model+sympy" | "sympy" | "none" - qərarı kim verdi
     sympy_checked, agreement (model ilə sympy razıdırmı; yoxlanmayıbsa None)
     p_null (eşik tətbiq olunubsa), model_error (backend sınıbsa qısa səbəb)
@@ -136,12 +159,14 @@ def diagnose(domain: str, problem: str, steps: list[str], backend=None,
         status = "unknown"
     else:
         status = "error_found" if wrong else "correct"
+    explanation, explanation_source = _explain(status, wrong, code, out, source)
     return {
         "status": status,
         "wrong_step": wrong,
         "error_type": code,
         "error_name": BY_CODE[code].name if code else None,
-        "explanation": out.get("explanation") or "",
+        "explanation": explanation,
+        "explanation_source": explanation_source,
         "steps": [{"n": i, "text": s,
                    "status": "ok" if wrong is None or i < wrong else ("wrong" if i == wrong else "after_error")}
                   for i, s in enumerate(steps, 1)],

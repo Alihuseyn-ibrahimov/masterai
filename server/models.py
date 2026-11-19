@@ -1301,6 +1301,8 @@ class DiagnoseReply(BaseModel):
     error_type: str | None
     error_name: str | None
     explanation: str
+    # İzah haradan: "template" (səhv növünə görə hazır mətn), "model" (yoxlanmış model mətni), "rule"
+    explanation_source: Literal["template", "model", "rule"] = "rule"
     steps: list[DiagnoseStep]
     # Qərarı kim verdi: "model" (yalnız model - təklif), "model+sympy", "sympy", "none"
     source: Literal["model", "model+sympy", "sympy", "none"]
