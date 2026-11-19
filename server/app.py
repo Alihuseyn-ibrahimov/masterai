@@ -121,6 +121,7 @@ from .material_store import MaterialStore
 from .message_store import MessageStore
 from .payment_store import PaymentStore, current_month
 from . import kassa as kassa_calc
+from . import kassa_import
 from .adaptive_quiz import build_adaptive_quiz
 from .progress_stats import attendance_stats, attendance_stats_for_users, subject_percent, weekly_percent
 from .topic_stats import split_strong_weak, topic_stats_for_student
@@ -240,6 +241,7 @@ from .models import (
     KassaStudentRequest,
     ReceiptCandidate,
     ReceiptReadOut,
+    KassaImportOut,
     ReceiptReadRequest,
     QualityFinding,
     QuestionSetInfo,
@@ -5244,6 +5246,38 @@ async def kassa_read_receipt(
                                      monthly_amount=e.monthly_amount,
                                      paid=(e.chat_id, e.student_id) in paid) for e in candidates],
     )
+
+
+@app.post("/live/kassa/import", response_model=KassaImportOut)
+async def kassa_import_file(
+    file: UploadFile = File(...),
+    apply: bool = Form(default=False),
+    user: dict = Depends(get_current_teacher),
+    chats: ChatStore = Depends(get_chat_store),
+    users: UserStore = Depends(get_user_store),
+    payments: PaymentStore = Depends(get_payment_store),
+) -> KassaImportOut:
+    """CSV/Excel-dən şagird, aylıq məbləğ və ödəniş. `apply=false` YALNIZ yoxlayır
+    (nə yaradılacaq, hansı sətir səhvdir); `apply=true` yalnız xətasız faylı yazır.
+    Fayl formatı və qaydalar: `server/kassa_import.py`."""
+    _require_kassa_admin(user)
+    if user["course_id"] is None:
+        raise HTTPException(status_code=404, detail="Kurs tapılmadı")
+    data = await file.read(kassa_import.MAX_FILE_BYTES + 1)
+    try:
+        columns, raw = kassa_import.read_table(file.filename or "", data)
+    except kassa_import.ImportFileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    rows, row_errors = kassa_import.validate_rows(raw)
+    plan = kassa_import.plan_import(rows, row_errors, course_id=user["course_id"], chats=chats,
+                                    users=users, payments=payments, total_rows=len(raw))
+    summary = plan.summary()
+    applied = False
+    if apply and not plan.errors:
+        kassa_import.apply_plan(plan, course_id=user["course_id"], admin_id=user["id"],
+                                chats=chats, users=users, payments=payments)
+        applied = True
+    return KassaImportOut(applied=applied, columns=columns, **summary)
 
 
 @app.post("/live/kassa/remind", status_code=204)

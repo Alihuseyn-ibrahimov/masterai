@@ -84,6 +84,29 @@
   </section>
 
   <section class="stack">
+    <div class="section-header"><h2>Fayldan yüklə</h2><span class="section-header__hint text-sm text-muted">CSV və ya Excel (.xlsx)</span></div>
+    <div class="card stack">
+      <p class="text-sm text-muted">Hər sətir bir şagirdin bir ayıdır: qrup, şagird, aylıq məbləğ, ay, ödənilən.
+        Ödənilən boşdursa o ay borc sayılır. Əvvəl fayl yoxlanır, bazaya yalnız təsdiqdən sonra yazılır.
+        Nümunə: <a href="assets/templates/kassa-import-sablon.xlsx" download>Excel şablonu</a>,
+        <a href="assets/templates/kassa-import-sablon.csv" download>CSV şablonu</a>.</p>
+      <form class="kassa-form" id="importForm">
+        <div class="field">
+          <label class="field__label" for="importFile">Fayl</label>
+          <input class="field__input" id="importFile" type="file" accept=".csv,.xlsx" required>
+        </div>
+        <button class="btn btn--secondary" type="submit" id="importCheck">Yoxla</button>
+      </form>
+      <div class="stack stack--tight" id="importResult" hidden>
+        <ul class="stack stack--tight text-sm" id="importSummary"></ul>
+        <div class="notice notice--danger stack stack--tight" id="importErrors" hidden></div>
+        <div class="notice notice--warning stack stack--tight" id="importWarnings" hidden></div>
+        <div><button class="btn btn--primary" type="button" id="importApply" hidden>Bazaya yaz</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack">
     <div class="section-header"><h2>Qruplar üzrə</h2></div>
     <div class="card stack" id="groups"></div>
   </section>
@@ -130,7 +153,7 @@
 <script type="module">
   import { request, getUser } from './assets/js/api.js';
   import { mountShell, requireLogin } from './assets/js/page-shell.js';
-  import { amountWarning, azn, debtLabel, monthLabel, percent, receiptLine, trendShare } from './assets/js/kassa.js';
+  import { amountWarning, azn, debtLabel, importIssueLine, importSummaryLines, monthLabel, percent, receiptLine, trendShare } from './assets/js/kassa.js';
 
   if (requireLogin()) {
     mountShell();
@@ -374,6 +397,72 @@
       document.getElementById('receiptForm').addEventListener('submit', readReceipt);
       receiptWho.addEventListener('change', updateReceiptNote);
       receiptMark.addEventListener('click', markReceipt);
+      const importForm = document.getElementById('importForm');
+      const importFile = document.getElementById('importFile');
+      const importApply = document.getElementById('importApply');
+
+      function issueList(box, title, issues) {
+        box.replaceChildren();
+        box.hidden = issues.length === 0;
+        if (!issues.length) return;
+        box.append(el('strong', '', title));
+        const list = el('ul', 'stack stack--tight');
+        issues.slice(0, 50).forEach((issue) => list.append(el('li', '', importIssueLine(issue))));
+        if (issues.length > 50) list.append(el('li', '', `... və daha ${issues.length - 50}`));
+        box.append(list);
+      }
+
+      async function sendImport(apply) {
+        const file = importFile.files[0];
+        if (!file) return null;
+        const form = new FormData();
+        form.append('file', file);
+        form.append('apply', apply ? 'true' : 'false');
+        return request('/live/kassa/import', { method: 'POST', body: form });
+      }
+
+      function showImport(result) {
+        document.getElementById('importSummary').replaceChildren(
+          ...importSummaryLines(result).map((line) => el('li', '', line)));
+        issueList(document.getElementById('importErrors'),
+          `${result.errors.length} xəta: düzəldib faylı yenidən yükləyin`, result.errors);
+        issueList(document.getElementById('importWarnings'), 'Xəbərdarlıqlar (yazmağa mane olmur)', result.warnings);
+        importApply.hidden = result.applied || result.errors.length > 0;
+        document.getElementById('importResult').hidden = false;
+      }
+
+      importFile.addEventListener('change', () => {
+        document.getElementById('importResult').hidden = true;
+      });
+      importForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const button = document.getElementById('importCheck');
+        button.disabled = true;
+        try {
+          showImport(await sendImport(false));
+        } catch (error) {
+          document.getElementById('importResult').hidden = true;
+          flash(errorBox, error.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+      importApply.addEventListener('click', async () => {
+        importApply.disabled = true;
+        try {
+          const result = await sendImport(true);
+          showImport(result);
+          if (result.applied) {
+            flash(okBox, 'Fayl bazaya yazıldı.');
+            load();
+          }
+        } catch (error) {
+          flash(errorBox, error.message);
+        } finally {
+          importApply.disabled = false;
+        }
+      });
+
       document.getElementById('expenseForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = document.getElementById('expSubmit');

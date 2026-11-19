@@ -510,6 +510,30 @@ class ReceiptReadOut(BaseModel):
     candidates: list[ReceiptCandidate] = []
 
 
+class KassaImportIssue(BaseModel):
+    row: int                    # fayldakı sətir nömrəsi (Excel-dəki kimi); 0 = bütün fayl
+    column: str | None = None
+    message: str
+
+
+class KassaImportOut(BaseModel):
+    """Import əvvəl YOXLANIR (`applied=False`), xəta yoxdursa rəhbər təsdiqləyir."""
+    applied: bool
+    rows: int = 0
+    columns: list[str] = []
+    groups_new: list[str] = []
+    groups_existing: list[str] = []
+    students_new: int = 0
+    students_matched: int = 0
+    fees: int = 0
+    payments: int = 0
+    paid_total: int = 0
+    unpaid_months: int = 0
+    debt_total: int = 0
+    errors: list[KassaImportIssue] = []
+    warnings: list[KassaImportIssue] = []
+
+
 class KassaStudentRequest(BaseModel):
     chat_id: int
     student_id: int

@@ -160,6 +160,15 @@ class ChatStore:
             )
             self._conn.commit()
 
+    def set_member_joined_at(self, chat_id: int, user_id: int, joined_at: str) -> None:
+        """Kassa importu: keçmiş ayların borcu qoşulma tarixindən sayılır."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE chat_members SET joined_at = ? WHERE chat_id = ? AND user_id = ?",
+                (joined_at, chat_id, user_id),
+            )
+            self._conn.commit()
+
     def list_member_ids(self, chat_id: int) -> list[int]:
         with self._lock:
             cur = self._conn.execute(

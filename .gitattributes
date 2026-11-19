@@ -21,3 +21,4 @@
 *.ico   binary
 *.pdf   binary
 *.db    binary
+*.xlsx  binary

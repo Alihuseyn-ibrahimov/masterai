@@ -8,9 +8,9 @@ materialını (sayt linki, PDF, şəkil) yükləyir → AI ondan MCQ test sualla
 — DigitalOcean VPS-də (HTTPS, systemd, nginx). Backend + statik sayt, hər
 ikisi deploy olunub.
 
-**Test dəsti: 2597 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 423 Node testi** (`masterai/` daxilində vahid
+**Test dəsti: 2655 pytest (+2 torch, 5 CrewAI, 4 AutoGen və 1 NeMo testi öz mühitlərində) + 425 Node testi** (`masterai/` daxilində vahid
 run: `.venv/bin/python -m pytest -q`, JS üçün `node --test web/tests/*.test.js`).
-Rəqəm 2026-11-18-də yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
+Rəqəm 2026-11-19-da yoxlanılıb — bu sətir köhnələndə YENİLƏ, köhnə rəqəm
 sənədə etibarı azaldır (əvvəl burada aylarla "263 test" yazılı qalmışdı).
 
 Uc-uca real axın təsdiqlənib: qeydiyyat → qrup çatı → mesajlaşma (WS) →
@@ -932,6 +932,17 @@ BÜTÜN qrupların qeydlərini oxuyur (boşaldılmış qrupun gəliri trenddən 
 `evals.kassa` «1b» hissəsi: 5 seed × 2 ölçü, model YENƏ qaydanı keçmir (qayda+susan 82%, qayda+model
 80% tapır), pilot xülasəsində ad sızması 0. Seed başına itki 40-75 şagird arası dəyişir: tək seed
 nəticəsinə etibar etmə.
+
+**CSV/Excel importu (2026-11-19).** Kassada «Fayldan yüklə»: `POST /live/kassa/import` (yalnız rəhbər,
+multipart `file` + `apply`). Hər sətir bir şagirdin bir ayıdır (`qrup`, `şagird` məcburi; `email`, `aylıq məbləğ`,
+`qoşulma tarixi`, `ay`, `ödənilən`, `ödəniş tarixi`, `borc`), başlıq adları ə/e, böyük/kiçik, boşluq fərqi ilə
+tanınır. Əvvəl YOXLANIR (`apply=false`: sətir+sütun ilə xətalar, xəbərdarlıqlar, nə yaradılacaq), xəta varsa
+heç nə yazılmır. Borc ayrıca yazılmır: boş `ödənilən` = o ay ödənməyib, `borc` sütunu yalnız yoxlamadır. Yeni
+şagird şifrəsiz hesabla yaradılır (`@kassa-import.invalid`, yer limiti əvvəlcədən yoxlanır); qrupda eyni adlı iki
+şagird varsa email tələb olunur. Qoşulma tarixi yoxdursa faylın ilk ayı (yoxsa keçmiş aylar borca düşməzdi);
+ödəniş tarixi `paid_at`-ə yazılır (churn datası üçün). Faylda 0, bazada ödənmiş ay SİLİNMİR. Təkrar import
+təhlükəsizdir. Şablonlar statikdir (`web/assets/templates/`), `python -m server.kassa_import` ilə yenilənir, test
+fərqi tutur. Excel üçün `openpyxl` `requirements.txt`-dədir. Real Master NR 1 faylı ilə hələ sınanmayıb.
 
 ## Səhv Detektivi (2026-11-18)
 

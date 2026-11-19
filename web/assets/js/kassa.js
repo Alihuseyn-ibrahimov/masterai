@@ -63,3 +63,24 @@ export function amountWarning(receipt, candidate) {
   if (Math.abs(receipt.amount - candidate.monthly_amount) < 0.005) return '';
   return `Qəbzdə ${receipt.amount} AZN, aylıq məbləğ ${candidate.monthly_amount} AZN. «Ödədi» aylıq məbləği yazır.`;
 }
+
+/** Import xətası: «Sətir 4, «ay»: «2026-13»: ay «2026-11» kimi olmalıdır». Sətir 0 = bütün fayl. */
+export function importIssueLine(issue) {
+  const where = issue.row > 0 ? `Sətir ${issue.row}` : 'Fayl';
+  return issue.column ? `${where}, «${issue.column}»: ${issue.message}` : `${where}: ${issue.message}`;
+}
+
+/** Yoxlama/yazma nəticəsinin qısa sətirləri (nə yaradılacaq, nə yazılacaq). */
+export function importSummaryLines(result) {
+  const verb = result.applied ? 'yazıldı' : 'yazılacaq';
+  const lines = [`${result.rows} sətir oxundu.`];
+  if (result.groups_new.length) lines.push(`Yeni qrup: ${result.groups_new.join(', ')}.`);
+  if (result.groups_existing.length) lines.push(`Mövcud qrup: ${result.groups_existing.join(', ')}.`);
+  lines.push(`Şagird: ${result.students_matched} tapıldı, ${result.students_new} yeni.`);
+  if (result.fees) lines.push(`Aylıq məbləğ ${verb}: ${result.fees} şagird.`);
+  if (result.payments) lines.push(`Ödəniş ${verb}: ${result.payments} qeyd, ${azn(result.paid_total)}.`);
+  if (result.unpaid_months || result.debt_total) {
+    lines.push(`Borc (aylıq məbləğ - ödənilən): ${azn(result.debt_total)}, ödənməmiş ay: ${result.unpaid_months}.`);
+  }
+  return lines;
+}
